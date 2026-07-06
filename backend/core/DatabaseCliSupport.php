@@ -105,11 +105,21 @@ final class DatabaseCliSupport
         $rutas = [
             'caphum/getresumendocumentoscolaborador',
             'caphum/getresumendocumentosrrhh',
+            'caphum/getdocumentoscandidatolist',
+            'caphum/validardocumentocandidato',
+            'caphum/subirdocumentomanualcandidato',
+            'caphum/eliminardocumentocandidato',
+            'caphum/verificaractadocumentocandidato',
+            'caphum/gettokendocumentoscandidato',
+            'caphum/reactivartokendocumentoscandidato',
         ];
 
         if (isset($_GET['url'])) {
             $u = strtolower(trim(str_replace('\\', '/', (string) $_GET['url']), '/'));
             if (in_array($u, $rutas, true)) {
+                return true;
+            }
+            if ($_SERVER['REQUEST_METHOD'] === 'POST' && str_starts_with($u, 'caphum/subirdocumentoscandidato/')) {
                 return true;
             }
         }
@@ -120,7 +130,10 @@ final class DatabaseCliSupport
                 return true;
             }
         }
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && (bool) preg_match('#.*/caphum/subirdocumentoscandidato/[^/]+$#', $path)) {
+            return true;
+        }
 
-        return (bool) preg_match('#.*/caphum/(?:getresumendocumentoscolaborador|getresumendocumentosrrhh)$#', $path);
+        return (bool) preg_match('#.*/caphum/(?:getresumendocumentoscolaborador|getresumendocumentosrrhh|getdocumentoscandidatolist|validardocumentocandidato|subirdocumentomanualcandidato|eliminardocumentocandidato|verificaractadocumentocandidato|gettokendocumentoscandidato|reactivartokendocumentoscandidato)$#', $path);
     }
 }

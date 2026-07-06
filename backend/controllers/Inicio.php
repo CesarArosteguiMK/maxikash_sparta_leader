@@ -1413,7 +1413,8 @@ class Inicio extends Controller
         } else { // reiniciar
             $this->serviciosLocalesParar($srv);
             $preStart = $this->serviciosLocalesEsperarEstado($srv, 'down', 10000);
-            if (!empty($preStart['listening'])) {
+            $puedeIntentarRunnerApi = (($srv['id'] ?? '') === 'api_doc_python');
+            if (!empty($preStart['listening']) && !$puedeIntentarRunnerApi) {
                 $ok = false;
                 $restartStopFailed = true;
                 $post = $preStart;
@@ -1439,6 +1440,12 @@ class Inicio extends Controller
         $stStr = $st === null || $st === '' ? '—' : (string) $st;
         $hintPost = 'Tras la orden: puerto ' . $port . ' ' . ($isListen ? 'en escucha' : 'sin proceso en escucha')
             . '. HTTP ' . ($estado === 'up' ? 'OK (' . $stStr . ')' : 'sin respuesta esperada (' . $stStr . ').');
+        if (!empty($post['functional_check']) && is_array($post['functional_check'])) {
+            $funcMsg = trim((string)($post['functional_check']['message'] ?? ''));
+            if ($funcMsg !== '') {
+                $hintPost .= ' ' . $funcMsg;
+            }
+        }
 
         echo json_encode([
             'success' => $accionOk,
@@ -1757,11 +1764,13 @@ class Inicio extends Controller
                 'functional_check' => [
                     'type' => 'doc_api_validar_minimo',
                     'url' => rtrim($docApiBase, '/') . '/validar-expediente',
+                    'health_url' => rtrim($docApiBase, '/') . '/health',
+                    'expected_build' => $this->serviciosLocalesDocApiExpectedBuild(),
                 ],
                 'url_browser' => null,
                 'browser_note' => 'Docs externos dependen de firewall. Verde exige health y POST minimo a validar-expediente desde PHP.',
                 'hint' => 'Si está caída: backend/API/launcher/web-api-1click-runner.bat',
-                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'iniciar-agente-foreground.bat',
+                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'web-api-1click-runner.bat',
                 'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
                 'env' => [
                     'SPARTA_API_PORT' => (string)$docApiPort,
@@ -1781,6 +1790,9 @@ class Inicio extends Controller
         if ($port > 0) {
             $actual = $this->serviciosLocalesEstadoActual($srv, 800);
             if (!empty($actual['listening'])) {
+                if (($srv['id'] ?? '') === 'api_doc_python') {
+                    return (($actual['estado'] ?? '') === 'up');
+                }
                 return true;
             }
         }
@@ -2078,6 +2090,23 @@ class Inicio extends Controller
         return $apiKey !== '' ? $apiKey : 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
     }
 
+    private function serviciosLocalesDocApiExpectedBuild(): string
+    {
+        $routes = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'app'
+            . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'routes.py';
+        if (!is_file($routes)) {
+            return '';
+        }
+        $content = @file_get_contents($routes);
+        if (!is_string($content) || $content === '') {
+            return '';
+        }
+        if (preg_match('/API_BUILD\s*=\s*[\'"]([^\'"]+)[\'"]/', $content, $m)) {
+            return trim((string)$m[1]);
+        }
+        return '';
+    }
+
     private function serviciosLocalesProbarFuncional(array $srv, int $timeoutMs = 8000): ?array
     {
         $check = $srv['functional_check'] ?? null;
@@ -2106,6 +2135,58 @@ class Inicio extends Controller
                 'message' => 'Falta URL funcional.',
             ];
         }
+
+        $expectedBuild = trim((string)($check['expected_build'] ?? ''));
+        $healthUrl = trim((string)($check['health_url'] ?? ''));
+        if ($expectedBuild !== '' && $healthUrl !== '') {
+            $hc = @curl_init($healthUrl);
+            if (!$hc) {
+                return [
+                    'type' => 'doc_api_validar_minimo',
+                    'ok' => false,
+                    'status' => null,
+                    'ms' => null,
+                    'message' => 'No se pudo inicializar health de la API documental.',
+                ];
+            }
+            @curl_setopt_array($hc, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT_MS => min(2500, max(1200, $timeoutMs)),
+                CURLOPT_CONNECTTIMEOUT_MS => 900,
+                CURLOPT_USERAGENT => 'SpartaLedger/ServiciosLocalesEstadoDocApi',
+            ]);
+            $th0 = microtime(true);
+            $healthBody = @curl_exec($hc);
+            $healthMs = (int)round((microtime(true) - $th0) * 1000);
+            $healthStatus = (int)@curl_getinfo($hc, CURLINFO_RESPONSE_CODE);
+            $healthErrno = (int)@curl_errno($hc);
+            $healthErr = (string)@curl_error($hc);
+            @curl_close($hc);
+            $healthJson = is_string($healthBody) ? json_decode($healthBody, true) : null;
+            $actualBuild = is_array($healthJson) ? trim((string)($healthJson['build'] ?? '')) : '';
+            if ($healthErrno !== 0 || $healthStatus !== 200 || $actualBuild === '') {
+                return [
+                    'type' => 'doc_api_validar_minimo',
+                    'ok' => false,
+                    'status' => $healthStatus > 0 ? $healthStatus : null,
+                    'ms' => $healthMs,
+                    'curl_errno' => $healthErrno,
+                    'message' => $healthErr !== '' ? $healthErr : 'Health de API documental no devolvio build.',
+                    'body_snip' => is_string($healthBody) ? substr(preg_replace('/\s+/', ' ', $healthBody), 0, 180) : '',
+                ];
+            }
+            if ($actualBuild !== $expectedBuild) {
+                return [
+                    'type' => 'doc_api_validar_minimo',
+                    'ok' => false,
+                    'status' => $healthStatus,
+                    'ms' => $healthMs,
+                    'message' => 'API documental con codigo anterior: build ' . $actualBuild . '; esperado ' . $expectedBuild . '. Reinicie desde el panel o instale el supervisor como administrador.',
+                    'body_snip' => is_string($healthBody) ? substr(preg_replace('/\s+/', ' ', $healthBody), 0, 180) : '',
+                ];
+            }
+        }
+
         $url .= '?' . http_build_query(['tipo_documento' => 'INE_NUEVA']);
 
         $ch = @curl_init($url);

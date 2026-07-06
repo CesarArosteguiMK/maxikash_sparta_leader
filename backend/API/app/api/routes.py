@@ -50,7 +50,7 @@ except ImportError:
 
 router = APIRouter()
 settings = get_settings()
-API_BUILD = "doc-precheck-2026-06-18-comprobante-content-first"
+API_BUILD = "doc-precheck-2026-07-06-v2-consensus-reasoning"
 
 api_key_header = APIKeyHeader(name=settings.api_key_header, auto_error=False)
 
@@ -378,10 +378,16 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
             if "RFC NO COINCIDE" not in normalize_text(alerta)
         ]
     for comp in evaluables:
-        if comp.get("coincide") is False and str(comp.get("severidad") or "").lower() in {"critico", "critica", "alto"}:
-            msg = str(comp.get("mensaje") or comp.get("etiqueta") or "Comparacion critica no coincide").strip()
-            if msg and msg not in alertas:
-                alertas.append(msg)
+        if comp.get("coincide") is not False:
+            continue
+        severity = str(comp.get("severidad") or "").lower()
+        msg = str(comp.get("mensaje") or comp.get("etiqueta") or "Comparacion no coincide").strip()
+        if not msg or msg in alertas:
+            continue
+        if severity in {"critico", "critica", "alto"}:
+            alertas.append(msg)
+        elif "requiere revision" in normalize_text(msg).lower() or severity in {"aviso", "advertencia"}:
+            alertas.append(msg)
 
     hay_critico_final = any(
         comp.get("coincide") is False
@@ -389,20 +395,46 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
         for comp in evaluables
     )
     hay_falla_final = any(comp.get("coincide") is False for comp in evaluables)
+    if (
+        not hay_critico_final
+        and not hay_falla_final
+        and any(_v2_is_unread_curp_alert(alerta) for alerta in alertas)
+        and _v2_has_strong_identity_consensus(comps, docs, nombre_candidato_registro, datos_ref)
+        and _v2_curp_document_has_identity_match(docs, nombre_candidato_registro, datos_ref)
+    ):
+        alertas = [alerta for alerta in alertas if not _v2_is_unread_curp_alert(alerta)]
+        msg_curp_consenso = (
+            "CURP confirmada por coincidencia del propio documento con el expediente: "
+            "el documento CURP aporto nombre o CURP comparable con los demas documentos."
+        )
+        if msg_curp_consenso not in recomendaciones:
+            recomendaciones.append(msg_curp_consenso)
+    elif any(_v2_is_unread_curp_alert(alerta) for alerta in alertas):
+        msg_curp_sin_evidencia = (
+            "El documento CURP requiere revision: no se pudo confirmar dentro de ese PDF "
+            "un nombre o CURP comparable con el resto del expediente."
+        )
+        if msg_curp_sin_evidencia not in alertas:
+            alertas = [
+                msg_curp_sin_evidencia if _v2_is_unread_curp_alert(alerta) else alerta
+                for alerta in alertas
+            ]
+
     if dictamen == "rechazado" and not hay_critico_final:
         dictamen = "requiere_revision" if hay_falla_final or alertas else "aprobado"
+    if dictamen == "requiere_revision" and checks_totales > 0 and checks_fallas == 0 and not alertas:
+        dictamen = "aprobado"
 
-    if not analysis.get("resumen_final"):
-        if dictamen == "aprobado" and checks_fallas == 0:
-            analysis["resumen_final"] = (
-                "La informacion recibida es consistente entre los documentos revisados, "
-                "cumple con las reglas documentales establecidas y corresponde al candidato registrado."
-            )
-        else:
-            analysis["resumen_final"] = (
-                "El expediente requiere revision documental antes del dictamen final. "
-                "Revise las alertas y comparaciones marcadas por la IA documental."
-            )
+    if dictamen == "aprobado" and checks_fallas == 0 and not alertas:
+        analysis["resumen_final"] = (
+            "La informacion recibida es consistente entre los documentos revisados, "
+            "cumple con las reglas documentales establecidas y corresponde al candidato registrado."
+        )
+    elif not analysis.get("resumen_final"):
+        analysis["resumen_final"] = (
+            "El expediente requiere revision documental antes del dictamen final. "
+            "Revise las alertas y comparaciones marcadas por la IA documental."
+        )
 
     confianza = analysis.get("confianza")
     try:
@@ -496,6 +528,9 @@ def _v2_clean_curp(value: Optional[str]) -> Optional[str]:
     for candidate in candidates:
         if len(candidate) == 18 and validar_curp(candidate)[0]:
             return candidate
+        for variant in _curp_precheck_variants(candidate):
+            if len(variant) == 18 and validar_curp(variant)[0]:
+                return variant
     return None
 
 
@@ -628,6 +663,85 @@ def _v2_add_alerta_once(alertas: List[str], msg: str) -> None:
     clean = str(msg or "").strip()
     if clean and clean not in alertas:
         alertas.append(clean)
+
+
+def _v2_is_unread_curp_alert(alerta: Any) -> bool:
+    clean = normalize_text(str(alerta or ""))
+    return "CURP" in clean and "NO SE PUDO LEER AUTOMATICAMENTE" in clean
+
+
+def _v2_curp_document_has_identity_match(
+    docs: Dict[str, Any],
+    nombre_registro: Optional[str],
+    datos_ref: Dict[str, Any],
+) -> bool:
+    curp_doc = docs.get("curp")
+    if not isinstance(curp_doc, dict):
+        return False
+
+    doc_curp = _v2_clean_curp(curp_doc.get("curp"))
+    ref_curp = _v2_clean_curp(datos_ref.get("curp_principal"))
+    if doc_curp and ref_curp and _v2_curp_similarity(ref_curp, doc_curp)[0]:
+        return True
+
+    ref_rfc = datos_ref.get("rfc_principal")
+    if doc_curp and _v2_rfc_matches_curp_base(ref_rfc, doc_curp):
+        return True
+
+    doc_name = curp_doc.get("nombre")
+    ref_name = nombre_registro or datos_ref.get("nombre_registro") or datos_ref.get("nombre_principal_documentos")
+    if doc_name and _v2_names_match(ref_name, doc_name):
+        return True
+
+    return False
+
+
+def _v2_has_strong_identity_consensus(
+    comps: List[Dict[str, Any]],
+    docs: Dict[str, Any],
+    nombre_registro: Optional[str],
+    datos_ref: Dict[str, Any],
+) -> bool:
+    nombre_base = nombre_registro or datos_ref.get("nombre_registro")
+    readable_name_docs = 0
+    matching_name_docs = 0
+    for key, doc in docs.items():
+        if key == "comprobante_domicilio" or not isinstance(doc, dict):
+            continue
+        nombre_doc = doc.get("nombre")
+        if not nombre_doc:
+            continue
+        readable_name_docs += 1
+        if _v2_names_match(nombre_base, nombre_doc):
+            matching_name_docs += 1
+
+    name_consensus = matching_name_docs >= 4 or (
+        readable_name_docs >= 3 and matching_name_docs == readable_name_docs
+    )
+    if not name_consensus:
+        return False
+
+    has_curp_reference = bool(_v2_clean_curp(datos_ref.get("curp_principal"))) or any(
+        _v2_clean_curp(doc.get("curp"))
+        for doc in docs.values()
+        if isinstance(doc, dict)
+    )
+    if not has_curp_reference:
+        return False
+
+    has_rfc_support = bool(datos_ref.get("rfc_principal"))
+    has_nss_support = bool(datos_ref.get("nss_principal"))
+    for comp in comps:
+        if not isinstance(comp, dict) or comp.get("coincide") is not True:
+            continue
+        categoria = normalize_text(str(comp.get("categoria") or ""))
+        etiqueta = normalize_text(str(comp.get("etiqueta") or ""))
+        if categoria == "RFC" or "RFC" in etiqueta:
+            has_rfc_support = True
+        if categoria == "NSS" or "NSS" in etiqueta:
+            has_nss_support = True
+
+    return bool(has_rfc_support or has_nss_support)
 
 
 def _v2_downgrade_solicitud_consensus(
@@ -824,20 +938,26 @@ def _v2_structured_summary_from_pdf(doc: Dict[str, Any]) -> Optional[Dict[str, A
         if key == "curp":
             data = _extraer_datos_curp_pdf_rapido(file_bytes)
             curp = _v2_clean_curp((data or {}).get("curp"))
-            if not curp:
+            nombre = _v2_clean_acta_nombre((data or {}).get("nombre"))
+            if not curp and not nombre:
                 return None
             validation = {
-                "valido": True,
+                "valido": bool(curp),
                 "rechazado": False,
-                "revision_manual": False,
-                "mensaje": "CURP leida por Motor V1/OCR local.",
+                "revision_manual": not bool(curp),
+                "mensaje": (
+                    "CURP leida por Motor V1/OCR local."
+                    if curp
+                    else "CURP parcialmente leida por Motor V1/OCR local: nombre visible, falta CURP completa."
+                ),
                 "tipo_documento_detectado": "curp",
-                "nombre": (data or {}).get("nombre"),
+                "nombre": nombre,
                 "curp": curp,
                 "curp_extraido": curp,
                 "fecha_emision": (data or {}).get("fecha_emision"),
                 "es_reciente": (data or {}).get("es_reciente"),
                 "meses_antiguedad": (data or {}).get("meses_antiguedad"),
+                "evidencia_insuficiente": not bool(curp),
             }
         elif key == "solicitud_interna":
             data = _extraer_solicitud_interna_pdf_rapido(file_bytes)
@@ -957,6 +1077,134 @@ def _v2_summary_needs_pdf_text_rescue(doc: Dict[str, Any]) -> bool:
     return False
 
 
+def _v2_doc_has_any_value(doc: Dict[str, Any], keys: List[str]) -> bool:
+    for key in keys:
+        value = doc.get(key)
+        if isinstance(value, bool):
+            return True
+        if value is not None and str(value).strip():
+            return True
+    return False
+
+
+def _v2_int_or_none(value: Any) -> Optional[int]:
+    try:
+        if value is None or str(value).strip() == "":
+            return None
+        return int(float(str(value).strip()))
+    except Exception:
+        return None
+
+
+def _v2_document_contribution(
+    key: str,
+    label: str,
+    out: Dict[str, Any],
+) -> tuple[bool, str, str]:
+    """Cada documento debe aportar algo propio, pero no todos aportan identidad."""
+    tipo = str(out.get("tipo_detectado") or "").strip()
+    paginas = out.get("paginas_pdf")
+
+    if key == "comprobante_domicilio":
+        ok = _v2_doc_has_any_value(out, ["domicilio", "fecha_emision"])
+        return ok, "aviso", (
+            "Comprobante de domicilio aporta domicilio o fecha visible."
+            if ok
+            else "Comprobante de domicilio requiere revision: no se pudo leer domicilio ni fecha visible."
+        )
+
+    if key == "__SPARTA_SECRET_REDACTED__":
+        has_account = _v2_doc_has_any_value(out, ["clabe", "numero_cuenta"])
+        has_bank = _v2_doc_has_any_value(out, ["banco"])
+        has_owner = _v2_doc_has_any_value(out, ["nombre"])
+        ok = has_bank and (has_account or has_owner)
+        return ok, "aviso", (
+            "Estado de cuenta aporta banco y cuenta/titular."
+            if ok
+            else "Estado de cuenta requiere revision: no se pudo leer banco con cuenta, CLABE o titular."
+        )
+
+    if key == "curp":
+        has_curp = bool(_v2_clean_curp(out.get("curp")))
+        has_name = _v2_doc_has_any_value(out, ["nombre"])
+        if has_curp:
+            return True, "ok", "CURP aporta clave CURP propia."
+        if has_name:
+            return False, "aviso", "CURP aporta nombre, pero falta confirmar la clave CURP completa."
+        return False, "aviso", "CURP requiere revision: no aporto nombre ni clave CURP legible."
+
+    if key == "nss":
+        has_nss = bool(_v2_clean_nss(out.get("nss")))
+        has_identity = _v2_doc_has_any_value(out, ["nombre", "curp"])
+        if has_nss:
+            return True, "ok", "NSS aporta numero de seguridad social."
+        if has_identity:
+            return False, "aviso", "NSS aporta identidad, pero falta confirmar el numero de seguridad social."
+        return False, "aviso", "NSS requiere revision: no aporto NSS, nombre ni CURP legible."
+
+    if key == "constancia_fiscal":
+        has_tax_id = _v2_doc_has_any_value(out, ["rfc", "curp"])
+        has_identity = _v2_doc_has_any_value(out, ["nombre"])
+        if has_tax_id:
+            return True, "ok", "Constancia fiscal aporta RFC o CURP."
+        if has_identity:
+            return False, "aviso", "Constancia fiscal aporta nombre, pero falta confirmar RFC o CURP."
+        return False, "aviso", "Constancia fiscal requiere revision: no aporto RFC, CURP ni nombre legible."
+
+    if key == "acta_nacimiento":
+        ok = _v2_doc_has_any_value(out, ["nombre", "fecha_nacimiento"])
+        return ok, "aviso", (
+            "Acta de nacimiento aporta nombre o fecha de nacimiento."
+            if ok
+            else "Acta de nacimiento requiere revision: no aporto nombre ni fecha de nacimiento legible."
+        )
+
+    if key == "identificacion_oficial":
+        ok = _v2_doc_has_any_value(out, ["nombre", "curp", "clave_elector", "numero_documento"])
+        return ok, "aviso", (
+            "Identificacion oficial aporta nombre, CURP o clave/documento."
+            if ok
+            else "Identificacion oficial requiere revision: no aporto nombre, CURP ni clave/documento legible."
+        )
+
+    if key == "cv":
+        ok = _v2_doc_has_any_value(out, ["nombre", "curp", "rfc", "nss"])
+        return ok, "aviso", (
+            "CV o solicitud de trabajo aporta identidad del candidato."
+            if ok
+            else "CV o solicitud de trabajo requiere revision: no aporto nombre ni identificador del candidato."
+        )
+
+    if key == "solicitud_interna":
+        has_expected_type = tipo in {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"}
+        page_count = _v2_int_or_none(paginas)
+        has_pages = page_count is not None and page_count >= 2
+        has_identity = _v2_doc_has_any_value(out, ["nombre", "curp", "rfc", "nss"])
+        ok = has_expected_type and (has_pages or has_identity)
+        return ok, "aviso", (
+            "Solicitud interna aporta formato esperado y datos/paginas suficientes."
+            if ok
+            else "Solicitud interna requiere revision: no aporto formato interno con datos o paginas suficientes."
+        )
+
+    if key == "hoja_retencion":
+        if tipo == "carta_no_adeudo":
+            ok = _v2_doc_has_any_value(out, ["nombre"]) and out.get("firma_detectada") is not False
+            return ok, "aviso", (
+                "Carta de no adeudo aporta nombre y firma/trazo."
+                if ok
+                else "Carta de no adeudo requiere revision: no aporto nombre y firma/trazo suficientes."
+            )
+        ok = tipo in {"infonavit_fonacot", "carta_no_adeudo"} or _v2_doc_has_any_value(out, ["nombre", "fecha_emision"])
+        return ok, "aviso", (
+            "Hoja de retencion aporta tipo documental o datos visibles."
+            if ok
+            else "Hoja de retencion requiere revision: no aporto evidencia documental suficiente."
+        )
+
+    return True, "ok", f"{label} aporta datos suficientes."
+
+
 def _v2_names_match(a: Optional[str], b: Optional[str]) -> bool:
     na = normalize_text(a or "")
     nb = normalize_text(b or "")
@@ -997,6 +1245,257 @@ def _v2_names_match(a: Optional[str], b: Optional[str]) -> bool:
     comparable_tokens = max(1, min(len(tokens_a), len(tokens_b)))
     required_matches = comparable_tokens if comparable_tokens <= 2 else int((comparable_tokens * 0.80) + 0.999)
     return fuzzy_matches >= required_matches
+
+
+def _v2_name_tokens(value: Optional[str]) -> List[str]:
+    stop = {"DE", "DEL", "LA", "LAS", "LOS", "Y"}
+    return [t for t in normalize_text(value or "").split() if len(t) > 1 and t not in stop]
+
+
+def _v2_name_noise_similarity(reference: Optional[str], read_value: Optional[str]) -> bool:
+    """Detecta nombres compatibles aun con ruido OCR, abreviaturas o una letra confundida."""
+    if _v2_names_match(reference, read_value):
+        return True
+    ref_tokens = _v2_name_tokens(reference)
+    read_tokens = _v2_name_tokens(read_value)
+    if not ref_tokens or not read_tokens:
+        return False
+
+    used_read: set[int] = set()
+    score = 0.0
+    for ref in ref_tokens:
+        best_idx = None
+        best_score = 0.0
+        for idx, read in enumerate(read_tokens):
+            if idx in used_read:
+                continue
+            current = 0.0
+            if ref == read:
+                current = 1.0
+            elif len(read) == 1 and ref.startswith(read):
+                current = 0.80
+            elif len(read) <= 3 and ref.startswith(read):
+                current = 0.85
+            elif ref[0] == read[0]:
+                limit = 1 if min(len(ref), len(read)) < 7 else 2
+                if _v2_edit_distance_limited(ref, read, limit) <= limit:
+                    current = 0.90
+                elif len(ref) >= 5 and len(read) >= 5:
+                    common_prefix = 0
+                    for ca, cb in zip(ref, read):
+                        if ca != cb:
+                            break
+                        common_prefix += 1
+                    if common_prefix >= 4:
+                        current = 0.65
+            if current > best_score:
+                best_idx = idx
+                best_score = current
+        if best_idx is not None and best_score > 0:
+            used_read.add(best_idx)
+            score += best_score
+
+    required = 0.72 if len(ref_tokens) <= 2 else 0.66
+    return (score / max(1, len(ref_tokens))) >= required
+
+
+def _v2_same_curp_family(a: Optional[str], b: Optional[str]) -> bool:
+    ca = _v2_clean_id(a)
+    cb = _v2_clean_id(b)
+    if not ca or not cb or len(ca) < 10 or len(cb) < 10:
+        return False
+    if ca[:10] == cb[:10]:
+        return True
+    return len(ca) == 18 and len(cb) == 18 and _v2_edit_distance_limited(ca[:13], cb[:13], 2) <= 2
+
+
+def _v2_curp_noise_distance(a: Optional[str], b: Optional[str]) -> Optional[int]:
+    ca = _v2_clean_id(a)
+    cb = _v2_clean_id(b)
+    if not ca or not cb or len(ca) != 18 or len(cb) != 18:
+        return None
+    return _v2_edit_distance_limited(ca, cb, 5)
+
+
+def _v2_doc_identifier_support(doc: Dict[str, Any], datos_ref: Dict[str, Any]) -> List[str]:
+    support: List[str] = []
+    doc_curp = _v2_clean_curp(doc.get("curp"))
+    ref_curp = _v2_clean_curp(datos_ref.get("curp_principal"))
+    if doc_curp and ref_curp and _v2_curp_similarity(ref_curp, doc_curp)[0]:
+        support.append("CURP")
+
+    doc_rfc = _v2_clean_id(doc.get("rfc"))
+    ref_rfc = _v2_clean_id(datos_ref.get("rfc_principal"))
+    if doc_rfc and ref_rfc and _v2_rfc_similarity(ref_rfc, doc_rfc)[0]:
+        support.append("RFC")
+    elif doc_rfc and ref_curp and _v2_rfc_matches_curp_base(doc_rfc, ref_curp):
+        support.append("RFC")
+
+    doc_nss = _v2_clean_nss(doc.get("nss"))
+    ref_nss = _v2_clean_nss(datos_ref.get("nss_principal"))
+    if doc_nss and ref_nss and doc_nss == ref_nss:
+        support.append("NSS")
+    return support
+
+
+def _v2_doc_name_reference(doc: Dict[str, Any], nombre_registro: Optional[str], datos_ref: Dict[str, Any]) -> Optional[str]:
+    return nombre_registro or datos_ref.get("nombre_registro") or datos_ref.get("nombre_principal_documentos")
+
+
+def _v2_apply_identity_noise_consensus(
+    comps: List[Dict[str, Any]],
+    docs: Dict[str, Any],
+    nombre_registro: Optional[str],
+    datos_ref: Dict[str, Any],
+    alertas: List[str],
+) -> None:
+    """Convierte ruido OCR en correccion o revision razonada cuando el expediente lo respalda."""
+    affected: Dict[str, str] = {}
+    ref_name = _v2_doc_name_reference({}, nombre_registro, datos_ref)
+
+    for comp in comps:
+        if not isinstance(comp, dict) or comp.get("coincide") is not False:
+            continue
+        severity_original = str(comp.get("severidad") or "").lower()
+        if (
+            severity_original not in {"critico", "critica", "alto"}
+            and not _v2_is_name_comparison(comp)
+            and not _v2_is_curp_comparison(comp)
+            and not _v2_is_rfc_comparison(comp)
+            and normalize_text(str(comp.get("categoria") or "")) != "NSS"
+        ):
+            continue
+        comp_docs = [doc_key for doc_key in _v2_comp_docs(comp) if doc_key in docs]
+        if not comp_docs:
+            continue
+
+        if _v2_is_name_comparison(comp):
+            for doc_key in comp_docs:
+                doc = docs.get(doc_key)
+                if not isinstance(doc, dict) or doc_key == "comprobante_domicilio":
+                    continue
+                read_name = doc.get("nombre")
+                if not read_name or not ref_name:
+                    continue
+                support = _v2_doc_identifier_support(doc, datos_ref)
+                if _v2_name_noise_similarity(ref_name, read_name):
+                    doc["nombre_lectura_ia"] = read_name
+                    doc["nombre"] = ref_name
+                    obs = doc.setdefault("observaciones", [])
+                    if isinstance(obs, list):
+                        obs.append(f"Nombre normalizado por consenso documental; lectura IA: {read_name}.")
+                    comp["coincide"] = True
+                    comp["severidad"] = "ok"
+                    comp["valor_b"] = ref_name
+                    comp["mensaje"] = (
+                        "Nombre corregido por consenso documental: la lectura tenia ruido, "
+                        "pero coincide logicamente con el expediente."
+                    )
+                    alertas[:] = [
+                        alerta for alerta in alertas
+                        if "LECTURA AUTOMATICA DEL NOMBRE DIFIERE" not in normalize_text(str(alerta or ""))
+                    ]
+                    affected[doc_key] = "coincide"
+                    break
+                if support:
+                    msg = (
+                        f"{doc.get('archivo') or doc_key} requiere revision: el nombre leido difiere, "
+                        f"pero {'/'.join(support)} coincide con el expediente."
+                    )
+                    comp["severidad"] = "aviso"
+                    comp["mensaje"] = msg
+                    affected[doc_key] = "requiere_revision"
+                    _v2_add_alerta_once(alertas, msg)
+                    break
+
+        elif _v2_is_curp_comparison(comp):
+            ref_curp = datos_ref.get("curp_principal")
+            for doc_key in comp_docs:
+                doc = docs.get(doc_key)
+                if not isinstance(doc, dict):
+                    continue
+                read_curp = doc.get("curp")
+                name_ok = bool(ref_name and _v2_name_noise_similarity(ref_name, doc.get("nombre")))
+                support = _v2_doc_identifier_support(doc, datos_ref)
+                dist_curp = _v2_curp_noise_distance(ref_curp, read_curp)
+                identity_backed = bool(name_ok or support)
+                if read_curp and ref_curp and identity_backed and dist_curp is not None and dist_curp <= 2:
+                    doc["curp_lectura_ia"] = read_curp
+                    doc["curp"] = ref_curp
+                    obs = doc.setdefault("observaciones", [])
+                    if isinstance(obs, list):
+                        obs.append(
+                            f"CURP normalizada por consenso documental; lectura IA: {read_curp}; "
+                            f"diferencia: {dist_curp} caracter(es)."
+                        )
+                    comp["coincide"] = True
+                    comp["severidad"] = "ok"
+                    comp["valor_b"] = ref_curp
+                    comp["mensaje"] = (
+                        "CURP corregida por consenso documental: la lectura tenia ruido de 1-2 caracteres, "
+                        "pero el nombre/identidad del documento coincide con el expediente."
+                    )
+                    alertas[:] = [
+                        alerta for alerta in alertas
+                        if "CURP DEL DOCUMENTO REQUIERE REVISION" not in normalize_text(str(alerta or ""))
+                    ]
+                    affected[doc_key] = "coincide"
+                    break
+                if (
+                    read_curp
+                    and ref_curp
+                    and identity_backed
+                    and (
+                        (dist_curp is not None and dist_curp <= 4)
+                        or _v2_same_curp_family(ref_curp, read_curp)
+                    )
+                ):
+                    msg = (
+                        f"{doc.get('archivo') or doc_key} requiere revision: la CURP leida parece tener ruido, "
+                        "pero pertenece a la misma identidad documental."
+                    )
+                    comp["severidad"] = "aviso"
+                    comp["mensaje"] = msg
+                    affected[doc_key] = "requiere_revision"
+                    _v2_add_alerta_once(alertas, msg)
+                    break
+
+        elif _v2_is_rfc_comparison(comp) or normalize_text(str(comp.get("categoria") or "")) == "NSS":
+            for doc_key in comp_docs:
+                doc = docs.get(doc_key)
+                if not isinstance(doc, dict):
+                    continue
+                name_ok = bool(ref_name and _v2_name_noise_similarity(ref_name, doc.get("nombre")))
+                support = _v2_doc_identifier_support(doc, datos_ref)
+                if name_ok or support:
+                    msg = (
+                        f"{doc.get('archivo') or doc_key} requiere revision: un identificador leido difiere, "
+                        "pero la identidad del documento coincide con el expediente."
+                    )
+                    comp["severidad"] = "aviso"
+                    comp["mensaje"] = msg
+                    affected[doc_key] = "requiere_revision"
+                    _v2_add_alerta_once(alertas, msg)
+                    break
+
+    critical_docs_after: set[str] = set()
+    warning_docs_after: set[str] = set()
+    for comp in comps:
+        if not isinstance(comp, dict) or comp.get("coincide") is not False:
+            continue
+        if str(comp.get("severidad") or "").lower() in {"critico", "critica", "alto"}:
+            critical_docs_after.update(_v2_comp_docs(comp))
+        else:
+            warning_docs_after.update(_v2_comp_docs(comp))
+
+    for doc_key, desired in affected.items():
+        doc = docs.get(doc_key)
+        if not isinstance(doc, dict) or doc_key in critical_docs_after:
+            continue
+        if desired == "coincide" and doc_key not in warning_docs_after:
+            doc["estado"] = "coincide"
+        elif doc.get("estado") == "no_coincide":
+            doc["estado"] = "requiere_revision"
 
 
 def _v2_months_value(data: Dict[str, Any]) -> Optional[int]:
@@ -1064,6 +1563,8 @@ def _resultado_v2_reglas_expediente(
             "firma_detectada": _v2_bool(previo.get("firma_detectada")),
             "nombre_y_firma_lleno": _v2_bool(previo.get("nombre_y_firma_lleno")),
             "evidencia_insuficiente": _v2_bool(previo.get("evidencia_insuficiente")),
+            "clave_elector": _v2_first_value(previo, ["clave_elector"]),
+            "numero_documento": _v2_first_value(previo, ["numero_documento", "numero_identificacion", "folio"]),
             "mensaje": None,
             "observaciones": [],
         }
@@ -1193,6 +1694,35 @@ def _resultado_v2_reglas_expediente(
                     msg_carta,
                 )
 
+        contributes, contribution_severity, contribution_msg = _v2_document_contribution(key, label, out)
+        if contributes:
+            add_comp(
+                "Aporte documental",
+                f"{label} aporta dato propio",
+                key,
+                "dato leido",
+                "Regla",
+                "aporte requerido",
+                True,
+                "ok",
+                contribution_msg,
+            )
+        else:
+            if out.get("estado") == "coincide":
+                out["estado"] = "requiere_revision"
+            out.setdefault("observaciones", []).append(contribution_msg)
+            add_comp(
+                "Aporte documental",
+                f"{label} aporta dato propio",
+                key,
+                "sin aporte suficiente",
+                "Regla",
+                "aporte requerido",
+                False,
+                contribution_severity,
+                contribution_msg,
+            )
+
         if nombre_registro and out["nombre"] and key != "comprobante_domicilio":
             ok_name = _v2_names_match(nombre_registro, out["nombre"])
             add_comp(
@@ -1261,11 +1791,32 @@ def _resultado_v2_reglas_expediente(
         if len(values) < 2:
             continue
         if field == "curp":
-            curp_principal_v2 = _v2_choose_curp_principal([v for _, v in values])
+            curp_priority = {
+                "constancia_fiscal": 0,
+                "nss": 1,
+                "identificacion_oficial": 2,
+                "solicitud_interna": 3,
+                "curp": 4,
+                "acta_nacimiento": 5,
+                "cv": 6,
+            }
+            values_for_principal = sorted(values, key=lambda item: curp_priority.get(item[0], 50))
+            curp_principal_v2 = _v2_choose_curp_principal([v for _, v in values_for_principal])
             if not curp_principal_v2:
                 continue
             for other_key, other_value in values:
                 ok, severity, msg = _v2_curp_similarity(curp_principal_v2, other_value)
+                if (
+                    not ok
+                    and other_key == "curp"
+                    and _v2_names_match(nombre_registro, (docs_out.get(other_key) or {}).get("nombre"))
+                    and curp_principal_v2[:10] == other_value[:10]
+                ):
+                    severity = "aviso"
+                    msg = (
+                        "CURP del documento requiere revision: la lectura OCR difiere, "
+                        "pero el nombre del propio CURP coincide con el expediente."
+                    )
                 add_comp(
                     label,
                     f"{label} contra referencia documental",
@@ -1284,7 +1835,7 @@ def _resultado_v2_reglas_expediente(
                         obs = docs_out[other_key].setdefault("observaciones", [])
                         obs.append(f"CURP normalizada contra referencia documental; lectura IA: {other_value}.")
                 else:
-                    docs_out[other_key]["estado"] = "no_coincide"
+                    docs_out[other_key]["estado"] = "requiere_revision" if severity == "aviso" else "no_coincide"
             continue
         if field == "rfc":
             rfc_principal_v2 = _v2_choose_rfc_principal([v for _, v in values], curp_principal_v2)
@@ -1320,6 +1871,16 @@ def _resultado_v2_reglas_expediente(
                 docs_out[base_key]["estado"] = "no_coincide"
                 docs_out[other_key]["estado"] = "no_coincide"
 
+    datos_ref = {
+        "nombre_registro": nombre_registro or None,
+        "nombre_principal_documentos": next((v.get("nombre") for v in readable.values() if v.get("nombre")), None),
+        "curp_principal": curp_principal_v2 or next((_v2_clean_curp(v.get("curp")) for v in readable.values() if _v2_clean_curp(v.get("curp"))), None),
+        "rfc_principal": _v2_choose_rfc_principal([
+            v.get("rfc") for k, v in readable.items() if k != "comprobante_domicilio" and v.get("rfc")
+        ], curp_principal_v2) or next((v.get("rfc") for k, v in readable.items() if k != "comprobante_domicilio" and v.get("rfc")), None),
+        "nss_principal": next((_v2_clean_nss(v.get("nss")) for v in readable.values() if _v2_clean_nss(v.get("nss"))), None),
+    }
+
     _v2_downgrade_solicitud_consensus(
         comparaciones,
         docs_out,
@@ -1327,6 +1888,14 @@ def _resultado_v2_reglas_expediente(
         curp_principal_v2,
         alertas,
     )
+    _v2_apply_identity_noise_consensus(
+        comparaciones,
+        docs_out,
+        nombre_registro,
+        datos_ref,
+        alertas,
+    )
+    datos_ref["nombre_principal_documentos"] = next((v.get("nombre") for v in readable.values() if v.get("nombre")), None)
 
     evaluables = [c for c in comparaciones if isinstance(c.get("coincide"), bool)]
     total = len(evaluables)
@@ -1348,16 +1917,6 @@ def _resultado_v2_reglas_expediente(
 
     if motivo != "rules":
         recomendaciones.append("El analisis profundo tardo mas de lo esperado; se uso una revision local para no detener el expediente.")
-
-    datos_ref = {
-        "nombre_registro": nombre_registro or None,
-        "nombre_principal_documentos": next((v.get("nombre") for v in readable.values() if v.get("nombre")), None),
-        "curp_principal": curp_principal_v2 or next((_v2_clean_curp(v.get("curp")) for v in readable.values() if _v2_clean_curp(v.get("curp"))), None),
-        "rfc_principal": _v2_choose_rfc_principal([
-            v.get("rfc") for k, v in readable.items() if k != "comprobante_domicilio" and v.get("rfc")
-        ], curp_principal_v2) or next((v.get("rfc") for k, v in readable.items() if k != "comprobante_domicilio" and v.get("rfc")), None),
-        "nss_principal": next((_v2_clean_nss(v.get("nss")) for v in readable.values() if _v2_clean_nss(v.get("nss"))), None),
-    }
 
     return {
         "provider": "alibaba",
@@ -4476,19 +5035,19 @@ async def validar_expediente(
                 ]
 
             pdf_text_prefill_count = 0
-            if not solo_lecturas_guardadas:
-                for doc in docs_v2:
-                    key_doc = str(doc.get("key") or "")
-                    if key_doc not in {"solicitud_interna", "curp", "identificacion_oficial", "nss", "constancia_fiscal", "acta_nacimiento"}:
-                        continue
-                    if not doc.get("bytes"):
-                        continue
-                    if summary_is_usable(doc.get("summary")) and not _v2_summary_needs_pdf_text_rescue(doc):
-                        continue
-                    summary_v1 = _v2_structured_summary_from_pdf(doc)
-                    if summary_v1:
-                        doc["summary"] = summary_v1
-                        pdf_text_prefill_count += 1
+            rescue_keys = {"solicitud_interna", "curp", "identificacion_oficial", "nss", "constancia_fiscal", "acta_nacimiento"}
+            for doc in docs_v2:
+                key_doc = str(doc.get("key") or "")
+                if key_doc not in rescue_keys:
+                    continue
+                if not doc.get("bytes"):
+                    continue
+                if summary_is_usable(doc.get("summary")) and not _v2_summary_needs_pdf_text_rescue(doc):
+                    continue
+                summary_v1 = _v2_structured_summary_from_pdf(doc)
+                if summary_v1:
+                    doc["summary"] = summary_v1
+                    pdf_text_prefill_count += 1
 
             logger.info(
                 "validar-expediente V2 docs="

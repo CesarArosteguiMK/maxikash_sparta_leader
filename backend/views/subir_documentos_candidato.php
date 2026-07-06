@@ -2783,10 +2783,18 @@ $documentos_ayuda = [
                 btn.textContent = 'Subir documentos';
                 msg.innerHTML = '';
                 if (res.success) {
+                    var datos = res.datos || {};
+                    var erroresSubida = Array.isArray(datos.errores) ? datos.errores : [];
+                    var esParcial = erroresSubida.length > 0 || datos.subida_parcial === true;
                     var mensajeOk = res.mensaje || 'Documento(s) cargado(s) correctamente.';
                     mostrarAlertaSubida('success', 'Documentación cargada', mensajeOk);
                     showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> ' + mensajeOk, false);
                     form.reset();
+                    if (esParcial) {
+                        msg.innerHTML = '';
+                        mostrarAlertaSubida('warning', 'Documentacion parcial', mensajeOk);
+                        showResultado(msg, null, '<i class="fa fa-exclamation-triangle me-1"></i> ' + mensajeOk, true);
+                    }
                     var datos = res.datos || {};
                     var docsSubidos = datos.documentos_subidos;
                     if (docsSubidos && typeof docsSubidos === 'object') {

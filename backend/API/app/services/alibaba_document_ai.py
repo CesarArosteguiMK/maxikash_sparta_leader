@@ -710,10 +710,29 @@ def is_transient_error(exc: Exception) -> bool:
 def summary_is_usable(summary: Any) -> bool:
     if not isinstance(summary, dict):
         return False
+    previo = summary.get("validacion_previa")
     marker = " ".join(
         str(summary.get(key) or "")
         for key in ("motor_ia", "modelo_ia", "fuente_lectura", "source")
     ).lower()
+    if isinstance(previo, dict):
+        marker = " ".join([
+            marker,
+            " ".join(
+                str(previo.get(key) or "")
+                for key in ("motor_ia", "modelo_ia", "fuente_lectura", "source", "modo_validacion")
+            ).lower(),
+        ])
+        for key in (
+            "nombre", "nombre_completo", "nombre_propietario", "titular_cuenta",
+            "curp", "curp_extraido", "curp_lectura_ia", "rfc", "nss",
+            "nss_extraido", "nss_lectura_ia", "banco", "banco_detectado",
+        ):
+            value = previo.get(key)
+            if value is not None and str(value).strip():
+                return True
+        if previo.get("valido") is True or previo.get("aceptado") is True:
+            return True
     return "alibaba" in marker or "motor_v2" in marker or "motor_v1" in marker or "pdf_text" in marker
 
 
@@ -1057,7 +1076,10 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
 
     if doc_type == "curp":
         if not fields.get("curp"):
-            errors.append("No se pudo leer la CURP")
+            if fields.get("nombre_completo"):
+                warnings.append("No se pudo leer la CURP completa, pero se leyo el nombre del documento")
+            else:
+                errors.append("No se pudo leer la CURP ni el nombre del documento")
         issued = parse_date(fields.get("fecha_emision")) or parse_date(fields.get("fecha_expedicion"))
         months = months_since(issued)
         if months is None:

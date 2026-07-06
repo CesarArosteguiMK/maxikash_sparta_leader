@@ -1167,6 +1167,53 @@ class CapHum extends Controller
         $script = <<<'HTML'
         <script>
 
+            function getEmpresaGestionSeleccionada() {
+                return String(document.getElementById('gestionEmpresaSelect')?.value || '');
+            }
+
+            function nombreEmpresaGestion(usuario) {
+                const id = String(usuario?.id_empresa || usuario?.puestos?.[0]?.id_empresa || 1);
+                return String(usuario?.nombre_empresa || usuario?.puestos?.[0]?.nombre_empresa || (id === '2' ? 'Furia Motos' : 'MaxiKash'));
+            }
+
+            function renderEmpresasGestion(usuarios) {
+                const select = document.getElementById('gestionEmpresaSelect');
+                if (!select) return;
+                const actual = String(select.value || '');
+                const mapa = new Map();
+                (usuarios || []).forEach(usuario => {
+                    const id = String(usuario?.id_empresa || usuario?.puestos?.[0]?.id_empresa || 1);
+                    if (!mapa.has(id)) mapa.set(id, nombreEmpresaGestion(usuario));
+                    (usuario?.puestos || []).forEach(puesto => {
+                        const puestoEmpresaId = String(puesto?.id_empresa || id);
+                        if (!mapa.has(puestoEmpresaId)) mapa.set(puestoEmpresaId, puesto?.nombre_empresa || (puestoEmpresaId === '2' ? 'Furia Motos' : 'MaxiKash'));
+                    });
+                });
+
+                select.innerHTML = '<option value="">Todas las empresas</option>';
+                Array.from(mapa.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([id, nombre]) => {
+                    const opt = document.createElement('option');
+                    opt.value = id;
+                    opt.textContent = nombre;
+                    select.appendChild(opt);
+                });
+                if (actual && mapa.has(actual)) select.value = actual;
+                if (typeof window.refreshSelectBuscador === 'function') {
+                    window.refreshSelectBuscador('gestionEmpresaSelect');
+                } else if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2) {
+                    window.jQuery(select).trigger('change.select2');
+                }
+            }
+
+            function filtrarUsuariosGestionPorEmpresa(usuarios) {
+                const empresaId = getEmpresaGestionSeleccionada();
+                if (!empresaId) return usuarios || [];
+                return (usuarios || []).filter(usuario => {
+                    if (String(usuario?.id_empresa || 1) === empresaId) return true;
+                    return (usuario?.puestos || []).some(puesto => String(puesto?.id_empresa || 1) === empresaId);
+                });
+            }
+
             const getUsuarios = (opts) => {
             opts = opts || {};
             http.request({
@@ -1192,7 +1239,9 @@ class CapHum extends Controller
                                     id_area: usuario.id_area,
                                     nombre_area: usuario.nombre_area,
                                     id_direccion: usuario.id_direccion,
-                                    nombre_direccion: usuario.nombre_direccion
+                                    nombre_direccion: usuario.nombre_direccion,
+                                    id_empresa: usuario.id_empresa || 1,
+                                    nombre_empresa: usuario.nombre_empresa || 'MaxiKash'
                                 }] : []
                             });
                         } else {
@@ -1214,23 +1263,40 @@ class CapHum extends Controller
                                     id_area: usuario.id_area,
                                     nombre_area: usuario.nombre_area,
                                     id_direccion: usuario.id_direccion,
-                                    nombre_direccion: usuario.nombre_direccion
+                                    nombre_direccion: usuario.nombre_direccion,
+                                    id_empresa: usuario.id_empresa || 1,
+                                    nombre_empresa: usuario.nombre_empresa || 'MaxiKash'
                                 });
                             }
                         }
                     });
 
                     const usuariosConsolidados = Array.from(usuariosMap.values());
+                    renderEmpresasGestion(usuariosConsolidados);
+                    const usuariosFiltrados = filtrarUsuariosGestionPorEmpresa(usuariosConsolidados);
 
-                    window.usuariosData = usuariosConsolidados;
+                    window.usuariosDataCompleta = usuariosConsolidados;
+                    window.usuariosData = usuariosFiltrados;
                     if (typeof usuariosData !== 'undefined') {
-                        usuariosData = usuariosConsolidados;
+                        usuariosData = usuariosFiltrados;
+                    }
+                    if (typeof inicializarMapaAreasGestion === 'function') {
+                        inicializarMapaAreasGestion();
+                    }
+                    if (typeof vincularEventosFiltrosGestion === 'function') {
+                        vincularEventosFiltrosGestion();
+                    }
+                    if (typeof actualizarOpcionesFiltrosGestion === 'function') {
+                        actualizarOpcionesFiltrosGestion('gestionEmpresaSelect');
+                    }
+                    if (typeof actualizarIndicadores === 'function') {
+                        actualizarIndicadores(usuariosFiltrados);
                     }
 
                     // ==========================================
                     // MAPEAR DATOS CON SOPORTE PARA MÃšLTIPLES PUESTOS
                     // ==========================================
-                    const datos = usuariosConsolidados.map(p => {
+                    const datos = usuariosFiltrados.map(p => {
                         const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
                         const tienePuestos = p.puestos && p.puestos.length > 1;
                         const escaparAttr = value => String(value || '')
@@ -1395,7 +1461,7 @@ class CapHum extends Controller
                     // Usar el renderer compacto de la vista si ya está disponible.
                     // Evita filas gigantes cuando una persona tiene muchos puestos.
                     if (typeof actualizarTabla === 'function') {
-                        actualizarTabla(usuariosConsolidados);
+                        actualizarTabla(usuariosFiltrados);
                     } else {
                         const tabla = $('#historialUsuarios').DataTable();
                         tabla.clear().rows.add(datos).draw();
@@ -5517,7 +5583,7 @@ class CapHum extends Controller
                         throw new Error(resp.mensaje || "No se pudo guardar la ausencia");
                     }
 
-                    Swal.fire("Ã‰xito", resp.mensaje, "success");
+                    Swal.fire("Listo", resp.mensaje || "Registro guardado correctamente.", "success");
 
                     $("#modalAuscencia").modal("hide");
 
@@ -5682,7 +5748,7 @@ class CapHum extends Controller
                                         : (legacyResultado === 'omitido' ? 'Legacy sin registro activo' : (legacyOk ? 'Legacy dado de baja' : 'Legacy pendiente'));
                                     legacyHtml =
                                         '<div class="text-start">' +
-                                            '<div class="mb-2">' + (data.message || 'La baja se registrÃƒÂ³ correctamente.') + '</div>' +
+                                            '<div class="mb-2">' + (data.message || 'La baja se registro correctamente.') + '</div>' +
                                             '<span class="badge ' + legacyBadge + '">' + legacyEstado + '</span>' +
                                             (legacyMensaje ? '<div class="small text-muted mt-2">' + legacyMensaje + '</div>' : '') +
                                         '</div>';
@@ -6072,7 +6138,7 @@ class CapHum extends Controller
                         return;
                     }
 
-                    Swal.fire("Ã‰xito", "Gestor actualizado correctamente", "success");
+                    Swal.fire("Exito", "Gestor actualizado correctamente", "success");
 
                     bootstrap.Offcanvas.getInstance(
                         document.getElementById('offcanvasEditUser')
@@ -15787,6 +15853,7 @@ class CapHum extends Controller
             'curp_definitivo' => $resultadoApi['curp_definitivo'] ?? null,
             'checks_ok' => $resultadoApi['checks_ok'] ?? 0,
             'checks_totales' => $resultadoApi['checks_totales'] ?? 0,
+            'checks_fallas' => $resultadoApi['checks_fallas'] ?? null,
             'alertas' => array_merge($alertaModo, $resultadoApi['alertas'] ?? []),
             'identificacion_frente_score' => $resultadoApi['identificacion_frente_score'] ?? null,
             'identificacion_reverso_score' => $resultadoApi['identificacion_reverso_score'] ?? null,
@@ -15863,6 +15930,9 @@ class CapHum extends Controller
     {
         if (!$resultado) {
             return false;
+        }
+        if (!empty($resultado['precheck']) && is_array($resultado['precheck']) && $this->docVerifTieneDatosUtiles($resultado['precheck'])) {
+            return true;
         }
         if (($resultado['valido'] ?? null) === true || ($resultado['ok'] ?? null) === true || ($resultado['aceptado'] ?? null) === true) {
             return true;
@@ -20153,6 +20223,111 @@ class CapHum extends Controller
         return $payload;
     }
 
+    private function lecturaIaTieneValor(array $validacion, array $keys): bool
+    {
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $validacion)) {
+                continue;
+            }
+            $value = $validacion[$key];
+            if (is_bool($value)) {
+                return true;
+            }
+            if (is_array($value)) {
+                if (!empty($value)) {
+                    return true;
+                }
+                continue;
+            }
+            if ($value !== null && trim((string) $value) !== '') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function lecturaExpedienteNecesitaRescatePdf(string $key, array $lecturasDecoded): bool
+    {
+        $lectura = $lecturasDecoded[$key] ?? null;
+        if (!is_array($lectura)) {
+            return true;
+        }
+        $validacion = $lectura['validacion_previa'] ?? $lectura;
+        if (!is_array($validacion)) {
+            return true;
+        }
+
+        switch ($key) {
+            case 'curp':
+                return !$this->lecturaIaTieneValor($validacion, ['curp', 'curp_extraido', 'curp_lectura_ia'])
+                    || !$this->lecturaIaTieneValor($validacion, ['nombre', 'nombre_completo']);
+            case 'nss':
+                return !$this->lecturaIaTieneValor($validacion, ['nss', 'nss_extraido', 'nss_lectura_ia']);
+            case 'constancia_fiscal':
+                return !$this->lecturaIaTieneValor($validacion, ['rfc', 'curp', 'curp_extraido']);
+            case 'acta_nacimiento':
+                return !$this->lecturaIaTieneValor($validacion, ['nombre', 'nombre_completo']);
+            case 'identificacion_oficial':
+                return !$this->lecturaIaTieneValor($validacion, ['nombre', 'nombre_completo', 'curp', 'clave_elector', 'numero_documento']);
+            case 'solicitud_interna':
+                return !$this->lecturaIaTieneValor($validacion, ['tipo_documento_detectado', 'nombre', 'nombre_completo', 'curp', 'rfc', 'nss']);
+            default:
+                return false;
+        }
+    }
+
+    private function agregarArchivosRescatePayloadLigero(array &$payload, array $rutas, array $lecturasDecoded): void
+    {
+        $prioridad = [
+            ['key' => 'curp', 'campo' => 'documento_curp', 'ruta' => 'curp'],
+            ['key' => 'nss', 'campo' => 'documento_nss', 'ruta' => 'nss'],
+            ['key' => 'constancia_fiscal', 'campo' => 'constancia_fiscal', 'ruta' => 'constancia_fiscal'],
+            ['key' => 'acta_nacimiento', 'campo' => 'acta_nacimiento', 'ruta' => 'acta_nacimiento'],
+            ['key' => 'identificacion_oficial', 'campo' => 'identificacion_pdf', 'ruta' => 'identificacion_pdf'],
+            ['key' => 'solicitud_interna', 'campo' => 'solicitud_interna', 'ruta' => 'solicitud_interna'],
+        ];
+        $maxArchivos = 4;
+        $maxBytesArchivo = 3 * 1024 * 1024;
+        $maxBytesTotal = 8 * 1024 * 1024;
+        $agregados = 0;
+        $bytesTotal = 0;
+
+        foreach ($prioridad as $item) {
+            if ($agregados >= $maxArchivos || $bytesTotal >= $maxBytesTotal) {
+                break;
+            }
+            $key = $item['key'];
+            if (!$this->lecturaExpedienteNecesitaRescatePdf($key, $lecturasDecoded)) {
+                continue;
+            }
+            $rutaKey = $item['ruta'];
+            $ruta = (string) ($rutas[$rutaKey] ?? '');
+            if ($ruta === '' || !is_file($ruta)) {
+                continue;
+            }
+            $bytes = (int) @filesize($ruta);
+            if ($bytes <= 0 || $bytes > $maxBytesArchivo || ($bytesTotal + $bytes) > $maxBytesTotal) {
+                error_log('CapHum::validarExpedienteApiJson rescate omitido key=' . $key . ' bytes=' . $bytes);
+                continue;
+            }
+            $data = @file_get_contents($ruta);
+            if ($data === false || $data === '') {
+                continue;
+            }
+            $payload[$item['campo']] = [
+                'filename' => basename($ruta),
+                'mime' => 'application/pdf',
+                'bytes' => strlen($data),
+                'b64' => base64_encode($data),
+            ];
+            $agregados++;
+            $bytesTotal += strlen($data);
+        }
+        if ($agregados > 0) {
+            error_log('CapHum::validarExpedienteApiJson payload_ligero_rescate archivos=' . $agregados . ' bytes=' . $bytesTotal);
+        }
+    }
+
     private function validarExpedienteApiJson(string $baseUrl, string $apiKey, array $rutas, $nombreCandidatoRegistro, string $tipoDocExp, int $timeoutExp, array $documentos = []): array
     {
         $lecturasJson = $this->construirLecturasIaExpedienteJson($documentos);
@@ -20186,6 +20361,9 @@ class CapHum extends Controller
         }
         if (!empty($documentosEsperados)) {
             $payload['documentos_esperados'] = $documentosEsperados;
+        }
+        if ($payloadLigero && is_array($lecturasDecoded)) {
+            $this->agregarArchivosRescatePayloadLigero($payload, $rutas, $lecturasDecoded);
         }
 
         $diagArchivos = [];
@@ -20299,6 +20477,7 @@ class CapHum extends Controller
 
     private function compactarValidacionIaExpediente(array $validacion): array
     {
+        $validacion = $this->normalizarValidacionIaExpediente($validacion);
         $permitidas = [
             'motor_ia',
             'modelo_ia',
@@ -20310,6 +20489,7 @@ class CapHum extends Controller
             'motor_v2_mensaje',
             'tipo_documento_detectado',
             'tipo_documento',
+            'tipo_identificacion',
             'subtipo',
             'valido',
             'rechazado',
@@ -20388,11 +20568,57 @@ class CapHum extends Controller
         return $out;
     }
 
+    private function normalizarValidacionIaExpediente(array $validacion): array
+    {
+        $precheck = (!empty($validacion['precheck']) && is_array($validacion['precheck'])) ? $validacion['precheck'] : [];
+        if (($validacion['aceptado'] ?? null) === true && !array_key_exists('valido', $validacion)) {
+            $validacion['valido'] = true;
+        }
+        foreach ([
+            'motor_ia', 'modelo_ia', 'fuente_lectura', 'modo_validacion',
+            'tipo_documento_detectado', 'tipo_documento', 'tipo_identificacion',
+            'valido', 'rechazado', 'revision_manual', 'mensaje',
+            'nombre', 'nombre_completo', 'curp', 'curp_extraido', 'curp_lectura_ia',
+            'rfc', 'nss', 'nss_extraido', 'nss_lectura_ia',
+            'fecha_nacimiento', 'fecha_emision', 'fecha_expedicion',
+            'paginas', 'paginas_pdf', 'paginas_analizadas',
+        ] as $key) {
+            $tieneValor = array_key_exists($key, $validacion)
+                && $validacion[$key] !== null
+                && $validacion[$key] !== ''
+                && $validacion[$key] !== [];
+            if (!$tieneValor && array_key_exists($key, $precheck)) {
+                $validacion[$key] = $precheck[$key];
+            }
+        }
+        if (empty($validacion['nombre']) && !empty($precheck['nombre_ocr'])) {
+            $validacion['nombre'] = $precheck['nombre_ocr'];
+        }
+        if (empty($validacion['curp']) && !empty($precheck['curp_ocr'])) {
+            $validacion['curp'] = $precheck['curp_ocr'];
+        }
+        if (empty($validacion['curp_extraido']) && !empty($validacion['curp'])) {
+            $validacion['curp_extraido'] = $validacion['curp'];
+        }
+        if (empty($validacion['curp_lectura_ia']) && !empty($validacion['curp'])) {
+            $validacion['curp_lectura_ia'] = $validacion['curp'];
+        }
+        if (empty($validacion['tipo_documento_detectado']) && !empty($validacion['tipo_identificacion'])) {
+            $validacion['tipo_documento_detectado'] = $validacion['tipo_identificacion'];
+        }
+        if (empty($validacion['motor_ia']) && $this->docVerifTieneDatosUtiles($precheck)) {
+            $validacion['motor_ia'] = 'alibaba';
+            $validacion['fuente_lectura'] = $validacion['fuente_lectura'] ?? 'precheck_identificacion';
+        }
+        return $validacion;
+    }
+
     private function docVerifEsLecturaIaExpediente(?array $validacion): bool
     {
         if (!$validacion) {
             return false;
         }
+        $validacion = $this->normalizarValidacionIaExpediente($validacion);
         if (!empty($validacion['subida_manual_rrhh']) || !empty($validacion['pendiente_revision_manual']) || !empty($validacion['pendiente_revision_backend'])) {
             return false;
         }
@@ -20516,6 +20742,7 @@ class CapHum extends Controller
                 continue;
             }
 
+            $validacion = $this->normalizarValidacionIaExpediente($validacion);
             if (!$this->docVerifEsLecturaIaExpediente($validacion)) {
                 continue;
             }
@@ -21329,6 +21556,14 @@ class CapHum extends Controller
 
     private function subirDocumentosCandidatoProcesar($token)
     {
+        @ini_set('max_execution_time', '1200');
+        @ini_set('default_socket_timeout', '1200');
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(1200);
+        }
+        if (function_exists('ignore_user_abort')) {
+            @ignore_user_abort(true);
+        }
         header('Content-Type: application/json; charset=utf-8');
         $iniSizeToBytes = static function ($value): int {
             $value = trim((string) $value);
@@ -21611,6 +21846,10 @@ class CapHum extends Controller
         }
 
         $payload = ['guardados' => $guardados];
+        if (!empty($errores)) {
+            $payload['errores'] = array_values($errores);
+            $payload['subida_parcial'] = true;
+        }
         if ($guardados > 0) {
             $tiposNombre = [
                 'SOLICITUD INTERNA' => 1, 'CV O SOLICITUD DE TRABAJO' => 2, 'ACTA DE NACIMIENTO' => 3, 'ACTA DE NACIMIENTO Certificada' => 3, 'CURP' => 4,
@@ -21671,7 +21910,11 @@ class CapHum extends Controller
         }
         if ($guardados > 0) {
             CandidatosDAO::updateVerificacionExpediente($id_candidato, null);
-            $respuestaSubida = self::respuesta(true, 'Se subieron ' . $guardados . ' documento(s) correctamente.', $payload);
+            $mensajeSubida = 'Se subieron ' . $guardados . ' documento(s) correctamente.';
+            if (!empty($errores)) {
+                $mensajeSubida .= ' Revisa estos documentos: ' . implode(', ', $errores);
+            }
+            $respuestaSubida = self::respuesta(true, $mensajeSubida, $payload);
         } else {
             $respuestaSubida = self::respuesta(false, count($errores) ? implode(', ', $errores) : 'No se envió ningún archivo. Selecciona al menos un documento.');
         }
@@ -24835,6 +25078,8 @@ class CapHum extends Controller
                 'nombre_area' => (string) ($rowDepto['departamento_organizacional_nombre'] ?? ''),
                 'id_direccion' => (int) ($rowDepto['id_direccion'] ?? 0),
                 'nombre_direccion' => (string) ($rowDepto['direccion_nombre'] ?? ''),
+                'id_empresa' => (int) ($rowDepto['id_empresa'] ?? 1),
+                'nombre_empresa' => (string) ($rowDepto['nombre_empresa'] ?? 'MaxiKash'),
             ];
         }
 
@@ -24842,7 +25087,7 @@ class CapHum extends Controller
         // Preparar array compatible con frontend
         $datos = array_map(function($p) use ($areaPorDepartamento) {
             $idDepto = (int) ($p['id_departamento'] ?? 0);
-            $metaArea = $areaPorDepartamento[$idDepto] ?? ['id_area' => 0, 'nombre_area' => '', 'id_direccion' => 0, 'nombre_direccion' => ''];
+            $metaArea = $areaPorDepartamento[$idDepto] ?? ['id_area' => 0, 'nombre_area' => '', 'id_direccion' => 0, 'nombre_direccion' => '', 'id_empresa' => 1, 'nombre_empresa' => 'MaxiKash'];
             return [
                 'id' => $p['id'] ?? '',
                 'numero_empleado' => $p['numero_empleado'] ?? '',
@@ -24863,6 +25108,8 @@ class CapHum extends Controller
                 'nombre_area' => $metaArea['nombre_area'] ?? '',
                 'id_direccion' => $metaArea['id_direccion'] > 0 ? $metaArea['id_direccion'] : null,
                 'nombre_direccion' => $metaArea['nombre_direccion'] ?? '',
+                'id_empresa' => (int) ($metaArea['id_empresa'] ?? 1),
+                'nombre_empresa' => (string) ($metaArea['nombre_empresa'] ?? 'MaxiKash'),
                 'estatus' => $p['estatus'] ?? '',
                 'usuario' => $p['usuario'] ?? '',
                 'telefono' => $p['telefono'] ?? '',
@@ -26641,6 +26888,8 @@ public function getEstadosMunicipiosMexico()
                     'nombre_area' => (string)($depOrg['departamento_organizacional_nombre'] ?? 'Sin area'),
                     'id_direccion' => (int)($depOrg['id_direccion'] ?? 0),
                     'nombre_direccion' => (string)($depOrg['direccion_nombre'] ?? 'Sin direccion'),
+                    'id_empresa' => (int)($depOrg['id_empresa'] ?? 1),
+                    'nombre_empresa' => (string)($depOrg['nombre_empresa'] ?? 'MaxiKash'),
                 ];
             }
         }
