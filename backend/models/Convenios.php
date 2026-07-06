@@ -928,15 +928,19 @@ public static function getConvenioActivo($id_credito)
                 $porIdPagoC  = $resultS2c['porIdPago'];
                 $fechaAcC    = $convenio['fecha_acuerdo'] ?? null;
                 $fechaFiltroC = $fechaAcC
-                    ? (new \DateTime($fechaAcC))->modify('-30 days')->format('Y-m-d')
+                    ? (new \DateTime($fechaAcC))->format('Y-m-d')
                     : null;
                 if ($fechaFiltroC) {
-                    $rawS2c = array_values(array_filter($rawS2c, fn($p) =>
-                        empty($p['fechaValor']) || $p['fechaValor'] >= $fechaFiltroC));
-                    $porIdPagoC = array_filter($porIdPagoC, fn($p) =>
-                        empty($p['fechaValor']) || $p['fechaValor'] >= $fechaFiltroC);
+                    $rawS2c = array_values(array_filter($rawS2c, function ($p) use ($fechaFiltroC) {
+                        $fechaPago = self::_fechaPagoS2Corta($p);
+                        return !empty($fechaPago) && $fechaPago >= $fechaFiltroC;
+                    }));
+                    $porIdPagoC = array_filter($porIdPagoC, function ($p) use ($fechaFiltroC) {
+                        $fechaPago = self::_fechaPagoS2Corta($p);
+                        return !empty($fechaPago) && $fechaPago >= $fechaFiltroC;
+                    });
                 }
-                $resultadoMapaC    = self::_mapearCuotasS2AConvenio($rawS2c, $amortCompletada);
+                $resultadoMapaC    = self::_mapearPagosS2Waterfall($rawS2c, $amortCompletada);
                 $mapaC             = $resultadoMapaC['mapa'];
                 $mapaMontosC       = $resultadoMapaC['montos'];
                 $mapaSecundariosC  = $resultadoMapaC['secundarios'];
@@ -977,14 +981,12 @@ public static function getConvenioActivo($id_credito)
                         ? round((float)$mapaMontosC[$numSemC], 2)
                         : ($pagoS2c ? round((float)($pagoS2c['montoPago'] ?? $filaC['pago_semanal']), 2) : round((float)$filaC['pago_semanal'], 2));
 
-                    $psFc      = round((float)$filaC['pago_semanal'], 2);
-                    $capFc     = (float)($filaC['capital'] ?? 0);
-                    $cuotaEspC = ($capFc > 0.50 && $capFc < $psFc - 1.00) ? round($capFc, 2) : $psFc;
-                    $estatusC  = ($montoPagoC >= $cuotaEspC - 1.00) ? 'pagado' : 'parcial';
-
                     $msC = !empty($mapaSecundariosC[$numSemC])
                         ? round(array_sum(array_column($mapaSecundariosC[$numSemC], 'montoPago')), 2)
                         : null;
+                    $totalAplicadoC = round($montoPagoC + (float)($msC ?? 0), 2);
+                    $cuotaEspC      = self::_montoEsperadoSemanaConvenio($filaC);
+                    $estatusC       = ($totalAplicadoC >= $cuotaEspC - 0.01) ? 'pagado' : 'parcial';
 
                     $db->CRUD(
                         "UPDATE convenio_cliente_amortizacion
@@ -1064,19 +1066,14 @@ public static function getConvenioActivo($id_credito)
                 $s2YaSaldado  = self::_estadoCuentaS2EstaSaldado($s2Verif['estadoCuenta'] ?? null);
                 $fechaAcuerdo = $convenio['fecha_acuerdo'] ?? null;
                 if ($fechaAcuerdo) {
-                    // FIX #4: ventana de gracia de 7 días antes de fecha_acuerdo.
-                    // El cliente puede haber pagado en S2 unos días antes de que el
-                    // convenio fuera formalmente registrado en el sistema (ej. se
-                    // acuerda el día 22 pero se captura el día 24). Sin esta ventana
-                    // esos pagos quedan invisibles y el sistema cancela por error.
-                    $fechaFiltroVerif = (new \DateTime($fechaAcuerdo))
-                        ->modify('-30 days')
-                        ->format('Y-m-d');
+                    // Los pagos del convenio se consideran desde fecha_acuerdo.
+                    $fechaFiltroVerif = (new \DateTime($fechaAcuerdo))->format('Y-m-d');
                     $rawVerif = array_values(array_filter($rawVerif, function ($p) use ($fechaFiltroVerif) {
-                        return empty($p['fechaValor']) || $p['fechaValor'] >= $fechaFiltroVerif;
+                        $fechaPago = self::_fechaPagoS2Corta($p);
+                        return !empty($fechaPago) && $fechaPago >= $fechaFiltroVerif;
                     }));
                 }
-                $resultadoVerif  = self::_mapearCuotasS2AConvenio($rawVerif, $amortParaVerif);
+                $resultadoVerif  = self::_mapearPagosS2Waterfall($rawVerif, $amortParaVerif);
                 $mapaVerif       = $resultadoVerif['mapa'];
                 $numSemVencida   = (int) $primerVencida['numero_semana'];
                 $pagoConfirmadoS2 = $s2YaSaldado || isset($mapaVerif[$numSemVencida]);
@@ -1173,22 +1170,26 @@ public static function getConvenioActivo($id_credito)
                  // el convenio fuera formalmente capturado en el sistema.
          $fechaAcuerdo = $convenio['fecha_acuerdo'] ?? null;
          $fechaFiltroConv = $fechaAcuerdo
-             ? (new \DateTime($fechaAcuerdo))->modify('-30 days')->format('Y-m-d')
+             ? (new \DateTime($fechaAcuerdo))->format('Y-m-d')
              : null;
          $pagosS2Raw   = array_filter($pagosS2Raw, function($p) use ($fechaFiltroConv) {
-             if (!$fechaFiltroConv || empty($p['fechaValor'])) return true;
-             return $p['fechaValor'] >= $fechaFiltroConv;
+             $fechaPago = self::_fechaPagoS2Corta($p);
+             if (!$fechaFiltroConv) return true;
+             if (empty($fechaPago)) return false;
+             return $fechaPago >= $fechaFiltroConv;
          });
          $pagosS2Raw = array_values($pagosS2Raw);
 
          // También filtrar porIdPago
          $pagosS2PorId = array_filter($pagosS2PorId, function($p) use ($fechaFiltroConv) {
-             if (!$fechaFiltroConv || empty($p['fechaValor'])) return true;
-             return $p['fechaValor'] >= $fechaFiltroConv;
+             $fechaPago = self::_fechaPagoS2Corta($p);
+             if (!$fechaFiltroConv) return true;
+             if (empty($fechaPago)) return false;
+             return $fechaPago >= $fechaFiltroConv;
          });
 
         // Mapeo por capital acumulado → devuelve ['mapa' => numSem=>idPago, 'montos' => numSem=>montoAcumulado, 'secundarios' => numSem=>[...]]
-        $resultadoMapa = self::_mapearCuotasS2AConvenio($pagosS2Raw, $amortizacion);
+        $resultadoMapa = self::_mapearPagosS2Waterfall($pagosS2Raw, $amortizacion);
         $mapaCuotas      = $resultadoMapa['mapa'];
         $mapaMontos      = $resultadoMapa['montos'];
         $mapaSecundarios = $resultadoMapa['secundarios'];
@@ -1230,10 +1231,7 @@ public static function getConvenioActivo($id_credito)
                     : ($pagoS2 ? round((float)($pagoS2['montoPago'] ?? $fila['pago_semanal']), 2) : round((float)$fila['pago_semanal'], 2));
 
                 // Threshold real: capital de BD cuando sea residual de última semana.
-                $psFila  = round((float)$fila['pago_semanal'], 2);
-                $capFila = (float)($fila['capital'] ?? 0);
-                $cuotaEsperada  = ($capFila > 0.50 && $capFila < $psFila - 1.00) ? round($capFila, 2) : $psFila;
-                $estatusPagoS2  = ($montoPagoS2 >= $cuotaEsperada - 1.00) ? 'pagado' : 'parcial';
+                $cuotaEsperada = self::_montoEsperadoSemanaConvenio($fila);
 
                 // Calcular monto_secundario: suma de los pagos complementarios que completaron el déficit
                 $montoSecundario = null;
@@ -1242,6 +1240,8 @@ public static function getConvenioActivo($id_credito)
                         array_sum(array_column($mapaSecundarios[$numSem], 'montoPago')), 2
                     );
                 }
+                $totalAplicadoS2 = round($montoPagoS2 + (float)($montoSecundario ?? 0), 2);
+                $estatusPagoS2   = ($totalAplicadoS2 >= $cuotaEsperada - 0.01) ? 'pagado' : 'parcial';
 
                 $db->CRUD(
                     "UPDATE convenio_cliente_amortizacion
@@ -1702,6 +1702,137 @@ private static function _mapearCuotasS2AConvenio(array $rawPagos, array $amortiz
         if (!isset($mapa[$numSem]) && ($semana['estatus_pago'] ?? '') !== 'pagado') {
             $mapa[$numSem]       = $sobrante_pago_id;
             $mapaMontos[$numSem] = round($sobrante, 4);
+        }
+    }
+
+    return ['mapa' => $mapa, 'montos' => $mapaMontos, 'secundarios' => $mapaSecundarios];
+}
+
+private static function _fechaPagoS2Corta(array $pago): ?string
+{
+    $fecha = $pago['fechaValor']
+        ?? $pago['fechaDeposito']
+        ?? $pago['fechaRegistro']
+        ?? null;
+
+    if (empty($fecha)) {
+        return null;
+    }
+
+    $fechaCorta = substr((string)$fecha, 0, 10);
+    return preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaCorta) ? $fechaCorta : null;
+}
+
+private static function _mapearPagosS2Waterfall(array $rawPagos, array $amortizacion): array
+{
+    if (empty($rawPagos) || empty($amortizacion)) {
+        return ['mapa' => [], 'montos' => [], 'secundarios' => []];
+    }
+
+    usort($rawPagos, function ($a, $b) {
+        $fechaA = self::_fechaPagoS2Corta($a) ?? '9999-12-31';
+        $fechaB = self::_fechaPagoS2Corta($b) ?? '9999-12-31';
+        $cmp = strcmp($fechaA, $fechaB);
+        if ($cmp !== 0) {
+            return $cmp;
+        }
+        return ((int)($a['idPago'] ?? 0)) <=> ((int)($b['idPago'] ?? 0));
+    });
+
+    $pagosPorId = [];
+    foreach ($rawPagos as $pago) {
+        $idPago = $pago['idPago'] ?? null;
+        if ($idPago === null) {
+            continue;
+        }
+        if (!isset($pagosPorId[$idPago])) {
+            $pagosPorId[$idPago] = $pago;
+            $pagosPorId[$idPago]['montoPago'] = 0.0;
+            $pagosPorId[$idPago]['fechaValor'] = self::_fechaPagoS2Corta($pago);
+        }
+        $pagosPorId[$idPago]['montoPago'] += (float)($pago['montoPago'] ?? 0);
+    }
+    $pagosUnicos = array_values($pagosPorId);
+
+    usort($pagosUnicos, function ($a, $b) {
+        $fechaA = self::_fechaPagoS2Corta($a) ?? '9999-12-31';
+        $fechaB = self::_fechaPagoS2Corta($b) ?? '9999-12-31';
+        $cmp = strcmp($fechaA, $fechaB);
+        if ($cmp !== 0) {
+            return $cmp;
+        }
+        return ((int)($a['idPago'] ?? 0)) <=> ((int)($b['idPago'] ?? 0));
+    });
+
+    usort($amortizacion, fn($a, $b) => (int)$a['numero_semana'] <=> (int)$b['numero_semana']);
+
+    $mapa = [];
+    $mapaMontos = [];
+    $mapaSecundarios = [];
+    $idxSemana = 0;
+    $totalSemanas = count($amortizacion);
+
+    foreach ($pagosUnicos as $pago) {
+        $idPago = $pago['idPago'];
+        $disponible = round((float)($pago['montoPago'] ?? 0), 4);
+
+        if ($disponible <= 0.001) {
+            continue;
+        }
+
+        while ($idxSemana < $totalSemanas && $disponible > 0.001) {
+            $semana = $amortizacion[$idxSemana];
+
+            if (($semana['estatus_pago'] ?? '') === 'cancelado') {
+                $idxSemana++;
+                continue;
+            }
+
+            $numSemana = (int)$semana['numero_semana'];
+            $esperado = self::_montoEsperadoSemanaConvenio($semana);
+
+            if ($esperado <= 0.01) {
+                $idxSemana++;
+                continue;
+            }
+
+            $principalActual = (float)($mapaMontos[$numSemana] ?? 0);
+            $secundarioActual = !empty($mapaSecundarios[$numSemana])
+                ? (float)array_sum(array_column($mapaSecundarios[$numSemana], 'montoPago'))
+                : 0.0;
+            $faltante = round($esperado - $principalActual - $secundarioActual, 4);
+
+            if ($faltante <= 0.001) {
+                $idxSemana++;
+                continue;
+            }
+
+            $aplicar = round(min($disponible, $faltante), 4);
+            if ($aplicar <= 0.001) {
+                break;
+            }
+
+            if (!isset($mapa[$numSemana])) {
+                $mapa[$numSemana] = $idPago;
+                $mapaMontos[$numSemana] = round(($mapaMontos[$numSemana] ?? 0) + $aplicar, 4);
+            } elseif ((string)$mapa[$numSemana] === (string)$idPago) {
+                $mapaMontos[$numSemana] = round(($mapaMontos[$numSemana] ?? 0) + $aplicar, 4);
+            } else {
+                $mapaSecundarios[$numSemana][] = [
+                    'idPago' => $idPago,
+                    'montoPago' => round($aplicar, 2),
+                    'fechaValor' => $pago['fechaValor'] ?? null,
+                ];
+            }
+
+            $disponible = round($disponible - $aplicar, 4);
+            $faltante = round($faltante - $aplicar, 4);
+
+            if ($faltante <= 0.001) {
+                $idxSemana++;
+            } else {
+                break;
+            }
         }
     }
 

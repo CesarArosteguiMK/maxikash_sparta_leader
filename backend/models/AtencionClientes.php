@@ -332,6 +332,29 @@ class AtencionClientes
         )";
     }
 
+    private function sqlExisteEvidenciaFisicaMinima(string $aliasOperacion = 'o'): string
+    {
+        return "(
+            (
+                SELECT COUNT(DISTINCT e.slot)
+                FROM adj_evidencia e
+                WHERE e.id_operacion = {$aliasOperacion}.id
+                  AND e.slot IN (
+                      'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+                      'fis_vin', 'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+                      'fis_tacometro', 'fis_checklist'
+                  )
+            ) >= 9
+            AND EXISTS (
+                SELECT 1
+                FROM adj_evidencia ev
+                WHERE ev.id_operacion = {$aliasOperacion}.id
+                  AND ev.slot IN ('fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba')
+                LIMIT 1
+            )
+        )";
+    }
+
     private function sqlExisteFormularioEvidencias(string $aliasOperacion = 'o'): string
     {
         $a = $aliasOperacion;
@@ -829,6 +852,7 @@ SQL;
     {
         $condEnvio = $this->sqlCondicionBitacoraEnvioEvidencias('b_env');
         $existeEvidencia = $this->sqlExisteEvidenciaFisica('o');
+        $existeEvidenciaMinima = $this->sqlExisteEvidenciaFisicaMinima('o');
         $existeFormulario = $this->sqlExisteFormularioEvidencias('o');
 
         return <<<SQL
@@ -843,6 +867,10 @@ SQL;
                 AND {$condEnvio}
           )
           OR o.estatus = 'Recibido'
+          OR (
+              o.estatus = 'en_transito'
+              AND {$existeEvidenciaMinima}
+          )
       )
       AND (
           o.estatus IN ('Recibido', 'en_transito')
