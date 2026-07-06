@@ -394,14 +394,25 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
         and not hay_falla_final
         and any(_v2_is_unread_curp_alert(alerta) for alerta in alertas)
         and _v2_has_strong_identity_consensus(comps, docs, nombre_candidato_registro, datos_ref)
+        and _v2_curp_document_has_identity_match(docs, nombre_candidato_registro, datos_ref)
     ):
         alertas = [alerta for alerta in alertas if not _v2_is_unread_curp_alert(alerta)]
         msg_curp_consenso = (
-            "CURP no se leyo completa en su documento, pero la identidad queda soportada "
-            "por documentos oficiales, RFC/NSS y una referencia CURP valida."
+            "CURP confirmada por coincidencia del propio documento con el expediente: "
+            "el documento CURP aporto nombre o CURP comparable con los demas documentos."
         )
         if msg_curp_consenso not in recomendaciones:
             recomendaciones.append(msg_curp_consenso)
+    elif any(_v2_is_unread_curp_alert(alerta) for alerta in alertas):
+        msg_curp_sin_evidencia = (
+            "El documento CURP requiere revision: no se pudo confirmar dentro de ese PDF "
+            "un nombre o CURP comparable con el resto del expediente."
+        )
+        if msg_curp_sin_evidencia not in alertas:
+            alertas = [
+                msg_curp_sin_evidencia if _v2_is_unread_curp_alert(alerta) else alerta
+                for alerta in alertas
+            ]
 
     if dictamen == "rechazado" and not hay_critico_final:
         dictamen = "requiere_revision" if hay_falla_final or alertas else "aprobado"
@@ -648,6 +659,32 @@ def _v2_add_alerta_once(alertas: List[str], msg: str) -> None:
 def _v2_is_unread_curp_alert(alerta: Any) -> bool:
     clean = normalize_text(str(alerta or ""))
     return "CURP" in clean and "NO SE PUDO LEER AUTOMATICAMENTE" in clean
+
+
+def _v2_curp_document_has_identity_match(
+    docs: Dict[str, Any],
+    nombre_registro: Optional[str],
+    datos_ref: Dict[str, Any],
+) -> bool:
+    curp_doc = docs.get("curp")
+    if not isinstance(curp_doc, dict):
+        return False
+
+    doc_curp = _v2_clean_curp(curp_doc.get("curp"))
+    ref_curp = _v2_clean_curp(datos_ref.get("curp_principal"))
+    if doc_curp and ref_curp and _v2_curp_similarity(ref_curp, doc_curp)[0]:
+        return True
+
+    ref_rfc = datos_ref.get("rfc_principal")
+    if doc_curp and _v2_rfc_matches_curp_base(ref_rfc, doc_curp):
+        return True
+
+    doc_name = curp_doc.get("nombre")
+    ref_name = nombre_registro or datos_ref.get("nombre_registro") or datos_ref.get("nombre_principal_documentos")
+    if doc_name and _v2_names_match(ref_name, doc_name):
+        return True
+
+    return False
 
 
 def _v2_has_strong_identity_consensus(
