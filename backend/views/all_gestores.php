@@ -5675,6 +5675,13 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                           </select>
                         </div>
                         <div class="col-md-3">
+                          <label class="form-label">Empresa</label>
+                          <select id="rrhh_empresa_id" class="form-select js-select-buscador" name="rrhh.empresa_id" disabled>
+                            <option value="">Seleccione una empresa</option>
+                          </select>
+                          <input type="hidden" id="rrhh_empresa_texto" name="rrhh.empresa_texto">
+                        </div>
+                        <div class="col-md-3">
                           <label class="form-label">Direcci&oacute;n</label>
                           <select id="rrhh_direccion_id" class="form-select js-select-buscador" name="rrhh.direccion_id" disabled>
                             <option value="">Seleccione una direcci&oacute;n</option>
@@ -14454,6 +14461,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       }
     });
 
+    if (!payload.rrhh.direccion_organizacional && payload.rrhh.direccion_texto) {
+      payload.rrhh.direccion_organizacional = payload.rrhh.direccion_texto;
+    }
+
     return payload;
   }
 
@@ -14970,6 +14981,39 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     return dep?.nombre_direccion || dep?.direccion_nombre || dep?.direccion_organizacional || dep?.direccion || '';
   }
 
+  function depEmpresaIdRrhh(dep) {
+    return dep?.id_empresa || dep?.empresa_id || '';
+  }
+
+  function depEmpresaNombreRrhh(dep) {
+    return dep?.nombre_empresa || dep?.empresa_nombre || dep?.nombre_comercial_empresa || '';
+  }
+
+  function resolverEmpresaIdRrhh(data) {
+    const empresaGuardada = data?.rrhh?.empresa_id || data?.rrhh?.id_empresa || '';
+    const direccionGuardada = resolverDireccionIdRrhh(data);
+    const departamentoGuardado = data?.rrhh?.departamento_id || '';
+    const areaGuardada = data?.rrhh?.area_id || '';
+    const deps = rrhhDepartamentosBackend();
+
+    if (empresaGuardada && deps.some(dep => String(depEmpresaIdRrhh(dep)) === String(empresaGuardada))) {
+      return empresaGuardada;
+    }
+
+    const depDesdeDepartamento = deps.find(dep => String(dep.id || dep.departamento_id || '') === String(departamentoGuardado));
+    if (depDesdeDepartamento && depEmpresaIdRrhh(depDesdeDepartamento)) {
+      return depEmpresaIdRrhh(depDesdeDepartamento);
+    }
+
+    const depDesdeArea = deps.find(dep => String(dep.id_departamento_organizacional || dep.departamento_organizacional_id || '') === String(areaGuardada));
+    if (depDesdeArea && depEmpresaIdRrhh(depDesdeArea)) {
+      return depEmpresaIdRrhh(depDesdeArea);
+    }
+
+    const depDesdeDireccion = deps.find(dep => String(depDireccionIdRrhh(dep) || '') === String(direccionGuardada));
+    return depDesdeDireccion ? depEmpresaIdRrhh(depDesdeDireccion) : empresaGuardada;
+  }
+
   function resolverDireccionIdRrhh(data) {
     const direccionGuardada = data?.rrhh?.direccion_id || '';
     const departamentoGuardado = data?.rrhh?.departamento_id || '';
@@ -15026,6 +15070,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
   async function precargarSelectsLaboralesRrhh(data) {
     const rrhh = data?.rrhh || {};
+    const empresaId = resolverEmpresaIdRrhh(data);
     const direccionId = resolverDireccionIdRrhh(data);
     const areaId = resolverAreaIdRrhh(data);
     const departamentoId = resolverDepartamentoIdRrhh(data);
@@ -15036,6 +15081,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     try {
       fillRrhhPaises();
       setSelectValue('rrhh_pais_id', data?.persona?.id_pais || '');
+
+      fillRrhhEmpresas();
+      ensureSelectOptionRrhh('rrhh_empresa_id', empresaId, rrhh.empresa_texto || rrhh.nombre_empresa);
+      setSelectValue('rrhh_empresa_id', empresaId);
 
       fillRrhhDirecciones();
       ensureSelectOptionRrhh('rrhh_direccion_id', direccionId, rrhh.direccion_texto || rrhh.direccion_organizacional);
@@ -15058,6 +15107,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       setSelectValue('rrhh_jefe_id', jefeId);
 
       setRrhhHiddenText('rrhh_direccion_id', 'rrhh_direccion_texto');
+      setRrhhHiddenText('rrhh_empresa_id', 'rrhh_empresa_texto');
       setRrhhHiddenText('rrhh_area_id', 'rrhh_area_texto');
       setRrhhHiddenText('rrhh_departamento_id', 'rrhh_departamento_texto');
       setRrhhHiddenText('rrhh_puesto_id', 'rrhh_puesto_texto');
@@ -15710,15 +15760,57 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     return false;
   }
 
+  function fillRrhhEmpresas() {
+    const selectEmpresa = document.getElementById('rrhh_empresa_id');
+    if (!selectEmpresa) return;
+
+    const idPais = document.getElementById('rrhh_pais_id')?.value || '';
+    const empresas = new Map();
+
+    rrhhDepartamentosBackend()
+      .filter(dep => depPertenecePais(dep, idPais))
+      .forEach(dep => {
+        const idEmpresa = depEmpresaIdRrhh(dep);
+        const nombreEmpresa = depEmpresaNombreRrhh(dep);
+        if (idEmpresa && nombreEmpresa) {
+          empresas.set(String(idEmpresa), nombreEmpresa);
+        }
+      });
+
+    const current = selectEmpresa.value;
+    selectEmpresa.disabled = !idPais || empresas.size === 0;
+    selectEmpresa.innerHTML = '<option value="">Seleccione una empresa</option>' +
+      Array.from(empresas.entries())
+        .sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }))
+        .map(([id, nombre]) => optionHtml(id, nombre))
+        .join('');
+
+    if (current && empresas.has(String(current))) {
+      selectEmpresa.value = current;
+    } else if (empresas.size === 1) {
+      selectEmpresa.value = Array.from(empresas.keys())[0];
+    } else {
+      selectEmpresa.value = '';
+    }
+
+    setRrhhHiddenText('rrhh_empresa_id', 'rrhh_empresa_texto');
+    refreshRrhhSelect('rrhh_empresa_id');
+    if (form.dataset.rrhhPreloading !== '1') {
+      fillRrhhDirecciones();
+    }
+  }
+
   function fillRrhhDirecciones() {
     const selectDireccion = document.getElementById('rrhh_direccion_id');
     if (!selectDireccion) return;
 
     const idPais = document.getElementById('rrhh_pais_id')?.value || '';
+    const idEmpresa = document.getElementById('rrhh_empresa_id')?.value || '';
     const direcciones = new Map();
 
     rrhhDepartamentosBackend()
       .filter(dep => depPertenecePais(dep, idPais))
+      .filter(dep => String(depEmpresaIdRrhh(dep) || '') === String(idEmpresa || ''))
       .forEach(dep => {
         const idDireccion = depDireccionIdRrhh(dep);
         const nombreDireccion = depDireccionNombreRrhh(dep);
@@ -15728,7 +15820,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       });
 
     const current = selectDireccion.value;
-    selectDireccion.disabled = !idPais || direcciones.size === 0;
+    selectDireccion.disabled = !idPais || !idEmpresa || direcciones.size === 0;
     selectDireccion.innerHTML = '<option value="">Seleccione una direcci&oacute;n</option>' +
       Array.from(direcciones.entries())
         .sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }))
@@ -15756,10 +15848,12 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     if (!select) return;
     const current = seleccionadoForzado || select.value;
     const idArea = selectArea?.value || '';
+    const idEmpresa = document.getElementById('rrhh_empresa_id')?.value || '';
     const departamentos = [];
 
     rrhhDepartamentosBackend()
       .filter(dep => depPertenecePais(dep, document.getElementById('rrhh_pais_id')?.value || ''))
+      .filter(dep => String(depEmpresaIdRrhh(dep) || '') === String(idEmpresa || ''))
       .filter(dep => String(dep.id_departamento_organizacional || dep.departamento_organizacional_id || '') === String(idArea))
       .forEach(dep => {
         const idDepartamento = dep.id || dep.departamento_id || '';
@@ -15796,11 +15890,13 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     if (!selectArea) return;
 
     const idPais = document.getElementById('rrhh_pais_id')?.value || '';
+    const idEmpresa = document.getElementById('rrhh_empresa_id')?.value || '';
     const idDireccion = document.getElementById('rrhh_direccion_id')?.value || '';
     const areas = new Map();
 
     rrhhDepartamentosBackend()
       .filter(dep => depPertenecePais(dep, idPais))
+      .filter(dep => String(depEmpresaIdRrhh(dep) || '') === String(idEmpresa || ''))
       .filter(dep => String(depDireccionIdRrhh(dep) || '') === String(idDireccion || ''))
       .forEach(dep => {
         const idArea = dep.id_departamento_organizacional || dep.departamento_organizacional_id || '';
@@ -15811,7 +15907,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       });
 
     const current = selectArea.value;
-    selectArea.disabled = !idPais || !idDireccion || areas.size === 0;
+    selectArea.disabled = !idPais || !idEmpresa || !idDireccion || areas.size === 0;
     selectArea.innerHTML = '<option value="">Seleccione un &aacute;rea</option>' +
       Array.from(areas.entries())
         .sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }))
@@ -16012,7 +16108,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   function initRrhhLaboralSelects() {
     ordenarCamposLaboralesRrhh();
     fillRrhhPaises();
-    fillRrhhDirecciones();
+    fillRrhhEmpresas();
     fillRrhhJefes();
     vincularEventosSelect2Rrhh();
   }
@@ -16021,6 +16117,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     if (typeof window.jQuery === 'undefined') return;
     const $ = window.jQuery;
     $('#rrhh_pais_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
+      fillRrhhEmpresas();
+    });
+    $('#rrhh_empresa_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
+      setRrhhHiddenText('rrhh_empresa_id', 'rrhh_empresa_texto');
       fillRrhhDirecciones();
     });
     $('#rrhh_direccion_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
@@ -16689,6 +16789,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const target = event.target;
     if (!target) return;
     if (target.id === 'rrhh_pais_id') {
+      fillRrhhEmpresas();
+    } else if (target.id === 'rrhh_empresa_id') {
+      setRrhhHiddenText('rrhh_empresa_id', 'rrhh_empresa_texto');
       fillRrhhDirecciones();
     } else if (target.id === 'rrhh_direccion_id') {
       setRrhhHiddenText('rrhh_direccion_id', 'rrhh_direccion_texto');

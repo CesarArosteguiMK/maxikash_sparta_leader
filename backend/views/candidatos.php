@@ -550,8 +550,14 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                 </div>
             </div>
             <div class="mb-2">
+                <label class="form-label">Empresa <span class="text-danger">*</span></label>
+                <select name="id_empresa" id="candidato_id_empresa" class="form-select js-select-buscador" required>
+                    <option value="">Seleccione empresa</option>
+                </select>
+            </div>
+            <div class="mb-2">
                 <label class="form-label">Dirección <span class="text-danger">*</span></label>
-                <select name="id_direccion" id="candidato_id_direccion" class="form-select js-select-buscador" required>
+                <select name="id_direccion" id="candidato_id_direccion" class="form-select js-select-buscador" required disabled>
                     <option value="">Seleccione dirección</option>
                 </select>
             </div>
@@ -678,8 +684,12 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
 .btn-action-size { height: 36px; padding: 0.375rem 0.75rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.375rem; }
 #tablaCandidatos thead th { background-color: rgba(105, 108, 255, 0.1); font-weight: 600; }
 /* Offcanvas candidato siempre visible por encima del layout */
-#offcanvasAddCandidato.offcanvas { z-index: 1060 !important; }
-.offcanvas-backdrop { z-index: 1055 !important; }
+#offcanvasAddCandidato.offcanvas {
+    z-index: 1095 !important;
+    top: 0 !important;
+    height: 100vh !important;
+}
+.offcanvas-backdrop { z-index: 1090 !important; }
 /* Scrim borroso detrás del modal (Documentación, Resumen postulación, etc.) */
 .modal-backdrop { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .modal-backdrop.show { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }

@@ -1156,7 +1156,9 @@ class CapHumRrhh extends Model
                     dorg.id AS area_id,
                     dorg.nombre AS area_texto,
                     dir.id AS direccion_id,
-                    dir.nombre AS direccion_texto
+                    dir.nombre AS direccion_texto,
+                    COALESCE(dep.id_empresa, dorg.id_empresa, dir.id_empresa, 1) AS empresa_id,
+                    COALESCE(emp.nombre_comercial, 'MaxiKash') AS empresa_texto
                 FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
                 INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = ap.id_puesto
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = pu.departamento_id
@@ -1165,6 +1167,8 @@ class CapHumRrhh extends Model
                        ON ad.id_departamento_organizacional = dep.id_departamento_organizacional
                       AND COALESCE(ad.activo, 1) = 1
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir ON dir.id = ad.id_direccion
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.rrhh_empresas emp
+                       ON emp.id = COALESCE(dep.id_empresa, dorg.id_empresa, dir.id_empresa, 1)
                 WHERE ap.id_persona = :id_persona
                   AND COALESCE(ap.activo, 1) = 1
                 ORDER BY COALESCE(pu.nivel, 0) DESC, ap.id DESC
@@ -1172,12 +1176,12 @@ class CapHumRrhh extends Model
             ", ['id_persona' => $idPersona]) ?: [];
 
             if ($asignacionPuesto) {
-                foreach (['departamento_id', 'area_id', 'puesto_id', 'direccion_id'] as $campo) {
+                foreach (['departamento_id', 'area_id', 'puesto_id', 'direccion_id', 'empresa_id'] as $campo) {
                     if (empty($rrhh[$campo]) && !empty($asignacionPuesto[$campo])) {
                         $rrhh[$campo] = $asignacionPuesto[$campo];
                     }
                 }
-                foreach (['departamento_texto', 'area_texto', 'puesto_texto', 'direccion_texto'] as $campo) {
+                foreach (['departamento_texto', 'area_texto', 'puesto_texto', 'direccion_texto', 'empresa_texto'] as $campo) {
                     if (empty($rrhh[$campo]) && !empty($asignacionPuesto[$campo])) {
                         $rrhh[$campo] = $asignacionPuesto[$campo];
                     }
