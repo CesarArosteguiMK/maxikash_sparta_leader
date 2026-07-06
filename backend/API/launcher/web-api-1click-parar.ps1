@@ -176,6 +176,12 @@ Get-Process -ErrorAction SilentlyContinue |
     } |
     ForEach-Object { Invoke-TaskKillTree -ProcessId ([int]$_.Id) -Label 'Python API por ruta' }
 
+# Reescribe la bandera al final por si un supervisor viejo la consumio antes de terminar.
+try {
+    Set-Content -LiteralPath $stopFlag -Value ("requested_at=" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "`nrequested_by=web-api-1click-parar-final") -Encoding ASCII
+    Remove-Item -LiteralPath $restartFlag -Force -ErrorAction SilentlyContinue
+} catch {}
+
 # 6) Confirmacion visible para el panel web.
 $stillPort = $false
 foreach ($line in (netstat -ano 2>$null)) {
