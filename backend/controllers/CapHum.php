@@ -20223,6 +20223,111 @@ class CapHum extends Controller
         return $payload;
     }
 
+    private function lecturaIaTieneValor(array $validacion, array $keys): bool
+    {
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $validacion)) {
+                continue;
+            }
+            $value = $validacion[$key];
+            if (is_bool($value)) {
+                return true;
+            }
+            if (is_array($value)) {
+                if (!empty($value)) {
+                    return true;
+                }
+                continue;
+            }
+            if ($value !== null && trim((string) $value) !== '') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function lecturaExpedienteNecesitaRescatePdf(string $key, array $lecturasDecoded): bool
+    {
+        $lectura = $lecturasDecoded[$key] ?? null;
+        if (!is_array($lectura)) {
+            return true;
+        }
+        $validacion = $lectura['validacion_previa'] ?? $lectura;
+        if (!is_array($validacion)) {
+            return true;
+        }
+
+        switch ($key) {
+            case 'curp':
+                return !$this->lecturaIaTieneValor($validacion, ['curp', 'curp_extraido', 'curp_lectura_ia'])
+                    || !$this->lecturaIaTieneValor($validacion, ['nombre', 'nombre_completo']);
+            case 'nss':
+                return !$this->lecturaIaTieneValor($validacion, ['nss', 'nss_extraido', 'nss_lectura_ia']);
+            case 'constancia_fiscal':
+                return !$this->lecturaIaTieneValor($validacion, ['rfc', 'curp', 'curp_extraido']);
+            case 'acta_nacimiento':
+                return !$this->lecturaIaTieneValor($validacion, ['nombre', 'nombre_completo']);
+            case 'identificacion_oficial':
+                return !$this->lecturaIaTieneValor($validacion, ['nombre', 'nombre_completo', 'curp', 'clave_elector', 'numero_documento']);
+            case 'solicitud_interna':
+                return !$this->lecturaIaTieneValor($validacion, ['tipo_documento_detectado', 'nombre', 'nombre_completo', 'curp', 'rfc', 'nss']);
+            default:
+                return false;
+        }
+    }
+
+    private function agregarArchivosRescatePayloadLigero(array &$payload, array $rutas, array $lecturasDecoded): void
+    {
+        $prioridad = [
+            ['key' => 'curp', 'campo' => 'documento_curp', 'ruta' => 'curp'],
+            ['key' => 'nss', 'campo' => 'documento_nss', 'ruta' => 'nss'],
+            ['key' => 'constancia_fiscal', 'campo' => 'constancia_fiscal', 'ruta' => 'constancia_fiscal'],
+            ['key' => 'acta_nacimiento', 'campo' => 'acta_nacimiento', 'ruta' => 'acta_nacimiento'],
+            ['key' => 'identificacion_oficial', 'campo' => 'identificacion_pdf', 'ruta' => 'identificacion_pdf'],
+            ['key' => 'solicitud_interna', 'campo' => 'solicitud_interna', 'ruta' => 'solicitud_interna'],
+        ];
+        $maxArchivos = 4;
+        $maxBytesArchivo = 3 * 1024 * 1024;
+        $maxBytesTotal = 8 * 1024 * 1024;
+        $agregados = 0;
+        $bytesTotal = 0;
+
+        foreach ($prioridad as $item) {
+            if ($agregados >= $maxArchivos || $bytesTotal >= $maxBytesTotal) {
+                break;
+            }
+            $key = $item['key'];
+            if (!$this->lecturaExpedienteNecesitaRescatePdf($key, $lecturasDecoded)) {
+                continue;
+            }
+            $rutaKey = $item['ruta'];
+            $ruta = (string) ($rutas[$rutaKey] ?? '');
+            if ($ruta === '' || !is_file($ruta)) {
+                continue;
+            }
+            $bytes = (int) @filesize($ruta);
+            if ($bytes <= 0 || $bytes > $maxBytesArchivo || ($bytesTotal + $bytes) > $maxBytesTotal) {
+                error_log('CapHum::validarExpedienteApiJson rescate omitido key=' . $key . ' bytes=' . $bytes);
+                continue;
+            }
+            $data = @file_get_contents($ruta);
+            if ($data === false || $data === '') {
+                continue;
+            }
+            $payload[$item['campo']] = [
+                'filename' => basename($ruta),
+                'mime' => 'application/pdf',
+                'bytes' => strlen($data),
+                'b64' => base64_encode($data),
+            ];
+            $agregados++;
+            $bytesTotal += strlen($data);
+        }
+        if ($agregados > 0) {
+            error_log('CapHum::validarExpedienteApiJson payload_ligero_rescate archivos=' . $agregados . ' bytes=' . $bytesTotal);
+        }
+    }
+
     private function validarExpedienteApiJson(string $baseUrl, string $apiKey, array $rutas, $nombreCandidatoRegistro, string $tipoDocExp, int $timeoutExp, array $documentos = []): array
     {
         $lecturasJson = $this->construirLecturasIaExpedienteJson($documentos);
@@ -20256,6 +20361,9 @@ class CapHum extends Controller
         }
         if (!empty($documentosEsperados)) {
             $payload['documentos_esperados'] = $documentosEsperados;
+        }
+        if ($payloadLigero && is_array($lecturasDecoded)) {
+            $this->agregarArchivosRescatePayloadLigero($payload, $rutas, $lecturasDecoded);
         }
 
         $diagArchivos = [];

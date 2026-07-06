@@ -1076,7 +1076,10 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
 
     if doc_type == "curp":
         if not fields.get("curp"):
-            errors.append("No se pudo leer la CURP")
+            if fields.get("nombre_completo"):
+                warnings.append("No se pudo leer la CURP completa, pero se leyo el nombre del documento")
+            else:
+                errors.append("No se pudo leer la CURP ni el nombre del documento")
         issued = parse_date(fields.get("fecha_emision")) or parse_date(fields.get("fecha_expedicion"))
         months = months_since(issued)
         if months is None:
