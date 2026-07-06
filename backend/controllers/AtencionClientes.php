@@ -18,7 +18,7 @@ class AtencionClientes extends Controller
     {
         $this->model->asegurarPermisosBlacklist();
         $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
-        $usuarioId = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $usuarioId = $this->usuarioSesionId();
         $admin = $usuarioId === 1 || in_array(1, $modulos, true);
 
         return [
@@ -27,6 +27,11 @@ class AtencionClientes extends Controller
             'ver' => $admin || in_array(AtencionClientesModel::MODULO_MA_VER_BLACKLIST, $modulos, true) || in_array(3039, $modulos, true),
             'liberar' => $admin || in_array(AtencionClientesModel::MODULO_MA_LIBERAR_BLACKLIST, $modulos, true) || in_array(3040, $modulos, true),
         ];
+    }
+
+    private function usuarioSesionId(): int
+    {
+        return (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
     }
 
     private function nombreUsuarioSesion(): string
@@ -380,7 +385,7 @@ class AtencionClientes extends Controller
                 return;
             }
 
-            $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+            $idUsuario = $this->usuarioSesionId();
             $resultado = $this->model->cancelarVistoBuenoOperacion(
                 (int) ($body['id_operacion'] ?? 0),
                 $tipo,
@@ -446,7 +451,7 @@ class AtencionClientes extends Controller
                 return;
             }
 
-            $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+            $idUsuario = $this->usuarioSesionId();
             $resultado = $this->model->liberarBlacklist(
                 (int) ($body['blacklist_id'] ?? 0),
                 (string) ($body['motivo'] ?? ''),
@@ -640,7 +645,7 @@ class AtencionClientes extends Controller
             return;
         }
 
-        $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id'] ?? 0);
+        $idUsuario = $this->usuarioSesionId();
         $resultado = $this->model->registrarDictamen($idOperacion, $body, $idUsuario);
 
         if (!$resultado['success']) {
