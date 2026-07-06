@@ -247,6 +247,43 @@ class AtencionClientes
                 KEY idx_adj_blacklist_fecha (fecha_bloqueo)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
         );
+
+        $columnas = [
+            'id_operacion' => 'INT NULL AFTER id',
+            'id_credito' => 'BIGINT NULL AFTER id_operacion',
+            'estatus' => 'VARCHAR(60) NULL AFTER id_credito',
+            'tipo_movimiento' => 'VARCHAR(60) NULL AFTER estatus',
+            'motivo' => 'VARCHAR(180) NULL AFTER tipo_movimiento',
+            'comentario' => 'TEXT NULL AFTER motivo',
+            'area_responsable' => "VARCHAR(80) NULL DEFAULT 'Evidencias' AFTER comentario",
+            'bloqueado_por' => 'INT NULL AFTER area_responsable',
+            'bloqueado_por_nombre' => 'VARCHAR(180) NULL AFTER bloqueado_por',
+            'fecha_bloqueo' => 'DATETIME NULL AFTER bloqueado_por_nombre',
+            'liberado_por' => 'INT NULL AFTER fecha_bloqueo',
+            'liberado_por_nombre' => 'VARCHAR(180) NULL AFTER liberado_por',
+            'fecha_liberacion' => 'DATETIME NULL AFTER liberado_por_nombre',
+            'motivo_liberacion' => 'VARCHAR(250) NULL AFTER fecha_liberacion',
+            'activo' => 'TINYINT(1) NOT NULL DEFAULT 1 AFTER motivo_liberacion',
+            'created_at' => 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER activo',
+            'updated_at' => 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at',
+        ];
+
+        foreach ($columnas as $columna => $definicion) {
+            if (!$this->columnaExiste('adj_operacion_blacklist', $columna)) {
+                $this->db->CRUD("ALTER TABLE adj_operacion_blacklist ADD COLUMN {$columna} {$definicion}");
+            }
+        }
+    }
+
+    private function columnaExiste(string $tabla, string $columna): bool
+    {
+        $tabla = trim($tabla);
+        $columna = trim($columna);
+        if ($tabla === '' || $columna === '') {
+            return false;
+        }
+        $row = $this->db->queryOne("SHOW COLUMNS FROM `{$tabla}` LIKE :columna", ['columna' => $columna]);
+        return (bool) $row;
     }
 
     private function registrarBitacora(int $idOperacion, string $accion, int $idUsuario, string $nombreUsuario, ?string $fecha = null): void
@@ -264,33 +301,41 @@ class AtencionClientes
             $nom = strtoupper($nom);
             $acc = strtoupper($acc);
         }
-        $this->db->CRUD(
-            'INSERT INTO adj_bitacora (id_operacion, id_usuario, nombre_usuario, accion, fecha_alta)
-             VALUES (:id_op, :id_usr, :nombre, :accion, :fecha)',
-            [
-                'id_op' => $idOperacion,
-                'id_usr' => $idUsuario,
-                'nombre' => $nom,
-                'accion' => $acc,
-                'fecha' => $fecha,
-            ]
-        );
+        try {
+            $this->db->CRUD(
+                'INSERT INTO adj_bitacora (id_operacion, id_usuario, nombre_usuario, accion, fecha_alta)
+                 VALUES (:id_op, :id_usr, :nombre, :accion, :fecha)',
+                [
+                    'id_op' => $idOperacion,
+                    'id_usr' => $idUsuario,
+                    'nombre' => $nom,
+                    'accion' => $acc,
+                    'fecha' => $fecha,
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log('AtencionClientes::registrarBitacora cancelacion evidencias :: ' . $e->getMessage());
+        }
     }
 
     private function registrarHistorialEstatus(int $idOperacion, string $estatusAnterior, string $estatusNuevo, int $idUsuario, string $fecha): void
     {
-        $this->db->CRUD(
-            'INSERT INTO adj_historial_estatus
-                (id_operacion, estatus_anterior, estatus_nuevo, id_usuario, fecha)
-             VALUES (:id_op, :anterior, :nuevo, :id_usr, :fecha)',
-            [
-                'id_op' => $idOperacion,
-                'anterior' => $estatusAnterior,
-                'nuevo' => $estatusNuevo,
-                'id_usr' => $idUsuario ?: null,
-                'fecha' => $fecha,
-            ]
-        );
+        try {
+            $this->db->CRUD(
+                'INSERT INTO adj_historial_estatus
+                    (id_operacion, estatus_anterior, estatus_nuevo, id_usuario, fecha)
+                 VALUES (:id_op, :anterior, :nuevo, :id_usr, :fecha)',
+                [
+                    'id_op' => $idOperacion,
+                    'anterior' => $estatusAnterior,
+                    'nuevo' => $estatusNuevo,
+                    'id_usr' => $idUsuario > 0 ? $idUsuario : 0,
+                    'fecha' => $fecha,
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log('AtencionClientes::registrarHistorialEstatus cancelacion evidencias :: ' . $e->getMessage());
+        }
     }
 
     private function sqlAhoraCdmxLiteral(): string
@@ -329,6 +374,29 @@ class AtencionClientes
                     'fis_video_vuelta_prueba', 'fis_checklist'
                )
              LIMIT 1
+        )";
+    }
+
+    private function sqlExisteEvidenciaFisicaMinima(string $aliasOperacion = 'o'): string
+    {
+        return "(
+            (
+                SELECT COUNT(DISTINCT e.slot)
+                FROM adj_evidencia e
+                WHERE e.id_operacion = {$aliasOperacion}.id
+                  AND e.slot IN (
+                      'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+                      'fis_vin', 'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+                      'fis_tacometro', 'fis_checklist'
+                  )
+            ) >= 9
+            AND EXISTS (
+                SELECT 1
+                FROM adj_evidencia ev
+                WHERE ev.id_operacion = {$aliasOperacion}.id
+                  AND ev.slot IN ('fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba')
+                LIMIT 1
+            )
         )";
     }
 
@@ -829,6 +897,7 @@ SQL;
     {
         $condEnvio = $this->sqlCondicionBitacoraEnvioEvidencias('b_env');
         $existeEvidencia = $this->sqlExisteEvidenciaFisica('o');
+        $existeEvidenciaMinima = $this->sqlExisteEvidenciaFisicaMinima('o');
         $existeFormulario = $this->sqlExisteFormularioEvidencias('o');
 
         return <<<SQL
@@ -843,6 +912,10 @@ SQL;
                 AND {$condEnvio}
           )
           OR o.estatus = 'Recibido'
+          OR (
+              o.estatus = 'en_transito'
+              AND {$existeEvidenciaMinima}
+          )
       )
       AND (
           o.estatus IN ('Recibido', 'en_transito')
@@ -1428,7 +1501,6 @@ SQL;
             return ['success' => false, 'message' => 'Esta operacion ya fue cancelada o enviada a BlackList.'];
         }
 
-        $estatusNuevo = $tipoCancelacion === 'blacklist' ? 'BlackList' : 'Visto Bueno Denegado';
         $estatusBlacklist = $tipoCancelacion === 'blacklist' ? 'BLACKLIST_MOTOS_ADJUDICADAS' : 'VISTO_BUENO_DENEGADO';
         $accion = $tipoCancelacion === 'blacklist'
             ? 'BlackList Motos Adjudicadas: ' . $motivo
@@ -1456,16 +1528,11 @@ SQL;
                 'fecha_bloqueo' => $fecha,
             ]
         );
+        $blacklistId = (int) $this->db->lastInsertId();
+        $this->marcarProcesoLegacyRechazado($idOperacion, $idCredito, $blacklistId, $motivo, $fecha);
 
         $estatusAnterior = (string) ($op['estatus'] ?? '');
-        $this->db->CRUD(
-            'UPDATE adj_operacion
-                SET estatus = :estatus
-              WHERE id = :id',
-            ['estatus' => $estatusNuevo, 'id' => $idOperacion]
-        );
-
-        $this->registrarHistorialEstatus($idOperacion, $estatusAnterior, $estatusNuevo, $idUsuario, $fecha);
+        $this->registrarHistorialEstatus($idOperacion, $estatusAnterior, $estatusBlacklist, $idUsuario, $fecha);
         $this->registrarBitacora($idOperacion, $accion, $idUsuario, $nombreUsuario, $fecha);
 
         return [
@@ -1476,6 +1543,41 @@ SQL;
             'mensaje_asesor' => 'No se tiene Visto Bueno para adjudicar la Moto. Si tienes cualquier duda, contacta a tu lider.',
             'estatus' => $estatusBlacklist,
         ];
+    }
+
+    private function marcarProcesoLegacyRechazado(int $idOperacion, int $idCredito, int $blacklistId, string $motivo, string $fecha): void
+    {
+        if ($idOperacion <= 0) {
+            return;
+        }
+        $motivo = trim($motivo);
+        if (function_exists('mb_substr')) {
+            $motivo = mb_substr($motivo, 0, 255, 'UTF-8');
+        } else {
+            $motivo = substr($motivo, 0, 255);
+        }
+
+        $this->db->CRUD(
+            'INSERT INTO moto_entrega_proceso_legacy
+                (id_operacion, id_adj_operacion_blacklist, id_credito, rechazada, rechazada_at, motivo_rechazo, updated_at)
+             VALUES
+                (:id_operacion, :blacklist_id, :id_credito, 1, :rechazada_at, :motivo_rechazo, :updated_at)
+             ON DUPLICATE KEY UPDATE
+                id_adj_operacion_blacklist = VALUES(id_adj_operacion_blacklist),
+                id_credito = VALUES(id_credito),
+                rechazada = 1,
+                rechazada_at = VALUES(rechazada_at),
+                motivo_rechazo = VALUES(motivo_rechazo),
+                updated_at = VALUES(updated_at)',
+            [
+                'id_operacion' => $idOperacion,
+                'blacklist_id' => $blacklistId > 0 ? $blacklistId : null,
+                'id_credito' => $idCredito > 0 ? (string) $idCredito : null,
+                'rechazada_at' => $fecha,
+                'motivo_rechazo' => $motivo !== '' ? $motivo : null,
+                'updated_at' => $fecha,
+            ]
+        );
     }
 
     public function liberarBlacklist(int $blacklistId, string $motivo, int $idUsuario, string $nombreUsuario): array

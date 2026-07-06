@@ -2463,6 +2463,11 @@ function calcularGruposConciliacion(amortizacion, pagosS2movil) {
 
     amortizacion.forEach(function (fila) {
         if (fila.estatus_pago !== 'pagado') return;
+        var tieneSecundario = parseFloat(fila.monto_secundario || 0) > 0.01;
+        if (tieneSecundario) {
+            mapa[fila.numero_semana] = { esPrimeroDelGrupo: true, semanasDelGrupo: [fila.numero_semana], pagosS2: [] };
+            return;
+        }
         // Usar fila.pagos_s2 del mapeo waterfall del backend en lugar de búsqueda por ventana de
         // fechas. El backend ya distribuye correctamente cada pago S2 a su semana correspondiente;
         // la búsqueda por fecha causaba agrupaciones falsas cuando dos semanas comparten la misma
@@ -2479,6 +2484,7 @@ function calcularGruposConciliacion(amortizacion, pagosS2movil) {
     var idPagoVisto = {};
     amortizacion.forEach(function (fila) {
         if (fila.estatus_pago !== 'pagado') return;
+        if (parseFloat(fila.monto_secundario || 0) > 0.01) return;
         var entry = mapa[fila.numero_semana];
         if (!entry || entry.pagosS2.length === 0) {
             if (entry) entry.esPrimeroDelGrupo = true;
@@ -2645,10 +2651,12 @@ function congelarModulo(convenio) {
     var montoPagado = 0;
 
     amort.forEach(function (fila) {
+        var esperadoFila = parseFloat(fila.capital || fila.pago_semanal || 0);
         if (fila.estatus_pago === 'pagado') {
-            montoPagado += parseFloat(fila.pago_semanal || 0);
+            montoPagado += esperadoFila;
         } else if (fila.estatus_pago === 'parcial') {
-            montoPagado += parseFloat(fila.monto_pagado || 0) + parseFloat(fila.monto_secundario || 0);
+            var aplicadoFila = parseFloat(fila.monto_pagado || 0) + parseFloat(fila.monto_secundario || 0);
+            montoPagado += esperadoFila > 0 ? Math.min(aplicadoFila, esperadoFila) : aplicadoFila;
         }
     });
 
@@ -2794,8 +2802,9 @@ function congelarModulo(convenio) {
             };
 
             var montoAplicado = parseFloat(fila.monto_pagado || 0);
-            var pagoSemanal = parseFloat(fila.pago_semanal || 0);
-            var faltante = round2(pagoSemanal - montoAplicado);
+            var montoSecundarioFila = parseFloat(fila.monto_secundario || 0);
+            var pagoSemanal = parseFloat(fila.capital || fila.pago_semanal || 0);
+            var faltante = round2(pagoSemanal - montoAplicado - montoSecundarioFila);
             var colorBorde = esParcial ? '#f59e0b' : '#22c55e';
             var colorTexto = esParcial ? '#92400e' : '#166534';
             var colorAplicado = esParcial ? '#b45309' : '#15803d';

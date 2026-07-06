@@ -5249,6 +5249,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
             <div class="row pt-4 g-6">
                 <div class="col-md-3">
+                    <select id="gestionEmpresaSelect" class="form-select text-capitalize js-select-buscador" aria-label="Empresa">
+                        <option value="">Todas las empresas</option>
+                    </select>
+                </div>
+
+                <div class="col-md-3">
                     <?php
                         $direccionesIniciales = [];
                         $areasIniciales = [];
@@ -5667,6 +5673,13 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                           <select id="rrhh_pais_id" class="form-select js-select-buscador" name="persona.id_pais" required>
                             <option value="">Seleccione un pa&iacute;s</option>
                           </select>
+                        </div>
+                        <div class="col-md-3">
+                          <label class="form-label">Empresa</label>
+                          <select id="rrhh_empresa_id" class="form-select js-select-buscador" name="rrhh.empresa_id" disabled>
+                            <option value="">Seleccione una empresa</option>
+                          </select>
+                          <input type="hidden" id="rrhh_empresa_texto" name="rrhh.empresa_texto">
                         </div>
                         <div class="col-md-3">
                           <label class="form-label">Direcci&oacute;n</label>
@@ -10051,8 +10064,31 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       id_area: persona.id_area,
       nombre_area: persona.nombre_area,
       id_direccion: persona.id_direccion,
-      nombre_direccion: persona.nombre_direccion
+      nombre_direccion: persona.nombre_direccion,
+      id_empresa: persona.id_empresa || 1,
+      nombre_empresa: persona.nombre_empresa || 'MaxiKash'
     }];
+  }
+
+  function getEmpresaGestionSeleccionadaVista() {
+    return String(document.getElementById('gestionEmpresaSelect')?.value || '');
+  }
+
+  function rowCoincideEmpresaGestion(row) {
+    const empresaId = getEmpresaGestionSeleccionadaVista();
+    if (!empresaId) return true;
+    return String(row?.id_empresa || 1) === empresaId;
+  }
+
+  function usuarioPerteneceEmpresaGestion(persona) {
+    const empresaId = getEmpresaGestionSeleccionadaVista();
+    if (!empresaId) return true;
+    if (String(persona?.id_empresa || 1) === empresaId) return true;
+    return obtenerPuestosUsuario(persona).some(puesto => String(puesto?.id_empresa || 1) === empresaId);
+  }
+
+  function filtrarUsuariosPorEmpresaGestionVista(usuarios) {
+    return (usuarios || []).filter(usuarioPerteneceEmpresaGestion);
   }
 
   function obtenerMetaDepartamentoPorPuesto(puesto) {
@@ -10090,6 +10126,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const rows = catalogo.length > 0 ? catalogo : (Array.isArray(window.todosDepartamentosBackend) ? window.todosDepartamentosBackend : []);
     rows.forEach(row => {
       if (!row) return;
+      if (!rowCoincideEmpresaGestion(row)) return;
       const idDepto = row.id != null ? String(row.id) : '';
       const nombreArea = String(row.departamento_organizacional_nombre || '').trim();
       const nombreDireccion = String(row.direccion_nombre || '').trim();
@@ -10272,6 +10309,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
     rows.forEach(row => {
       if (!row) return;
+      if (!rowCoincideEmpresaGestion(row)) return;
       const nombreArea = String(row.departamento_organizacional_nombre || '').trim();
       if (nombreArea && nombreArea.toLowerCase() !== 'sin departamento') {
         areas.add(nombreArea);
@@ -10292,6 +10330,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
     rows.forEach(row => {
       if (!row) return;
+      if (!rowCoincideEmpresaGestion(row)) return;
       const nombreDireccion = String(row.direccion_nombre || '').trim();
       if (nombreDireccion && nombreDireccion.toLowerCase() !== 'sin dirección') {
         direcciones.add(nombreDireccion);
@@ -10460,7 +10499,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       );
     }
 
-    ['UserDireccion', 'UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'].forEach(id => {
+    ['gestionEmpresaSelect', 'UserDireccion', 'UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'].forEach(id => {
       const filtro = document.getElementById(id);
       if (filtro) aplicarFeedbackVisualFiltro(filtro);
     });
@@ -10473,12 +10512,28 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const filtro = event.currentTarget;
     if (!filtro) return;
 
+    if (filtro.id === 'gestionEmpresaSelect') {
+      const base = Array.isArray(window.usuariosDataCompleta) && window.usuariosDataCompleta.length
+        ? window.usuariosDataCompleta
+        : usuariosData;
+      usuariosData = filtrarUsuariosPorEmpresaGestionVista(base);
+      window.usuariosData = usuariosData;
+      ['UserDireccion', 'UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'].forEach(id => {
+        const child = document.getElementById(id);
+        if (child) child.value = '';
+      });
+      inicializarMapaAreasGestion();
+      actualizarOpcionesFiltrosGestion('gestionEmpresaSelect');
+      aplicarFiltros();
+      return;
+    }
+
     actualizarOpcionesFiltrosGestion(filtro.id);
     aplicarFiltros();
   }
 
   function vincularEventosFiltrosGestion() {
-    const filtros = ['UserDireccion', 'UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'];
+    const filtros = ['gestionEmpresaSelect', 'UserDireccion', 'UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'];
 
     filtros.forEach(id => {
       const filtro = document.getElementById(id);
@@ -10519,7 +10574,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
             id_area: usuario.id_area,
             nombre_area: usuario.nombre_area,
             id_direccion: usuario.id_direccion,
-            nombre_direccion: usuario.nombre_direccion
+            nombre_direccion: usuario.nombre_direccion,
+            id_empresa: usuario.id_empresa || 1,
+            nombre_empresa: usuario.nombre_empresa || 'MaxiKash'
           }] : [],
           // Guardar el nombre del puesto y departamento originales para compatibilidad
           nombre_puesto_principal: usuario.nombre_puesto,
@@ -10545,7 +10602,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
             id_area: usuario.id_area,
             nombre_area: usuario.nombre_area,
             id_direccion: usuario.id_direccion,
-            nombre_direccion: usuario.nombre_direccion
+            nombre_direccion: usuario.nombre_direccion,
+            id_empresa: usuario.id_empresa || 1,
+            nombre_empresa: usuario.nombre_empresa || 'MaxiKash'
           });
         }
       }
@@ -10579,18 +10638,23 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         // Consolidar usuarios con múltiples puestos
         const usuariosConsolidados = consolidarUsuarios(resp.datos);
 
-        // Guardar los datos consolidados globalmente
-        usuariosData = usuariosConsolidados;
-        window.usuariosData = usuariosConsolidados;
+        if (typeof renderEmpresasGestion === 'function') {
+          renderEmpresasGestion(usuariosConsolidados);
+        }
+
+        // Guardar copia completa y trabajar con la empresa seleccionada.
+        window.usuariosDataCompleta = usuariosConsolidados;
+        usuariosData = filtrarUsuariosPorEmpresaGestionVista(usuariosConsolidados);
+        window.usuariosData = usuariosData;
         inicializarMapaAreasGestion();
 
         // Pintar la primera carga con el mismo renderer compacto que usan los filtros.
-        actualizarTabla(usuariosConsolidados);
+        actualizarTabla(usuariosData);
 
         // ==========================================
         // ACTUALIZAR INDICADORES (KPIs)
         // ==========================================
-        actualizarIndicadores(usuariosConsolidados);
+        actualizarIndicadores(usuariosData);
         const areas = obtenerTodasAreasGlobales();
         const departamentos = new Set();
         const puestos = new Set();
@@ -10599,7 +10663,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         // CONJUNTOS para almacenar valores únicos (evita duplicados)
 
         // Iterar los datos y extraer valores únicos
-        usuariosConsolidados.forEach(persona => {
+        usuariosData.forEach(persona => {
           // DEPARTAMENTO
           if (persona.nombre_departamento && persona.nombre_departamento !== 'Sin departamento') {
             departamentos.add(persona.nombre_departamento);
@@ -11364,7 +11428,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    * ==========================================
    */
   function inicializarFeedbackFiltros() {
-    const filtros = ['UserDireccion', 'UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'];
+    const filtros = ['gestionEmpresaSelect', 'UserDireccion', 'UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'];
     filtros.forEach(id => {
       const filtro = document.getElementById(id);
       if (filtro && filtro.value) {
@@ -12740,7 +12804,7 @@ function ocultarBloquesDomicilio(prefix) {
         if (selectId.indexOf('add_') === 0) return '#offcanvasAddUser';
         if (selectId.indexOf('rrhh_') === 0) return '#modalAgregarUsuarioRrhh';
         if (selectId === 'bajaSustitutoId') return '#modalBajas';
-        if (selectId === 'UserDireccion' || selectId === 'UserArea' || selectId === 'UserRole' || selectId === 'UserPlan' || selectId === 'FilterMultiplePuestos') {
+        if (selectId === 'gestionEmpresaSelect' || selectId === 'UserDireccion' || selectId === 'UserArea' || selectId === 'UserRole' || selectId === 'UserPlan' || selectId === 'FilterMultiplePuestos') {
             return null;
         }
         return '#offcanvasEditUser';
@@ -14397,6 +14461,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       }
     });
 
+    if (!payload.rrhh.direccion_organizacional && payload.rrhh.direccion_texto) {
+      payload.rrhh.direccion_organizacional = payload.rrhh.direccion_texto;
+    }
+
     return payload;
   }
 
@@ -14913,6 +14981,39 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     return dep?.nombre_direccion || dep?.direccion_nombre || dep?.direccion_organizacional || dep?.direccion || '';
   }
 
+  function depEmpresaIdRrhh(dep) {
+    return dep?.id_empresa || dep?.empresa_id || '';
+  }
+
+  function depEmpresaNombreRrhh(dep) {
+    return dep?.nombre_empresa || dep?.empresa_nombre || dep?.nombre_comercial_empresa || '';
+  }
+
+  function resolverEmpresaIdRrhh(data) {
+    const empresaGuardada = data?.rrhh?.empresa_id || data?.rrhh?.id_empresa || '';
+    const direccionGuardada = resolverDireccionIdRrhh(data);
+    const departamentoGuardado = data?.rrhh?.departamento_id || '';
+    const areaGuardada = data?.rrhh?.area_id || '';
+    const deps = rrhhDepartamentosBackend();
+
+    if (empresaGuardada && deps.some(dep => String(depEmpresaIdRrhh(dep)) === String(empresaGuardada))) {
+      return empresaGuardada;
+    }
+
+    const depDesdeDepartamento = deps.find(dep => String(dep.id || dep.departamento_id || '') === String(departamentoGuardado));
+    if (depDesdeDepartamento && depEmpresaIdRrhh(depDesdeDepartamento)) {
+      return depEmpresaIdRrhh(depDesdeDepartamento);
+    }
+
+    const depDesdeArea = deps.find(dep => String(dep.id_departamento_organizacional || dep.departamento_organizacional_id || '') === String(areaGuardada));
+    if (depDesdeArea && depEmpresaIdRrhh(depDesdeArea)) {
+      return depEmpresaIdRrhh(depDesdeArea);
+    }
+
+    const depDesdeDireccion = deps.find(dep => String(depDireccionIdRrhh(dep) || '') === String(direccionGuardada));
+    return depDesdeDireccion ? depEmpresaIdRrhh(depDesdeDireccion) : empresaGuardada;
+  }
+
   function resolverDireccionIdRrhh(data) {
     const direccionGuardada = data?.rrhh?.direccion_id || '';
     const departamentoGuardado = data?.rrhh?.departamento_id || '';
@@ -14969,6 +15070,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
   async function precargarSelectsLaboralesRrhh(data) {
     const rrhh = data?.rrhh || {};
+    const empresaId = resolverEmpresaIdRrhh(data);
     const direccionId = resolverDireccionIdRrhh(data);
     const areaId = resolverAreaIdRrhh(data);
     const departamentoId = resolverDepartamentoIdRrhh(data);
@@ -14979,6 +15081,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     try {
       fillRrhhPaises();
       setSelectValue('rrhh_pais_id', data?.persona?.id_pais || '');
+
+      fillRrhhEmpresas();
+      ensureSelectOptionRrhh('rrhh_empresa_id', empresaId, rrhh.empresa_texto || rrhh.nombre_empresa);
+      setSelectValue('rrhh_empresa_id', empresaId);
 
       fillRrhhDirecciones();
       ensureSelectOptionRrhh('rrhh_direccion_id', direccionId, rrhh.direccion_texto || rrhh.direccion_organizacional);
@@ -15001,6 +15107,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       setSelectValue('rrhh_jefe_id', jefeId);
 
       setRrhhHiddenText('rrhh_direccion_id', 'rrhh_direccion_texto');
+      setRrhhHiddenText('rrhh_empresa_id', 'rrhh_empresa_texto');
       setRrhhHiddenText('rrhh_area_id', 'rrhh_area_texto');
       setRrhhHiddenText('rrhh_departamento_id', 'rrhh_departamento_texto');
       setRrhhHiddenText('rrhh_puesto_id', 'rrhh_puesto_texto');
@@ -15653,15 +15760,57 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     return false;
   }
 
+  function fillRrhhEmpresas() {
+    const selectEmpresa = document.getElementById('rrhh_empresa_id');
+    if (!selectEmpresa) return;
+
+    const idPais = document.getElementById('rrhh_pais_id')?.value || '';
+    const empresas = new Map();
+
+    rrhhDepartamentosBackend()
+      .filter(dep => depPertenecePais(dep, idPais))
+      .forEach(dep => {
+        const idEmpresa = depEmpresaIdRrhh(dep);
+        const nombreEmpresa = depEmpresaNombreRrhh(dep);
+        if (idEmpresa && nombreEmpresa) {
+          empresas.set(String(idEmpresa), nombreEmpresa);
+        }
+      });
+
+    const current = selectEmpresa.value;
+    selectEmpresa.disabled = !idPais || empresas.size === 0;
+    selectEmpresa.innerHTML = '<option value="">Seleccione una empresa</option>' +
+      Array.from(empresas.entries())
+        .sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }))
+        .map(([id, nombre]) => optionHtml(id, nombre))
+        .join('');
+
+    if (current && empresas.has(String(current))) {
+      selectEmpresa.value = current;
+    } else if (empresas.size === 1) {
+      selectEmpresa.value = Array.from(empresas.keys())[0];
+    } else {
+      selectEmpresa.value = '';
+    }
+
+    setRrhhHiddenText('rrhh_empresa_id', 'rrhh_empresa_texto');
+    refreshRrhhSelect('rrhh_empresa_id');
+    if (form.dataset.rrhhPreloading !== '1') {
+      fillRrhhDirecciones();
+    }
+  }
+
   function fillRrhhDirecciones() {
     const selectDireccion = document.getElementById('rrhh_direccion_id');
     if (!selectDireccion) return;
 
     const idPais = document.getElementById('rrhh_pais_id')?.value || '';
+    const idEmpresa = document.getElementById('rrhh_empresa_id')?.value || '';
     const direcciones = new Map();
 
     rrhhDepartamentosBackend()
       .filter(dep => depPertenecePais(dep, idPais))
+      .filter(dep => String(depEmpresaIdRrhh(dep) || '') === String(idEmpresa || ''))
       .forEach(dep => {
         const idDireccion = depDireccionIdRrhh(dep);
         const nombreDireccion = depDireccionNombreRrhh(dep);
@@ -15671,7 +15820,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       });
 
     const current = selectDireccion.value;
-    selectDireccion.disabled = !idPais || direcciones.size === 0;
+    selectDireccion.disabled = !idPais || !idEmpresa || direcciones.size === 0;
     selectDireccion.innerHTML = '<option value="">Seleccione una direcci&oacute;n</option>' +
       Array.from(direcciones.entries())
         .sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }))
@@ -15699,10 +15848,12 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     if (!select) return;
     const current = seleccionadoForzado || select.value;
     const idArea = selectArea?.value || '';
+    const idEmpresa = document.getElementById('rrhh_empresa_id')?.value || '';
     const departamentos = [];
 
     rrhhDepartamentosBackend()
       .filter(dep => depPertenecePais(dep, document.getElementById('rrhh_pais_id')?.value || ''))
+      .filter(dep => String(depEmpresaIdRrhh(dep) || '') === String(idEmpresa || ''))
       .filter(dep => String(dep.id_departamento_organizacional || dep.departamento_organizacional_id || '') === String(idArea))
       .forEach(dep => {
         const idDepartamento = dep.id || dep.departamento_id || '';
@@ -15739,11 +15890,13 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     if (!selectArea) return;
 
     const idPais = document.getElementById('rrhh_pais_id')?.value || '';
+    const idEmpresa = document.getElementById('rrhh_empresa_id')?.value || '';
     const idDireccion = document.getElementById('rrhh_direccion_id')?.value || '';
     const areas = new Map();
 
     rrhhDepartamentosBackend()
       .filter(dep => depPertenecePais(dep, idPais))
+      .filter(dep => String(depEmpresaIdRrhh(dep) || '') === String(idEmpresa || ''))
       .filter(dep => String(depDireccionIdRrhh(dep) || '') === String(idDireccion || ''))
       .forEach(dep => {
         const idArea = dep.id_departamento_organizacional || dep.departamento_organizacional_id || '';
@@ -15754,7 +15907,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       });
 
     const current = selectArea.value;
-    selectArea.disabled = !idPais || !idDireccion || areas.size === 0;
+    selectArea.disabled = !idPais || !idEmpresa || !idDireccion || areas.size === 0;
     selectArea.innerHTML = '<option value="">Seleccione un &aacute;rea</option>' +
       Array.from(areas.entries())
         .sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }))
@@ -15955,7 +16108,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   function initRrhhLaboralSelects() {
     ordenarCamposLaboralesRrhh();
     fillRrhhPaises();
-    fillRrhhDirecciones();
+    fillRrhhEmpresas();
     fillRrhhJefes();
     vincularEventosSelect2Rrhh();
   }
@@ -15964,6 +16117,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     if (typeof window.jQuery === 'undefined') return;
     const $ = window.jQuery;
     $('#rrhh_pais_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
+      fillRrhhEmpresas();
+    });
+    $('#rrhh_empresa_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
+      setRrhhHiddenText('rrhh_empresa_id', 'rrhh_empresa_texto');
       fillRrhhDirecciones();
     });
     $('#rrhh_direccion_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
@@ -16632,6 +16789,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const target = event.target;
     if (!target) return;
     if (target.id === 'rrhh_pais_id') {
+      fillRrhhEmpresas();
+    } else if (target.id === 'rrhh_empresa_id') {
+      setRrhhHiddenText('rrhh_empresa_id', 'rrhh_empresa_texto');
       fillRrhhDirecciones();
     } else if (target.id === 'rrhh_direccion_id') {
       setRrhhHiddenText('rrhh_direccion_id', 'rrhh_direccion_texto');

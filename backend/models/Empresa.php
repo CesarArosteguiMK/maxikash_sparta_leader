@@ -290,10 +290,15 @@ class Empresa extends Model
         try {
             $db = new Database();
             $r = $db->queryAll("
-                SELECT d.id AS departamento_id, d.nombre AS departamento_nombre
+                SELECT
+                    d.id AS departamento_id,
+                    d.nombre AS departamento_nombre,
+                    COALESCE(d.id_empresa, 1) AS id_empresa,
+                    COALESCE(emp.nombre_comercial, 'MaxiKash') AS nombre_empresa
                 FROM departamento d
+                LEFT JOIN rrhh_empresas emp ON emp.id = COALESCE(d.id_empresa, 1)
                 WHERE (d.activo IS NULL OR d.activo = 1)
-                ORDER BY d.nombre
+                ORDER BY nombre_empresa, d.nombre
             ");
             $datos = is_array($r) ? $r : [];
             return self::resultado(true, 'Departamentos encontrados.', $datos);

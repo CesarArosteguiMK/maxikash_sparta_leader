@@ -4,6 +4,7 @@ namespace Controllers;
 
 use Core\Controller;
 use Models\Empresa as EmpresasDAO;
+use Models\RrhhEmpresa as RrhhEmpresaDAO;
 
 class Empresas extends Controller
 {
@@ -54,6 +55,11 @@ class Empresas extends Controller
     public function getDepartamentos()
     {
         self::respuestaJSON(EmpresasDAO::getConsultaDepartamentos($_POST));
+    }
+
+    public function getRrhhEmpresas()
+    {
+        self::respuestaJSON(RrhhEmpresaDAO::getEmpresasActivas());
     }
 
 }

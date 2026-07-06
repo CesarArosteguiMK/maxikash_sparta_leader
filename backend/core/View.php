@@ -186,7 +186,7 @@ function getMenu(): string
                 ['label' => 'Auditoria',                    'url' => '/caphum/auditoria',                'modulos' => [154]],
                 ['section' => 'Cobranza'],
                 ['label' => 'Carta compromiso Gestor',       'url' => '/caphum/cartaCompromisoGestores',  'modulos' => [144]],
-                ['label' => 'Organigrama Cobranza',      'url' => '/caphum/organigrama',              'modulos' => [5]],
+                ['label' => 'Organigrama',               'url' => '/caphum/organigrama',              'modulos' => [5]],
                 ['section' => 'Configuración'],
                 ['label' => 'Accesos',                      'url' => '/caphum/accesosCapitalHumano',     'modulos' => [140]],
                 ['label' => 'Organización',              'url' => '/caphum/estructuraOrganizacional', 'modulos' => [86]],
@@ -289,7 +289,7 @@ function getMenu(): string
         'Organización' => [
             'icono'    => 'fa-solid fa-cog',
             'subItems' => [
-                ['label' => 'Áreas',                  'url' => '/departamentos/consulta/',     'modulos' => [10]],
+                ['label' => 'Estructura',             'url' => '/departamentos/consulta/',     'modulos' => [10]],
                 ['label' => 'Países',                 'url' => '/paises/consulta',             'modulos' => [41]],
                 ['label' => 'Equivalencia puestos',   'url' => '/equivalencias/consulta',      'modulos' => [17]],
                 ['label' => 'Sincroniza Legacy',       'url' => '/caphum/sincronizaLegacy',     'modulos' => [89]],
