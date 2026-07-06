@@ -178,6 +178,73 @@
         margin-bottom: 1rem;
         color: #2f3f50;
     }
+    .organizacion-empresa-title {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        color: #2f3f50;
+        font-weight: 700;
+        margin-bottom: .85rem;
+    }
+    .organizacion-empresa-card {
+        width: 100%;
+        height: 100%;
+        min-height: 164px;
+        border: 1px solid rgba(67, 89, 113, 0.18);
+        border-radius: 0.75rem;
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 6px 18px rgba(67, 89, 113, 0.06);
+        padding: 0;
+        text-align: left;
+        color: #2f3f50;
+        transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease;
+    }
+    .organizacion-empresa-card:hover,
+    .organizacion-empresa-card.is-active {
+        transform: translateY(-2px);
+        border-color: rgba(0, 71, 187, 0.42);
+        box-shadow: 0 10px 24px rgba(0, 71, 187, 0.12);
+        background: rgba(239, 246, 255, 0.95);
+    }
+    .organizacion-empresa-card .empresa-name {
+        font-weight: 700;
+        font-size: 1.12rem;
+        line-height: 1.2;
+    }
+    .organizacion-empresa-card .empresa-meta {
+        color: #6b7280;
+        font-size: .82rem;
+        margin-bottom: .15rem;
+    }
+    .organizacion-empresa-visual {
+        width: 112px;
+        height: 112px;
+        border-radius: 1rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #f3f6fa 0%, #ffffff 100%);
+        border: 1px solid rgba(67, 89, 113, 0.18);
+        color: #2f3f50;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 8px 18px rgba(47,63,80,.08);
+    }
+    .organizacion-empresa-visual i {
+        font-size: 3.8rem;
+        line-height: 1;
+    }
+    .organizacion-back-btn {
+        border-color: #1d2f4f !important;
+        color: #1d2f4f !important;
+        border-radius: 999px !important;
+        font-weight: 700 !important;
+        padding: .45rem 1rem !important;
+        background: #fff !important;
+        box-shadow: 0 4px 12px rgba(29, 47, 79, 0.08);
+    }
+    .organizacion-back-btn:hover {
+        background: #1d2f4f !important;
+        color: #fff !important;
+    }
 
     /* Tarjetas de áreas dentro de acordeones */
     #departamentosAccordion .dept-card {
@@ -296,7 +363,7 @@
 
 <div class="d-flex justify-content-between align-items-center mb-1">
     <h4 class="mb-0">Organización</h4>
-    <button type="button" class="btn btn-primary" id="btnAccionOrganizacion" onclick="abrirModalNuevoDepartamento()">
+    <button type="button" class="btn btn-primary" id="btnAccionOrganizacion" onclick="abrirModalNuevoDepartamento()" style="display: none;">
         <i class="fa fa-plus-circle me-2"></i>Nueva Área
     </button>
 </div>
@@ -322,9 +389,17 @@
                 </div>
                 <form id="addDepartamentoForm" class="row g-4" onsubmit="return false" novalidate="novalidate">
                     <input type="hidden" id="addDepartamentoModo" value="departamento">
+                    <input type="hidden" id="addDepartamentoEmpresaId" value="">
                     <input type="hidden" id="addDepartamentoContextPaisId" value="">
                     <input type="hidden" id="addDepartamentoContextDireccionId" value="">
                     <input type="hidden" id="addDepartamentoContextOrgId" value="">
+                    <div class="col-12">
+                        <label class="form-label w-100" for="addDepartamentoEmpresaSelect">Empresa *</label>
+                        <select id="addDepartamentoEmpresaSelect" class="form-select">
+                            <option value="">-- Selecciona una empresa --</option>
+                        </select>
+                        <div class="invalid-feedback" id="errorEmpresa" style="display: none;"></div>
+                    </div>
                     <div class="col-12">
                         <label class="form-label w-100" for="addDepartamentoPaisId">País *</label>
                         <select id="addDepartamentoPaisId" class="form-select" required>

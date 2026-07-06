@@ -34,7 +34,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Expedientes RR.HH.', 'url' => '/caphum/documentosRrhh', 'modulos' => [93]],
                     ['label' => 'Revisión RR.HH.', 'url' => '/caphum/actualizacionesInfo', 'modulos' => [83]],
                     ['label' => 'Auditoria', 'url' => '/caphum/auditoria', 'modulos' => [154]],
-                    ['label' => 'Organigrama Cobranza', 'url' => '/caphum/organigrama', 'modulos' => [5]],
+                    ['label' => 'Organigrama', 'url' => '/caphum/organigrama', 'modulos' => [5]],
                     ['label' => 'Organización', 'url' => '/caphum/estructuraOrganizacional', 'modulos' => [86]],
                     ['label' => 'Perfiles de puesto', 'url' => '/caphum/perfilesPuestos', 'modulos' => [91]],
                     ['label' => 'Control de Bajas', 'url' => '/caphum/bajas', 'modulos' => [13]],
@@ -50,7 +50,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Primeros pagos', 'url' => '/analitica/PrimerosPagos', 'modulos' => [49, 65, 66, 67, 68]],
                     ['label' => 'Cartera actual', 'url' => '/analitica/carteraactual', 'modulos' => [19]],
                     ['label' => 'Call Center', 'url' => '/analitica/callcenter', 'modulos' => [6]],
-                    ['label' => 'Reporte de Campo', 'url' => '/analitica/reporteCampo', 'modulos' => [90]],
+                    ['label' => 'Reporte de Campo', 'url' => '/analitica/reporteCampo', 'modulos' => [90, 189, 190]],
                     // ❌ Se eliminó Sabuesos para evitar conflicto con Tickets
                     ['label' => 'Layout Legacy', 'url' => '/analitica/layoutlegacy', 'modulos' => [7]],
                     ['label' => 'Analítica sabueso', 'url' => '/sabueso/estadisticas', 'modulos' => [47]],
@@ -155,7 +155,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
             'Organización' => [
                 'icono' => 'fa-solid fa-cog',
                 'subItems' => [
-                    ['label' => 'Áreas', 'url' => '/departamentos/consulta/', 'modulos' => [10]],
+                    ['label' => 'Estructura', 'url' => '/departamentos/consulta/', 'modulos' => [10]],
                     ['label' => 'Países', 'url' => '/paises/consulta', 'modulos' => [41]],
                     ['label' => 'Equivalencia puestos', 'url' => '/equivalencias/consulta', 'modulos' => [17]],
                     ['label' => 'Sincroniza Legacy', 'url' => '/caphum/sincronizaLegacy', 'modulos' => [89]],

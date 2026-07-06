@@ -428,9 +428,148 @@ class Departamentos extends Controller
            ===================================================== */
 
         let departamentosRequestSeq = 0;
+        window.organizacionEmpresasPorPais = {};
+        window.organizacionEmpresaSeleccionadaPorPais = {};
+        window.organizacionEmpresaActiva = null;
+
+        function getEmpresaOrganizacionSeleccionada(iso = '') {
+          if (iso) return String(window.organizacionEmpresaSeleccionadaPorPais?.[iso] || '');
+          return String(window.organizacionEmpresaActiva?.idEmpresa || '');
+        }
+
+        function coincideEmpresaOrganizacion(row, iso = '') {
+          const empresaId = getEmpresaOrganizacionSeleccionada(iso);
+          if (!empresaId) return true;
+          return String(row?.id_empresa || 1) === empresaId;
+        }
+
+        function nombreEmpresaOrganizacion(row) {
+          const id = String(row?.id_empresa || 1);
+          return String(row?.nombre_empresa || (id === '2' ? 'Furia Motos' : 'MaxiKash'));
+        }
+
+        function registrarEmpresaOrganizacion(row) {
+          const iso = String(row?.codigo_iso_pais || row?.codigo_iso || 'xx');
+          const id = String(row?.id_empresa || 1);
+          const nombre = nombreEmpresaOrganizacion(row);
+          if (!window.organizacionEmpresasPorPais[iso]) window.organizacionEmpresasPorPais[iso] = [];
+          if (!window.organizacionEmpresasPorPais[iso].some(item => String(item.id) === id)) {
+            window.organizacionEmpresasPorPais[iso].push({ id, nombre });
+          }
+        }
+
+        function getEmpresasPaisOrganizacion(iso) {
+          return (window.organizacionEmpresasPorPais?.[iso] || [])
+            .slice()
+            .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || '')));
+        }
+
+        function getTodasEmpresasOrganizacion() {
+          const mapa = new Map();
+          Object.values(window.organizacionEmpresasPorPais || {}).forEach(lista => {
+            (lista || []).forEach(row => {
+              if (!mapa.has(String(row.id))) mapa.set(String(row.id), String(row.nombre || 'Empresa'));
+            });
+          });
+          return Array.from(mapa.entries())
+            .map(([id, nombre]) => ({ id, nombre }))
+            .sort((a, b) => a.nombre.localeCompare(b.nombre));
+        }
+
+        function llenarEmpresasModalOrganizacion(valorActual = '') {
+          const select = document.getElementById('addDepartamentoEmpresaSelect');
+          if (!select) return;
+          const empresas = getTodasEmpresasOrganizacion();
+          select.innerHTML = '<option value="">-- Selecciona una empresa --</option>';
+          empresas.forEach(row => {
+            const opt = document.createElement('option');
+            opt.value = row.id;
+            opt.textContent = row.nombre;
+            select.appendChild(opt);
+          });
+          if (valorActual && empresas.some(row => String(row.id) === String(valorActual))) select.value = String(valorActual);
+          if (!select.value && empresas.length === 1) select.value = String(empresas[0].id);
+        }
+
+        function getDireccionesPaisEmpresa(iso) {
+          if (!getEmpresaOrganizacionSeleccionada(iso)) return [];
+          return Object.values(window.departamentosOrganizacionData?.[iso] || {})
+            .filter(dir => dir && dir.id !== 'sin_direccion' && Number(dir.activo) === 1 && coincideEmpresaOrganizacion(dir, iso));
+        }
+
+        function renderPanelEmpresaPais(iso, nombrePais, imgUrl) {
+          const empresas = getEmpresasPaisOrganizacion(iso);
+          const totalDireccionesEmpresa = (idEmpresa) => Object.values(window.departamentosOrganizacionData?.[iso] || {})
+            .filter(dir => dir && dir.id !== 'sin_direccion' && Number(dir.activo) === 1 && String(dir.id_empresa || 1) === String(idEmpresa))
+            .length;
+          const empresasHtml = empresas.length
+            ? empresas.map(row => {
+                const total = totalDireccionesEmpresa(row.id);
+                return `
+                  <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
+                    <div class="card h-100 rounded-3 dept-card organizacion-empresa-card">
+                      <div class="row h-100 g-0">
+                        <div class="col-sm-8 d-flex flex-column justify-content-center p-3">
+                          <h5 class="empresa-name mb-2">${escapeHtml(row.nombre)}</h5>
+                          <p class="empresa-meta">Direcciones: <strong>${total}</strong></p>
+                          <p class="empresa-meta mb-3">País: <strong>${escapeHtml(nombrePais || '')}</strong></p>
+                          <button type="button" class="btn btn-sm btn-outline-primary fw-semibold text-uppercase"
+                             onclick="seleccionarEmpresaPaisOrganizacion('${escapeJs(iso)}', '${escapeJs(row.id)}')">
+                            Entrar
+                          </button>
+                        </div>
+                        <div class="col-sm-4 d-flex align-items-center justify-content-center p-1">
+                          <span class="organizacion-empresa-visual" aria-hidden="true">
+                            <i class="fa-solid fa-building"></i>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>`;
+              }).join('')
+            : '<div class="col-12 text-center text-muted py-4"><i class="fa fa-building fa-2x mb-2 d-block"></i>No hay empresas registradas en este pais.</div>';
+          return `
+            <div class="organizacion-empresa-title"><i class="fa fa-building"></i><span>Selecciona empresa</span></div>
+            <div class="row g-4">${empresasHtml}</div>`;
+        }
+
+        function seleccionarEmpresaPaisOrganizacion(iso, idEmpresa) {
+          window.organizacionEmpresaSeleccionadaPorPais[iso] = String(idEmpresa || '');
+          window.organizacionEmpresaActiva = { iso, idEmpresa: String(idEmpresa || '') };
+          window.direccionOrganizacionActiva = null;
+          window.departamentoOrganizacionActivo = null;
+          actualizarBotonAccionOrganizacion();
+          const body = document.getElementById(`org-body-${iso}`);
+          if (!body) return;
+          const groupedPais = window.departamentosOrganizacionData?.[iso] || {};
+          const nombrePais = Object.values(groupedPais)[0]?.nombre_pais || '';
+          const imgUrl = "https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/lady-with-laptop-light.png";
+          const empresa = getEmpresasPaisOrganizacion(iso).find(row => String(row.id) === String(idEmpresa || ''));
+          const direcciones = getDireccionesPaisEmpresa(iso);
+          body.innerHTML = `
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+              <div>
+                <h5 class="mb-0">${escapeHtml(empresa?.nombre || 'Empresa')}</h5>
+                <p class="text-muted mb-0">Direcciones registradas en ${escapeHtml(nombrePais || '')}</p>
+              </div>
+              <button type="button" class="btn btn-sm organizacion-back-btn" onclick="volverDireccionesEmpresa('${escapeJs(iso)}')">
+                <i class="fa fa-arrow-left me-2"></i>Volver a direcciones
+              </button>
+            </div>
+            <div class="row g-4">${renderDepartamentosPais(iso, nombrePais, direcciones, imgUrl)}</div>`;
+          const backEmpresaBtn = body.querySelector('.organizacion-back-btn');
+          if (backEmpresaBtn) {
+            backEmpresaBtn.setAttribute('onclick', `volverDepartamentosPais('${escapeJs(iso)}')`);
+            backEmpresaBtn.innerHTML = '<i class="fa fa-arrow-left me-2"></i>Volver a empresas';
+          }
+          const total = direcciones.length;
+          const badge = document.getElementById(`org-count-badge-${iso}`);
+          if (badge) badge.textContent = `${total} ${total === 1 ? 'direcciÃ³n' : 'direcciones'}`;
+        }
 
         const getDepartamentos = () => {
           const requestSeq = ++departamentosRequestSeq;
+          window.organizacionEmpresaActiva = null;
           window.departamentoOrganizacionActivo = null;
           window.direccionOrganizacionActiva = null;
           actualizarBotonAccionOrganizacion();
@@ -461,8 +600,10 @@ class Departamentos extends Controller
 
                   const grouped = {};
                   const areasById = {};
+                  window.organizacionEmpresasPorPais = {};
                   const direcciones = (respDir.success && Array.isArray(respDir.datos)) ? respDir.datos : [];
                   direcciones.forEach(dir => {
+                    registrarEmpresaOrganizacion(dir);
                     const iso = dir.codigo_iso_pais || 'xx';
                     const dirId = dir.id || 'sin_direccion';
                     const nombreDireccion = String(dir.nombre || '').trim();
@@ -477,12 +618,15 @@ class Departamentos extends Controller
                         id_pais: dir.id_pais,
                         nombre_pais: dir.nombre_pais || '',
                         codigo_iso: iso,
+                        id_empresa: dir.id_empresa || 1,
+                        nombre_empresa: nombreEmpresaOrganizacion(dir),
                         areas: []
                       };
                     }
                   });
                   const departamentosOrganizacionales = (respOrg.success && Array.isArray(respOrg.datos)) ? respOrg.datos : [];
                   departamentosOrganizacionales.forEach(dep => {
+                    registrarEmpresaOrganizacion(dep);
                     if (Number(dep.activo) !== 1) return;
                     if (Number(dep.direccion_activo) !== 1) return;
                     if (!dep.id_direccion || String(dep.id_direccion) === '0') return;
@@ -499,6 +643,8 @@ class Departamentos extends Controller
                         id_pais: dep.id_pais,
                         nombre_pais: dep.nombre_pais || '',
                         codigo_iso: iso,
+                        id_empresa: dep.id_empresa || 1,
+                        nombre_empresa: nombreEmpresaOrganizacion(dep),
                         areas: []
                       };
                     }
@@ -511,6 +657,8 @@ class Departamentos extends Controller
                       nombre_direccion: dep.direccion_nombre || '',
                       nombre_pais: dep.nombre_pais || '',
                       codigo_iso: iso,
+                      id_empresa: dep.id_empresa || 1,
+                      nombre_empresa: nombreEmpresaOrganizacion(dep),
                       areas: []
                     };
                     grouped[iso][dirId].areas.push(depOrg);
@@ -519,6 +667,7 @@ class Departamentos extends Controller
 
                   const areas = (resp.success && Array.isArray(resp.datos)) ? resp.datos : [];
                   areas.forEach(d => {
+                    registrarEmpresaOrganizacion(d);
                     if (Number(d.activo) !== 1) return;
                     if (Number(d.departamento_organizacional_activo) !== 1) return;
                     if (Number(d.direccion_activo) !== 1) return;
@@ -535,6 +684,8 @@ class Departamentos extends Controller
                         id_pais: d.id_pais,
                         nombre_pais: d.nombre_pais || '',
                         codigo_iso: iso,
+                        id_empresa: d.id_empresa || 1,
+                        nombre_empresa: nombreEmpresaOrganizacion(d),
                         areas: []
                       };
                     }
@@ -548,6 +699,8 @@ class Departamentos extends Controller
                         nombre_direccion: d.direccion_nombre || '',
                         nombre_pais: d.nombre_pais || '',
                         codigo_iso: iso,
+                        id_empresa: d.id_empresa || 1,
+                        nombre_empresa: nombreEmpresaOrganizacion(d),
                         areas: []
                       };
                       grouped[iso][dirId].areas.push(areasById[iso][orgId]);
@@ -573,38 +726,10 @@ class Departamentos extends Controller
 
                   paisesOrdenados.forEach((pais) => {
                     const iso = pais.codigo_iso || 'xx';
-                    const departamentosOrg = Object.values(grouped[iso] || {})
-                      .filter(dir => dir && dir.id !== 'sin_direccion' && Number(dir.activo) === 1);
                     const gradient = gradientes[iso] || 'linear-gradient(135deg, #6c757d, #495057)';
-
-                    let bodyContent = '';
-                    departamentosOrg.forEach(depOrg => {
-                      bodyContent += `
-                        <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
-                          <div class="card h-100 rounded-3 dept-card">
-                            <div class="row h-100 g-0">
-                              <div class="col-sm-8 d-flex flex-column justify-content-center p-3">
-                                <h5 class="mb-2">${depOrg.nombre}</h5>
-                                <p class="mb-0 text-muted small">Departamentos: <strong>${depOrg.areas.length}</strong></p>
-                                <p class="mb-3 text-muted small">Estado: <strong>${depOrg.activo ? 'Activo' : 'Inactivo'}</strong></p>
-                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold text-uppercase"
-                                   onclick="abrirDepartamentoOrganizacional('${iso}', '${depOrg.id}')">
-                                  Entrar
-                                </button>
-                              </div>
-                              <div class="col-sm-4 d-flex align-items-center justify-content-center p-1">
-                                <img src="${imgUrl}" class="img-fluid" width="120" alt="${depOrg.nombre}">
-                              </div>
-                            </div>
-                          </div>
-                        </div>`;
-                    });
-
-                    if (!bodyContent) {
-                      bodyContent = `<div class="text-center text-muted py-4"><i class="fa fa-inbox fa-2x mb-2 d-block"></i>No hay departamentos registrados en ${pais.nombre}.</div>`;
-                    }
-
-                    bodyContent = renderDepartamentosPais(iso, pais.nombre, departamentosOrg, imgUrl);
+                    const bodyContent = renderPanelEmpresaPais(iso, pais.nombre, imgUrl);
+                    const empresasPais = getEmpresasPaisOrganizacion(iso);
+                    const departamentosOrg = empresasPais;
 
                     const accordionItem = `
                     <div class="accordion-item mb-3">
@@ -615,7 +740,7 @@ class Departamentos extends Controller
                                 style="background: ${gradient}; color: #fff; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
                           <span class="fi fi-${iso} fis me-3" style="font-size: 1.5rem; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);"></span>
                           <span class="me-auto">${pais.nombre}</span>
-                          <span class="badge org-count-badge" id="org-count-badge-${iso}" data-areas-count="${departamentosOrg.length}">
+                          <span class="badge org-count-badge" id="org-count-badge-${iso}" data-areas-count="${empresasPais.length}">
                             ${departamentosOrg.length} ${departamentosOrg.length === 1 ? 'dirección' : 'direcciones'}
                           </span>
                         </button>
@@ -623,12 +748,16 @@ class Departamentos extends Controller
                       <div id="collapse-${iso}" class="accordion-collapse collapse"
                            aria-labelledby="heading-${iso}" data-bs-parent="#departamentosAccordion">
                         <div class="accordion-body">
-                          <div id="org-body-${iso}"><div class="row g-4">${bodyContent}</div></div>
+                          <div id="org-body-${iso}">${bodyContent}</div>
                         </div>
                       </div>
                     </div>`;
 
                     container.insertAdjacentHTML('beforeend', accordionItem);
+                    const badgePais = document.getElementById(`org-count-badge-${iso}`);
+                    if (badgePais) {
+                      badgePais.textContent = `${empresasPais.length} ${empresasPais.length === 1 ? 'empresa' : 'empresas'}`;
+                    }
                   });
 
                   if (container.innerHTML === '') {
@@ -638,6 +767,9 @@ class Departamentos extends Controller
                   const destino = window.organizacionDestinoDespuesRecarga || null;
                   window.organizacionDestinoDespuesRecarga = null;
                   if (destino && destino.iso) {
+                    if (destino.idEmpresa) {
+                      window.organizacionEmpresaSeleccionadaPorPais[destino.iso] = String(destino.idEmpresa);
+                    }
                     setTimeout(() => {
                       const collapseEl = document.getElementById(`collapse-${destino.iso}`);
                       if (collapseEl && window.bootstrap?.Collapse) {
@@ -676,6 +808,7 @@ class Departamentos extends Controller
         function actualizarBotonAccionOrganizacion() {
           const btn = document.getElementById('btnAccionOrganizacion') || document.querySelector('button[onclick="abrirModalNuevoDepartamento()"]');
           if (!btn) return;
+          btn.style.display = '';
 
           if (window.departamentoOrganizacionActivo) {
             btn.innerHTML = '<i class="fa fa-plus-circle me-2"></i>Nuevo Departamento';
@@ -688,6 +821,30 @@ class Departamentos extends Controller
           }
 
           btn.innerHTML = '<i class="fa fa-plus-circle me-2"></i>Nueva Dirección';
+        }
+
+        function actualizarBotonAccionOrganizacion() {
+          const btn = document.getElementById('btnAccionOrganizacion') || document.querySelector('button[onclick="abrirModalNuevoDepartamento()"]');
+          if (!btn) return;
+          btn.style.display = '';
+
+          if (window.departamentoOrganizacionActivo) {
+            btn.innerHTML = '<i class="fa fa-plus-circle me-2"></i>Nuevo Departamento';
+            return;
+          }
+
+          if (window.direccionOrganizacionActiva) {
+            btn.innerHTML = '<i class="fa fa-plus-circle me-2"></i>Nueva Area';
+            return;
+          }
+
+          if (window.organizacionEmpresaActiva?.idEmpresa) {
+            btn.innerHTML = '<i class="fa fa-plus-circle me-2"></i>Nueva Direccion';
+            return;
+          }
+
+          btn.style.display = 'none';
+          btn.innerHTML = '<i class="fa fa-plus-circle me-2"></i>Nueva Direccion';
         }
 
         function renderDepartamentosPais(iso, nombrePais, direcciones, imgUrl) {
@@ -774,12 +931,26 @@ class Departamentos extends Controller
                 <h5 class="mb-0">${escapeHtml(direccion.nombre)}</h5>
                 <p class="text-muted mb-0">Áreas registradas en ${escapeHtml(direccion.nombre_pais || '')}</p>
               </div>
-              <button type="button" class="btn btn-outline-secondary" onclick="volverDepartamentosPais('${escapeJs(iso)}')">
-                <i class="fa fa-arrow-left me-2"></i>Volver
+              <button type="button" class="btn btn-sm organizacion-back-btn" onclick="volverDepartamentosPais('${escapeJs(iso)}')">
+                <i class="fa fa-arrow-left me-2"></i>Volver a empresas
               </button>
             </div>
             <div class="row g-4">${cardsHTML}</div>`;
+          const backDireccionesBtn = body.querySelector('.organizacion-back-btn');
+          if (backDireccionesBtn) {
+            backDireccionesBtn.setAttribute('onclick', `volverDireccionesEmpresa('${escapeJs(iso)}')`);
+            backDireccionesBtn.innerHTML = '<i class="fa fa-arrow-left me-2"></i>Volver a direcciones';
+          }
         }
+        function volverDireccionesEmpresa(iso) {
+          const idEmpresa = getEmpresaOrganizacionSeleccionada(iso);
+          if (idEmpresa) {
+            seleccionarEmpresaPaisOrganizacion(iso, idEmpresa);
+            return;
+          }
+          volverDepartamentosPais(iso);
+        }
+
         function abrirDepartamentoOrganizacional(iso, orgId) {
           const depOrg = window.departamentosOrganizacionAreasById?.[iso]?.[orgId];
           const body = document.getElementById(`org-body-${iso}`);
@@ -829,8 +1000,8 @@ class Departamentos extends Controller
                 <h5 class="mb-0">${escapeHtml(depOrg.nombre)}</h5>
                 <p class="text-muted mb-0">Departamentos registrados en ${escapeHtml(depOrg.nombre_pais || '')}</p>
               </div>
-              <button type="button" class="btn btn-outline-secondary" onclick="abrirDireccionOrganizacional('${escapeJs(iso)}', '${escapeJs(depOrg.id_direccion)}')">
-                <i class="fa fa-arrow-left me-2"></i>Volver
+              <button type="button" class="btn btn-sm organizacion-back-btn" onclick="abrirDireccionOrganizacional('${escapeJs(iso)}', '${escapeJs(depOrg.id_direccion)}')">
+                <i class="fa fa-arrow-left me-2"></i>Volver a áreas
               </button>
             </div>
             <div class="row g-4">${cardsHTML}</div>`;
@@ -844,21 +1015,26 @@ class Departamentos extends Controller
             return;
           }
 
-          const departamentosOrg = Object.values(groupedPais)
-            .filter(dir => dir && dir.id !== 'sin_direccion' && Number(dir.activo) === 1);
-          const nombrePais = departamentosOrg[0]?.nombre_pais || '';
+          window.organizacionEmpresaSeleccionadaPorPais[iso] = '';
+          const empresasPais = getEmpresasPaisOrganizacion(iso);
+          const nombrePais = Object.values(groupedPais)[0]?.nombre_pais || '';
           const imgUrl = "https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/lady-with-laptop-light.png";
-          body.innerHTML = `<div class="row g-4">${renderDepartamentosPais(iso, nombrePais, departamentosOrg, imgUrl)}</div>`;
+          body.innerHTML = renderPanelEmpresaPais(iso, nombrePais, imgUrl);
 
           const badge = document.getElementById(`org-count-badge-${iso}`);
           if (badge) {
-            const total = departamentosOrg.length;
+            const total = empresasPais.length;
             badge.textContent = `${total} ${total === 1 ? 'dirección' : 'direcciones'}`;
           }
 
           window.departamentoOrganizacionActivo = null;
           window.direccionOrganizacionActiva = null;
           actualizarBotonAccionOrganizacion();
+          const badgeEmpresaPais = document.getElementById(`org-count-badge-${iso}`);
+          if (badgeEmpresaPais) {
+            const totalEmpresasPais = empresasPais.length;
+            badgeEmpresaPais.textContent = `${totalEmpresasPais} ${totalEmpresasPais === 1 ? 'empresa' : 'empresas'}`;
+          }
         }
 
         function cargarDepartamentosOrganizacionalesModal(idPais) {
@@ -873,7 +1049,11 @@ class Departamentos extends Controller
             endpoint: "/departamentos/getDepartamentosOrganizacionales",
             onSuccess: (resp) => {
               const datos = resp.success && Array.isArray(resp.datos) ? resp.datos : [];
-              const filtrados = datos.filter(d => !idPais || String(d.id_pais || '') === String(idPais));
+              const idEmpresaModal = document.getElementById('addDepartamentoEmpresaId')?.value || document.getElementById('addDepartamentoEmpresaSelect')?.value || '';
+              const filtrados = datos.filter(d =>
+                (!idPais || String(d.id_pais || '') === String(idPais))
+                && (!idEmpresaModal || String(d.id_empresa || 1) === String(idEmpresaModal))
+              );
               filtrados.forEach(d => {
                 select.insertAdjacentHTML('beforeend', `<option value="${d.id}">${d.nombre}</option>`);
               });
@@ -890,10 +1070,13 @@ class Departamentos extends Controller
           const input = document.getElementById('modalNombreDepartamento');
           const modoInput = document.getElementById('addDepartamentoModo');
           const contextPais = document.getElementById('addDepartamentoContextPaisId');
+          const contextEmpresa = document.getElementById('addDepartamentoEmpresaId');
           const contextDireccion = document.getElementById('addDepartamentoContextDireccionId');
           const contextOrg = document.getElementById('addDepartamentoContextOrgId');
+          const selectEmpresa = document.getElementById('addDepartamentoEmpresaSelect');
           const selectPais = document.getElementById('addDepartamentoPaisId');
           const selectOrg = document.getElementById('addDepartamentoOrganizacionalId');
+          const empresaGroup = selectEmpresa?.closest('.col-12');
           const paisGroup = selectPais?.closest('.col-12');
           const orgGroup = selectOrg?.closest('.col-12');
           const title = modalEl?.querySelector('.modal-body .text-center h4');
@@ -902,14 +1085,17 @@ class Departamentos extends Controller
 
           if (form) form.reset();
           if (input) input.classList.remove('is-invalid');
+          if (selectEmpresa) selectEmpresa.classList.remove('is-invalid');
           if (selectPais) selectPais.classList.remove('is-invalid');
           if (selectOrg) selectOrg.classList.remove('is-invalid');
-          ['errorNombre', 'errorPais', 'errorDepartamentoOrganizacional'].forEach(id => {
+          ['errorNombre', 'errorPais', 'errorEmpresa', 'errorDepartamentoOrganizacional'].forEach(id => {
             const err = document.getElementById(id);
             if (err) err.style.display = 'none';
           });
 
           if (modoInput) modoInput.value = modo;
+          if (contextEmpresa) contextEmpresa.value = opciones.idEmpresa || '';
+          llenarEmpresasModalOrganizacion(opciones.idEmpresa || '');
           if (contextPais) contextPais.value = opciones.idPais || '';
           if (contextDireccion) contextDireccion.value = opciones.idDireccion || '';
           if (contextOrg) contextOrg.value = opciones.idOrg || '';
@@ -919,6 +1105,7 @@ class Departamentos extends Controller
             if (help) help.textContent = `Se agregará al área ${opciones.nombreOrg || ''}.`;
             if (nombreLabel) nombreLabel.textContent = 'Nombre del Departamento *';
             if (input) input.placeholder = 'Ej. Call Center, Campo 1-7, Despachos...';
+            if (empresaGroup) empresaGroup.style.display = 'none';
             if (paisGroup) paisGroup.style.display = 'none';
             if (orgGroup) orgGroup.style.display = 'none';
             return;
@@ -929,6 +1116,7 @@ class Departamentos extends Controller
             if (help) help.textContent = `Se agregará a la dirección ${opciones.nombreDireccion || ''}.`;
             if (nombreLabel) nombreLabel.textContent = 'Nombre del Área *';
             if (input) input.placeholder = 'Ej. Cobranza, Comercial, Administración de Finanzas...';
+            if (empresaGroup) empresaGroup.style.display = 'none';
             if (paisGroup) paisGroup.style.display = 'none';
             if (orgGroup) orgGroup.style.display = 'none';
             return;
@@ -938,6 +1126,7 @@ class Departamentos extends Controller
           if (help) help.textContent = 'Selecciona el país y escribe el nombre de la dirección.';
           if (nombreLabel) nombreLabel.textContent = 'Nombre de la Dirección *';
           if (input) input.placeholder = 'Ej. Dirección 1, Dirección 2, Dirección Comercial...';
+          if (empresaGroup) empresaGroup.style.display = '';
           if (paisGroup) paisGroup.style.display = '';
           if (orgGroup) orgGroup.style.display = 'none';
         }
@@ -945,19 +1134,19 @@ class Departamentos extends Controller
         function abrirModalNuevoDepartamento() {
           if (window.departamentoOrganizacionActivo) {
             const depOrg = window.departamentoOrganizacionActivo;
-            abrirModalNuevaArea(depOrg.id_pais, depOrg.id, depOrg.nombre);
+            abrirModalNuevaArea(depOrg.id_pais, depOrg.id, depOrg.nombre, depOrg.id_empresa);
             return;
           }
 
           if (window.direccionOrganizacionActiva) {
             const dir = window.direccionOrganizacionActiva;
-            abrirModalNuevaAreaOrganizacional(dir.id_pais, dir.id, dir.nombre);
+            abrirModalNuevaAreaOrganizacional(dir.id_pais, dir.id, dir.nombre, dir.id_empresa);
             return;
           }
 
           const select = document.getElementById('addDepartamentoPaisId');
           const selectOrg = document.getElementById('addDepartamentoOrganizacionalId');
-          configurarModalDepartamento('direccion');
+          configurarModalDepartamento('direccion', { idEmpresa: getEmpresaOrganizacionSeleccionada() || '' });
           select.innerHTML = '<option value="">-- Selecciona un país --</option>';
           if (selectOrg) selectOrg.innerHTML = '<option value="">-- Selecciona un área --</option>';
           select.classList.remove('is-invalid');
@@ -983,14 +1172,14 @@ class Departamentos extends Controller
           });
         }
 
-        function abrirModalNuevaAreaOrganizacional(idPais, idDireccion, nombreDireccion) {
-          configurarModalDepartamento('departamento', { idPais, idDireccion, nombreDireccion });
+        function abrirModalNuevaAreaOrganizacional(idPais, idDireccion, nombreDireccion, idEmpresa = '') {
+          configurarModalDepartamento('departamento', { idPais, idDireccion, nombreDireccion, idEmpresa });
           const modal = new bootstrap.Modal(document.getElementById('addDepartamentoModal'));
           modal.show();
         }
 
-        function abrirModalNuevaArea(idPais, idOrg, nombreOrg) {
-          configurarModalDepartamento('area', { idPais, idOrg, nombreOrg });
+        function abrirModalNuevaArea(idPais, idOrg, nombreOrg, idEmpresa = '') {
+          configurarModalDepartamento('area', { idPais, idOrg, nombreOrg, idEmpresa });
           const modal = new bootstrap.Modal(document.getElementById('addDepartamentoModal'));
           modal.show();
         }
@@ -1078,10 +1267,12 @@ class Departamentos extends Controller
               e.preventDefault();
 
               const selectPais = document.getElementById('addDepartamentoPaisId');
+              const selectEmpresa = document.getElementById('addDepartamentoEmpresaSelect');
               const selectOrg = document.getElementById('addDepartamentoOrganizacionalId');
               const input = document.getElementById('modalNombreDepartamento');
               const nombre = input.value.trim();
               const modo = document.getElementById('addDepartamentoModo')?.value || 'direccion';
+              const idEmpresa = document.getElementById('addDepartamentoEmpresaId')?.value || selectEmpresa?.value || '';
               const idDireccion = document.getElementById('addDepartamentoContextDireccionId')?.value || '';
               const idPais = (modo === 'area' || modo === 'departamento')
                 ? (document.getElementById('addDepartamentoContextPaisId')?.value || '')
@@ -1091,9 +1282,22 @@ class Departamentos extends Controller
                 : '';
               const errorNombre = document.getElementById('errorNombre');
               const errorPais = document.getElementById('errorPais');
+              const errorEmpresa = document.getElementById('errorEmpresa');
               const errorOrg = document.getElementById('errorDepartamentoOrganizacional');
 
               let valid = true;
+
+              if (modo === 'direccion' && !idEmpresa) {
+                if (errorEmpresa) {
+                  errorEmpresa.textContent = 'Debes seleccionar una empresa';
+                  errorEmpresa.style.display = 'block';
+                }
+                if (selectEmpresa) selectEmpresa.classList.add('is-invalid');
+                valid = false;
+              } else {
+                if (errorEmpresa) errorEmpresa.style.display = 'none';
+                if (selectEmpresa) selectEmpresa.classList.remove('is-invalid');
+              }
 
               if (!idPais) {
                 errorPais.textContent = 'Debes seleccionar un país';
@@ -1151,10 +1355,10 @@ class Departamentos extends Controller
                 ? "/departamentos/InsertDepartamentoOrganizacional"
                 : "/departamentos/InsertDepartamento";
               const requestData = modo === 'direccion'
-                ? { nombre, id_pais: idPais }
+                ? { nombre, id_pais: idPais, id_empresa: idEmpresa }
                 : modo === 'departamento'
-                ? { nombre, id_pais: idPais, id_direccion: idDireccion }
-                : { nombre, id_pais: idPais, id_departamento_organizacional: idDepartamentoOrganizacional };
+                ? { nombre, id_pais: idPais, id_direccion: idDireccion, id_empresa: idEmpresa }
+                : { nombre, id_pais: idPais, id_departamento_organizacional: idDepartamentoOrganizacional, id_empresa: idEmpresa };
               http.request({
                 endpoint,
                 method: "POST",
@@ -1165,13 +1369,15 @@ class Departamentos extends Controller
                       window.organizacionDestinoDespuesRecarga = {
                         tipo: 'direccion',
                         iso: window.direccionOrganizacionActiva?.codigo_iso || '',
-                        idDireccion: String(idDireccion)
+                        idDireccion: String(idDireccion),
+                        idEmpresa: String(idEmpresa || '')
                       };
                     } else if (modo === 'area' && idDepartamentoOrganizacional) {
                       window.organizacionDestinoDespuesRecarga = {
                         tipo: 'area',
                         iso: window.departamentoOrganizacionActivo?.codigo_iso || '',
-                        idArea: String(idDepartamentoOrganizacional)
+                        idArea: String(idDepartamentoOrganizacional),
+                        idEmpresa: String(idEmpresa || '')
                       };
                     }
                     const modal = bootstrap.Modal.getInstance(document.getElementById('addDepartamentoModal'));
@@ -1321,7 +1527,8 @@ class Departamentos extends Controller
         $nombre = $_POST['nombre'] ?? null;
         $id_pais = $_POST['id_pais'] ?? 1;
         $id_departamento_organizacional = $_POST['id_departamento_organizacional'] ?? null;
-        self::respuestaJSON(DepartamentosDAO::InsertDepartamento($nombre, $id_pais, $id_departamento_organizacional));
+        $id_empresa = $_POST['id_empresa'] ?? 1;
+        self::respuestaJSON(DepartamentosDAO::InsertDepartamento($nombre, $id_pais, $id_departamento_organizacional, $id_empresa));
     }
 
     public function InsertDepartamentoOrganizacional()
@@ -1329,14 +1536,16 @@ class Departamentos extends Controller
         $nombre = $_POST['nombre'] ?? null;
         $id_pais = $_POST['id_pais'] ?? 1;
         $id_direccion = $_POST['id_direccion'] ?? null;
-        self::respuestaJSON(DepartamentosDAO::InsertDepartamentoOrganizacional($nombre, $id_pais, $id_direccion));
+        $id_empresa = $_POST['id_empresa'] ?? 1;
+        self::respuestaJSON(DepartamentosDAO::InsertDepartamentoOrganizacional($nombre, $id_pais, $id_direccion, $id_empresa));
     }
 
     public function InsertDireccion()
     {
         $nombre = $_POST['nombre'] ?? null;
         $id_pais = $_POST['id_pais'] ?? 1;
-        self::respuestaJSON(DepartamentosDAO::InsertDireccion($nombre, $id_pais));
+        $id_empresa = $_POST['id_empresa'] ?? 1;
+        self::respuestaJSON(DepartamentosDAO::InsertDireccion($nombre, $id_pais, $id_empresa));
     }
 
     public function UpdateNombreDepartamento()
@@ -1362,6 +1571,3 @@ class Departamentos extends Controller
     }
 
 }
-
-
-

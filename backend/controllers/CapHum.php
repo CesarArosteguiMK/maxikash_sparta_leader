@@ -26896,7 +26896,7 @@ public function getEstadosMunicipiosMexico()
 
         $puedeEditarTodos = self::tieneAccesoTotalGestionPersonal();
 
-        self::set("titulo", "Organigrama Cobranza");
+        self::set("titulo", "Organigrama");
         self::set("script", $script);
         self::set("Departamentos", $getDepartamentos);
         self::set("DepartamentosOrganigrama", $departamentosOrganigrama);

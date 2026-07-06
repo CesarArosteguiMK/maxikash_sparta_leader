@@ -7208,6 +7208,8 @@ class CapHum extends Model
                 COALESCE(dir.id, 0) AS id_direccion,
                 COALESCE(dir.nombre, 'Sin dirección') AS direccion_nombre,
                 COALESCE(dir.activo, 1) AS direccion_activo,
+                COALESCE(d.id_empresa, dorg.id_empresa, dir.id_empresa, 1) AS id_empresa,
+                COALESCE(emp.nombre_comercial, 'MaxiKash') AS nombre_empresa,
                 pa.nombre AS nombre_pais,
                 COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais
             FROM privilegios_departamento pd
@@ -7222,10 +7224,12 @@ class CapHum extends Model
                    AND COALESCE(ad.activo, 1) = 1
             LEFT JOIN direcciones_organizacion dir
                     ON dir.id = ad.id_direccion
+            LEFT JOIN rrhh_empresas emp
+                    ON emp.id = COALESCE(d.id_empresa, dorg.id_empresa, dir.id_empresa, 1)
             LEFT JOIN paises pa
                     ON pa.id = d.id_pais
             $complet
-            ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), direccion_nombre, departamento_organizacional_nombre, d.nombre ASC
+            ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), nombre_empresa, direccion_nombre, departamento_organizacional_nombre, d.nombre ASC
         SQL;
 
         try {
@@ -7287,6 +7291,8 @@ class CapHum extends Model
                 COALESCE(dir.id, 0) AS id_direccion,
                 COALESCE(dir.nombre, 'Sin dirección') AS direccion_nombre,
                 COALESCE(dir.activo, 1) AS direccion_activo,
+                COALESCE(d.id_empresa, dorg.id_empresa, dir.id_empresa, 1) AS id_empresa,
+                COALESCE(emp.nombre_comercial, 'MaxiKash') AS nombre_empresa,
                 pa.nombre AS nombre_pais,
                 COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais
             FROM departamento d
@@ -7297,11 +7303,13 @@ class CapHum extends Model
                   AND COALESCE(ad.activo, 1) = 1
             LEFT JOIN direcciones_organizacion dir
                    ON dir.id = ad.id_direccion
+            LEFT JOIN rrhh_empresas emp
+                   ON emp.id = COALESCE(d.id_empresa, dorg.id_empresa, dir.id_empresa, 1)
             LEFT JOIN paises pa
                    ON pa.id = d.id_pais
             WHERE COALESCE(d.activo, 1) = 1
               AND COALESCE(dorg.activo, 1) = 1
-            ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), direccion_nombre, departamento_organizacional_nombre, d.nombre ASC
+            ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), nombre_empresa, direccion_nombre, departamento_organizacional_nombre, d.nombre ASC
         SQL;
 
         try {
@@ -7751,6 +7759,16 @@ class CapHum extends Model
         $creado_por   = addslashes($_SESSION['usuario'] ?? 'sistema');
 
         try {
+            $razon = $db->queryOne("
+                SELECT nombre
+                FROM __SPARTA_SECRET_REDACTED__.razon_ausencia
+                WHERE id = $id_razon
+                LIMIT 1
+            ");
+            $razon_nombre = strtoupper(trim((string)($razon['nombre'] ?? '')));
+            $es_vacaciones = strpos($razon_nombre, 'VACACION') !== false || strpos($razon_nombre, 'VACACIONES') !== false;
+            $mensaje_registro = $es_vacaciones ? 'Vacaciones registradas correctamente.' : 'Ausencia registrada correctamente.';
+            $mensaje_actualizacion = $es_vacaciones ? 'Vacaciones actualizadas correctamente.' : 'Ausencia actualizada correctamente.';
 
             // 🔄 UPDATE
             if ($id_ausencia) {
@@ -7768,7 +7786,7 @@ class CapHum extends Model
 
                 return self::resultado(
                     true,
-                    'Ausencia actualizada correctamente.',
+                    $mensaje_actualizacion,
                     ['id' => $id_ausencia]
                 );
             }
@@ -7785,7 +7803,7 @@ class CapHum extends Model
 
             return self::resultado(
                 true,
-                'Ausencia registrada correctamente.',
+                $mensaje_registro,
                 $result
             );
 

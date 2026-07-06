@@ -5249,6 +5249,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
             <div class="row pt-4 g-6">
                 <div class="col-md-3">
+                    <select id="gestionEmpresaSelect" class="form-select text-capitalize js-select-buscador" aria-label="Empresa">
+                        <option value="">Todas las empresas</option>
+                    </select>
+                </div>
+
+                <div class="col-md-3">
                     <?php
                         $direccionesIniciales = [];
                         $areasIniciales = [];
@@ -10051,8 +10057,31 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       id_area: persona.id_area,
       nombre_area: persona.nombre_area,
       id_direccion: persona.id_direccion,
-      nombre_direccion: persona.nombre_direccion
+      nombre_direccion: persona.nombre_direccion,
+      id_empresa: persona.id_empresa || 1,
+      nombre_empresa: persona.nombre_empresa || 'MaxiKash'
     }];
+  }
+
+  function getEmpresaGestionSeleccionadaVista() {
+    return String(document.getElementById('gestionEmpresaSelect')?.value || '');
+  }
+
+  function rowCoincideEmpresaGestion(row) {
+    const empresaId = getEmpresaGestionSeleccionadaVista();
+    if (!empresaId) return true;
+    return String(row?.id_empresa || 1) === empresaId;
+  }
+
+  function usuarioPerteneceEmpresaGestion(persona) {
+    const empresaId = getEmpresaGestionSeleccionadaVista();
+    if (!empresaId) return true;
+    if (String(persona?.id_empresa || 1) === empresaId) return true;
+    return obtenerPuestosUsuario(persona).some(puesto => String(puesto?.id_empresa || 1) === empresaId);
+  }
+
+  function filtrarUsuariosPorEmpresaGestionVista(usuarios) {
+    return (usuarios || []).filter(usuarioPerteneceEmpresaGestion);
   }
 
   function obtenerMetaDepartamentoPorPuesto(puesto) {
@@ -10090,6 +10119,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const rows = catalogo.length > 0 ? catalogo : (Array.isArray(window.todosDepartamentosBackend) ? window.todosDepartamentosBackend : []);
     rows.forEach(row => {
       if (!row) return;
+      if (!rowCoincideEmpresaGestion(row)) return;
       const idDepto = row.id != null ? String(row.id) : '';
       const nombreArea = String(row.departamento_organizacional_nombre || '').trim();
       const nombreDireccion = String(row.direccion_nombre || '').trim();
@@ -10272,6 +10302,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
     rows.forEach(row => {
       if (!row) return;
+      if (!rowCoincideEmpresaGestion(row)) return;
       const nombreArea = String(row.departamento_organizacional_nombre || '').trim();
       if (nombreArea && nombreArea.toLowerCase() !== 'sin departamento') {
         areas.add(nombreArea);
@@ -10292,6 +10323,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
     rows.forEach(row => {
       if (!row) return;
+      if (!rowCoincideEmpresaGestion(row)) return;
       const nombreDireccion = String(row.direccion_nombre || '').trim();
       if (nombreDireccion && nombreDireccion.toLowerCase() !== 'sin dirección') {
         direcciones.add(nombreDireccion);
@@ -10460,7 +10492,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       );
     }
 
-    ['UserDireccion', 'UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'].forEach(id => {
+    ['gestionEmpresaSelect', 'UserDireccion', 'UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'].forEach(id => {
       const filtro = document.getElementById(id);
       if (filtro) aplicarFeedbackVisualFiltro(filtro);
     });
@@ -10473,12 +10505,28 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const filtro = event.currentTarget;
     if (!filtro) return;
 
+    if (filtro.id === 'gestionEmpresaSelect') {
+      const base = Array.isArray(window.usuariosDataCompleta) && window.usuariosDataCompleta.length
+        ? window.usuariosDataCompleta
+        : usuariosData;
+      usuariosData = filtrarUsuariosPorEmpresaGestionVista(base);
+      window.usuariosData = usuariosData;
+      ['UserDireccion', 'UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'].forEach(id => {
+        const child = document.getElementById(id);
+        if (child) child.value = '';
+      });
+      inicializarMapaAreasGestion();
+      actualizarOpcionesFiltrosGestion('gestionEmpresaSelect');
+      aplicarFiltros();
+      return;
+    }
+
     actualizarOpcionesFiltrosGestion(filtro.id);
     aplicarFiltros();
   }
 
   function vincularEventosFiltrosGestion() {
-    const filtros = ['UserDireccion', 'UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'];
+    const filtros = ['gestionEmpresaSelect', 'UserDireccion', 'UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'];
 
     filtros.forEach(id => {
       const filtro = document.getElementById(id);
@@ -10519,7 +10567,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
             id_area: usuario.id_area,
             nombre_area: usuario.nombre_area,
             id_direccion: usuario.id_direccion,
-            nombre_direccion: usuario.nombre_direccion
+            nombre_direccion: usuario.nombre_direccion,
+            id_empresa: usuario.id_empresa || 1,
+            nombre_empresa: usuario.nombre_empresa || 'MaxiKash'
           }] : [],
           // Guardar el nombre del puesto y departamento originales para compatibilidad
           nombre_puesto_principal: usuario.nombre_puesto,
@@ -10545,7 +10595,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
             id_area: usuario.id_area,
             nombre_area: usuario.nombre_area,
             id_direccion: usuario.id_direccion,
-            nombre_direccion: usuario.nombre_direccion
+            nombre_direccion: usuario.nombre_direccion,
+            id_empresa: usuario.id_empresa || 1,
+            nombre_empresa: usuario.nombre_empresa || 'MaxiKash'
           });
         }
       }
@@ -10579,18 +10631,23 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         // Consolidar usuarios con múltiples puestos
         const usuariosConsolidados = consolidarUsuarios(resp.datos);
 
-        // Guardar los datos consolidados globalmente
-        usuariosData = usuariosConsolidados;
-        window.usuariosData = usuariosConsolidados;
+        if (typeof renderEmpresasGestion === 'function') {
+          renderEmpresasGestion(usuariosConsolidados);
+        }
+
+        // Guardar copia completa y trabajar con la empresa seleccionada.
+        window.usuariosDataCompleta = usuariosConsolidados;
+        usuariosData = filtrarUsuariosPorEmpresaGestionVista(usuariosConsolidados);
+        window.usuariosData = usuariosData;
         inicializarMapaAreasGestion();
 
         // Pintar la primera carga con el mismo renderer compacto que usan los filtros.
-        actualizarTabla(usuariosConsolidados);
+        actualizarTabla(usuariosData);
 
         // ==========================================
         // ACTUALIZAR INDICADORES (KPIs)
         // ==========================================
-        actualizarIndicadores(usuariosConsolidados);
+        actualizarIndicadores(usuariosData);
         const areas = obtenerTodasAreasGlobales();
         const departamentos = new Set();
         const puestos = new Set();
@@ -10599,7 +10656,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         // CONJUNTOS para almacenar valores únicos (evita duplicados)
 
         // Iterar los datos y extraer valores únicos
-        usuariosConsolidados.forEach(persona => {
+        usuariosData.forEach(persona => {
           // DEPARTAMENTO
           if (persona.nombre_departamento && persona.nombre_departamento !== 'Sin departamento') {
             departamentos.add(persona.nombre_departamento);
@@ -11364,7 +11421,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    * ==========================================
    */
   function inicializarFeedbackFiltros() {
-    const filtros = ['UserDireccion', 'UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'];
+    const filtros = ['gestionEmpresaSelect', 'UserDireccion', 'UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'];
     filtros.forEach(id => {
       const filtro = document.getElementById(id);
       if (filtro && filtro.value) {
@@ -12740,7 +12797,7 @@ function ocultarBloquesDomicilio(prefix) {
         if (selectId.indexOf('add_') === 0) return '#offcanvasAddUser';
         if (selectId.indexOf('rrhh_') === 0) return '#modalAgregarUsuarioRrhh';
         if (selectId === 'bajaSustitutoId') return '#modalBajas';
-        if (selectId === 'UserDireccion' || selectId === 'UserArea' || selectId === 'UserRole' || selectId === 'UserPlan' || selectId === 'FilterMultiplePuestos') {
+        if (selectId === 'gestionEmpresaSelect' || selectId === 'UserDireccion' || selectId === 'UserArea' || selectId === 'UserRole' || selectId === 'UserPlan' || selectId === 'FilterMultiplePuestos') {
             return null;
         }
         return '#offcanvasEditUser';

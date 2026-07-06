@@ -371,6 +371,12 @@
     <div class="card-body p-4">
         <!-- Fila 1: Departamento, Persona (máx rango), Puesto (si tiene varios), Nivel 1 (dinámico) -->
         <div class="row mb-3 align-items-end">
+            <div class="col-md-3 mb-3" id="empresaSelectSlot">
+                <label for="empresaSelect" class="form-label"><strong>Empresa:</strong></label>
+                <select id="empresaSelect" class="form-select">
+                    <option value="">Todas las empresas</option>
+                </select>
+            </div>
             <div class="col-md-3 mb-3" id="dirSelectSlot">
                 <label for="dirSelect" class="form-label"><strong>Direccion:</strong></label>
                 <select id="dirSelect" class="form-select">
@@ -885,6 +891,7 @@
         let organigramaRows = [];
         let organigramaRowsBase = [];
         var personaSearchSelect = null;
+        var empresaSearchSelect = null;
         var dirSearchSelect = null;
         var areaSearchSelect = null;
         var depSearchSelect = null;
@@ -912,6 +919,16 @@
             if (instance && typeof instance.refresh === 'function') {
                 instance.refresh();
             }
+        }
+
+        function getEmpresaSeleccionadaOrganigrama() {
+            return String(document.getElementById("empresaSelect")?.value || "");
+        }
+
+        function coincideEmpresaOrganigrama(row) {
+            var empresaId = getEmpresaSeleccionadaOrganigrama();
+            if (!empresaId) return true;
+            return String(row?.id_empresa || 1) === empresaId;
         }
 
         function setVisibleOrgSlot(id, visible) {
@@ -961,6 +978,31 @@
             actualizarVisibilidadFiltrosOrganigrama();
         }
 
+        function renderEmpresasOrganigrama() {
+            var empresaSelect = document.getElementById("empresaSelect");
+            if (!empresaSelect) return;
+            var valorActual = String(empresaSelect.value || "");
+            var catalogo = Array.isArray(window.organigramaDepartamentosCatalogo) ? window.organigramaDepartamentosCatalogo : [];
+            var mapa = new Map();
+
+            catalogo.forEach(function (dep) {
+                var id = String(dep.id_empresa || 1);
+                var nombre = normalizarTextoOrg(dep.nombre_empresa, id === "2" ? "Furia Motos" : "MaxiKash");
+                if (!mapa.has(id)) mapa.set(id, nombre);
+            });
+
+            empresaSelect.innerHTML = '<option value="">Todas las empresas</option>';
+            Array.from(mapa.entries()).sort(function (a, b) { return a[1].localeCompare(b[1]); }).forEach(function (row) {
+                var opt = document.createElement("option");
+                opt.value = row[0];
+                opt.textContent = row[1];
+                empresaSelect.appendChild(opt);
+            });
+            if (valorActual && mapa.has(valorActual)) empresaSelect.value = valorActual;
+            empresaSelect.disabled = mapa.size <= 1;
+            refrescarSelectBuscadorOrg(empresaSearchSelect);
+        }
+
         function renderDireccionesOrganigrama() {
             var dirSelect = document.getElementById("dirSelect");
             var areaSelect = document.getElementById("areaSelect");
@@ -971,6 +1013,7 @@
             var mapa = new Map();
 
             catalogo.forEach(function (dep) {
+                if (!coincideEmpresaOrganigrama(dep)) return;
                 var id = String(dep.id_direccion || 0);
                 var nombre = normalizarTextoOrg(dep.nombre_direccion, "Sin direccion");
                 if (!mapa.has(id)) mapa.set(id, nombre);
@@ -1003,6 +1046,7 @@
             var idDir = String(idDireccion || "");
 
             catalogo.forEach(function (dep) {
+                if (!coincideEmpresaOrganigrama(dep)) return;
                 if (String(dep.id_direccion || 0) !== idDir) return;
                 var id = String(dep.id_area || 0);
                 var nombre = normalizarTextoOrg(dep.nombre_area, "Sin area");
@@ -1031,6 +1075,7 @@
             var idAreaStr = String(idArea || "");
 
             catalogo.forEach(function (dep) {
+                if (!coincideEmpresaOrganigrama(dep)) return;
                 if (String(dep.id_area || 0) !== idAreaStr) return;
                 var id = String(dep.id || "");
                 if (!id) return;
@@ -2156,6 +2201,12 @@
         /* ============================= */
         /*   SELECT DIRECCION / AREA      */
         /* ============================= */
+        document.getElementById("empresaSelect").addEventListener("change", function () {
+            renderDireccionesOrganigrama();
+            resetSeleccionOrganigrama("-- Selecciona un departamento primero --");
+            actualizarVisibilidadFiltrosOrganigrama();
+        });
+
         document.getElementById("dirSelect").addEventListener("change", function () {
             renderAreasOrganigrama(this.value);
             resetSeleccionOrganigrama("-- Selecciona un departamento primero --");
@@ -2338,8 +2389,14 @@
         /*   BOTÓN LIMPIAR               */
         /* ============================= */
         document.getElementById("btnLimpiarOrganigrama").addEventListener("click", function () {
+            var empresaSelect = document.getElementById("empresaSelect");
             var dirSelect = document.getElementById("dirSelect");
             var areaSelect = document.getElementById("areaSelect");
+            if (empresaSelect) {
+                empresaSelect.value = "";
+                if (empresaSearchSelect) empresaSearchSelect.refresh();
+            }
+            renderDireccionesOrganigrama();
             dirSelect.value = "";
             if (dirSearchSelect) dirSearchSelect.refresh();
             areaSelect.innerHTML = "<option value=\"\">Seleccione direccion primero</option>";
@@ -2750,9 +2807,11 @@
             }, true);
         }
 
+        empresaSearchSelect = new SearchableSelect(document.getElementById("empresaSelect"));
         dirSearchSelect = new SearchableSelect(document.getElementById("dirSelect"));
         areaSearchSelect = new SearchableSelect(document.getElementById("areaSelect"));
         depSearchSelect = new SearchableSelect(document.getElementById("depSelect"));
+        renderEmpresasOrganigrama();
         renderDireccionesOrganigrama();
         actualizarVisibilidadFiltrosOrganigrama();
         inicializarPanOrganigrama();
