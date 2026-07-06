@@ -1309,6 +1309,14 @@ def _v2_same_curp_family(a: Optional[str], b: Optional[str]) -> bool:
     return len(ca) == 18 and len(cb) == 18 and _v2_edit_distance_limited(ca[:13], cb[:13], 2) <= 2
 
 
+def _v2_curp_noise_distance(a: Optional[str], b: Optional[str]) -> Optional[int]:
+    ca = _v2_clean_id(a)
+    cb = _v2_clean_id(b)
+    if not ca or not cb or len(ca) != 18 or len(cb) != 18:
+        return None
+    return _v2_edit_distance_limited(ca, cb, 5)
+
+
 def _v2_doc_identifier_support(doc: Dict[str, Any], datos_ref: Dict[str, Any]) -> List[str]:
     support: List[str] = []
     doc_curp = _v2_clean_curp(doc.get("curp"))
@@ -1349,7 +1357,13 @@ def _v2_apply_identity_noise_consensus(
         if not isinstance(comp, dict) or comp.get("coincide") is not False:
             continue
         severity_original = str(comp.get("severidad") or "").lower()
-        if severity_original not in {"critico", "critica", "alto"} and not _v2_is_name_comparison(comp):
+        if (
+            severity_original not in {"critico", "critica", "alto"}
+            and not _v2_is_name_comparison(comp)
+            and not _v2_is_curp_comparison(comp)
+            and not _v2_is_rfc_comparison(comp)
+            and normalize_text(str(comp.get("categoria") or "")) != "NSS"
+        ):
             continue
         comp_docs = [doc_key for doc_key in _v2_comp_docs(comp) if doc_key in docs]
         if not comp_docs:
@@ -1403,7 +1417,39 @@ def _v2_apply_identity_noise_consensus(
                 read_curp = doc.get("curp")
                 name_ok = bool(ref_name and _v2_name_noise_similarity(ref_name, doc.get("nombre")))
                 support = _v2_doc_identifier_support(doc, datos_ref)
-                if read_curp and ref_curp and _v2_same_curp_family(ref_curp, read_curp) and (name_ok or support):
+                dist_curp = _v2_curp_noise_distance(ref_curp, read_curp)
+                identity_backed = bool(name_ok or support)
+                if read_curp and ref_curp and identity_backed and dist_curp is not None and dist_curp <= 2:
+                    doc["curp_lectura_ia"] = read_curp
+                    doc["curp"] = ref_curp
+                    obs = doc.setdefault("observaciones", [])
+                    if isinstance(obs, list):
+                        obs.append(
+                            f"CURP normalizada por consenso documental; lectura IA: {read_curp}; "
+                            f"diferencia: {dist_curp} caracter(es)."
+                        )
+                    comp["coincide"] = True
+                    comp["severidad"] = "ok"
+                    comp["valor_b"] = ref_curp
+                    comp["mensaje"] = (
+                        "CURP corregida por consenso documental: la lectura tenia ruido de 1-2 caracteres, "
+                        "pero el nombre/identidad del documento coincide con el expediente."
+                    )
+                    alertas[:] = [
+                        alerta for alerta in alertas
+                        if "CURP DEL DOCUMENTO REQUIERE REVISION" not in normalize_text(str(alerta or ""))
+                    ]
+                    affected[doc_key] = "coincide"
+                    break
+                if (
+                    read_curp
+                    and ref_curp
+                    and identity_backed
+                    and (
+                        (dist_curp is not None and dist_curp <= 4)
+                        or _v2_same_curp_family(ref_curp, read_curp)
+                    )
+                ):
                     msg = (
                         f"{doc.get('archivo') or doc_key} requiere revision: la CURP leida parece tener ruido, "
                         "pero pertenece a la misma identidad documental."
