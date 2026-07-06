@@ -247,6 +247,43 @@ class AtencionClientes
                 KEY idx_adj_blacklist_fecha (fecha_bloqueo)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
         );
+
+        $columnas = [
+            'id_operacion' => 'INT NULL AFTER id',
+            'id_credito' => 'BIGINT NULL AFTER id_operacion',
+            'estatus' => 'VARCHAR(60) NULL AFTER id_credito',
+            'tipo_movimiento' => 'VARCHAR(60) NULL AFTER estatus',
+            'motivo' => 'VARCHAR(180) NULL AFTER tipo_movimiento',
+            'comentario' => 'TEXT NULL AFTER motivo',
+            'area_responsable' => "VARCHAR(80) NULL DEFAULT 'Evidencias' AFTER comentario",
+            'bloqueado_por' => 'INT NULL AFTER area_responsable',
+            'bloqueado_por_nombre' => 'VARCHAR(180) NULL AFTER bloqueado_por',
+            'fecha_bloqueo' => 'DATETIME NULL AFTER bloqueado_por_nombre',
+            'liberado_por' => 'INT NULL AFTER fecha_bloqueo',
+            'liberado_por_nombre' => 'VARCHAR(180) NULL AFTER liberado_por',
+            'fecha_liberacion' => 'DATETIME NULL AFTER liberado_por_nombre',
+            'motivo_liberacion' => 'VARCHAR(250) NULL AFTER fecha_liberacion',
+            'activo' => 'TINYINT(1) NOT NULL DEFAULT 1 AFTER motivo_liberacion',
+            'created_at' => 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER activo',
+            'updated_at' => 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at',
+        ];
+
+        foreach ($columnas as $columna => $definicion) {
+            if (!$this->columnaExiste('adj_operacion_blacklist', $columna)) {
+                $this->db->CRUD("ALTER TABLE adj_operacion_blacklist ADD COLUMN {$columna} {$definicion}");
+            }
+        }
+    }
+
+    private function columnaExiste(string $tabla, string $columna): bool
+    {
+        $tabla = trim($tabla);
+        $columna = trim($columna);
+        if ($tabla === '' || $columna === '') {
+            return false;
+        }
+        $row = $this->db->queryOne("SHOW COLUMNS FROM `{$tabla}` LIKE :columna", ['columna' => $columna]);
+        return (bool) $row;
     }
 
     private function registrarBitacora(int $idOperacion, string $accion, int $idUsuario, string $nombreUsuario, ?string $fecha = null): void
@@ -264,33 +301,41 @@ class AtencionClientes
             $nom = strtoupper($nom);
             $acc = strtoupper($acc);
         }
-        $this->db->CRUD(
-            'INSERT INTO adj_bitacora (id_operacion, id_usuario, nombre_usuario, accion, fecha_alta)
-             VALUES (:id_op, :id_usr, :nombre, :accion, :fecha)',
-            [
-                'id_op' => $idOperacion,
-                'id_usr' => $idUsuario,
-                'nombre' => $nom,
-                'accion' => $acc,
-                'fecha' => $fecha,
-            ]
-        );
+        try {
+            $this->db->CRUD(
+                'INSERT INTO adj_bitacora (id_operacion, id_usuario, nombre_usuario, accion, fecha_alta)
+                 VALUES (:id_op, :id_usr, :nombre, :accion, :fecha)',
+                [
+                    'id_op' => $idOperacion,
+                    'id_usr' => $idUsuario,
+                    'nombre' => $nom,
+                    'accion' => $acc,
+                    'fecha' => $fecha,
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log('AtencionClientes::registrarBitacora cancelacion evidencias :: ' . $e->getMessage());
+        }
     }
 
     private function registrarHistorialEstatus(int $idOperacion, string $estatusAnterior, string $estatusNuevo, int $idUsuario, string $fecha): void
     {
-        $this->db->CRUD(
-            'INSERT INTO adj_historial_estatus
-                (id_operacion, estatus_anterior, estatus_nuevo, id_usuario, fecha)
-             VALUES (:id_op, :anterior, :nuevo, :id_usr, :fecha)',
-            [
-                'id_op' => $idOperacion,
-                'anterior' => $estatusAnterior,
-                'nuevo' => $estatusNuevo,
-                'id_usr' => $idUsuario ?: null,
-                'fecha' => $fecha,
-            ]
-        );
+        try {
+            $this->db->CRUD(
+                'INSERT INTO adj_historial_estatus
+                    (id_operacion, estatus_anterior, estatus_nuevo, id_usuario, fecha)
+                 VALUES (:id_op, :anterior, :nuevo, :id_usr, :fecha)',
+                [
+                    'id_op' => $idOperacion,
+                    'anterior' => $estatusAnterior,
+                    'nuevo' => $estatusNuevo,
+                    'id_usr' => $idUsuario ?: null,
+                    'fecha' => $fecha,
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log('AtencionClientes::registrarHistorialEstatus cancelacion evidencias :: ' . $e->getMessage());
+        }
     }
 
     private function sqlAhoraCdmxLiteral(): string
