@@ -936,7 +936,7 @@ class Inicio extends Controller
 
         echo json_encode([
             'success' => true,
-            'message' => 'Parada solicitada: se liberó el panel; en el servidor se intenta cortar el batch/doctor/Python de esta API y el puerto 8001. Revise el log "' . $logName . '" (Lista → seleccionar ese archivo).',
+            'message' => 'Parada solicitada: se liberó el panel; en el servidor se intenta cortar el batch/doctor/Python de esta API y el puerto ' . $docApiPort . '. Revise el log "' . $logName . '" (Lista → seleccionar ese archivo).',
             'log_file' => $logName,
         ], JSON_UNESCAPED_UNICODE);
     }

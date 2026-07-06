@@ -886,7 +886,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         <button type="button" class="api1click-tbtn" id="api1clickBtnDownload" title="Descargar .log">Descargar</button>
         <button type="button" class="api1click-tbtn api1click-tbtn--danger" id="api1clickBtnClearLogs" title="Borrar todos los .log temporales acumulados de la API">Borrar logs</button>
         <button type="button" class="api1click-tbtn" id="api1clickBtnOlvidar" title="Solo quita el bloqueo en la web; no mata procesos en el servidor">Desbloquear panel</button>
-        <button type="button" class="api1click-tbtn api1click-tbtn--danger" id="api1clickBtnParar" title="Corta en el servidor esta ejecución (batch/doctor/pip/python de esta API + puerto 8001)">Parar ejecución</button>
+        <button type="button" class="api1click-tbtn api1click-tbtn--danger" id="api1clickBtnParar" title="Corta en el servidor esta ejecución (batch/doctor/pip/python de esta API + puerto configurado)">Parar ejecución</button>
       </div>
       <pre class="api1click-body" id="api1clickOutput">Sin ejecución todavía.</pre>
     </div>
@@ -1548,7 +1548,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       .catch(function(){ if (outApi1) outApi1.textContent = 'No se pudo desbloquear (red o sesión).'; });
   });
   if (btnApi1Parar) btnApi1Parar.addEventListener('click', function(){
-    if (!confirm('¿PARAR esta ejecución en el servidor? Se intentará cerrar doctor/instalar/batch relacionados con esta API, liberar el puerto 8001 y procesos Python cuya línea de comando incluya esta carpeta. Luego podrás pulsar «API» otra vez.\n\nSolo otros Python de otros proyectos NO deberían verse afectados si no usan esa ruta.')) return;
+    if (!confirm('¿PARAR esta ejecución en el servidor? Se intentará cerrar doctor/instalar/batch relacionados con esta API, liberar el puerto configurado y procesos Python cuya línea de comando incluya esta carpeta. Luego podrás pulsar «API» otra vez.\n\nSolo otros Python de otros proyectos NO deberían verse afectados si no usan esa ruta.')) return;
     fetch('/inicio/apidoconeclickparar', { method: 'POST', credentials: 'same-origin', headers: api1AjaxHeaders() })
       .then(function(r){
         return r.text().then(function(body){

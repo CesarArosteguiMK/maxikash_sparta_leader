@@ -26,6 +26,22 @@ if (-not $ApiDir) {
 }
 $norm = ($ApiDir -replace '/', '\').TrimEnd('\')
 $inv = [System.Globalization.CultureInfo]::InvariantCulture
+$runtimeDir = Join-Path $ApiDir 'runtime'
+$stopFlag = Join-Path $runtimeDir 'api-supervisor-stop.flag'
+$restartFlag = Join-Path $runtimeDir 'api-restart-request.flag'
+$portFile = Join-Path $runtimeDir 'api-port.txt'
+try {
+    New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
+    if (-not $env:SPARTA_API_PORT -and (Test-Path -LiteralPath $portFile)) {
+        $rawPort = (Get-Content -LiteralPath $portFile -Raw -ErrorAction SilentlyContinue).Trim()
+        if ($rawPort -match '^\d+$') {
+            $port = [int]$rawPort
+        }
+    }
+    $env:SPARTA_API_PORT = [string]$port
+    Set-Content -LiteralPath $stopFlag -Value ("requested_at=" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "`nrequested_by=web-api-1click-parar") -Encoding ASCII
+    Remove-Item -LiteralPath $restartFlag -Force -ErrorAction SilentlyContinue
+} catch {}
 function Contains-ApiPath([string]$Text) {
     if (-not $Text) {
         return $false
@@ -35,6 +51,8 @@ function Contains-ApiPath([string]$Text) {
 
 Write-Host ('=== Parar ejecución 1-click / API docs ===')
 Write-Host ('ApiDir: ' + $norm)
+Write-Host ('[OK] Bandera de parada manual activa: ' + $stopFlag)
+Write-Host ('[OK] Reinicios pendientes limpiados: ' + $restartFlag)
 Write-Host ('---')
 
 $taskName = 'Sparta API Verificacion Documentos'

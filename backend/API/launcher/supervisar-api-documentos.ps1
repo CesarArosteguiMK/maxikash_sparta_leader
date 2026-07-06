@@ -155,13 +155,17 @@ function Ensure-Api {
 }
 
 Write-SupervisorLog ('Supervisor iniciado. PID=' + $PID + ' ApiDir=' + $ApiDir + ' Puerto=' + (Get-ApiPort))
+if (Test-Path -LiteralPath $stopFlag) {
+    Write-SupervisorLog 'Stop flag detectado al iniciar. No se arranca la API hasta que el boton API limpie la bandera.'
+    Write-SupervisorLog 'Supervisor terminado.'
+    exit 0
+}
 [void](Ensure-Api -Reason 'startup')
 
 $failures = 0
 while ($true) {
     if (Test-Path -LiteralPath $stopFlag) {
-        Write-SupervisorLog 'Stop flag detectado. Saliendo del supervisor.'
-        Remove-Item -LiteralPath $stopFlag -Force -ErrorAction SilentlyContinue
+        Write-SupervisorLog 'Stop flag detectado. Saliendo del supervisor; la bandera queda activa hasta un nuevo inicio manual.'
         break
     }
 
