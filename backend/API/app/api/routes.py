@@ -50,7 +50,7 @@ except ImportError:
 
 router = APIRouter()
 settings = get_settings()
-API_BUILD = "doc-precheck-2026-06-18-comprobante-content-first"
+API_BUILD = "doc-precheck-2026-07-06-v1v2-precheck-bridge"
 
 api_key_header = APIKeyHeader(name=settings.api_key_header, auto_error=False)
 
@@ -389,20 +389,35 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
         for comp in evaluables
     )
     hay_falla_final = any(comp.get("coincide") is False for comp in evaluables)
+    if (
+        not hay_critico_final
+        and not hay_falla_final
+        and any(_v2_is_unread_curp_alert(alerta) for alerta in alertas)
+        and _v2_has_strong_identity_consensus(comps, docs, nombre_candidato_registro, datos_ref)
+    ):
+        alertas = [alerta for alerta in alertas if not _v2_is_unread_curp_alert(alerta)]
+        msg_curp_consenso = (
+            "CURP no se leyo completa en su documento, pero la identidad queda soportada "
+            "por documentos oficiales, RFC/NSS y una referencia CURP valida."
+        )
+        if msg_curp_consenso not in recomendaciones:
+            recomendaciones.append(msg_curp_consenso)
+
     if dictamen == "rechazado" and not hay_critico_final:
         dictamen = "requiere_revision" if hay_falla_final or alertas else "aprobado"
+    if dictamen == "requiere_revision" and checks_totales > 0 and checks_fallas == 0 and not alertas:
+        dictamen = "aprobado"
 
-    if not analysis.get("resumen_final"):
-        if dictamen == "aprobado" and checks_fallas == 0:
-            analysis["resumen_final"] = (
-                "La informacion recibida es consistente entre los documentos revisados, "
-                "cumple con las reglas documentales establecidas y corresponde al candidato registrado."
-            )
-        else:
-            analysis["resumen_final"] = (
-                "El expediente requiere revision documental antes del dictamen final. "
-                "Revise las alertas y comparaciones marcadas por la IA documental."
-            )
+    if dictamen == "aprobado" and checks_fallas == 0 and not alertas:
+        analysis["resumen_final"] = (
+            "La informacion recibida es consistente entre los documentos revisados, "
+            "cumple con las reglas documentales establecidas y corresponde al candidato registrado."
+        )
+    elif not analysis.get("resumen_final"):
+        analysis["resumen_final"] = (
+            "El expediente requiere revision documental antes del dictamen final. "
+            "Revise las alertas y comparaciones marcadas por la IA documental."
+        )
 
     confianza = analysis.get("confianza")
     try:
@@ -628,6 +643,59 @@ def _v2_add_alerta_once(alertas: List[str], msg: str) -> None:
     clean = str(msg or "").strip()
     if clean and clean not in alertas:
         alertas.append(clean)
+
+
+def _v2_is_unread_curp_alert(alerta: Any) -> bool:
+    clean = normalize_text(str(alerta or ""))
+    return "CURP" in clean and "NO SE PUDO LEER AUTOMATICAMENTE" in clean
+
+
+def _v2_has_strong_identity_consensus(
+    comps: List[Dict[str, Any]],
+    docs: Dict[str, Any],
+    nombre_registro: Optional[str],
+    datos_ref: Dict[str, Any],
+) -> bool:
+    nombre_base = nombre_registro or datos_ref.get("nombre_registro")
+    readable_name_docs = 0
+    matching_name_docs = 0
+    for key, doc in docs.items():
+        if key == "comprobante_domicilio" or not isinstance(doc, dict):
+            continue
+        nombre_doc = doc.get("nombre")
+        if not nombre_doc:
+            continue
+        readable_name_docs += 1
+        if _v2_names_match(nombre_base, nombre_doc):
+            matching_name_docs += 1
+
+    name_consensus = matching_name_docs >= 4 or (
+        readable_name_docs >= 3 and matching_name_docs == readable_name_docs
+    )
+    if not name_consensus:
+        return False
+
+    has_curp_reference = bool(_v2_clean_curp(datos_ref.get("curp_principal"))) or any(
+        _v2_clean_curp(doc.get("curp"))
+        for doc in docs.values()
+        if isinstance(doc, dict)
+    )
+    if not has_curp_reference:
+        return False
+
+    has_rfc_support = bool(datos_ref.get("rfc_principal"))
+    has_nss_support = bool(datos_ref.get("nss_principal"))
+    for comp in comps:
+        if not isinstance(comp, dict) or comp.get("coincide") is not True:
+            continue
+        categoria = normalize_text(str(comp.get("categoria") or ""))
+        etiqueta = normalize_text(str(comp.get("etiqueta") or ""))
+        if categoria == "RFC" or "RFC" in etiqueta:
+            has_rfc_support = True
+        if categoria == "NSS" or "NSS" in etiqueta:
+            has_nss_support = True
+
+    return bool(has_rfc_support or has_nss_support)
 
 
 def _v2_downgrade_solicitud_consensus(
