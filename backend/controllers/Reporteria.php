@@ -1560,7 +1560,7 @@ class Reporteria extends Controller
                     $semana = isset($_GET['semana']) ? (string) $_GET['semana'] : null;
                     $payload = AvanceBucket::calcularHistorico($semana, $corte);
                 } elseif ($vista === 'estresado') {
-                    $payload = AvanceBucket::calcularEstresado();
+                    $payload = AvanceBucket::calcularEstresado($corte);
                 } else {
                     $payload = AvanceBucket::calcular($corte);
                 }
@@ -1619,7 +1619,8 @@ class Reporteria extends Controller
     public function getAvanceBucketEstresadoJson()
     {
         try {
-            self::respuestaJSON(AvanceBucket::calcularEstresado());
+            $corte = isset($_GET['corte']) ? (string) $_GET['corte'] : null;
+            self::respuestaJSON(AvanceBucket::calcularEstresado($corte));
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);

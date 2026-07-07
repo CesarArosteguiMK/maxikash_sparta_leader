@@ -92,7 +92,7 @@ $tituloVistaAvanceBucket = $esHistoricoAvanceBucket
                                         <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                             <div class="card-title">
                                                 <h5 class="text-primary mb-2">Bucket estresado</h5>
-                                                <p class="text-body w-sm-80 app-academy-xl-100">Consulta la simulacion +1 desde mas_menos, cruzando bucket morosidad real contra cierre actual.</p>
+                                                <p class="text-body w-sm-80 app-academy-xl-100">Consulta la simulacion +1 por corte usando Dias_mora de la semana actual.</p>
                                             </div>
                                             <div class="mb-0 mt-3">
                                                 <a href="/analitica/avanceBucket/estresado" class="btn btn-primary w-100">
@@ -127,7 +127,7 @@ $tituloVistaAvanceBucket = $esHistoricoAvanceBucket
                 <select id="ab-semana" class="form-select form-select-sm"></select>
             </label>
             <?php endif; ?>
-            <?php if (!$esHistoricoAvanceBucket && !$esEstresadoAvanceBucket): ?>
+            <?php if (!$esHistoricoAvanceBucket): ?>
             <label class="ab-corte-control mb-0">
                 <span>Corte</span>
                 <select id="ab-corte" class="form-select form-select-sm"></select>
@@ -652,7 +652,7 @@ $tituloVistaAvanceBucket = $esHistoricoAvanceBucket
         const corteBadge = el('ab-corte-badge');
         if (corteBadge) {
             const corteLabel = (data.dia_corte ? data.dia_corte + ' ' : '') + (data.corte || '');
-            corteBadge.textContent = isEstresado ? (data.origen || 'mas_menos') : (isHistorico && data.semana ? data.semana : corteLabel);
+            corteBadge.textContent = isHistorico && data.semana ? data.semana : corteLabel;
         }
         const matrizCreditos = data.matriz_creditos || {};
         const matrizPorcentajes = data.matriz_porcentajes || {};
@@ -662,7 +662,7 @@ $tituloVistaAvanceBucket = $esHistoricoAvanceBucket
         matrizPorcentajes.total_label = totalLabel;
         const matrizInvertida = data.matriz_invertida || null;
         if (matrizInvertida) {
-            matrizInvertida.row_label = 'Cierre Actual';
+            matrizInvertida.row_label = isEstresado ? 'Cierre Actual +1' : 'Cierre Actual';
             matrizInvertida.total_label = totalLabel;
         }
         renderResumen('ab-resumen-inicio', data.resumen_inicio, data.total, 'count');
@@ -682,7 +682,7 @@ $tituloVistaAvanceBucket = $esHistoricoAvanceBucket
         showLoading();
         try {
             const params = new URLSearchParams();
-            if (!isHistorico && !isEstresado && selectedCorte()) params.set('corte', selectedCorte());
+            if (!isHistorico && selectedCorte()) params.set('corte', selectedCorte());
             if (isHistorico && selectedSemana()) params.set('semana', selectedSemana());
             const suffix = params.toString() ? '?' + params.toString() : '';
             const res = await fetch(endpoint + suffix, { headers: { 'Accept': 'application/json' } });

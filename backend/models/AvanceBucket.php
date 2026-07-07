@@ -103,23 +103,35 @@ final class AvanceBucket
     }
 
     /**
-     * Simulacion Avance de Buckets (+1) desde la vista __SPARTA_SECRET_REDACTED__.mas_menos.
+     * Simulacion Avance de Buckets (+1) usando el corte de Dias_mora de tbl_segundometro_semana.
      *
      * @return array<string,mixed>
      */
-    public static function calcularEstresado(): array
+    public static function calcularEstresado(?string $corte = null): array
     {
         $db = new DatabaseSegundometro();
-        $bucketRealSql = self::bucketSql('mas_uno');
-        $cierreActualSql = self::bucketSql('menos_uno');
+        $corteNormalizado = self::normalizarCorte($corte);
+        $columnaCorte = self::columnaDiasMoraCorte($corteNormalizado);
+        $bucketInicioSql = self::bucketSql('Bucket_Morosidad_Real');
+        $bucketCierreAjustadoSql = self::bucketCierreAjustadoSql($columnaCorte);
+        $bucketMasUnoSql = self::bucketMasUnoSql('cierre_ajustado');
 
         $rows = $db->queryAll("
             SELECT bucket_inicio, bucket_cierre, COUNT(DISTINCT id_credito) AS creditos
             FROM (
-                SELECT {$bucketRealSql} AS bucket_inicio,
-                       {$cierreActualSql} AS bucket_cierre,
+                SELECT bucket_inicio,
+                       CASE
+                           WHEN bucket_inicio IS NULL OR cierre_ajustado IS NULL THEN NULL
+                           WHEN bucket_inicio = 'a) Current' THEN 'a) Current'
+                           ELSE ({$bucketMasUnoSql})
+                       END AS bucket_cierre,
                        id_credito
-                FROM mas_menos
+                FROM (
+                    SELECT {$bucketInicioSql} AS bucket_inicio,
+                           {$bucketCierreAjustadoSql} AS cierre_ajustado,
+                           Id_credito AS id_credito
+                    FROM tbl_segundometro_semana
+                ) base
             ) x
             WHERE bucket_inicio IS NOT NULL
               AND bucket_cierre IS NOT NULL
@@ -127,7 +139,7 @@ final class AvanceBucket
             GROUP BY bucket_inicio, bucket_cierre
         ");
 
-        $payload = self::formatear($rows, '', '', 'Bucket Morosidad Real', 'Cierre Actual');
+        $payload = self::formatear($rows, $corteNormalizado, self::diaCorteNombre(), 'Bucket Morosidad Real', 'Cierre Actual +1');
         $rowsInvertidos = array_map(static function (array $row): array {
             return [
                 'bucket_inicio' => $row['bucket_cierre'] ?? null,
@@ -135,9 +147,9 @@ final class AvanceBucket
                 'creditos' => $row['creditos'] ?? 0,
             ];
         }, $rows);
-        $payloadInvertido = self::formatear($rowsInvertidos, '', '', 'Cierre Actual', 'Bucket Morosidad Real');
+        $payloadInvertido = self::formatear($rowsInvertidos, $corteNormalizado, self::diaCorteNombre(), 'Cierre Actual +1', 'Bucket Morosidad Real');
         $payload['modo'] = 'estresado';
-        $payload['origen'] = 'mas_menos';
+        $payload['origen'] = 'tbl_segundometro_semana';
         $payload['titulo'] = 'Bucket estresado';
         $payload['resumen_inicio'] = self::ordenarResumenPorValor($payload['resumen_inicio']);
         $payload['matriz_invertida'] = $payloadInvertido['matriz_creditos'];
@@ -364,6 +376,24 @@ final class AvanceBucket
                 WHEN ({$ordenReal}) IS NULL OR ({$ordenCierre}) IS NULL THEN NULL
                 WHEN ({$ordenReal}) <= 5 AND ({$ordenCierre}) > ({$ordenReal}) THEN ({$bucketReal})
                 ELSE ({$cierreActual})
+            END
+        ";
+    }
+
+    private static function bucketMasUnoSql(string $expresion): string
+    {
+        return "
+            CASE ({$expresion})
+                WHEN 'a) Current' THEN 'b) 1 a 7 dias'
+                WHEN 'b) 1 a 7 dias' THEN 'c) 8 a 14 dias'
+                WHEN 'c) 8 a 14 dias' THEN 'd) 15 a 21 dias'
+                WHEN 'd) 15 a 21 dias' THEN 'e) 22 a 30 dias'
+                WHEN 'e) 22 a 30 dias' THEN 'f) 31 a 60 dias'
+                WHEN 'f) 31 a 60 dias' THEN 'g) 61 a 90 dias'
+                WHEN 'g) 61 a 90 dias' THEN 'h) 91 a 120 dias'
+                WHEN 'h) 91 a 120 dias' THEN 'i) 121+ dias'
+                WHEN 'i) 121+ dias' THEN 'i) 121+ dias'
+                ELSE NULL
             END
         ";
     }
