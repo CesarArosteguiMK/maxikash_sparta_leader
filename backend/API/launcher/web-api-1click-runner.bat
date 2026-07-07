@@ -72,6 +72,11 @@ for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
 if "!API_DIR:~-1!"=="\" set "API_DIR=!API_DIR:~0,-1!"
 call :PersistApiPort
 set "RESTART_FLAG=!API_DIR!\runtime\api-restart-request.flag"
+set "STOP_FLAG=!API_DIR!\runtime\api-supervisor-stop.flag"
+if exist "!STOP_FLAG!" (
+    echo [TASK] Limpiando bandera de parada manual antes del arranque: !STOP_FLAG!
+    del /f /q "!STOP_FLAG!" >nul 2>nul
+)
 if exist "!RESTART_FLAG!" (
     echo [TASK][WARN] Limpiando bandera de supervisor pendiente antes del arranque directo: !RESTART_FLAG!
     del /f /q "!RESTART_FLAG!" >nul 2>nul
@@ -109,9 +114,14 @@ for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
 if "!API_DIR:~-1!"=="\" set "API_DIR=!API_DIR:~0,-1!"
 set "RUNTIME_DIR=!API_DIR!\runtime"
 set "RESTART_FLAG=!RUNTIME_DIR!\api-restart-request.flag"
+set "STOP_FLAG=!RUNTIME_DIR!\api-supervisor-stop.flag"
 if not exist "!RUNTIME_DIR!" mkdir "!RUNTIME_DIR!" >nul 2>&1
 
 echo [TASK] Supervisor detectado en Task Scheduler.
+if exist "!STOP_FLAG!" (
+    echo [TASK] Limpiando bandera de parada manual antes de solicitar reinicio: !STOP_FLAG!
+    del /f /q "!STOP_FLAG!" >nul 2>nul
+)
 echo [TASK] Solicitando reinicio persistente por bandera: !RESTART_FLAG!
 > "!RESTART_FLAG!" echo requested_at=%DATE% %TIME%
 >> "!RESTART_FLAG!" echo requested_by=web-api-1click-runner

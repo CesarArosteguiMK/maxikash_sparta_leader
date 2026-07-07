@@ -9390,6 +9390,7 @@ class CapHum extends Controller
 
             function setRequiredOrganizacionCandidato(requerido) {
                 [
+                    "candidato_id_empresa",
                     "candidato_id_direccion",
                     "candidato_id_area",
                     "candidato_id_departamento",
@@ -9588,12 +9589,17 @@ class CapHum extends Controller
             }
 
             function resetCascadaOrganizacionCandidato() {
+                var empresa = document.getElementById("candidato_id_empresa");
                 var direccion = document.getElementById("candidato_id_direccion");
                 var area = document.getElementById("candidato_id_area");
                 var depto = document.getElementById("candidato_id_departamento");
+                if (empresa) {
+                    empresa.innerHTML = "<option value=''>Seleccione empresa</option>";
+                    empresa.disabled = false;
+                }
                 if (direccion) {
                     direccion.innerHTML = "<option value=''>Seleccione dirección</option>";
-                    direccion.disabled = false;
+                    direccion.disabled = true;
                 }
                 if (area) {
                     area.innerHTML = "<option value=''>Seleccione dirección primero</option>";
@@ -9604,14 +9610,42 @@ class CapHum extends Controller
                     depto.disabled = true;
                 }
                 resetPuestoJefeCandidato();
-                ["candidato_id_direccion", "candidato_id_area", "candidato_id_departamento"].forEach(refreshSelectBuscadorCandidato);
+                ["candidato_id_empresa", "candidato_id_direccion", "candidato_id_area", "candidato_id_departamento"].forEach(refreshSelectBuscadorCandidato);
             }
 
-            function renderDireccionesCandidato(valorSeleccionado) {
-                var select = document.getElementById("candidato_id_direccion");
+            function renderEmpresasCandidato(valorSeleccionado) {
+                var select = document.getElementById("candidato_id_empresa");
                 if (!select) return;
                 var mapa = new Map();
                 catalogoOrganizacionCandidato().forEach(function(dep) {
+                    var id = String(dep.id_empresa || 1);
+                    var nombre = normalizarTextoCandidato(dep.nombre_empresa || (id === "2" ? "Furia Motos" : "MaxiKash"));
+                    if (!mapa.has(id)) mapa.set(id, nombre);
+                });
+                select.innerHTML = "<option value=''>Seleccione empresa</option>";
+                Array.from(mapa.entries()).sort(function(a, b) { return a[1].localeCompare(b[1]); }).forEach(function(row) {
+                    var opt = document.createElement("option");
+                    opt.value = row[0];
+                    opt.textContent = row[1];
+                    select.appendChild(opt);
+                });
+                select.disabled = mapa.size === 0;
+                if (valorSeleccionado !== undefined && valorSeleccionado !== null) {
+                    select.value = String(valorSeleccionado);
+                } else if (mapa.size === 1) {
+                    select.value = String(Array.from(mapa.keys())[0]);
+                }
+                refreshSelectBuscadorCandidato(select.id);
+                renderDireccionesCandidato("", select.value || "");
+            }
+
+            function renderDireccionesCandidato(valorSeleccionado, idEmpresa) {
+                var select = document.getElementById("candidato_id_direccion");
+                if (!select) return;
+                var empresaSeleccionada = (idEmpresa === undefined || idEmpresa === null) ? (document.getElementById("candidato_id_empresa")?.value || "") : String(idEmpresa);
+                var mapa = new Map();
+                catalogoOrganizacionCandidato().forEach(function(dep) {
+                    if (empresaSeleccionada && String(dep.id_empresa || 1) !== empresaSeleccionada) return;
                     var id = String(dep.id_direccion || 0);
                     var nombre = normalizarTextoCandidato(dep.direccion_nombre || "Sin dirección");
                     if (!mapa.has(id)) mapa.set(id, nombre);
@@ -9623,7 +9657,7 @@ class CapHum extends Controller
                     opt.textContent = row[1];
                     select.appendChild(opt);
                 });
-                select.disabled = mapa.size === 0;
+                select.disabled = !empresaSeleccionada || mapa.size === 0;
                 if (valorSeleccionado !== undefined && valorSeleccionado !== null) {
                     select.value = String(valorSeleccionado);
                 }
@@ -9635,8 +9669,10 @@ class CapHum extends Controller
                 var depto = document.getElementById("candidato_id_departamento");
                 if (!select) return;
                 var direccionSeleccionada = (idDireccion === undefined || idDireccion === null) ? "" : String(idDireccion);
+                var empresaSeleccionada = document.getElementById("candidato_id_empresa")?.value || "";
                 var mapa = new Map();
                 catalogoOrganizacionCandidato().forEach(function(dep) {
+                    if (empresaSeleccionada && String(dep.id_empresa || 1) !== String(empresaSeleccionada)) return;
                     if (String(dep.id_direccion || 0) !== direccionSeleccionada) return;
                     var id = String(dep.id_departamento_organizacional || 0);
                     var nombre = normalizarTextoCandidato(dep.departamento_organizacional_nombre || "Sin área");
@@ -9666,8 +9702,10 @@ class CapHum extends Controller
                 var select = document.getElementById("candidato_id_departamento");
                 if (!select) return;
                 var areaSeleccionada = (idArea === undefined || idArea === null) ? "" : String(idArea);
+                var empresaSeleccionada = document.getElementById("candidato_id_empresa")?.value || "";
                 var mapa = new Map();
                 catalogoOrganizacionCandidato().forEach(function(dep) {
+                    if (empresaSeleccionada && String(dep.id_empresa || 1) !== String(empresaSeleccionada)) return;
                     if (String(dep.id_departamento_organizacional || 0) !== areaSeleccionada) return;
                     var id = String(dep.id || dep.departamento_id || "");
                     var nombre = normalizarTextoCandidato(dep.nombre || dep.departamento_nombre || "");
@@ -9692,20 +9730,24 @@ class CapHum extends Controller
                 var dep = catalogoOrganizacionCandidato().find(function(item) {
                     return String(item.id || item.departamento_id || "") === String(idDepartamento || "");
                 });
-                renderDireccionesCandidato(dep ? (dep.id_direccion || 0) : "");
+                renderEmpresasCandidato(dep ? (dep.id_empresa || 1) : "");
+                renderDireccionesCandidato(dep ? (dep.id_direccion || 0) : "", dep ? (dep.id_empresa || 1) : "");
                 if (!dep) {
                     renderAreasCandidato("0", "0");
                     renderDepartamentosCandidato("0", idDepartamento);
+                    var empresaFallback = document.getElementById("candidato_id_empresa");
                     var direccionFallback = document.getElementById("candidato_id_direccion");
                     var areaFallback = document.getElementById("candidato_id_area");
+                    asegurarOpcionSelectCandidato(empresaFallback, "1", "MaxiKash");
                     var deptoFallback = document.getElementById("candidato_id_departamento");
                     asegurarOpcionSelectCandidato(direccionFallback, "0", "Sin direcciÃ³n");
                     asegurarOpcionSelectCandidato(areaFallback, "0", "Sin Ã¡rea");
                     asegurarOpcionSelectCandidato(deptoFallback, idDepartamento, (candidato && candidato.nombre_departamento) || "Departamento actual");
+                    if (empresaFallback) empresaFallback.disabled = false;
                     if (direccionFallback) direccionFallback.disabled = false;
                     if (areaFallback) areaFallback.disabled = false;
                     if (deptoFallback) deptoFallback.disabled = false;
-                    ["candidato_id_direccion", "candidato_id_area", "candidato_id_departamento"].forEach(refreshSelectBuscadorCandidato);
+                    ["candidato_id_empresa", "candidato_id_direccion", "candidato_id_area", "candidato_id_departamento"].forEach(refreshSelectBuscadorCandidato);
                     return;
                 }
                 renderAreasCandidato(dep.id_direccion || 0, dep.id_departamento_organizacional || 0);
@@ -13398,7 +13440,8 @@ class CapHum extends Controller
                             if (modalCerrar && window.bootstrap && window.bootstrap.Modal) { var inst = window.bootstrap.Modal.getInstance(modalCerrar); if (inst) inst.hide(); }
                             if (modalDoc && window.bootstrap && window.bootstrap.Modal) { var instDoc = window.bootstrap.Modal.getInstance(modalDoc); if (instDoc) instDoc.hide(); }
                             if (typeof getCandidatos === "function") getCandidatos();
-                            if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: res.mensaje || "Proceso cerrado correctamente." });
+                            var warningCorreoCierre = !!(res.datos && res.datos.warning_correo);
+                            if (typeof Swal !== "undefined") Swal.fire({ icon: warningCorreoCierre ? "warning" : "success", title: warningCorreoCierre ? "Proceso cerrado" : "Listo", text: res.mensaje || "Proceso cerrado correctamente." });
                         } else {
                             if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo cerrar el proceso." });
                         }
@@ -13593,6 +13636,7 @@ class CapHum extends Controller
                     "candidato_id_div_nivel1",
                     "candidato_id_div_nivel2",
                     "candidato_id_div_nivel3",
+                    "candidato_id_empresa",
                     "candidato_id_direccion",
                     "candidato_id_area",
                     "candidato_id_departamento",
@@ -13609,7 +13653,7 @@ class CapHum extends Controller
                     else pais.dispatchEvent(new Event("change", { bubbles: true }));
                 }
                 if (!depto || !depto.value) {
-                    renderDireccionesCandidato();
+                    renderEmpresasCandidato();
                 }
                 if (depto && depto.value && puesto && puesto.options.length <= 1) {
                     if (typeof window.jQuery !== "undefined") window.jQuery(depto).trigger("change");
@@ -13716,6 +13760,13 @@ class CapHum extends Controller
             }
             if (divCalle) divCalle.style.display = "";
             if (divNum) divNum.style.display = "";
+        });
+        $(document).off("change.candForm", "#candidato_id_empresa").on("change.candForm", "#candidato_id_empresa", function() {
+            renderDireccionesCandidato("", $(this).val());
+            renderAreasCandidato("", "");
+            renderDepartamentosCandidato("", "");
+            resetPuestoJefeCandidato();
+            actualizarJefeDivisionalCandidato();
         });
         $(document).off("change.candForm", "#candidato_id_direccion").on("change.candForm", "#candidato_id_direccion", function() {
             renderAreasCandidato($(this).val(), "");
@@ -17553,6 +17604,15 @@ class CapHum extends Controller
         $resultado = CandidatosDAO::cerrarProceso($id_candidato, $motivo, $descripcion, (int) ($_SESSION['usuario_id'] ?? 0));
         if ($resultado['success']) {
             CandidatosDAO::invalidateDocumentacionCache($id_candidato);
+            $avisoCobranza = $this->notificarCierreProcesoCandidatoCobranza($candidatoCerrarRes['datos'], $motivo, $descripcion);
+            if (!empty($avisoCobranza['aplica'])) {
+                $resultado['datos'] = is_array($resultado['datos'] ?? null) ? $resultado['datos'] : [];
+                $resultado['datos']['correo_cierre_cobranza'] = $avisoCobranza;
+                if (empty($avisoCobranza['enviado'])) {
+                    $resultado['datos']['warning_correo'] = true;
+                    $resultado['mensaje'] .= ' El proceso se cerró, pero no se pudieron enviar todos los avisos de cierre a Cobranza.';
+                }
+            }
         }
         echo json_encode($resultado);
         exit;
@@ -19772,6 +19832,115 @@ class CapHum extends Controller
             'sabuesos@__SPARTA_SECRET_REDACTED__.mx' => 'Sabuesos',
             'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx' => 'Owen Ruiz',
         ];
+    }
+
+    private function etiquetaMotivoCierreCandidato(string $motivo): string
+    {
+        $map = [
+            'no_cubre_perfil' => 'No cubre el perfil',
+            'desistio' => 'El candidato desistió del proceso',
+            'sin_info_a_tiempo' => 'No entregó la información a tiempo',
+            'otro' => 'Otro motivo',
+        ];
+        return $map[$motivo] ?? $motivo;
+    }
+
+    private function notificarCierreProcesoCandidatoCobranza(array $candidato, string $motivo, ?string $descripcion = null, bool $simular = false): array
+    {
+        $aplica = self::candidatoEsDireccionCobranza($candidato);
+        $resultado = [
+            'aplica' => $aplica,
+            'enviado' => !$aplica,
+            'simulado' => $simular,
+            'enviados' => 0,
+            'total_destinatarios' => 0,
+            'destinatarios' => [],
+            'fallidos' => [],
+        ];
+        if (!$aplica) {
+            return $resultado;
+        }
+
+        $destinatarios = $this->ccIngresoJefeDivisional();
+        $resultado['destinatarios'] = array_keys($destinatarios);
+        $resultado['total_destinatarios'] = count($destinatarios);
+
+        $nombreCompleto = trim(implode(' ', array_filter([
+            (string) ($candidato['nombres'] ?? ''),
+            (string) ($candidato['segundo_nombre'] ?? ''),
+            (string) ($candidato['apellidop'] ?? ''),
+            (string) ($candidato['apellidom'] ?? ''),
+        ])));
+        if ($nombreCompleto === '') {
+            $nombreCompleto = 'Candidato #' . (int) ($candidato['id'] ?? 0);
+        }
+        $puesto = trim((string) ($candidato['nombre_puesto'] ?? ''));
+        $departamento = trim((string) ($candidato['nombre_departamento'] ?? ''));
+        $motivoTexto = $this->etiquetaMotivoCierreCandidato($motivo);
+        $descripcionTexto = trim((string) ($descripcion ?? ''));
+
+        $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
+        $rutaLogoInline = null;
+        if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
+        } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+        }
+        $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($this->obtenerBaseUrlApp(), '/') . '/assets/img/logo_correo.png');
+        $asunto = 'Cierre de proceso de candidato Cobranza - ' . $nombreCompleto;
+        $html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Cierre de proceso</title></head>
+<body style="margin:0; padding:0; background:#e8eef4; font-family:Segoe UI,Tahoma,Arial,sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#e8eef4;"><tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="620" cellspacing="0" cellpadding="0" style="width:100%; max-width:620px; background:#fff; border-radius:10px; box-shadow:0 2px 12px rgba(0,0,0,.08); overflow:hidden;">
+<tr><td style="background:#1e3a5f; padding:24px 28px;"><table width="100%"><tr><td><h1 style="margin:0; color:#fff; font-size:21px;">Cierre de proceso de candidato</h1><p style="margin:6px 0 0; color:rgba(255,255,255,.88); font-size:14px;">Dirección Cobranza</p></td><td style="text-align:right; width:150px;"><img src="' . htmlspecialchars($logoSrc) . '" alt="MaxiKash" width="145" style="max-height:64px; width:auto;"></td></tr></table></td></tr>
+<tr><td style="padding:28px;">
+<p style="margin:0 0 16px; color:#1a202c; font-size:15px; line-height:1.6;">Se cerró el proceso del siguiente candidato perteneciente a <strong>Cobranza</strong>.</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d8e1ec; border-radius:8px; overflow:hidden; margin:18px 0;">
+<tr><td style="padding:12px 16px; background:#f0f6fc; color:#1e3a5f; font-size:13px; font-weight:800; text-transform:uppercase;" colspan="2">Detalle del cierre</td></tr>
+<tr><td style="padding:12px 16px; color:#4a5568; font-size:13px; font-weight:600; width:34%; border-top:1px solid #d8e1ec;">Candidato</td><td style="padding:12px 16px; color:#1a202c; font-size:14px; border-top:1px solid #d8e1ec;">' . htmlspecialchars($nombreCompleto) . '</td></tr>
+<tr><td style="padding:12px 16px; color:#4a5568; font-size:13px; font-weight:600; border-top:1px solid #d8e1ec;">Puesto / departamento</td><td style="padding:12px 16px; color:#1a202c; font-size:14px; border-top:1px solid #d8e1ec;">' . htmlspecialchars(trim($puesto . ($departamento !== '' ? ' / ' . $departamento : '')) ?: 'Sin dato') . '</td></tr>
+<tr><td style="padding:12px 16px; color:#4a5568; font-size:13px; font-weight:600; border-top:1px solid #d8e1ec;">Motivo</td><td style="padding:12px 16px; color:#1a202c; font-size:14px; border-top:1px solid #d8e1ec;">' . htmlspecialchars($motivoTexto) . '</td></tr>
+<tr><td style="padding:12px 16px; color:#4a5568; font-size:13px; font-weight:600; border-top:1px solid #d8e1ec;">Descripción</td><td style="padding:12px 16px; color:#1a202c; font-size:14px; border-top:1px solid #d8e1ec;">' . htmlspecialchars($descripcionTexto !== '' ? $descripcionTexto : 'Sin comentarios adicionales') . '</td></tr>
+</table>
+<p style="margin:0; color:#2d3748; font-size:14px; line-height:1.6;">Este aviso se genera para dar seguimiento operativo al cierre del proceso.</p>
+</td></tr>
+<tr><td style="padding:16px 28px 22px; background:#f7fafc; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Correo generado automáticamente por Sparta.</p></td></tr>
+</table></td></tr></table></body></html>';
+
+        foreach ($destinatarios as $correo => $nombre) {
+            $correo = trim((string) $correo);
+            if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+                $resultado['fallidos'][] = ['correo' => $correo, 'nombre' => (string) $nombre, 'motivo' => 'Correo inválido.'];
+                continue;
+            }
+            if ($simular) {
+                $resultado['enviados']++;
+                continue;
+            }
+            $ok = $this->enviarCorreo($correo, $asunto, $html, (string) $nombre, $rutaLogoInline);
+            if ($ok) {
+                $resultado['enviados']++;
+                continue;
+            }
+            $resultado['fallidos'][] = [
+                'correo' => $correo,
+                'nombre' => (string) $nombre,
+                'motivo' => $this->enviarCorreoUltimoError ?: 'No se pudo enviar.',
+            ];
+        }
+
+        $resultado['enviado'] = $resultado['enviados'] === $resultado['total_destinatarios'] && empty($resultado['fallidos']);
+        if (!$simular) {
+            CandidatosDAO::registrarBitacoraCandidato(
+                (int) ($candidato['id'] ?? 0),
+                'AVISO_CIERRE_COBRANZA',
+                'Aviso de cierre a Cobranza',
+                'Se notificó el cierre del proceso a ' . $resultado['enviados'] . ' de ' . $resultado['total_destinatarios'] . ' destinatarios.',
+                $resultado,
+                (int) ($_SESSION['usuario_id'] ?? 0)
+            );
+        }
+        return $resultado;
     }
 
     private function notificarAdminCorreosFechaIngreso(int $idCandidato, string $nombreCompleto, array $fallidos): void
@@ -26896,7 +27065,7 @@ public function getEstadosMunicipiosMexico()
 
         $puedeEditarTodos = self::tieneAccesoTotalGestionPersonal();
 
-        self::set("titulo", "Organigrama Cobranza");
+        self::set("titulo", "Organigrama");
         self::set("script", $script);
         self::set("Departamentos", $getDepartamentos);
         self::set("DepartamentosOrganigrama", $departamentosOrganigrama);
