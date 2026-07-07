@@ -890,6 +890,7 @@ class TrackingRecoleccion extends Model
                     `id_transportista` INT NOT NULL AUTO_INCREMENT,
                     `id_agencia` INT NULL,
                     `tipo_transportista` ENUM('interno','externo') NOT NULL,
+                    `tipo_actor` ENUM('transportista','almacenista') NOT NULL DEFAULT 'transportista',
                     `nombre_transportista` VARCHAR(180) NOT NULL,
                     `curp_rfc` VARCHAR(25) NULL,
                     `email` VARCHAR(150) NULL,
@@ -902,7 +903,8 @@ class TrackingRecoleccion extends Model
                     PRIMARY KEY (`id_transportista`),
                     UNIQUE KEY `ux_transportistas_tracking_curp_rfc` (`curp_rfc`),
                     KEY `idx_transportistas_tracking_agencia` (`id_agencia`),
-                    KEY `idx_transportistas_tracking_tipo` (`tipo_transportista`, `activo`)
+                    KEY `idx_transportistas_tracking_tipo` (`tipo_transportista`, `activo`),
+                    KEY `idx_transportistas_tracking_actor_agencia` (`tipo_actor`, `id_agencia`, `activo`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
             );
         } catch (\Throwable $e) {
@@ -1209,6 +1211,11 @@ class TrackingRecoleccion extends Model
             if ($this->columnaOpcionalExiste('transportistas_tracking', 'debe_cambiar_password')) {
                 $extraSelect .= ",\n                    t.debe_cambiar_password";
             }
+            if ($this->columnaOpcionalExiste('transportistas_tracking', 'tipo_actor')) {
+                $extraSelect .= ",\n                    t.tipo_actor";
+            } else {
+                $extraSelect .= ",\n                    'transportista' AS tipo_actor";
+            }
             return $this->db->queryAll(
                 "SELECT
                     t.id_transportista,
@@ -1318,11 +1325,18 @@ class TrackingRecoleccion extends Model
                 ) cap ON cap.id_transportista = t.id_transportista"
             : '';
 
+        $tieneTipoActor = $this->columnaOpcionalExiste('transportistas_tracking', 'tipo_actor');
+        $tipoActorSelect = $tieneTipoActor
+            ? "t.tipo_actor,"
+            : "'transportista' AS tipo_actor,";
+        $tipoActorWhere = $tieneTipoActor ? "AND t.tipo_actor = 'transportista'" : '';
+
         $transportistas = $this->db->queryAll(
             "SELECT
                 t.id_transportista,
                 t.id_agencia,
                 t.tipo_transportista,
+                {$tipoActorSelect}
                 t.nombre_transportista,
                 t.telefono,
                 t.email,
@@ -1337,6 +1351,7 @@ class TrackingRecoleccion extends Model
              LEFT JOIN agencias_tracking a ON a.id_agencia = t.id_agencia
              {$capJoin}
              WHERE t.activo = 1
+               {$tipoActorWhere}
              ORDER BY t.tipo_transportista, t.nombre_transportista"
         ) ?: [];
 
@@ -1403,6 +1418,7 @@ class TrackingRecoleccion extends Model
                 'id_transportista' => $id,
                 'nombre_transportista' => (string) ($t['nombre_transportista'] ?? ''),
                 'tipo_transportista' => (string) ($t['tipo_transportista'] ?? ''),
+                'tipo_actor' => (string) ($t['tipo_actor'] ?? 'transportista'),
                 'empresa_origen' => (string) ($t['empresa_origen'] ?? ''),
                 'telefono' => (string) ($t['telefono'] ?? ''),
                 'email' => (string) ($t['email'] ?? ''),
@@ -1671,6 +1687,38 @@ class TrackingRecoleccion extends Model
         return mb_substr($base, 0, 50, 'UTF-8') . '_' . substr(md5((string) microtime(true)), 0, 8);
     }
 
+    private function normalizarUsernameOperativo(string $texto): string
+    {
+        $txt = trim($texto);
+        if (function_exists('iconv')) {
+            $tmp = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $txt);
+            if ($tmp !== false) {
+                $txt = $tmp;
+            }
+        }
+        $txt = strtoupper($txt);
+        $txt = preg_replace('/[^A-Z0-9]+/', '', $txt) ?? $txt;
+        return mb_substr($txt, 0, 60, 'UTF-8');
+    }
+
+    private function usernameOperativoDesdeNombre(string $nombre): string
+    {
+        $txt = trim($nombre);
+        if (function_exists('iconv')) {
+            $tmp = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $txt);
+            if ($tmp !== false) {
+                $txt = $tmp;
+            }
+        }
+        $tokens = preg_split('/[^A-Za-z0-9]+/', strtoupper($txt), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if (!$tokens) {
+            return 'TRK' . date('Y');
+        }
+        $inicial = mb_substr($tokens[0], 0, 1, 'UTF-8');
+        $apellido = count($tokens) >= 2 ? $tokens[max(1, count($tokens) - 2)] : $tokens[0];
+        return $this->normalizarUsernameOperativo($inicial . $apellido . date('Y'));
+    }
+
     public function guardarAgenciaTracking(array $data): array
     {
         $idAgencia = (int) ($data['id_agencia'] ?? 0);
@@ -1770,15 +1818,23 @@ class TrackingRecoleccion extends Model
         $idTransportista = (int) ($data['id_transportista'] ?? 0);
         $nombre = $this->textoCatalogo($data['nombre_transportista'] ?? '', 180);
         if ($nombre === null) {
-            return ['success' => false, 'message' => 'El nombre del transportista es obligatorio.'];
+            return ['success' => false, 'message' => 'El nombre del usuario operativo es obligatorio.'];
+        }
+
+        $tipoActor = strtolower(trim((string) ($data['tipo_actor'] ?? 'transportista')));
+        if (!in_array($tipoActor, ['transportista', 'almacenista'], true)) {
+            $tipoActor = 'transportista';
         }
 
         $tipo = strtolower(trim((string) ($data['tipo_transportista'] ?? '')));
         if (!in_array($tipo, ['interno', 'externo'], true)) {
-            return ['success' => false, 'message' => 'Selecciona si el transportista es interno o externo.'];
+            return ['success' => false, 'message' => 'Selecciona si el usuario operativo es interno o externo.'];
         }
 
         $idAgencia = (int) ($data['id_agencia'] ?? 0);
+        if ($tipoActor === 'almacenista' && $idAgencia <= 0) {
+            return ['success' => false, 'message' => 'El almacenista debe tener un CEDIS asignado.'];
+        }
         if ($idAgencia > 0) {
             $agencia = $this->db->queryOne(
                 'SELECT id_agencia FROM agencias_tracking WHERE id_agencia = :id_agencia LIMIT 1',
@@ -1804,10 +1860,18 @@ class TrackingRecoleccion extends Model
         $extraSet = [];
         $extraInsertCols = [];
         $extraInsertVals = [];
+        if ($this->columnaOpcionalExiste('transportistas_tracking', 'tipo_actor')) {
+            $params['tipo_actor'] = $tipoActor;
+            $extraSet[] = 'tipo_actor = :tipo_actor';
+            $extraInsertCols[] = 'tipo_actor';
+            $extraInsertVals[] = ':tipo_actor';
+        }
         if ($this->columnaOpcionalExiste('transportistas_tracking', 'username')) {
             $username = $this->textoCatalogo($data['username'] ?? null, 60);
             if ($username === null && $idTransportista <= 0) {
-                $username = mb_substr($this->claveCatalogoDesdeNombre($nombre), 0, 50, 'UTF-8') . '2026';
+                $username = $this->usernameOperativoDesdeNombre($nombre);
+            } elseif ($username !== null) {
+                $username = $this->normalizarUsernameOperativo($username);
             }
             if ($username !== null) {
                 $params['username'] = $this->usernameTransportistaUnico($username, $idTransportista);
@@ -1863,7 +1927,7 @@ class TrackingRecoleccion extends Model
                  WHERE id_transportista = :id_transportista",
                 $params
             );
-            return ['success' => true, 'message' => 'Transportista actualizado.', 'id_transportista' => $idTransportista];
+            return ['success' => true, 'message' => 'Usuario operativo actualizado.', 'id_transportista' => $idTransportista];
         }
 
         $cols = array_merge([
@@ -1881,7 +1945,7 @@ class TrackingRecoleccion extends Model
             $params
         );
 
-        return ['success' => true, 'message' => 'Transportista registrado.', 'id_transportista' => $this->db->lastInsertId()];
+        return ['success' => true, 'message' => 'Usuario operativo registrado.', 'id_transportista' => $this->db->lastInsertId()];
     }
 
     public function cambiarEstadoTransportistaTracking(int $idTransportista, int $activo): array
@@ -2334,15 +2398,19 @@ class TrackingRecoleccion extends Model
         }
 
         if ($idTransportista > 0) {
+            $filtroActorTransportista = $this->columnaOpcionalExiste('transportistas_tracking', 'tipo_actor')
+                ? "AND tipo_actor = 'transportista'"
+                : '';
             $transportista = $this->db->queryOne(
                 "SELECT id_transportista, id_agencia, tipo_transportista
                  FROM transportistas_tracking
                  WHERE id_transportista = :id AND activo = 1
+                   {$filtroActorTransportista}
                  LIMIT 1",
                 ['id' => $idTransportista]
             );
             if (!$transportista) {
-                return ['success' => false, 'message' => 'El transportista seleccionado no existe o está inactivo.'];
+                return ['success' => false, 'message' => 'El transportista seleccionado no existe, esta inactivo o no es un usuario de transporte.'];
             }
             if ($tipoTransportista === '') {
                 $tipoTransportista = (string) $transportista['tipo_transportista'];
