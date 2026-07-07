@@ -175,6 +175,49 @@
         padding: .75rem;
         background: #fff;
     }
+    .ave-form-section {
+        border: 1px solid #e2e8f0;
+        border-radius: .5rem;
+        background: #fff;
+        padding: .85rem;
+    }
+    .ave-section-title {
+        color: #1e293b;
+        font-size: .82rem;
+        font-weight: 800;
+        margin-bottom: .7rem;
+        text-transform: uppercase;
+    }
+    .ave-required-dot {
+        color: #dc2626;
+        font-weight: 900;
+    }
+    .ave-category-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .5rem;
+    }
+    .ave-category-option {
+        border: 1px solid #e2e8f0;
+        border-radius: .45rem;
+        padding: .55rem .65rem;
+        min-height: 3.1rem;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        background: #fff;
+    }
+    .ave-category-option input {
+        flex-shrink: 0;
+    }
+    .ave-file-card.optional {
+        background: #f8fafc;
+    }
+    .ave-file-hint {
+        color: #64748b;
+        font-size: .72rem;
+        margin-top: .25rem;
+    }
     @media (max-width: 992px) {
         .ave-kpi-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -182,7 +225,8 @@
     }
     @media (max-width: 576px) {
         .ave-kpi-grid,
-        .ave-evidence-grid {
+        .ave-evidence-grid,
+        .ave-category-grid {
             grid-template-columns: 1fr;
         }
         .ave-head {
@@ -340,47 +384,204 @@
                 <div class="ave-modal-summary mb-3" id="ave-modal-summary"></div>
                 <div class="row g-3">
                     <div class="col-12 col-lg-5">
-                        <div class="ave-code-box mb-3">
-                            <div class="d-flex align-items-start justify-content-between gap-2">
-                                <div>
-                                    <div class="text-muted small fw-bold text-uppercase">Codigo vigente</div>
-                                    <div class="ave-code-value" id="ave-codigo-actual">Sin generar</div>
-                                    <div class="ave-unit-sub" id="ave-codigo-expira"></div>
+                        <div class="ave-form-section mb-3">
+                            <div class="ave-section-title">Verificacion</div>
+                            <div class="ave-code-box mb-3">
+                                <div class="d-flex align-items-start justify-content-between gap-2">
+                                    <div>
+                                        <div class="text-muted small fw-bold text-uppercase">Codigo vigente</div>
+                                        <div class="ave-code-value" id="ave-codigo-actual">Sin generar</div>
+                                        <div class="ave-unit-sub" id="ave-codigo-expira"></div>
+                                    </div>
+                                    <button type="button" class="btn btn-warning btn-sm" id="ave-btn-generar-codigo">
+                                        <i class="fa-solid fa-key me-1"></i>Generar
+                                    </button>
                                 </div>
-                                <button type="button" class="btn btn-warning btn-sm" id="ave-btn-generar-codigo">
-                                    <i class="fa-solid fa-key me-1"></i>Generar
-                                </button>
+                            </div>
+                            <label class="form-label small fw-bold" for="ave-codigo-input">Codigo de verificacion <span class="ave-required-dot">*</span></label>
+                            <input type="text" class="form-control mb-3" name="codigo_verificacion" id="ave-codigo-input" autocomplete="off" required>
+                            <label class="form-label small fw-bold" for="ave-vin">VIN/NIV <span class="ave-required-dot">*</span></label>
+                            <input type="text" class="form-control" name="vin" id="ave-vin" maxlength="17" autocomplete="off" required>
+                        </div>
+
+                        <div class="ave-form-section mb-3">
+                            <div class="ave-section-title">Fisicos y documentos</div>
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold">Tiene llave fisica <span class="ave-required-dot">*</span></label>
+                                    <select class="form-select" name="tiene_llave_fisica" id="ave-llave" required>
+                                        <option value="">Seleccionar</option>
+                                        <option value="si">Si</option>
+                                        <option value="no">No</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold">Tiene tarjeta de circulacion <span class="ave-required-dot">*</span></label>
+                                    <select class="form-select" name="tiene_tarjeta_circulacion" id="ave-tarjeta" required>
+                                        <option value="">Seleccionar</option>
+                                        <option value="si">Si</option>
+                                        <option value="no">No</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold">La moto tiene placa fisica <span class="ave-required-dot">*</span></label>
+                                    <select class="form-select" name="tiene_placa_fisica" id="ave-placa-fisica" required>
+                                        <option value="">Seleccionar</option>
+                                        <option value="si">Si</option>
+                                        <option value="no">No</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
-                        <label class="form-label small fw-bold" for="ave-codigo-input">Codigo de verificacion</label>
-                        <input type="text" class="form-control mb-3" name="codigo_verificacion" id="ave-codigo-input" autocomplete="off" required>
-                        <label class="form-label small fw-bold" for="ave-vin">VIN/NIV</label>
-                        <input type="text" class="form-control mb-3" name="vin" id="ave-vin" maxlength="17" autocomplete="off" required>
-                        <label class="form-label small fw-bold" for="ave-observaciones">Observaciones</label>
-                        <textarea class="form-control" name="observaciones" id="ave-observaciones" rows="4" maxlength="1000"></textarea>
-                        <div class="mt-3" id="ave-evidencias-actuales"></div>
+
+                        <div class="ave-form-section">
+                            <div class="ave-section-title">Comentarios</div>
+                            <label class="form-label small fw-bold" for="ave-comentarios-generales">Comentarios generales <span class="ave-required-dot">*</span></label>
+                            <textarea class="form-control mb-3" name="comentarios_generales" id="ave-comentarios-generales" rows="4" maxlength="1500" required></textarea>
+                            <label class="form-label small fw-bold" for="ave-observaciones">Observaciones internas</label>
+                            <textarea class="form-control" name="observaciones" id="ave-observaciones" rows="3" maxlength="1000"></textarea>
+                            <div class="mt-3" id="ave-evidencias-actuales"></div>
+                        </div>
                     </div>
                     <div class="col-12 col-lg-7">
-                        <div class="ave-evidence-grid">
-                            <div class="ave-file-card">
-                                <label class="form-label small fw-bold" for="ev_foto_frontal">Foto frontal</label>
-                                <input type="file" class="form-control" name="ev_foto_frontal" id="ev_foto_frontal" accept="image/*">
+                        <div class="ave-form-section mb-3">
+                            <div class="ave-section-title">Ficha tecnica</div>
+                            <div class="row g-3">
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label small fw-bold" for="ave-tipo-unidad">Tipo de moto <span class="ave-required-dot">*</span></label>
+                                    <select class="form-select" name="tipo_unidad" id="ave-tipo-unidad" required>
+                                        <option value="">Seleccionar</option>
+                                        <option value="2_ruedas">2 ruedas</option>
+                                        <option value="3_ruedas">3 ruedas</option>
+                                        <option value="cuatrimoto">Cuatrimoto</option>
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label small fw-bold" for="ave-tipo-motor">Tipo de motor <span class="ave-required-dot">*</span></label>
+                                    <select class="form-select" name="tipo_motor" id="ave-tipo-motor" required>
+                                        <option value="">Seleccionar</option>
+                                        <option value="combustion">Combustion</option>
+                                        <option value="electrica">Electrica</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold">Categoria <span class="ave-required-dot">*</span></label>
+                                    <div class="ave-category-grid">
+                                        <label class="ave-category-option"><input class="form-check-input" type="radio" name="categoria" value="naked" required> Naked</label>
+                                        <label class="ave-category-option"><input class="form-check-input" type="radio" name="categoria" value="deportivas"> Deportivas</label>
+                                        <label class="ave-category-option"><input class="form-check-input" type="radio" name="categoria" value="doble_proposito"> Doble proposito</label>
+                                        <label class="ave-category-option"><input class="form-check-input" type="radio" name="categoria" value="cross_enduro"> Cross/Enduro</label>
+                                        <label class="ave-category-option"><input class="form-check-input" type="radio" name="categoria" value="custom"> Custom</label>
+                                        <label class="ave-category-option"><input class="form-check-input" type="radio" name="categoria" value="scrambler"> Scrambler</label>
+                                        <label class="ave-category-option"><input class="form-check-input" type="radio" name="categoria" value="scooter"> Scooter</label>
+                                        <label class="ave-category-option"><input class="form-check-input" type="radio" name="categoria" value="touring"> Touring</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-6 ave-combustion-fields d-none">
+                                    <label class="form-label small fw-bold" for="ave-combustion-tipo">Combustion <span class="ave-required-dot">*</span></label>
+                                    <select class="form-select" name="tipo_motor_combustion" id="ave-combustion-tipo">
+                                        <option value="">Seleccionar</option>
+                                        <option value="carburador">Carburador</option>
+                                        <option value="full_inyeccion">Full inyeccion</option>
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-6 ave-combustion-fields d-none">
+                                    <label class="form-label small fw-bold" for="ave-cilindraje">Cilindraje <span class="ave-required-dot">*</span></label>
+                                    <select class="form-select" name="cilindraje" id="ave-cilindraje">
+                                        <option value="">Seleccionar</option>
+                                        <option value="50_cc">50 CC</option>
+                                        <option value="100_cc">100 CC</option>
+                                        <option value="110_cc">110 CC</option>
+                                        <option value="125_cc">125 CC</option>
+                                        <option value="150_cc">150 CC</option>
+                                        <option value="160_cc">160 CC</option>
+                                        <option value="170_cc">170 CC</option>
+                                        <option value="180_cc">180 CC</option>
+                                        <option value="200_cc">200 CC</option>
+                                        <option value="210_cc">210 CC</option>
+                                        <option value="220_cc">220 CC</option>
+                                        <option value="250_cc">250 CC</option>
+                                        <option value="300_cc">300 CC</option>
+                                        <option value="400_cc">400 CC</option>
+                                        <option value="otro">Otro</option>
+                                    </select>
+                                </div>
+                                <div class="col-12 ave-cilindraje-otro d-none">
+                                    <label class="form-label small fw-bold" for="ave-cilindraje-otro">Cilindraje otro</label>
+                                    <input type="text" class="form-control" name="cilindraje_otro" id="ave-cilindraje-otro" maxlength="50">
+                                </div>
+                                <div class="col-12 col-md-6 ave-electrica-fields d-none">
+                                    <label class="form-label small fw-bold" for="ave-potencia">Potencia <span class="ave-required-dot">*</span></label>
+                                    <select class="form-select" name="potencia" id="ave-potencia">
+                                        <option value="">Seleccionar</option>
+                                        <option value="5_kw">5 KW</option>
+                                        <option value="8_kw">8 KW</option>
+                                        <option value="9_kw">9 KW</option>
+                                        <option value="10_kw">10 KW</option>
+                                        <option value="11_kw">11 KW</option>
+                                        <option value="12_kw">12 KW</option>
+                                        <option value="13_kw">13 KW</option>
+                                        <option value="15_kw">15 KW</option>
+                                        <option value="otro">Otro</option>
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-6 ave-potencia-otro d-none">
+                                    <label class="form-label small fw-bold" for="ave-potencia-otro">Potencia otra</label>
+                                    <input type="text" class="form-control" name="potencia_otro" id="ave-potencia-otro" maxlength="50">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold" for="ave-otro-descripcion">Otro</label>
+                                    <input type="text" class="form-control" name="otro_descripcion" id="ave-otro-descripcion" maxlength="255">
+                                </div>
                             </div>
-                            <div class="ave-file-card">
-                                <label class="form-label small fw-bold" for="ev_foto_lateral_derecha">Foto lateral derecha</label>
-                                <input type="file" class="form-control" name="ev_foto_lateral_derecha" id="ev_foto_lateral_derecha" accept="image/*">
-                            </div>
-                            <div class="ave-file-card">
-                                <label class="form-label small fw-bold" for="ev_foto_trasera">Foto trasera</label>
-                                <input type="file" class="form-control" name="ev_foto_trasera" id="ev_foto_trasera" accept="image/*">
-                            </div>
-                            <div class="ave-file-card">
-                                <label class="form-label small fw-bold" for="ev_foto_lateral_izquierda">Foto lateral izquierda</label>
-                                <input type="file" class="form-control" name="ev_foto_lateral_izquierda" id="ev_foto_lateral_izquierda" accept="image/*">
-                            </div>
-                            <div class="ave-file-card">
-                                <label class="form-label small fw-bold" for="ev_foto_vin">Foto VIN/NIV</label>
-                                <input type="file" class="form-control" name="ev_foto_vin" id="ev_foto_vin" accept="image/*">
+                        </div>
+
+                        <div class="ave-form-section">
+                            <div class="ave-section-title">Evidencias</div>
+                            <div class="ave-evidence-grid">
+                                <div class="ave-file-card optional">
+                                    <label class="form-label small fw-bold" for="ev_foto_dacion_hoja_1">Dacion hoja 1</label>
+                                    <input type="file" class="form-control" name="ev_foto_dacion_hoja_1" id="ev_foto_dacion_hoja_1" accept="image/*">
+                                    <div class="ave-file-hint">Opcional</div>
+                                </div>
+                                <div class="ave-file-card optional">
+                                    <label class="form-label small fw-bold" for="ev_foto_dacion_hoja_2">Dacion hoja 2</label>
+                                    <input type="file" class="form-control" name="ev_foto_dacion_hoja_2" id="ev_foto_dacion_hoja_2" accept="image/*">
+                                    <div class="ave-file-hint">Opcional</div>
+                                </div>
+                                <div class="ave-file-card">
+                                    <label class="form-label small fw-bold" for="ev_foto_tacometro">Foto tacometro <span class="ave-required-dot">*</span></label>
+                                    <input type="file" class="form-control" name="ev_foto_tacometro" id="ev_foto_tacometro" accept="image/*">
+                                </div>
+                                <div class="ave-file-card">
+                                    <label class="form-label small fw-bold" for="ev_foto_vin">Foto VIN/NIV <span class="ave-required-dot">*</span></label>
+                                    <input type="file" class="form-control" name="ev_foto_vin" id="ev_foto_vin" accept="image/*">
+                                </div>
+                                <div class="ave-file-card">
+                                    <label class="form-label small fw-bold" for="ev_foto_frontal">Foto frontal <span class="ave-required-dot">*</span></label>
+                                    <input type="file" class="form-control" name="ev_foto_frontal" id="ev_foto_frontal" accept="image/*">
+                                </div>
+                                <div class="ave-file-card">
+                                    <label class="form-label small fw-bold" for="ev_foto_trasera">Foto trasera <span class="ave-required-dot">*</span></label>
+                                    <input type="file" class="form-control" name="ev_foto_trasera" id="ev_foto_trasera" accept="image/*">
+                                </div>
+                                <div class="ave-file-card">
+                                    <label class="form-label small fw-bold" for="ev_foto_lateral_derecha">Foto lateral derecha <span class="ave-required-dot">*</span></label>
+                                    <input type="file" class="form-control" name="ev_foto_lateral_derecha" id="ev_foto_lateral_derecha" accept="image/*">
+                                </div>
+                                <div class="ave-file-card">
+                                    <label class="form-label small fw-bold" for="ev_foto_lateral_izquierda">Foto lateral izquierda <span class="ave-required-dot">*</span></label>
+                                    <input type="file" class="form-control" name="ev_foto_lateral_izquierda" id="ev_foto_lateral_izquierda" accept="image/*">
+                                </div>
+                                <div class="ave-file-card">
+                                    <label class="form-label small fw-bold" for="ev_video_360_encendida">Video 360 encendida <span class="ave-required-dot">*</span></label>
+                                    <input type="file" class="form-control" name="ev_video_360_encendida" id="ev_video_360_encendida" accept="video/mp4,video/quicktime,video/webm">
+                                </div>
+                                <div class="ave-file-card optional">
+                                    <label class="form-label small fw-bold" for="ev_foto_checklist">Foto checklist</label>
+                                    <input type="file" class="form-control" name="ev_foto_checklist" id="ev_foto_checklist" accept="image/*">
+                                    <div class="ave-file-hint">Opcional</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -446,6 +647,84 @@
             ? 'ave-status-' + key
             : 'ave-status-default';
         return '<span class="ave-status ' + safe + '"><i class="fa-solid fa-circle"></i>' + esc(statusLabel(value)) + '</span>';
+    }
+
+    function setSiNo(id, value) {
+        const el = $(id);
+        if (!el) return;
+        if (value === 1 || value === '1' || value === true || String(value).toLowerCase() === 'si') {
+            el.value = 'si';
+        } else if (value === 0 || value === '0' || value === false || String(value).toLowerCase() === 'no') {
+            el.value = 'no';
+        } else {
+            el.value = '';
+        }
+    }
+
+    function setRadio(name, value) {
+        document.querySelectorAll('input[type="radio"][name="' + name + '"]').forEach((input) => {
+            input.checked = String(input.value) === String(value || '');
+        });
+    }
+
+    function setSelectValue(id, value) {
+        const el = $(id);
+        if (!el) return;
+        const raw = String(value || '');
+        const exact = Array.from(el.options).some((opt) => opt.value === raw);
+        el.value = exact ? raw : '';
+    }
+
+    function syncMotorFields() {
+        const tipo = $('ave-tipo-motor')?.value || '';
+        const cilindraje = $('ave-cilindraje')?.value || '';
+        const potencia = $('ave-potencia')?.value || '';
+        document.querySelectorAll('.ave-combustion-fields').forEach((el) => el.classList.toggle('d-none', tipo !== 'combustion'));
+        document.querySelectorAll('.ave-electrica-fields').forEach((el) => el.classList.toggle('d-none', tipo !== 'electrica'));
+        document.querySelectorAll('.ave-cilindraje-otro').forEach((el) => el.classList.toggle('d-none', !(tipo === 'combustion' && cilindraje === 'otro')));
+        document.querySelectorAll('.ave-potencia-otro').forEach((el) => el.classList.toggle('d-none', !(tipo === 'electrica' && potencia === 'otro')));
+
+        ['ave-combustion-tipo', 'ave-cilindraje'].forEach((id) => {
+            const el = $(id);
+            if (el) el.required = tipo === 'combustion';
+        });
+        const potenciaEl = $('ave-potencia');
+        if (potenciaEl) potenciaEl.required = tipo === 'electrica';
+        const cilOtro = $('ave-cilindraje-otro');
+        if (cilOtro) cilOtro.required = tipo === 'combustion' && cilindraje === 'otro';
+        const potOtro = $('ave-potencia-otro');
+        if (potOtro) potOtro.required = tipo === 'electrica' && potencia === 'otro';
+    }
+
+    function parseOtro(value) {
+        const raw = String(value || '');
+        return raw.toLowerCase().startsWith('otro:') ? raw.slice(5).trim() : '';
+    }
+
+    function hydrateFichaTecnica(unidad) {
+        if (!unidad) return;
+        setSiNo('ave-llave', unidad.tiene_llave_fisica);
+        setSiNo('ave-tarjeta', unidad.tiene_tarjeta_circulacion);
+        setSiNo('ave-placa-fisica', unidad.tiene_placa_fisica);
+        setSelectValue('ave-tipo-unidad', unidad.tipo_unidad === 'moto' ? '' : unidad.tipo_unidad);
+        setRadio('categoria', unidad.categoria || '');
+        setSelectValue('ave-tipo-motor', unidad.tipo_motor);
+        setSelectValue('ave-combustion-tipo', unidad.tipo_motor_combustion);
+        if (String(unidad.cilindraje || '').toLowerCase().startsWith('otro:')) {
+            setSelectValue('ave-cilindraje', 'otro');
+            $('ave-cilindraje-otro').value = parseOtro(unidad.cilindraje);
+        } else {
+            setSelectValue('ave-cilindraje', unidad.cilindraje);
+        }
+        if (String(unidad.potencia || '').toLowerCase().startsWith('otro:')) {
+            setSelectValue('ave-potencia', 'otro');
+            $('ave-potencia-otro').value = parseOtro(unidad.potencia);
+        } else {
+            setSelectValue('ave-potencia', unidad.potencia);
+        }
+        $('ave-otro-descripcion').value = unidad.otro_descripcion || '';
+        $('ave-comentarios-generales').value = unidad.comentarios_generales || '';
+        syncMotorFields();
     }
 
     function rangeInfo(total, page, limit, label) {
@@ -643,6 +922,7 @@
         $('ave-form-evidencias')?.reset();
         $('ave-id-unidad').value = row.id_unidad || '';
         $('ave-vin').value = row.vin || '';
+        syncMotorFields();
         $('ave-codigo-actual').textContent = row.codigo_verificacion || 'Sin generar';
         $('ave-codigo-expira').textContent = row.codigo_expiracion_fmt ? 'Expira: ' + row.codigo_expiracion_fmt : '';
         $('ave-codigo-input').value = row.codigo_verificacion || '';
@@ -658,6 +938,7 @@
             .then(r => r.json())
             .then((json) => {
                 if (!json.success) return;
+                hydrateFichaTecnica(json.unidad || {});
                 const evidencias = json.evidencias || [];
                 $('ave-evidencias-actuales').innerHTML = evidencias.length
                     ? '<div class="small fw-bold mb-1">Evidencias actuales</div>' + evidencias.map((ev) => {
@@ -784,6 +1065,9 @@
         });
         ['ave-celula', 'ave-estatus'].forEach((id) => {
             $(id)?.addEventListener('change', () => reloadAll(true));
+        });
+        ['ave-tipo-motor', 'ave-cilindraje', 'ave-potencia'].forEach((id) => {
+            $(id)?.addEventListener('change', syncMotorFields);
         });
 
         cargarCatalogos()

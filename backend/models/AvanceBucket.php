@@ -103,10 +103,61 @@ final class AvanceBucket
     }
 
     /**
+     * Simulacion Avance de Buckets (+1) desde la vista __SPARTA_SECRET_REDACTED__.mas_menos.
+     *
+     * @return array<string,mixed>
+     */
+    public static function calcularEstresado(): array
+    {
+        $db = new DatabaseSegundometro();
+        $bucketRealSql = self::bucketSql('mas_uno');
+        $cierreActualSql = self::bucketSql('menos_uno');
+
+        $rows = $db->queryAll("
+            SELECT bucket_inicio, bucket_cierre, COUNT(DISTINCT id_credito) AS creditos
+            FROM (
+                SELECT {$bucketRealSql} AS bucket_inicio,
+                       {$cierreActualSql} AS bucket_cierre,
+                       id_credito
+                FROM mas_menos
+            ) x
+            WHERE bucket_inicio IS NOT NULL
+              AND bucket_cierre IS NOT NULL
+              AND id_credito IS NOT NULL
+            GROUP BY bucket_inicio, bucket_cierre
+        ");
+
+        $payload = self::formatear($rows, '', '', 'Bucket Morosidad Real', 'Cierre Actual');
+        $rowsInvertidos = array_map(static function (array $row): array {
+            return [
+                'bucket_inicio' => $row['bucket_cierre'] ?? null,
+                'bucket_cierre' => $row['bucket_inicio'] ?? null,
+                'creditos' => $row['creditos'] ?? 0,
+            ];
+        }, $rows);
+        $payloadInvertido = self::formatear($rowsInvertidos, '', '', 'Cierre Actual', 'Bucket Morosidad Real');
+        $payload['modo'] = 'estresado';
+        $payload['origen'] = 'mas_menos';
+        $payload['titulo'] = 'Bucket estresado';
+        $payload['resumen_inicio'] = self::ordenarResumenPorValor($payload['resumen_inicio']);
+        $payload['matriz_invertida'] = $payloadInvertido['matriz_creditos'];
+        $payload['matriz_secundaria_titulo'] = 'Matriz de avance bucket invertida';
+        $payload['matriz_secundaria_tipo'] = 'creditos';
+
+        return $payload;
+    }
+
+    /**
      * @param list<array<string,mixed>> $rows
      * @return array<string,mixed>
      */
-    private static function formatear(array $rows, string $corte, string $diaCorte): array
+    private static function formatear(
+        array $rows,
+        string $corte,
+        string $diaCorte,
+        string $rowLabel = 'Bucket Inicio',
+        string $columnLabel = 'Cierre Ajustado'
+    ): array
     {
         $buckets = array_column(self::BUCKETS, 'bucket');
         $matrix = [];
@@ -143,6 +194,9 @@ final class AvanceBucket
             'corte' => $corte,
             'corte_opciones' => self::CORTES,
             'dia_corte' => $diaCorte,
+            'row_label' => $rowLabel,
+            'column_label' => $columnLabel,
+            'total_label' => 'Creditos',
             'buckets' => self::BUCKETS,
             'total' => $total,
             'resumen_inicio' => self::resumenBuckets($rowTotals, $total),
@@ -151,6 +205,24 @@ final class AvanceBucket
             'matriz_porcentajes' => self::matriz($matrix, $rowTotals, $columnTotals, $total, true),
             'indicadores' => self::indicadores($matrix),
         ];
+    }
+
+    /**
+     * @param list<array{bucket:string,valor:int,porcentaje:float}> $rows
+     * @return list<array{bucket:string,valor:int,porcentaje:float}>
+     */
+    private static function ordenarResumenPorValor(array $rows): array
+    {
+        usort($rows, static function (array $a, array $b): int {
+            $valor = ((int) ($b['valor'] ?? 0)) <=> ((int) ($a['valor'] ?? 0));
+            if ($valor !== 0) {
+                return $valor;
+            }
+
+            return strcmp((string) ($a['bucket'] ?? ''), (string) ($b['bucket'] ?? ''));
+        });
+
+        return $rows;
     }
 
     /**
@@ -326,6 +398,8 @@ final class AvanceBucket
         if (!in_array($columna, [
             'Bucket_Morosidad_Real',
             'Cierre_Actual',
+            'mas_uno',
+            'menos_uno',
             "COALESCE(NULLIF(TRIM(CAST(Bucket_ajustado_ghost AS CHAR)), ''), Cierre_Actual)",
         ], true)) {
             throw new \InvalidArgumentException('Columna no permitida.');

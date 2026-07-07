@@ -1546,7 +1546,7 @@ class Reporteria extends Controller
         $payload = null;
         $error = null;
         $vista = strtolower(trim((string) ($vistaRuta ?? ($_GET['vista'] ?? ''))));
-        $mostrarAvance = in_array($vista, ['avance', 'historico'], true);
+        $mostrarAvance = in_array($vista, ['avance', 'historico', 'estresado'], true);
 
         if ($vistaRuta === null && isset($_GET['vista']) && $mostrarAvance) {
             header('Location: /analitica/avanceBucket/' . $vista, true, 302);
@@ -1559,6 +1559,8 @@ class Reporteria extends Controller
                 if ($vista === 'historico') {
                     $semana = isset($_GET['semana']) ? (string) $_GET['semana'] : null;
                     $payload = AvanceBucket::calcularHistorico($semana, $corte);
+                } elseif ($vista === 'estresado') {
+                    $payload = AvanceBucket::calcularEstresado();
                 } else {
                     $payload = AvanceBucket::calcular($corte);
                 }
@@ -1611,6 +1613,20 @@ class Reporteria extends Controller
             error_log('Reporteria::getAvanceBucketHistoricoJson -> ' . $e->getMessage());
             http_response_code(500);
             self::respuestaJSON(['success' => false, 'mensaje' => 'Error al consultar la base de datos historica.']);
+        }
+    }
+
+    public function getAvanceBucketEstresadoJson()
+    {
+        try {
+            self::respuestaJSON(AvanceBucket::calcularEstresado());
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Reporteria::getAvanceBucketEstresadoJson -> ' . $e->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al consultar Bucket estresado.']);
         }
     }
 

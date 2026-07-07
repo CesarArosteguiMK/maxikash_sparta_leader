@@ -35,6 +35,9 @@ class Candidatos extends Model
             'sueldo_bruto' => "DECIMAL(12,2) NULL AFTER contrato_firmado_en",
             'sueldo_neto' => "DECIMAL(12,2) NULL AFTER sueldo_bruto",
             'motivo_contratacion' => "VARCHAR(500) NULL AFTER sueldo_neto",
+            'es_reingreso' => "TINYINT(1) NOT NULL DEFAULT 0 AFTER motivo_contratacion",
+            'id_persona_reingreso' => "INT NULL AFTER es_reingreso",
+            'fecha_reingreso_detectado' => "DATETIME NULL AFTER id_persona_reingreso",
             'codigo_postal' => "VARCHAR(12) NULL AFTER domicilio_num_interior",
             'proceso_cerrado' => "TINYINT(1) NOT NULL DEFAULT 0 AFTER notas",
             'motivo_cierre' => "VARCHAR(100) NULL AFTER proceso_cerrado",
@@ -195,6 +198,9 @@ class Candidatos extends Model
                 c.sueldo_bruto,
                 c.sueldo_neto,
                 c.motivo_contratacion,
+                COALESCE(c.es_reingreso, 0) AS es_reingreso,
+                c.id_persona_reingreso,
+                c.fecha_reingreso_detectado,
                 c.fecha_registro,
                 c.fecha_actualizacion,
                 pais.nombre AS nombre_pais,
@@ -207,7 +213,10 @@ class Candidatos extends Model
                 COALESCE(dir.nombre, '') AS nombre_direccion,
                 TRIM(CONCAT_WS(' ', jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom)) AS nombre_jefe,
                 TRIM(CONCAT_WS(' ', jefe_divisional.nombres, jefe_divisional.segundo_nombre, jefe_divisional.apellidop, jefe_divisional.apellidom)) AS nombre_jefe_divisional,
-                jefe_divisional.correo AS correo_jefe_divisional
+                jefe_divisional.correo AS correo_jefe_divisional,
+                TRIM(CONCAT_WS(' ', persona_reingreso.nombres, persona_reingreso.segundo_nombre, persona_reingreso.apellidop, persona_reingreso.apellidom)) AS nombre_persona_reingreso,
+                baja_reingreso.fecha_baja AS fecha_baja_reingreso,
+                baja_reingreso.motivo AS motivo_baja_reingreso
             FROM candidatos c
             LEFT JOIN paises pais ON pais.id = c.id_pais
             LEFT JOIN divisiones_administrativas div1 ON div1.id = c.id_div_nivel1
@@ -223,6 +232,14 @@ class Candidatos extends Model
             LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
             LEFT JOIN persona jefe ON jefe.id = c.id_posible_jefe
             LEFT JOIN persona jefe_divisional ON jefe_divisional.id = c.id_jefe_divisional
+            LEFT JOIN persona persona_reingreso ON persona_reingreso.id = c.id_persona_reingreso
+            LEFT JOIN baja_persona baja_reingreso ON baja_reingreso.id = (
+                SELECT bp2.id
+                FROM baja_persona bp2
+                WHERE bp2.id_persona = c.id_persona_reingreso
+                ORDER BY bp2.id DESC
+                LIMIT 1
+            )
             WHERE 1=1
         SQL;
         $params = [];
@@ -314,6 +331,9 @@ class Candidatos extends Model
                 c.sueldo_bruto,
                 c.sueldo_neto,
                 c.motivo_contratacion,
+                COALESCE(c.es_reingreso, 0) AS es_reingreso,
+                c.id_persona_reingreso,
+                c.fecha_reingreso_detectado,
                 c.fecha_registro,
                 c.fecha_actualizacion,
                 pais.nombre AS nombre_pais,
@@ -327,7 +347,10 @@ class Candidatos extends Model
                 TRIM(CONCAT_WS(' ', jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom)) AS nombre_jefe,
                 jefe.correo AS correo_jefe,
                 TRIM(CONCAT_WS(' ', jefe_divisional.nombres, jefe_divisional.segundo_nombre, jefe_divisional.apellidop, jefe_divisional.apellidom)) AS nombre_jefe_divisional,
-                jefe_divisional.correo AS correo_jefe_divisional
+                jefe_divisional.correo AS correo_jefe_divisional,
+                TRIM(CONCAT_WS(' ', persona_reingreso.nombres, persona_reingreso.segundo_nombre, persona_reingreso.apellidop, persona_reingreso.apellidom)) AS nombre_persona_reingreso,
+                baja_reingreso.fecha_baja AS fecha_baja_reingreso,
+                baja_reingreso.motivo AS motivo_baja_reingreso
             FROM candidatos c
             LEFT JOIN paises pais ON pais.id = c.id_pais
             LEFT JOIN divisiones_administrativas div1 ON div1.id = c.id_div_nivel1
@@ -343,6 +366,14 @@ class Candidatos extends Model
             LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
             LEFT JOIN persona jefe ON jefe.id = c.id_posible_jefe
             LEFT JOIN persona jefe_divisional ON jefe_divisional.id = c.id_jefe_divisional
+            LEFT JOIN persona persona_reingreso ON persona_reingreso.id = c.id_persona_reingreso
+            LEFT JOIN baja_persona baja_reingreso ON baja_reingreso.id = (
+                SELECT bp2.id
+                FROM baja_persona bp2
+                WHERE bp2.id_persona = c.id_persona_reingreso
+                ORDER BY bp2.id DESC
+                LIMIT 1
+            )
             WHERE c.id = :id
         SQL;
         try {
@@ -355,6 +386,174 @@ class Candidatos extends Model
             return self::resultado(true, 'Candidato encontrado.', $r);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener candidato.', null, $e->getMessage());
+        }
+    }
+
+    private static function normalizarPersonaTexto(string $valor): string
+    {
+        $valor = mb_strtoupper(trim($valor), 'UTF-8');
+        $valor = strtr($valor, [
+            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U',
+            'À' => 'A', 'È' => 'E', 'Ì' => 'I', 'Ò' => 'O', 'Ù' => 'U',
+            'Ä' => 'A', 'Ë' => 'E', 'Ï' => 'I', 'Ö' => 'O', 'Ü' => 'U',
+            'Ñ' => 'N',
+        ]);
+        $valor = preg_replace('/[^A-Z0-9]+/u', ' ', $valor) ?? '';
+        return preg_replace('/\s+/', ' ', trim($valor)) ?? '';
+    }
+
+    public static function buscarPersonaBajaParaReingreso(array $data): array
+    {
+        $nombreBuscado = self::normalizarPersonaTexto(trim(implode(' ', array_filter([
+            $data['nombres'] ?? '',
+            $data['segundo_nombre'] ?? '',
+            $data['apellidop'] ?? '',
+            $data['apellidom'] ?? '',
+        ], static fn($v) => trim((string) $v) !== ''))));
+        $correo = mb_strtolower(trim((string) ($data['email'] ?? $data['correo'] ?? '')), 'UTF-8');
+        $telefono = preg_replace('/\D+/', '', (string) ($data['telefono'] ?? '')) ?? '';
+        $curp = self::normalizarPersonaTexto((string) ($data['curp'] ?? ''));
+
+        if ($nombreBuscado === '' && $correo === '' && $telefono === '' && $curp === '') {
+            return self::resultado(true, 'Sin datos suficientes para detectar reingreso.', []);
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
+            $columnasPersona = $db->queryAll(
+                "SELECT COLUMN_NAME
+                 FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = '__SPARTA_SECRET_REDACTED__'
+                   AND TABLE_NAME = 'persona'"
+            );
+            $columnasPersona = array_flip(array_map(static fn($r) => (string) ($r['COLUMN_NAME'] ?? ''), $columnasPersona));
+            $telefonoCols = array_values(array_filter([
+                'telefono',
+                'telefono1',
+                'telefono_1',
+                'telefono2',
+                'telefono_2',
+                'celular',
+                'telefono_celular',
+            ], static fn($col) => isset($columnasPersona[$col])));
+            $telefonoSelect = !empty($telefonoCols)
+                ? 'COALESCE(' . implode(', ', array_map(static fn($col) => 'p.`' . $col . '`', $telefonoCols)) . ", '') AS telefono"
+                : "'' AS telefono";
+            $telefonoWhere = '';
+            if (!empty($telefonoCols)) {
+                $telefonoChecks = array_map(
+                    static fn($col) => "REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(p.`{$col}`, ''), ' ', ''), '-', ''), '(', ''), ')', '') = :telefono",
+                    $telefonoCols
+                );
+                $telefonoWhere = " OR (:telefono <> '' AND (" . implode(' OR ', $telefonoChecks) . '))';
+            }
+            $rows = $db->queryAll(
+                "SELECT
+                    p.id,
+                    p.nombres,
+                    p.segundo_nombre,
+                    p.apellidop,
+                    p.apellidom,
+                    p.correo,
+                    {$telefonoSelect},
+                    p.curp,
+                    p.numero_empleado,
+                    p.codigo_contpac,
+                    bp.fecha_baja,
+                    bp.motivo,
+                    bp.descripcion
+                 FROM __SPARTA_SECRET_REDACTED__.persona p
+                 LEFT JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON bp.id = (
+                    SELECT bp2.id
+                    FROM __SPARTA_SECRET_REDACTED__.baja_persona bp2
+                    WHERE bp2.id_persona = p.id
+                    ORDER BY bp2.id DESC
+                    LIMIT 1
+                 )
+                 WHERE p.estatus = 'Baja'
+                   AND (
+                        (:correo <> '' AND LOWER(TRIM(COALESCE(p.correo, ''))) = :correo)
+                        {$telefonoWhere}
+                        OR (:curp <> '' AND UPPER(TRIM(COALESCE(p.curp, ''))) = :curp)
+                        OR (:nombre_pat <> '' AND UPPER(TRIM(COALESCE(p.apellidop, ''))) = :nombre_pat)
+                   )
+                 LIMIT 40",
+                [
+                    'correo' => $correo,
+                    'telefono' => $telefono,
+                    'curp' => $curp,
+                    'nombre_pat' => self::normalizarPersonaTexto((string) ($data['apellidop'] ?? '')),
+                ]
+            );
+
+            $coincidencias = [];
+            foreach ($rows as $row) {
+                $nombrePersona = trim(implode(' ', array_filter([
+                    $row['nombres'] ?? '',
+                    $row['segundo_nombre'] ?? '',
+                    $row['apellidop'] ?? '',
+                    $row['apellidom'] ?? '',
+                ], static fn($v) => trim((string) $v) !== '')));
+                $nombreNorm = self::normalizarPersonaTexto($nombrePersona);
+                $motivos = [];
+                if ($correo !== '' && $correo === mb_strtolower(trim((string) ($row['correo'] ?? '')), 'UTF-8')) {
+                    $motivos[] = 'correo';
+                }
+                $telPersona = preg_replace('/\D+/', '', (string) ($row['telefono'] ?? '')) ?? '';
+                if ($telefono !== '' && $telefono === $telPersona) {
+                    $motivos[] = 'telefono';
+                }
+                if ($curp !== '' && $curp === self::normalizarPersonaTexto((string) ($row['curp'] ?? ''))) {
+                    $motivos[] = 'CURP';
+                }
+                if ($nombreBuscado !== '' && $nombreBuscado === $nombreNorm) {
+                    $motivos[] = 'nombre completo';
+                }
+                if (empty($motivos)) {
+                    continue;
+                }
+                $score = 0;
+                if (in_array('CURP', $motivos, true)) {
+                    $score += 100;
+                }
+                if (in_array('nombre completo', $motivos, true)) {
+                    $score += 80;
+                }
+                if (in_array('telefono', $motivos, true)) {
+                    $score += 30;
+                }
+                if (in_array('correo', $motivos, true)) {
+                    $score += 20;
+                }
+                $coincidencias[] = [
+                    'id' => (int) ($row['id'] ?? 0),
+                    'nombre_completo' => $nombrePersona,
+                    'correo' => $row['correo'] ?? '',
+                    'telefono' => $row['telefono'] ?? '',
+                    'numero_empleado' => $row['codigo_contpac'] ?: ($row['numero_empleado'] ?? ''),
+                    'fecha_baja' => $row['fecha_baja'] ?? null,
+                    'motivo_baja' => $row['motivo'] ?? '',
+                    'motivos_coincidencia' => $motivos,
+                    '_score' => $score,
+                ];
+            }
+
+            usort($coincidencias, static function ($a, $b) {
+                $scoreDiff = ((int) ($b['_score'] ?? 0)) <=> ((int) ($a['_score'] ?? 0));
+                if ($scoreDiff !== 0) {
+                    return $scoreDiff;
+                }
+                return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
+            });
+            foreach ($coincidencias as &$coincidencia) {
+                unset($coincidencia['_score']);
+            }
+            unset($coincidencia);
+
+            return self::resultado(true, empty($coincidencias) ? 'Sin posibles reingresos.' : 'Posibles reingresos encontrados.', $coincidencias);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'No se pudo revisar posibles reingresos.', [], $e->getMessage());
         }
     }
 
@@ -652,6 +851,8 @@ class Candidatos extends Model
 
         $postulacionEnviada = !empty($data['postulacion_enviada']) ? 1 : 0;
         $fechaEnviada = $postulacionEnviada ? self::fechaHoraActualMexicoCiudad() : null;
+        $idPersonaReingreso = !empty($data['id_persona_reingreso']) ? (int) $data['id_persona_reingreso'] : null;
+        $esReingreso = (!empty($data['es_reingreso']) && $idPersonaReingreso) ? 1 : 0;
 
         $query = <<<SQL
             INSERT INTO candidatos (
@@ -659,13 +860,15 @@ class Candidatos extends Model
                 email, telefono, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal,
                 id_puesto, id_departamento, id_posible_jefe, id_jefe_divisional,
                 fecha_postulacion, id_legion, usuario, contrasena,
-                postulacion_enviada, fecha_postulacion_enviada, estatus, notas, fecha_registro
+                postulacion_enviada, fecha_postulacion_enviada, estatus, notas,
+                es_reingreso, id_persona_reingreso, fecha_reingreso_detectado, fecha_registro
             ) VALUES (
                 :nombres, :segundo_nombre, :apellidop, :apellidom,
                 :email, :telefono, :id_pais, :id_div_nivel1, :id_div_nivel2, :id_div_nivel3, :domicilio_calle_texto, :domicilio_num_exterior, :domicilio_num_interior, :codigo_postal,
                 :id_puesto, :id_departamento, :id_posible_jefe, :id_jefe_divisional,
                 :fecha_postulacion, :id_legion, :usuario, :contrasena,
-                :postulacion_enviada, :fecha_postulacion_enviada, :estatus, :notas, :fecha_registro
+                :postulacion_enviada, :fecha_postulacion_enviada, :estatus, :notas,
+                :es_reingreso, :id_persona_reingreso, :fecha_reingreso_detectado, :fecha_registro
             )
         SQL;
         $params = [
@@ -695,6 +898,9 @@ class Candidatos extends Model
             'fecha_postulacion_enviada' => $fechaEnviada,
             'estatus' => trim($data['estatus'] ?? '') ?: 'Por evaluar',
             'notas' => trim($data['notas'] ?? '') ?: null,
+            'es_reingreso' => $esReingreso,
+            'id_persona_reingreso' => $esReingreso ? $idPersonaReingreso : null,
+            'fecha_reingreso_detectado' => $esReingreso ? self::fechaHoraActualMexicoCiudad() : null,
             'fecha_registro' => self::fechaHoraActualMexicoCiudad(),
         ];
 
@@ -742,7 +948,8 @@ class Candidatos extends Model
                     domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal,
                     nombres, segundo_nombre, apellidop, apellidom,
                     id_puesto, id_departamento, id_posible_jefe, id_jefe_divisional, fecha_postulacion,
-                    id_legion, usuario, contrasena, notas
+                    id_legion, usuario, contrasena, notas,
+                    es_reingreso, id_persona_reingreso, fecha_reingreso_detectado
                  FROM candidatos
                  WHERE id = :id
                  LIMIT 1",
@@ -805,9 +1012,18 @@ class Candidatos extends Model
                 usuario = :usuario,
                 contrasena = :contrasena,
                 notas = :notas,
+                es_reingreso = :es_reingreso,
+                id_persona_reingreso = :id_persona_reingreso,
+                fecha_reingreso_detectado = :fecha_reingreso_detectado,
                 fecha_actualizacion = :fecha_actualizacion
             WHERE id = :id
         SQL;
+        $idPersonaReingreso = array_key_exists('id_persona_reingreso', $data)
+            ? (!empty($data['id_persona_reingreso']) ? (int) $data['id_persona_reingreso'] : null)
+            : (!empty($actual['id_persona_reingreso']) ? (int) $actual['id_persona_reingreso'] : null);
+        $esReingreso = array_key_exists('es_reingreso', $data)
+            ? ((!empty($data['es_reingreso']) && $idPersonaReingreso) ? 1 : 0)
+            : ((!empty($actual['es_reingreso']) && $idPersonaReingreso) ? 1 : 0);
         $params = [
             'id' => $id,
             'nombres' => $nombres,
@@ -839,6 +1055,11 @@ class Candidatos extends Model
             'notas' => array_key_exists('notas', $data)
                 ? (trim((string) ($data['notas'] ?? '')) ?: null)
                 : ($actual['notas'] ?? null),
+            'es_reingreso' => $esReingreso,
+            'id_persona_reingreso' => $esReingreso ? $idPersonaReingreso : null,
+            'fecha_reingreso_detectado' => $esReingreso && empty($actual['id_persona_reingreso'])
+                ? self::fechaHoraActualMexicoCiudad()
+                : ($esReingreso ? ($actual['fecha_reingreso_detectado'] ?? self::fechaHoraActualMexicoCiudad()) : null),
             'fecha_actualizacion' => self::fechaHoraActualMexicoCiudad(),
         ];
 

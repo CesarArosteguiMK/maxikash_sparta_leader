@@ -894,6 +894,21 @@
       letter-spacing: 0;
     }
 
+    .gestion-personal-reingreso-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 1.25rem;
+      padding: .08rem .5rem;
+      border-radius: 999px;
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+      font-size: .72rem;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
     .gestion-personal-username {
       margin-top: .46rem;
       color: #64748b;
@@ -5619,7 +5634,6 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <div class="col-md-3"><label class="form-label">CURP</label><input type="text" class="form-control text-uppercase" name="persona.curp" maxlength="18"></div>
                         <div class="col-md-3"><label class="form-label">RFC</label><input type="text" class="form-control text-uppercase" name="persona.rfc" maxlength="20"></div>
                         <div class="col-md-3"><label class="form-label">NSS</label><input type="text" class="form-control" name="persona.nss" maxlength="20"></div>
-                        <div class="col-md-3"><label class="form-label">No. empleado</label><input type="text" class="form-control" name="persona.codigo_contpac" maxlength="40" inputmode="numeric" autocomplete="off" placeholder="Codigo CONTPAC"></div>
                         <div class="col-md-3"><label class="form-label">Fecha de nacimiento</label><input type="text" class="form-control rrhh-date" name="persona.fecha_nacimiento" placeholder="YYYY-MM-DD" readonly></div>
                         <div class="col-md-3">
                           <label class="form-label">Sexo</label>
@@ -5664,7 +5678,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                       <div class="rrhh-section-title"><i class="fa fa-briefcase me-1"></i>Datos laborales</div>
                       <div class="row g-3">
                         <div class="col-md-3"><label class="form-label">Registro patronal</label><input type="text" class="form-control" name="rrhh.registro_patronal"></div>
-                        <div class="col-md-3"><label class="form-label">Código CONTPAC</label><input type="text" class="form-control" name="rrhh.codigo_contpaq"></div>
+                        <div class="col-md-3"><label class="form-label">CODIGO CONTPAC</label><input type="text" class="form-control" name="persona.codigo_contpac" maxlength="40" inputmode="numeric" autocomplete="off" placeholder="Codigo CONTPAC"><input type="hidden" name="rrhh.codigo_contpaq"></div>
                         <div class="col-md-3"><label class="form-label">Fecha de ingreso</label><input type="text" class="form-control rrhh-date" name="rrhh.fecha_ingreso" placeholder="YYYY-MM-DD" readonly></div>
                         <div class="col-md-3"><label class="form-label">Fecha CONTPAC</label><input type="text" class="form-control rrhh-date" name="rrhh.fecha_contpaq" placeholder="YYYY-MM-DD" readonly></div>
                         <div class="col-md-3"><label class="form-label">Fecha IMSS alta</label><input type="text" class="form-control rrhh-date" name="rrhh.fecha_imss_alta" placeholder="YYYY-MM-DD" readonly></div>
@@ -11120,26 +11134,22 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
   }
 
   function esUsuarioExternoGestion(usuario) {
-    if (usuarioExentoEtiquetaExterno(usuario)) return false;
-
-    const codigoContpac = String(usuario?.codigo_contpac || '').trim();
-    const numeroEmpleado = String(usuario?.numero_empleado || '').trim();
-    if (!codigoContpac && numeroEmpleado) return true;
-
-    const departamentos = [];
-    if (usuario?.nombre_departamento) departamentos.push(usuario.nombre_departamento);
-    if (Array.isArray(usuario?.puestos)) {
-      usuario.puestos.forEach(puesto => {
-        if (puesto?.nombre_departamento) departamentos.push(puesto.nombre_departamento);
-      });
-    }
-
-    return departamentos.some(esDepartamentoExterno);
+    return ['1', 'true', 'si', 'sí'].includes(String(usuario?.es_externo || '').trim().toLowerCase());
   }
 
   function etiquetaExternoPorUsuario(usuario) {
     return esUsuarioExternoGestion(usuario)
       ? '<span class="gestion-personal-external-badge" title="Usuario externo: no forma parte de la plantilla interna">Externo</span>'
+      : '';
+  }
+
+  function esUsuarioReingresoGestion(usuario) {
+    return ['1', 'true', 'si', 'sí'].includes(String(usuario?.tiene_reingreso || '').trim().toLowerCase());
+  }
+
+  function etiquetaReingresoPorUsuario(usuario) {
+    return esUsuarioReingresoGestion(usuario)
+      ? '<span class="gestion-personal-reingreso-badge" title="Usuario con historial de reingreso">Reingreso</span>'
       : '';
   }
 
@@ -11162,6 +11172,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       const tienePuestos = p.puestos && p.puestos.length > 1;
       const vistaMultiplesActiva = document.getElementById('FilterMultiplePuestos')?.value === 'multiples';
       const etiquetaExternoPersona = etiquetaExternoPorUsuario(p);
+      const etiquetaReingresoPersona = etiquetaReingresoPorUsuario(p);
       const codigoContpacPersona = String(p.codigo_contpac || '').trim();
       const codigoContpacHTML = codigoContpacPersona
         ? `<span class="gestion-personal-code-value">${escapeAttr(codigoContpacPersona)}</span>`
@@ -11267,6 +11278,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 <span>No. empleado:</span>
                 ${codigoContpacHTML}
                 ${etiquetaExternoPersona}
+                ${etiquetaReingresoPersona}
               </div>
               <div class="gestion-personal-name-main text-uppercase">
                 ${nombreCompleto}

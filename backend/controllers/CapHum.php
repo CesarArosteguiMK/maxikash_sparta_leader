@@ -1312,9 +1312,13 @@ class CapHum extends Controller
                         const puestosPersonaTexto = tienePuestos
                             ? p.puestos.map(puesto => puesto.nombre_puesto || '').filter(Boolean).join(' | ')
                             : (p.nombre_puesto || '');
-                        const esExternoGestion = !String(p.codigo_contpac || '').trim() && !!String(p.numero_empleado || '').trim();
+                        const esExternoGestion = ['1', 'true', 'si', 'sí'].includes(String(p.es_externo || '').trim().toLowerCase());
                         const badgeExternoGestion = esExternoGestion
                             ? '<span class="gestion-personal-external-badge" title="Usuario externo: no forma parte de la plantilla interna">Externo</span>'
+                            : '';
+                        const esReingresoGestion = ['1', 'true', 'si', 'sí'].includes(String(p.tiene_reingreso || '').trim().toLowerCase());
+                        const badgeReingresoGestion = esReingresoGestion
+                            ? '<span class="gestion-personal-reingreso-badge" title="Usuario con historial de reingreso">Reingreso</span>'
                             : '';
 
                         // Generar badges para múltiples puestos con departamentos
@@ -1376,6 +1380,7 @@ class CapHum extends Controller
                                    <span>No. empleado:</span>
                                    ${codigoContpacHTML}
                                    ${badgeExternoGestion}
+                                   ${badgeReingresoGestion}
                                 </div>
                                 <div class="gestion-personal-name-main text-uppercase">
                                     ${escaparAttr(nombreCompleto)}
@@ -1546,6 +1551,13 @@ class CapHum extends Controller
                                 ? `<span class="gestion-personal-code-value">${escaparAttr(codigoContpac)}</span>`
                                 : '<span class="gestion-personal-code-value">Sin id</span>';
                             const externalId = String(p.external_id || '').trim();
+                            const avisoReingresoBaja = p.reingreso_en_proceso
+                                ? `<div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
+                                        <i class="fa fa-rotate-left me-1"></i>
+                                        <strong>Reingreso en proceso.</strong> No eliminar ni depurar esta baja.
+                                        ${p.nombre_candidato_reingreso ? `<div class="mt-1">Candidato: ${escaparAttr(p.nombre_candidato_reingreso)}${p.estatus_candidato_reingreso ? ` (${escaparAttr(p.estatus_candidato_reingreso)})` : ''}</div>` : ''}
+                                   </div>`
+                                : '';
 
                             return {
                                 nombres: `
@@ -1603,6 +1615,7 @@ class CapHum extends Controller
                                         <i class="fa fa-clipboard" style="font-size: 0.85em; color: #666;"></i>
                                         <span>${p.descripcion ?? 'Sin descripción'}</span>
                                     </div>
+                                    ${avisoReingresoBaja || ''}
                                 `.trim(),
                                 usuario: p.user_name ?? 'N/A',
                                 acciones: `
@@ -3151,6 +3164,7 @@ class CapHum extends Controller
                 const sel = permisosJerarquia.seleccion || {};
                 const selected = {
                     pais: new Set((sel.pais || []).map(v => String(v))),
+                    empresa: new Set((sel.empresa || []).map(v => String(v))),
                     area: new Set((sel.area || []).map(v => String(v))),
                     departamento: new Set((sel.departamento || []).map(v => String(v))),
                     puesto: new Set((sel.puesto || []).map(v => String(v)))
@@ -3168,11 +3182,35 @@ class CapHum extends Controller
                         });
                         return { id: aid, nombre: a.nombre || ('rea ' + aid), departamentos: departamentos };
                     });
+                    const empresasMap = new Map();
+                    (permisosJerarquia.empresas || []).forEach(emp => {
+                        if (String(emp.id_pais || 0) !== pid) return;
+                        const eid = String(emp.id || 1);
+                        empresasMap.set(eid, {
+                            id: eid,
+                            nombre: emp.nombre || (eid === '2' ? 'Furia Motos' : 'MaxiKash'),
+                            areas: []
+                        });
+                    });
+                    areas.forEach(area => {
+                        const areaOriginal = (byPais[pid] || []).find(a => String(a.id || 0) === String(area.id));
+                        const eid = String(areaOriginal?.id_empresa || 1);
+                        if (!empresasMap.has(eid)) {
+                            empresasMap.set(eid, {
+                                id: eid,
+                                nombre: areaOriginal?.nombre_empresa || (eid === '2' ? 'Furia Motos' : 'MaxiKash'),
+                                areas: []
+                            });
+                        }
+                        empresasMap.get(eid).areas.push(area);
+                    });
+                    const empresas = Array.from(empresasMap.values()).filter(emp => (emp.areas || []).length).sort(sortByName);
                     return {
                         id: pid,
                         codigoIso: iso,
                         nombre: p.nombre || ('País ' + pid),
-                        areas: areas
+                        areas: areas,
+                        empresas: empresas
                     };
                 });
 
@@ -3181,13 +3219,26 @@ class CapHum extends Controller
                     selected: selected,
                     activePais: paises.length ? String(paises[0].id) : '',
                     search: '',
+                    expandedEmpresas: new Set(),
                     expandedAreas: new Set(),
                     expandedDeptos: new Set()
                 };
 
                 function puestosDePais(paisObj) {
                     const ids = [];
-                    (paisObj.areas || []).forEach(a => {
+                    (paisObj.empresas || []).forEach(emp => {
+                        (emp.areas || []).forEach(a => {
+                            (a.departamentos || []).forEach(d => {
+                                (d.puestos || []).forEach(p => ids.push(String(p.id)));
+                            });
+                        });
+                    });
+                    return ids;
+                }
+
+                function puestosDeEmpresa(empresaObj) {
+                    const ids = [];
+                    (empresaObj.areas || []).forEach(a => {
                         (a.departamentos || []).forEach(d => {
                             (d.puestos || []).forEach(p => ids.push(String(p.id)));
                         });
@@ -3224,6 +3275,7 @@ class CapHum extends Controller
                 function seleccionJerarquiaActualPuestos() {
                     return {
                         pais: Array.from(perfilPuestosState.selected.pais).map(Number).filter(Boolean),
+                        empresa: Array.from(perfilPuestosState.selected.empresa).map(Number).filter(Boolean),
                         area: Array.from(perfilPuestosState.selected.area).map(Number).filter(Boolean),
                         departamento: Array.from(perfilPuestosState.selected.departamento).map(Number).filter(Boolean),
                         puesto: Array.from(perfilPuestosState.selected.puesto).map(Number).filter(Boolean)
@@ -3362,7 +3414,78 @@ class CapHum extends Controller
                     const q = String(inputBuscar.value || '').trim().toLowerCase();
                     perfilPuestosState.search = q;
 
-                    pais.areas.forEach(area => {
+                    (pais.empresas || []).forEach(empresa => {
+                        const empresaId = String(empresa.id || 1);
+                        const areasEmpresa = empresa.areas || [];
+                        const idsEmpresa = puestosDeEmpresa(empresa);
+                        const stEmpresa = estadoMaster(idsEmpresa);
+                        const empresaCollapseId = 'empresa-collapse-' + String(pais.id) + '-' + empresaId;
+                        const empresaCard = document.createElement('section');
+                        empresaCard.className = 'border rounded bg-white mb-2';
+
+                        const empresaHeaderObj = crearCollapseHeader(empresa.nombre, 'fa-building', stEmpresa.selected + '/' + stEmpresa.total, empresaCollapseId);
+                        const empresaHeader = empresaHeaderObj.header;
+                        const empresaChevron = empresaHeaderObj.chevron;
+
+                        const empresaActions = document.createElement('div');
+                        empresaActions.className = 'd-flex align-items-center gap-2 ms-auto';
+                        const empresaMark = document.createElement('button');
+                        empresaMark.type = 'button';
+                        empresaMark.className = 'btn btn-link btn-sm p-0 text-decoration-none';
+                        empresaMark.textContent = 'Marcar todo';
+                        empresaMark.addEventListener('click', function (e) {
+                            e.stopPropagation();
+                            aplicarSeleccionPuestos(idsEmpresa, true);
+                            renderSidebar();
+                            renderPaisActivo();
+                            guardarPuestosAutoPerfil();
+                        });
+                        const empresaMaster = document.createElement('input');
+                        empresaMaster.type = 'checkbox';
+                        empresaMaster.className = 'form-check-input modal-perfil-modulo-item-cb';
+                        empresaMaster.checked = stEmpresa.checked;
+                        empresaMaster.indeterminate = stEmpresa.indeterminate;
+                        empresaMaster.dataset.permNivel = 'empresa';
+                        empresaMaster.dataset.permNodo = empresaId;
+                        empresaMaster.addEventListener('click', e => e.stopPropagation());
+                        empresaMaster.addEventListener('change', function () {
+                            aplicarSeleccionPuestos(idsEmpresa, empresaMaster.checked);
+                            if (empresaMaster.checked) perfilPuestosState.selected.empresa.add(empresaId); else perfilPuestosState.selected.empresa.delete(empresaId);
+                            renderSidebar();
+                            renderPaisActivo();
+                            guardarPuestosAutoPerfil();
+                        });
+                        empresaActions.append(empresaMark, empresaMaster);
+                        empresaHeader.appendChild(empresaActions);
+
+                        const empresaBody = document.createElement('div');
+                        empresaBody.id = empresaCollapseId;
+                        empresaBody.className = 'collapse' + (perfilPuestosState.expandedEmpresas.has(empresaCollapseId) ? ' show' : '');
+                        empresaBody.addEventListener('shown.bs.collapse', function () { perfilPuestosState.expandedEmpresas.add(empresaCollapseId); empresaChevron.style.transform = 'rotate(0deg)'; });
+                        empresaBody.addEventListener('hidden.bs.collapse', function () { perfilPuestosState.expandedEmpresas.delete(empresaCollapseId); empresaChevron.style.transform = 'rotate(-90deg)'; });
+                        if (perfilPuestosState.expandedEmpresas.has(empresaCollapseId)) empresaChevron.style.transform = 'rotate(0deg)';
+
+                        const directEmpresa = document.createElement('div');
+                        directEmpresa.className = 'd-flex align-items-center justify-content-between bg-light rounded px-3 py-2 m-2 border';
+                        directEmpresa.innerHTML = '<div class="small fw-semibold text-secondary">Acceso directo a la empresa</div>';
+                        const swEmpresaWrap = document.createElement('div');
+                        swEmpresaWrap.className = 'form-check form-switch m-0';
+                        const swEmpresa = document.createElement('input');
+                        swEmpresa.type = 'checkbox';
+                        swEmpresa.className = 'form-check-input modal-perfil-modulo-item-cb';
+                        swEmpresa.dataset.permNivel = 'empresa';
+                        swEmpresa.dataset.permNodo = empresaId;
+                        swEmpresa.checked = perfilPuestosState.selected.empresa.has(empresaId);
+                        swEmpresa.addEventListener('change', function () {
+                            if (swEmpresa.checked) perfilPuestosState.selected.empresa.add(empresaId);
+                            else perfilPuestosState.selected.empresa.delete(empresaId);
+                            guardarPuestosAutoPerfil();
+                        });
+                        swEmpresaWrap.appendChild(swEmpresa);
+                        directEmpresa.appendChild(swEmpresaWrap);
+                        empresaBody.appendChild(directEmpresa);
+
+                        areasEmpresa.forEach(area => {
                         const areaId = String(area.id);
                         const visibleDepartamentos = [];
                         (area.departamentos || []).forEach(dep => {
@@ -3521,7 +3644,12 @@ class CapHum extends Controller
                         });
 
                         areaCard.append(areaHeader, areaBody);
-                        rightTree.appendChild(areaCard);
+                        empresaBody.appendChild(areaCard);
+                    });
+                        if (empresaBody.children.length > 1) {
+                            empresaCard.append(empresaHeader, empresaBody);
+                            rightTree.appendChild(empresaCard);
+                        }
                     });
 
                     if (!rightTree.children.length) {
@@ -9024,6 +9152,11 @@ class CapHum extends Controller
                                         id_jefe_divisional: candidato.id_jefe_divisional,
                                         nombre_jefe_divisional: candidato.nombre_jefe_divisional,
                                         correo_jefe_divisional: candidato.correo_jefe_divisional,
+                                        es_reingreso: candidato.es_reingreso,
+                                        id_persona_reingreso: candidato.id_persona_reingreso,
+                                        nombre_persona_reingreso: candidato.nombre_persona_reingreso,
+                                        fecha_baja_reingreso: candidato.fecha_baja_reingreso,
+                                        motivo_baja_reingreso: candidato.motivo_baja_reingreso,
                                         estatus: candidato.estatus,
                                         postulacion_enviada: candidato.postulacion_enviada,
                                         fecha_ingreso_programada: candidato.fecha_ingreso_programada,
@@ -9122,6 +9255,7 @@ class CapHum extends Controller
                                 var fechaCreacion = formatearFechaListaCandidato(c.fecha_registro);
                                 var nombreContacto = '<div class="d-flex flex-column">' +
                                     '<span class="fw-semibold text-uppercase">' + escapeTablaCandidato(nombre || "Sin nombre") + '</span>' +
+                                    (parseInt(c.es_reingreso || 0, 10) === 1 ? '<span class="badge bg-warning text-dark align-self-start mt-1"><i class="fa fa-rotate-left me-1"></i>Reingreso</span>' : '') +
                                     '<small class="text-muted">' + escapeTablaCandidato(correo || "Sin correo") + '</small>' +
                                     '<small class="text-muted">' + escapeTablaCandidato(telefono || "Sin teléfono") + '</small>' +
                                     (fechaCreacion ? '<small class="text-muted"><i class="fa fa-calendar-plus me-1"></i>Creado: ' + escapeTablaCandidato(fechaCreacion) + '</small>' : '') +
@@ -12897,6 +13031,7 @@ class CapHum extends Controller
             if (form.apellidom) form.apellidom.value = c.apellidom || "";
             if (form.telefono) form.telefono.value = c.telefono || "";
             if (form.email) form.email.value = c.email || "";
+            aplicarReingresoCandidatoDesdeDatos(c);
             if (form.id_pais) form.id_pais.value = c.id_pais || "";
             var selPais = document.getElementById("candidato_id_pais");
             if (selPais) refreshSelectBuscadorCandidato(selPais.id);
@@ -12954,6 +13089,98 @@ class CapHum extends Controller
         if (el.parentNode !== document.body) document.body.appendChild(el);
         if (typeof bootstrap !== "undefined" && bootstrap.Offcanvas) { var inst = bootstrap.Offcanvas.getOrCreateInstance(el); if (inst) inst.show(); }
         else { el.classList.add("show"); el.setAttribute("aria-hidden", "false"); var back = document.createElement("div"); back.className = "offcanvas-backdrop fade show"; back.style.cssText = "position:fixed;top:0;left:0;z-index:1040;width:100vw;height:100vh;background:#000;opacity:0.5;"; back.setAttribute("data-bs-dismiss", "offcanvas"); document.body.appendChild(back); }
+        }
+
+            var candidatoReingresoTimer = null;
+            var candidatoReingresoDetectado = null;
+
+            function resetReingresoCandidato() {
+        candidatoReingresoDetectado = null;
+        if (candidatoReingresoTimer) {
+            clearTimeout(candidatoReingresoTimer);
+            candidatoReingresoTimer = null;
+        }
+        var alert = document.getElementById("candidato_reingreso_alerta");
+        var txt = document.getElementById("candidato_reingreso_texto");
+        var chk = document.getElementById("candidato_marcar_reingreso");
+        var es = document.getElementById("candidato_es_reingreso");
+        var id = document.getElementById("candidato_id_persona_reingreso");
+        if (alert) alert.classList.add("d-none");
+        if (txt) txt.textContent = "Esta persona existe en bajas.";
+        if (chk) chk.checked = false;
+        if (es) es.value = "0";
+        if (id) id.value = "";
+        }
+
+            function aplicarReingresoCandidatoDesdeDatos(candidato) {
+        resetReingresoCandidato();
+        if (!candidato || parseInt(candidato.es_reingreso || 0, 10) !== 1) return;
+        candidatoReingresoDetectado = {
+            id: candidato.id_persona_reingreso || "",
+            nombre_completo: candidato.nombre_persona_reingreso || "Persona en baja vinculada",
+            fecha_baja: candidato.fecha_baja_reingreso || "",
+            motivo_baja: candidato.motivo_baja_reingreso || ""
+        };
+        var alert = document.getElementById("candidato_reingreso_alerta");
+        var txt = document.getElementById("candidato_reingreso_texto");
+        var chk = document.getElementById("candidato_marcar_reingreso");
+        var es = document.getElementById("candidato_es_reingreso");
+        var id = document.getElementById("candidato_id_persona_reingreso");
+        if (txt) txt.textContent = [candidatoReingresoDetectado.nombre_completo, candidatoReingresoDetectado.fecha_baja ? "baja: " + candidatoReingresoDetectado.fecha_baja : "", candidatoReingresoDetectado.motivo_baja].filter(Boolean).join(" | ");
+        if (alert) alert.classList.remove("d-none");
+        if (chk) chk.checked = true;
+        if (es) es.value = "1";
+        if (id) id.value = candidato.id_persona_reingreso || "";
+        }
+
+            function detectarReingresoCandidato() {
+        if (candidatoEditId) return;
+        var form = document.getElementById("formAgregarCandidato");
+        if (!form) return;
+        var data = {
+            nombres: (form.nombres && form.nombres.value.trim()) || "",
+            segundo_nombre: (form.segundo_nombre && form.segundo_nombre.value.trim()) || "",
+            apellidop: (form.apellidop && form.apellidop.value.trim()) || "",
+            apellidom: (form.apellidom && form.apellidom.value.trim()) || "",
+            email: (form.email && form.email.value.trim()) || "",
+            telefono: (form.telefono && form.telefono.value.trim()) || ""
+        };
+        var nombreCompleto = [data.nombres, data.segundo_nombre, data.apellidop, data.apellidom].filter(Boolean).join(" ").trim();
+        if (!data.email && !data.telefono && nombreCompleto.split(/\s+/).length < 3) {
+            resetReingresoCandidato();
+            return;
+        }
+        fetch("/caphum/buscarReingresoCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, credentials: "same-origin", body: JSON.stringify(data) })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (!res || !res.success || !res.datos) {
+                    resetReingresoCandidato();
+                    return;
+                }
+                candidatoReingresoDetectado = res.datos;
+                var alert = document.getElementById("candidato_reingreso_alerta");
+                var txt = document.getElementById("candidato_reingreso_texto");
+                var chk = document.getElementById("candidato_marcar_reingreso");
+                var es = document.getElementById("candidato_es_reingreso");
+                var id = document.getElementById("candidato_id_persona_reingreso");
+                if (txt) {
+                    txt.textContent = [
+                        candidatoReingresoDetectado.nombre_completo || "Persona encontrada en bajas",
+                        candidatoReingresoDetectado.fecha_baja ? "baja: " + candidatoReingresoDetectado.fecha_baja : "",
+                        candidatoReingresoDetectado.motivo_baja || ""
+                    ].filter(Boolean).join(" | ") + ". Confirma si este candidato corresponde a ese reingreso.";
+                }
+                if (alert) alert.classList.remove("d-none");
+                if (chk) chk.checked = true;
+                if (es) es.value = "1";
+                if (id) id.value = candidatoReingresoDetectado.id || "";
+            }).catch(function() {});
+        }
+
+            function programarDeteccionReingresoCandidato() {
+        if (candidatoEditId) return;
+        if (candidatoReingresoTimer) clearTimeout(candidatoReingresoTimer);
+        candidatoReingresoTimer = setTimeout(detectarReingresoCandidato, 450);
         }
 
             function guardarCandidatoEdicion() {
@@ -13053,7 +13280,9 @@ class CapHum extends Controller
             fecha_postulacion: valorCandidatoConRespaldo(form, "fecha_postulacion") || null,
             id_legion: document.getElementById("candidato_asignar_legion") && document.getElementById("candidato_asignar_legion").checked && document.getElementById("candidato_id_legion") && document.getElementById("candidato_id_legion").value ? document.getElementById("candidato_id_legion").value : null,
             usuario: valorTextoCandidatoConRespaldo(form, "usuario") || "",
-            contrasena: valorTextoCandidatoConRespaldo(form, "contrasena") || ""
+            contrasena: valorTextoCandidatoConRespaldo(form, "contrasena") || "",
+            es_reingreso: document.getElementById("candidato_es_reingreso") ? document.getElementById("candidato_es_reingreso").value : "0",
+            id_persona_reingreso: document.getElementById("candidato_id_persona_reingreso") ? document.getElementById("candidato_id_persona_reingreso").value : null
         };
         }
 
@@ -13174,7 +13403,27 @@ class CapHum extends Controller
             });
         }
         var form = document.getElementById("formAgregarCandidato");
-        if (form) { form.addEventListener("submit", function(e) { e.preventDefault(); if (candidatoEditId) guardarCandidatoEdicion(); else guardarCandidatoAbrirResumen(); }); }
+        if (form) {
+            form.addEventListener("submit", function(e) { e.preventDefault(); if (candidatoEditId) guardarCandidatoEdicion(); else guardarCandidatoAbrirResumen(); });
+            ["candidato_nombres", "candidato_segundo_nombre", "candidato_apellidop", "candidato_apellidom", "candidato_email", "candidato_telefono"].forEach(function(id) {
+                var input = document.getElementById(id);
+                if (input) input.addEventListener("input", programarDeteccionReingresoCandidato);
+            });
+        }
+        var chkReingreso = document.getElementById("candidato_marcar_reingreso");
+        if (chkReingreso) {
+            chkReingreso.addEventListener("change", function() {
+                var es = document.getElementById("candidato_es_reingreso");
+                var id = document.getElementById("candidato_id_persona_reingreso");
+                if (this.checked && candidatoReingresoDetectado && candidatoReingresoDetectado.id) {
+                    if (es) es.value = "1";
+                    if (id) id.value = candidatoReingresoDetectado.id;
+                } else {
+                    if (es) es.value = "0";
+                    if (id) id.value = "";
+                }
+            });
+        }
         var btnHistoricoCandidatos = document.getElementById("btnHistoricoCandidatos");
         if (btnHistoricoCandidatos) btnHistoricoCandidatos.addEventListener("click", abrirModalHistoricoCandidatos);
         var inputHistoricoCandidatos = document.getElementById("modalHistoricoCandidatosBuscar");
@@ -13662,6 +13911,7 @@ class CapHum extends Controller
             });
             offcanvasEl.addEventListener("hidden.bs.offcanvas", function() {
                 var form = document.getElementById("formAgregarCandidato"); if (form) { form.reset(); candidatoEditId = null; candidatoEdicionOriginal = {}; candidatoPrecargandoDomicilio = false; }
+                resetReingresoCandidato();
                 var titulo = document.getElementById("offcanvasCandidatoTitulo"); if (titulo) titulo.textContent = "Nuevo Candidato";
                 var btnSubmit = document.getElementById("btnSubmitCandidato"); if (btnSubmit) { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; }
                 setRequiredOrganizacionCandidato(true);
@@ -13825,7 +14075,7 @@ class CapHum extends Controller
                 .catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; selJefe.disabled = false; refreshSelectBuscadorCandidato("candidato_id_posible_jefe"); });
         });
         var btnAddCandidato = document.querySelector("[data-bs-target=\"#offcanvasAddCandidato\"]");
-        if (btnAddCandidato) btnAddCandidato.addEventListener("click", function() { candidatoEditId = null; candidatoEdicionOriginal = {}; setRequiredOrganizacionCandidato(true); document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato"; });
+        if (btnAddCandidato) btnAddCandidato.addEventListener("click", function() { candidatoEditId = null; candidatoEdicionOriginal = {}; resetReingresoCandidato(); setRequiredOrganizacionCandidato(true); document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato"; });
         initFlatpickrFechaPostulacion();
         initCopiarUrlDocumentos();
         });
@@ -13953,6 +14203,16 @@ class CapHum extends Controller
         } catch (\Throwable $e) {
             echo json_encode(self::respuesta(false, 'No se pudieron cargar los jefes divisionales.', []));
         }
+        exit;
+    }
+
+    public function buscarReingresoCandidato()
+    {
+        header("Content-Type: application/json; charset=utf-8");
+        $raw = file_get_contents("php://input");
+        $data = json_decode($raw, true) ?: [];
+        $resultado = CandidatosDAO::buscarPersonaBajaParaReingreso($data);
+        echo json_encode($resultado);
         exit;
     }
 
@@ -18223,12 +18483,38 @@ class CapHum extends Controller
         $fechaContratado = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
         CandidatosDAO::marcarContratoFirmado($id_candidato, $fechaContratado);
         CandidatosDAO::updateEstatus($id_candidato, 'Contratado');
+        $limpiezaReingreso = null;
+        $idPersonaReingresoAnterior = !empty($c['id_persona_reingreso']) ? (int) $c['id_persona_reingreso'] : 0;
+        if (!empty($c['es_reingreso']) && $idPersonaReingresoAnterior > 0 && $idPersonaReingresoAnterior !== $id_persona) {
+            $limpiezaReingreso = CapHumDAO::eliminarPersonaSeguro($idPersonaReingresoAnterior, true);
+            CandidatosDAO::registrarBitacoraCandidato(
+                $id_candidato,
+                'REINGRESO_DEPURADO',
+                'Reingreso depurado',
+                !empty($limpiezaReingreso['success'])
+                    ? 'Se depuró la persona anterior en baja vinculada al reingreso.'
+                    : 'No se pudo depurar automáticamente la persona anterior en baja vinculada al reingreso.',
+                [
+                    'id_persona_anterior' => $idPersonaReingresoAnterior,
+                    'id_persona_nueva' => $id_persona,
+                    'resultado' => $limpiezaReingreso,
+                ],
+                (int) ($_SESSION['usuario_id'] ?? 0)
+            );
+        }
         CandidatosDAO::registrarBitacoraCandidatoUnaVez(
             $id_candidato,
             'PASO_A_PLANTILLA',
             'Pasó a plantilla',
             'El candidato fue dado de alta en Gestión correctamente.',
-            ['id_persona' => $id_persona, 'numero_empleado' => $numeroEmpleadoFinal, 'documentos_copiados' => $documentosCopiados],
+            [
+                'id_persona' => $id_persona,
+                'numero_empleado' => $numeroEmpleadoFinal,
+                'documentos_copiados' => $documentosCopiados,
+                'reingreso' => !empty($c['es_reingreso']),
+                'id_persona_reingreso_anterior' => $idPersonaReingresoAnterior ?: null,
+                'limpieza_reingreso' => $limpiezaReingreso,
+            ],
             (int) ($_SESSION['usuario_id'] ?? 0),
             $fechaContratado
         );
@@ -18325,6 +18611,9 @@ class CapHum extends Controller
             'id_candidato' => $id_candidato,
             'numero_empleado' => $numeroEmpleadoFinal,
             'documentos_copiados' => $documentosCopiados,
+            'reingreso' => !empty($c['es_reingreso']),
+            'id_persona_reingreso_anterior' => $idPersonaReingresoAnterior ?: null,
+            'limpieza_reingreso' => $limpiezaReingreso,
             'correo_bienvenida_enviado' => $correoBienvenidaEnviado,
             'correo_bienvenida_error' => $correoBienvenidaError,
             'correo_revision_documental_enviado' => $correoRevision['enviado'],
@@ -23158,6 +23447,13 @@ class CapHum extends Controller
                             ? `<span class="gestion-personal-code-value">${escaparAttr(codigoContpac)}</span>`
                             : '<span class="gestion-personal-code-value">Sin id</span>';
                         const externalId = String(p.external_id || '').trim();
+                        const avisoReingresoBaja = p.reingreso_en_proceso
+                            ? `<div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
+                                    <i class="fa fa-rotate-left me-1"></i>
+                                    <strong>Reingreso en proceso.</strong> No eliminar ni depurar esta baja.
+                                    ${p.nombre_candidato_reingreso ? `<div class="mt-1">Candidato: ${escaparAttr(p.nombre_candidato_reingreso)}${p.estatus_candidato_reingreso ? ` (${escaparAttr(p.estatus_candidato_reingreso)})` : ''}</div>` : ''}
+                               </div>`
+                            : '';
 
                         return {
                             nombres: `
@@ -23215,6 +23511,7 @@ class CapHum extends Controller
                                     <i class="fa fa-clipboard" style="font-size: 0.85em; color: #666;"></i>
                                     <span>${p.descripcion ?? 'Sin descripción'}</span>
                                 </div>
+                                ${avisoReingresoBaja || ''}
                             `.trim(),
                             usuario: p.user_name ?? 'N/A',
                             acciones: `
@@ -25261,6 +25558,8 @@ class CapHum extends Controller
                 'id' => $p['id'] ?? '',
                 'numero_empleado' => $p['numero_empleado'] ?? '',
                 'codigo_contpac' => $p['codigo_contpac'] ?? '',
+                'es_externo' => (int) ($p['es_externo'] ?? 0),
+                'tiene_reingreso' => (int) ($p['tiene_reingreso'] ?? 0),
                 'nombre_jefe' => $p['nombre_jefe'] ?? '',
                 'id_vacante_jefe' => $p['id_vacante_jefe'] ?? null,
                 'nombre_vacante_jefe' => $p['nombre_vacante_jefe'] ?? '',
@@ -25372,6 +25671,10 @@ class CapHum extends Controller
                         'motivo' => $p['motivo'] ?? '',
                         'descripcion' => $p['descripcion'] ?? '',
                         'user_name' => $p['user_name'] ?? '',
+                        'id_candidato_reingreso' => $p['id_candidato_reingreso'] ?? null,
+                        'estatus_candidato_reingreso' => $p['estatus_candidato_reingreso'] ?? '',
+                        'nombre_candidato_reingreso' => $p['nombre_candidato_reingreso'] ?? '',
+                        'reingreso_en_proceso' => !empty($p['id_candidato_reingreso']),
                     ];
                 }, $bajas);
             }
@@ -29332,6 +29635,7 @@ public function getEstadosMunicipiosMexico()
                     (int) $idPersona,
                     [
                         'pais' => $jerarquia['pais'] ?? [],
+                        'empresa' => $jerarquia['empresa'] ?? [],
                         'area' => $jerarquia['area'] ?? [],
                         'departamento' => $jerarquia['departamento'] ?? [],
                         'puesto' => $jerarquia['puesto'] ?? [],
@@ -29415,7 +29719,7 @@ public function getEstadosMunicipiosMexico()
             }
 
             // Nueva modalidad jerárquica: actualiza selección de nodo y sincroniza legado.
-            if ($idNodo > 0 && in_array($nivel, ['pais', 'area', 'departamento', 'puesto'], true)) {
+            if ($idNodo > 0 && in_array($nivel, ['pais', 'empresa', 'area', 'departamento', 'puesto'], true)) {
                 $resultadoJerarquia = CapHumDAO::actualizarPermisoJerarquicoPerfil(
                     (int) $idPersona,
                     $nivel,
