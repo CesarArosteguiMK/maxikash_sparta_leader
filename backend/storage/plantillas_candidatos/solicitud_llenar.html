@@ -263,6 +263,32 @@
       background: linear-gradient(90deg, #7c3aed, #a78bfa);
       width: 0%; transition: width 0.4s ease;
     }
+    .pdf-mobile-help {
+      display: none;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid rgba(167,139,250,0.35);
+      border-radius: 10px;
+      background: rgba(167,139,250,0.12);
+      color: rgba(255,255,255,0.82);
+      font-size: 12.5px;
+      line-height: 1.45;
+      text-align: center;
+    }
+    .pdf-mobile-help.visible { display: block; }
+    .pdf-mobile-help a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+      margin-top: 8px;
+      padding: 8px 14px;
+      border-radius: 9px;
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+      font-weight: 700;
+      text-decoration: none;
+    }
 
     @media(max-width:680px) {
       .g2,.g3,.g4,.g-dom,.g-del,.g-fecha { grid-template-columns: 1fr; }
@@ -589,6 +615,10 @@
       Descargar PDF — Listo para Firmar
     </button>
     <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="pdf-mobile-help" id="pdfMobileHelp">
+      Tu PDF ya esta listo.
+      <br><a id="pdfMobileLink" href="#" target="_blank" rel="noopener">Abrir PDF generado</a>
+    </div>
   </div>
 
 </div>
@@ -614,10 +644,81 @@ function setProgress(pct) {
   document.getElementById('progressFill').style.width = pct + '%';
 }
 
+function esNavegadorMovil() {
+  const ua = navigator.userAgent || navigator.vendor || '';
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua)
+    || (/Macintosh/i.test(ua) && navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
+}
+
+function nombreArchivoSolicitudPdf() {
+  let base = (v('ap_paterno') || 'solicitante').replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
+  if (!base) base = 'solicitante';
+  return 'Solicitud_Maxikash_' + base + '.pdf';
+}
+
+function prepararVentanaMovilPdf() {
+  if (!esNavegadorMovil()) return null;
+  const w = window.open('', '_blank');
+  if (!w) return null;
+  try {
+    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Generando PDF</title></head><body style="font-family:Arial,sans-serif;padding:24px;color:#1f2937"><strong>Generando PDF...</strong><br>En un momento se abrira el documento.</body></html>');
+    w.document.close();
+  } catch(e) {}
+  return w;
+}
+
+function mostrarEnlacePdfMovil(url, nombre) {
+  const cont = document.getElementById('pdfMobileHelp');
+  const link = document.getElementById('pdfMobileLink');
+  if (!cont || !link) return;
+  link.href = url;
+  link.download = nombre;
+  cont.classList.add('visible');
+}
+
+function ocultarEnlacePdfMovil() {
+  const cont = document.getElementById('pdfMobileHelp');
+  if (cont) cont.classList.remove('visible');
+}
+
+function entregarPdfGenerado(out, nombre, ventanaMovil) {
+  const movil = esNavegadorMovil();
+  const blob = new Blob([out], {type:'application/pdf'});
+  const url = URL.createObjectURL(blob);
+
+  if (movil) {
+    mostrarEnlacePdfMovil(url, nombre);
+    if (ventanaMovil && !ventanaMovil.closed) {
+      ventanaMovil.location.href = url;
+    } else {
+      const aMovil = document.createElement('a');
+      aMovil.href = url;
+      aMovil.target = '_blank';
+      aMovil.rel = 'noopener';
+      aMovil.download = nombre;
+      document.body.appendChild(aMovil);
+      aMovil.click();
+      document.body.removeChild(aMovil);
+    }
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 180000);
+    return;
+  }
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 30000);
+}
+
 async function generarPDF() {
   const btn = document.getElementById('btnGen');
+  const ventanaPdfMovil = prepararVentanaMovilPdf();
   btn.disabled = true;
   btn.innerHTML = '⏳  Generando tu documento...';
+  ocultarEnlacePdfMovil();
   setProgress(15);
 
   try {
@@ -733,18 +834,17 @@ async function generarPDF() {
     const out = await pdfDoc.save();
     setProgress(100);
 
-    const blob = new Blob([out], {type:'application/pdf'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'Solicitud_Maxikash_' + (v('ap_paterno')||'solicitante') + '.pdf';
-    a.click();
-    URL.revokeObjectURL(url);
+    entregarPdfGenerado(out, nombreArchivoSolicitudPdf(), ventanaPdfMovil);
 
     setTimeout(() => setProgress(0), 1500);
-    setTimeout(() => history.back(), 600);
+    if (!esNavegadorMovil()) {
+      setTimeout(() => history.back(), 600);
+    }
 
   } catch(e) {
+    if (ventanaPdfMovil && !ventanaPdfMovil.closed) {
+      try { ventanaPdfMovil.close(); } catch(cerrarError) {}
+    }
     alert('Error al generar el PDF: ' + e.message);
     console.error(e);
     setProgress(0);

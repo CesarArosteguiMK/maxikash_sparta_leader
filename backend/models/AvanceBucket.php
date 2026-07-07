@@ -103,10 +103,73 @@ final class AvanceBucket
     }
 
     /**
+     * Simulacion Avance de Buckets (+1) usando el corte de Dias_mora de tbl_segundometro_semana.
+     *
+     * @return array<string,mixed>
+     */
+    public static function calcularEstresado(?string $corte = null): array
+    {
+        $db = new DatabaseSegundometro();
+        $corteNormalizado = self::normalizarCorte($corte);
+        $columnaCorte = self::columnaDiasMoraCorte($corteNormalizado);
+        $bucketInicioSql = self::bucketSql('Bucket_Morosidad_Real');
+        $bucketCierreAjustadoSql = self::bucketCierreAjustadoSql($columnaCorte);
+        $bucketMasUnoSql = self::bucketMasUnoSql('cierre_ajustado');
+
+        $rows = $db->queryAll("
+            SELECT bucket_inicio, bucket_cierre, COUNT(DISTINCT id_credito) AS creditos
+            FROM (
+                SELECT bucket_inicio,
+                       CASE
+                           WHEN bucket_inicio IS NULL OR cierre_ajustado IS NULL THEN NULL
+                           WHEN bucket_inicio = 'a) Current' THEN 'a) Current'
+                           ELSE ({$bucketMasUnoSql})
+                       END AS bucket_cierre,
+                       id_credito
+                FROM (
+                    SELECT {$bucketInicioSql} AS bucket_inicio,
+                           {$bucketCierreAjustadoSql} AS cierre_ajustado,
+                           Id_credito AS id_credito
+                    FROM tbl_segundometro_semana
+                ) base
+            ) x
+            WHERE bucket_inicio IS NOT NULL
+              AND bucket_cierre IS NOT NULL
+              AND id_credito IS NOT NULL
+            GROUP BY bucket_inicio, bucket_cierre
+        ");
+
+        $payload = self::formatear($rows, $corteNormalizado, self::diaCorteNombre(), 'Bucket Morosidad Real', 'Cierre Actual +1');
+        $rowsInvertidos = array_map(static function (array $row): array {
+            return [
+                'bucket_inicio' => $row['bucket_cierre'] ?? null,
+                'bucket_cierre' => $row['bucket_inicio'] ?? null,
+                'creditos' => $row['creditos'] ?? 0,
+            ];
+        }, $rows);
+        $payloadInvertido = self::formatear($rowsInvertidos, $corteNormalizado, self::diaCorteNombre(), 'Cierre Actual +1', 'Bucket Morosidad Real');
+        $payload['modo'] = 'estresado';
+        $payload['origen'] = 'tbl_segundometro_semana';
+        $payload['titulo'] = 'Bucket estresado';
+        $payload['resumen_inicio'] = self::ordenarResumenPorValor($payload['resumen_inicio']);
+        $payload['matriz_invertida'] = $payloadInvertido['matriz_creditos'];
+        $payload['matriz_secundaria_titulo'] = 'Matriz de avance bucket invertida';
+        $payload['matriz_secundaria_tipo'] = 'creditos';
+
+        return $payload;
+    }
+
+    /**
      * @param list<array<string,mixed>> $rows
      * @return array<string,mixed>
      */
-    private static function formatear(array $rows, string $corte, string $diaCorte): array
+    private static function formatear(
+        array $rows,
+        string $corte,
+        string $diaCorte,
+        string $rowLabel = 'Bucket Inicio',
+        string $columnLabel = 'Cierre Ajustado'
+    ): array
     {
         $buckets = array_column(self::BUCKETS, 'bucket');
         $matrix = [];
@@ -143,6 +206,9 @@ final class AvanceBucket
             'corte' => $corte,
             'corte_opciones' => self::CORTES,
             'dia_corte' => $diaCorte,
+            'row_label' => $rowLabel,
+            'column_label' => $columnLabel,
+            'total_label' => 'Creditos',
             'buckets' => self::BUCKETS,
             'total' => $total,
             'resumen_inicio' => self::resumenBuckets($rowTotals, $total),
@@ -151,6 +217,24 @@ final class AvanceBucket
             'matriz_porcentajes' => self::matriz($matrix, $rowTotals, $columnTotals, $total, true),
             'indicadores' => self::indicadores($matrix),
         ];
+    }
+
+    /**
+     * @param list<array{bucket:string,valor:int,porcentaje:float}> $rows
+     * @return list<array{bucket:string,valor:int,porcentaje:float}>
+     */
+    private static function ordenarResumenPorValor(array $rows): array
+    {
+        usort($rows, static function (array $a, array $b): int {
+            $valor = ((int) ($b['valor'] ?? 0)) <=> ((int) ($a['valor'] ?? 0));
+            if ($valor !== 0) {
+                return $valor;
+            }
+
+            return strcmp((string) ($a['bucket'] ?? ''), (string) ($b['bucket'] ?? ''));
+        });
+
+        return $rows;
     }
 
     /**
@@ -296,6 +380,24 @@ final class AvanceBucket
         ";
     }
 
+    private static function bucketMasUnoSql(string $expresion): string
+    {
+        return "
+            CASE ({$expresion})
+                WHEN 'a) Current' THEN 'b) 1 a 7 dias'
+                WHEN 'b) 1 a 7 dias' THEN 'c) 8 a 14 dias'
+                WHEN 'c) 8 a 14 dias' THEN 'd) 15 a 21 dias'
+                WHEN 'd) 15 a 21 dias' THEN 'e) 22 a 30 dias'
+                WHEN 'e) 22 a 30 dias' THEN 'f) 31 a 60 dias'
+                WHEN 'f) 31 a 60 dias' THEN 'g) 61 a 90 dias'
+                WHEN 'g) 61 a 90 dias' THEN 'h) 91 a 120 dias'
+                WHEN 'h) 91 a 120 dias' THEN 'i) 121+ dias'
+                WHEN 'i) 121+ dias' THEN 'i) 121+ dias'
+                ELSE NULL
+            END
+        ";
+    }
+
     private static function bucketDesdeDiasMoraSql(string $columnaDiasMora): string
     {
         $columnasPermitidas = self::columnasDiasMoraPermitidas();
@@ -326,6 +428,8 @@ final class AvanceBucket
         if (!in_array($columna, [
             'Bucket_Morosidad_Real',
             'Cierre_Actual',
+            'mas_uno',
+            'menos_uno',
             "COALESCE(NULLIF(TRIM(CAST(Bucket_ajustado_ghost AS CHAR)), ''), Cierre_Actual)",
         ], true)) {
             throw new \InvalidArgumentException('Columna no permitida.');

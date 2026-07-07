@@ -15,7 +15,7 @@ import unicodedata
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Set
 from zoneinfo import ZoneInfo
 
@@ -139,6 +139,9 @@ Reglas de lectura:
 5. Si detectas INE, pasaporte o residencia, clasifica el subtipo especifico.
    Un pasaporte de cualquier pais es identificacion oficial valida; clasificalo
    como pasaporte_extranjero cuando el pais/nacionalidad no sea Mexico.
+   En INE, "VIGENCIA 2025 - 2035" es un rango: fecha_expedicion puede ser
+   2025-01-01, pero fecha_vencimiento debe ser 2035-12-31. Nunca uses el
+   primer anio del rango como vencimiento si hay un segundo anio visible.
 6. Si el documento tiene frente y reverso, indica si ambos aparecen. Para
    pasaportes no exijas frente y reverso; basta la hoja de datos legible.
 7. Si la imagen esta borrosa, cortada o ilegible, baja la confianza.
@@ -1012,6 +1015,38 @@ def _limpiar_identificadores_extraidos(data: Dict[str, Any]) -> None:
             observations.append(f"NSS descartado por lectura no valida: {raw_nss}.")
 
 
+def _fecha_fin_vigencia_identificacion(value: Any) -> Optional[date]:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    years = [int(y) for y in re.findall(r"\b(19\d{2}|20\d{2})\b", text)]
+    if len(years) >= 2:
+        return datetime(max(years), 12, 31).date()
+    if len(years) == 1 and re.fullmatch(r"\s*(?:VIGENCIA\s*)?\d{4}\s*", text, re.IGNORECASE):
+        return datetime(years[0], 12, 31).date()
+    return parse_date(text)
+
+
+def _normalizar_vigencia_identificacion(data: Dict[str, Any], fields: Dict[str, Any]) -> Optional[date]:
+    for value in (fields.get("fecha_vencimiento"), fields.get("vigencia")):
+        exp = _fecha_fin_vigencia_identificacion(value)
+        if exp:
+            fields["fecha_vencimiento"] = exp.isoformat()
+            return exp
+    observations = data.get("observaciones")
+    if isinstance(observations, list):
+        for obs in observations:
+            exp = _fecha_fin_vigencia_identificacion(obs)
+            if exp and len(re.findall(r"\b(19\d{2}|20\d{2})\b", str(obs or ""))) >= 2:
+                fields["fecha_vencimiento"] = exp.isoformat()
+                return exp
+    return None
+
+
+def _join_user_messages(messages: List[str]) -> str:
+    return "; ".join(str(msg).strip().rstrip(".") for msg in messages if str(msg).strip())
+
+
 def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[str]) -> Dict[str, Any]:
     errors: List[str] = []
     warnings: List[str] = []
@@ -1055,9 +1090,9 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
     if doc_type in compatible_document_types("identificacion_oficial"):
         if not fields.get("nombre_completo"):
             errors.append("No se pudo leer el nombre completo")
-        exp = parse_date(fields.get("fecha_vencimiento"))
+        exp = _normalizar_vigencia_identificacion(data, fields)
         if exp and exp < today_cdmx():
-            errors.append(f"Identificacion vencida desde {exp.isoformat()}")
+            errors.append(f"Identificación oficial vencida desde {exp.isoformat()}. Solicite una identificación vigente.")
 
     if doc_type == "comprobante_domicilio":
         if not fields.get("domicilio"):
@@ -1133,9 +1168,9 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
             warnings.append("No se pudo confirmar automaticamente la firma de la carta")
 
     if errors:
-        message = "No se puede cargar este documento: " + "; ".join(errors) + "."
+        message = "No se puede cargar este documento: " + _join_user_messages(errors) + "."
     elif warnings:
-        message = f"{user_document_name(doc_type)} detectado. Revisa: " + "; ".join(warnings) + "."
+        message = f"{user_document_name(doc_type)} detectado. Revisa: " + _join_user_messages(warnings) + "."
     else:
         message = f"{user_document_name(doc_type)} listo."
 

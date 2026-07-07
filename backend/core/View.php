@@ -80,6 +80,12 @@ function getMenu(): string
                 '/reporteria/comparativasavancesemanal',
                 '/reporteria/comparativocierressemanal',
             ],
+            '/analitica/avancebucket' => [
+                '/analitica/avancebucket',
+                '/analitica/avancebucket/avance',
+                '/analitica/avancebucket/historico',
+                '/analitica/avancebucket/estresado',
+            ],
             '/analitica/asignacion' => [
                 '/analitica/asignacion',
                 '/analitica/asignaciondirecciones',
@@ -1656,6 +1662,51 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
             });
 
         });
+    </script>
+
+    <script>
+        (function () {
+            var redirigiendoPorSesion = false;
+
+            function redirigirLoginSesionForzada(url) {
+                if (redirigiendoPorSesion) return;
+                redirigiendoPorSesion = true;
+                window.location.href = url || '/Login';
+            }
+
+            if (window.fetch) {
+                var fetchOriginal = window.fetch.bind(window);
+                window.fetch = function () {
+                    return fetchOriginal.apply(null, arguments).then(function (response) {
+                        if (response && response.status === 401) {
+                            response.clone().json().then(function (data) {
+                                if (data && (data.force_logout || data.redirect)) {
+                                    redirigirLoginSesionForzada(data.redirect);
+                                }
+                            }).catch(function () {
+                                redirigirLoginSesionForzada('/Login');
+                            });
+                        }
+                        return response;
+                    });
+                };
+            }
+
+            if (window.jQuery) {
+                window.jQuery(document).ajaxError(function (_event, xhr) {
+                    if (!xhr || xhr.status !== 401) return;
+                    var data = null;
+                    try {
+                        data = xhr.responseJSON || JSON.parse(xhr.responseText || '{}');
+                    } catch (_err) {}
+                    if (data && (data.force_logout || data.redirect)) {
+                        redirigirLoginSesionForzada(data.redirect);
+                    } else {
+                        redirigirLoginSesionForzada('/Login');
+                    }
+                });
+            }
+        })();
     </script>
 
     <?= $script ?? ''; ?>

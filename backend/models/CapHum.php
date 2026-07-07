@@ -9,6 +9,7 @@ use Core\UsuarioFantasmaReporteria;
 class CapHum extends Model
 {
     private static $trayectoriaPuestoTablaAsegurada = false;
+    private static $personaEsExternoColumnaAsegurada = false;
     public const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
     private const MODULO_MIS_DOCUMENTOS = 141;
     private const MODULO_VACACIONES = 147;
@@ -63,6 +64,23 @@ class CapHum extends Model
     private const MODULO_TRACKING_CANCELAR_RUTA = 102;
     private const MODULO_TRACKING_CANCELAR_RUTA_NOMBRE = 'Cancelar rutas Tracking';
     private const MODULO_TRACKING_CANCELAR_RUTA_DESC = 'Tracking Recoleccion - Cancelar rutas registradas';
+
+    private static function asegurarPersonaEsExterno(Database $db): void
+    {
+        if (self::$personaEsExternoColumnaAsegurada) {
+            return;
+        }
+
+        $columna = $db->queryOne("SHOW COLUMNS FROM __SPARTA_SECRET_REDACTED__.persona LIKE 'es_externo'");
+        if (!$columna) {
+            $db->CRUD("
+                ALTER TABLE __SPARTA_SECRET_REDACTED__.persona
+                ADD COLUMN es_externo TINYINT(1) NOT NULL DEFAULT 0 AFTER codigo_contpac
+            ");
+        }
+
+        self::$personaEsExternoColumnaAsegurada = true;
+    }
 
     public static function asegurarModuloAccesosCapitalHumano(): void
     {
@@ -934,11 +952,10 @@ class CapHum extends Model
         $sqlExP2 = UsuarioFantasmaReporteria::sqlExcluirPersona('p2');
 
         // =========================
-        // VER TODOS: admin O sin departamento asignado (módulo 10)
-        // Si no tiene "Organización > Departamentos" asignado → ver todos los usuarios.
+        // Gestion de Personal se filtra por Acceso a Puestos.
+        // Sin puestos asignados en privilegios_departamento, no hay usuarios visibles.
         // =========================
-        $verTodos = in_array($id_gestor_sesion, [1, 2, 3, 396, 797], true);
-        $filtroPuestosSesion = $verTodos ? '' : "
+        $filtroPuestosSesion = "
         AND EXISTS (
             SELECT 1
             FROM privilegios_departamento pd_perm
@@ -953,6 +970,13 @@ class CapHum extends Model
             p.id,
             p.numero_empleado,
             p.codigo_contpac,
+            p.es_externo,
+            EXISTS(
+                SELECT 1
+                FROM __SPARTA_SECRET_REDACTED__.reingresos r_reingreso
+                WHERE r_reingreso.id_persona = p.id
+                LIMIT 1
+            ) AS tiene_reingreso,
             p.nombres,
             p.segundo_nombre,
             p.apellidop,
@@ -1059,6 +1083,13 @@ class CapHum extends Model
                 p.id,
                 p.numero_empleado,
                 p.codigo_contpac,
+                p.es_externo,
+                EXISTS(
+                    SELECT 1
+                    FROM __SPARTA_SECRET_REDACTED__.reingresos r_reingreso
+                    WHERE r_reingreso.id_persona = p.id
+                    LIMIT 1
+                ) AS tiene_reingreso,
                 p.nombres,
                 p.segundo_nombre,
                 p.apellidop,
@@ -1116,6 +1147,13 @@ class CapHum extends Model
                 p2.id,
                 p2.numero_empleado,
                 p2.codigo_contpac,
+                p2.es_externo,
+                EXISTS(
+                    SELECT 1
+                    FROM __SPARTA_SECRET_REDACTED__.reingresos r_reingreso2
+                    WHERE r_reingreso2.id_persona = p2.id
+                    LIMIT 1
+                ) AS tiene_reingreso,
                 p2.nombres,
                 p2.segundo_nombre,
                 p2.apellidop,
@@ -1167,6 +1205,7 @@ class CapHum extends Model
 
         try {
             $db = new Database();
+            self::asegurarPersonaEsExterno($db);
             self::asegurarAsignaJefeSoportaVacante($db);
             $r = $db->queryAll($query);
             return self::resultado(true, 'Departamentos encontrados.', $r);
@@ -6175,7 +6214,7 @@ class CapHum extends Model
 
     private static function obtenerSeleccionesJerarquicas(Database $db, int $idPersona): array
     {
-        $sel = ['pais' => [], 'area' => [], 'departamento' => [], 'puesto' => []];
+        $sel = ['pais' => [], 'empresa' => [], 'area' => [], 'departamento' => [], 'puesto' => []];
         if (!self::existeTablaPermisosJerarquicos($db)) {
             return $sel;
         }
@@ -6201,6 +6240,7 @@ class CapHum extends Model
     private static function sincronizarLegacyDesdeJerarquia(Database $db, int $idPersona, array $seleccion): void
     {
         $idsPais = array_values(array_unique(array_filter(array_map('intval', $seleccion['pais'] ?? []))));
+        $idsEmpresa = array_values(array_unique(array_filter(array_map('intval', $seleccion['empresa'] ?? []))));
         $idsArea = array_values(array_unique(array_filter(array_map('intval', $seleccion['area'] ?? []))));
         $idsDepartamento = array_values(array_unique(array_filter(array_map('intval', $seleccion['departamento'] ?? []))));
         $idsPuesto = array_values(array_unique(array_filter(array_map('intval', $seleccion['puesto'] ?? []))));
@@ -6236,6 +6276,29 @@ class CapHum extends Model
                  INNER JOIN departamento d ON d.id = p.departamento_id
                  LEFT JOIN departamento_organizacional a ON a.id = d.id_departamento_organizacional
                  WHERE d.id_departamento_organizacional IN ($in)
+                   AND COALESCE(p.activo, 1) = 1
+                   AND COALESCE(d.activo, 1) = 1
+                   AND COALESCE(a.activo, 1) = 1",
+                $params
+            ) ?: [];
+            foreach ($rows as $r) {
+                $puestosFinales[(int) ($r['id'] ?? 0)] = true;
+            }
+        }
+
+        if (!empty($idsEmpresa)) {
+            $params = [];
+            $in = self::placeholdersIn('emp', $idsEmpresa, $params);
+            $rows = $db->queryAll(
+                "SELECT p.id
+                 FROM puesto p
+                 INNER JOIN departamento d ON d.id = p.departamento_id
+                 LEFT JOIN departamento_organizacional a ON a.id = d.id_departamento_organizacional
+                 LEFT JOIN asigna_direcciones ad
+                        ON ad.id_departamento_organizacional = d.id_departamento_organizacional
+                       AND COALESCE(ad.activo, 1) = 1
+                 LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
+                 WHERE COALESCE(d.id_empresa, a.id_empresa, dir.id_empresa, 1) IN ($in)
                    AND COALESCE(p.activo, 1) = 1
                    AND COALESCE(d.activo, 1) = 1
                    AND COALESCE(a.activo, 1) = 1",
@@ -6295,7 +6358,7 @@ class CapHum extends Model
 
             // Fallback de compatibilidad: si aún no existe selección jerárquica,
             // preseleccionar puestos desde la tabla legacy.
-            $totalSel = count($seleccion['pais']) + count($seleccion['area']) + count($seleccion['departamento']) + count($seleccion['puesto']);
+            $totalSel = count($seleccion['pais']) + count($seleccion['empresa']) + count($seleccion['area']) + count($seleccion['departamento']) + count($seleccion['puesto']);
             if ($totalSel === 0) {
                 $rowsLegacy = $db->queryAll(
                     "SELECT pd.idPuesto
@@ -6328,11 +6391,32 @@ class CapHum extends Model
                     a.id,
                     a.nombre,
                     a.id_pais,
+                    COALESCE(a.id_empresa, dir.id_empresa, 1) AS id_empresa,
+                    COALESCE(emp.nombre_comercial, 'MaxiKash') AS nombre_empresa,
                     COALESCE(pa.nombre, 'Sin país') AS nombre_pais
                  FROM departamento_organizacional a
+                 LEFT JOIN asigna_direcciones ad
+                        ON ad.id_departamento_organizacional = a.id
+                       AND COALESCE(ad.activo, 1) = 1
+                 LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
+                 LEFT JOIN rrhh_empresas emp ON emp.id = COALESCE(a.id_empresa, dir.id_empresa, 1)
                  LEFT JOIN paises pa ON pa.id = a.id_pais
                  WHERE COALESCE(a.activo, 1) = 1
-                 ORDER BY pa.nombre ASC, a.nombre ASC"
+                 ORDER BY pa.nombre ASC, nombre_empresa ASC, a.nombre ASC"
+            ) ?: [];
+            $empresas = $db->queryAll(
+                "SELECT DISTINCT
+                    COALESCE(a.id_empresa, dir.id_empresa, 1) AS id,
+                    COALESCE(emp.nombre_comercial, 'MaxiKash') AS nombre,
+                    a.id_pais
+                 FROM departamento_organizacional a
+                 LEFT JOIN asigna_direcciones ad
+                        ON ad.id_departamento_organizacional = a.id
+                       AND COALESCE(ad.activo, 1) = 1
+                 LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
+                 LEFT JOIN rrhh_empresas emp ON emp.id = COALESCE(a.id_empresa, dir.id_empresa, 1)
+                 WHERE COALESCE(a.activo, 1) = 1
+                 ORDER BY nombre ASC"
             ) ?: [];
             $departamentos = $db->queryAll(
                 "SELECT
@@ -6362,11 +6446,13 @@ class CapHum extends Model
 
             return self::resultado(true, 'Permisos jerárquicos cargados.', [
                 'paises' => $paises,
+                'empresas' => $empresas,
                 'areas' => $areas,
                 'departamentos' => $departamentos,
                 'puestos' => $puestos,
                 'seleccion' => [
                     'pais' => array_values($seleccion['pais']),
+                    'empresa' => array_values($seleccion['empresa']),
                     'area' => array_values($seleccion['area']),
                     'departamento' => array_values($seleccion['departamento']),
                     'puesto' => array_values($seleccion['puesto']),
@@ -6383,8 +6469,8 @@ class CapHum extends Model
         if ($idPersona <= 0) {
             return self::resultado(false, 'ID de persona inválido.', null);
         }
-        $permitidos = ['pais', 'area', 'departamento', 'puesto'];
-        $limpia = ['pais' => [], 'area' => [], 'departamento' => [], 'puesto' => []];
+        $permitidos = ['pais', 'empresa', 'area', 'departamento', 'puesto'];
+        $limpia = ['pais' => [], 'empresa' => [], 'area' => [], 'departamento' => [], 'puesto' => []];
         foreach ($permitidos as $nivel) {
             $vals = $seleccion[$nivel] ?? [];
             if (!is_array($vals)) {
@@ -6431,7 +6517,7 @@ class CapHum extends Model
         $idNodo = (int) $idNodo;
         $asignado = ((int) $asignado) === 1 ? 1 : 0;
         $nivel = trim(strtolower($nivel));
-        if ($idPersona <= 0 || $idNodo <= 0 || !in_array($nivel, ['pais', 'area', 'departamento', 'puesto'], true)) {
+        if ($idPersona <= 0 || $idNodo <= 0 || !in_array($nivel, ['pais', 'empresa', 'area', 'departamento', 'puesto'], true)) {
             return self::resultado(false, 'Parámetros inválidos.', null);
         }
 
@@ -7514,6 +7600,7 @@ class CapHum extends Model
 
         try {
             $db = new Database();
+            self::asegurarPersonaEsExterno($db);
             $vacanteSeleccionada = null;
             if ($vacante_existente_id > 0) {
                 self::asegurarTablaVacantesPersonal($db);
@@ -7541,7 +7628,8 @@ class CapHum extends Model
             }
             $numero_empleado = addslashes($numero_raw);
             $esExterno = isset($data['es_externo']) && (bool)$data['es_externo'];
-            $codigoContpacRaw = $esExterno ? '' : trim((string)($data['codigo_contpac'] ?? $numero_raw));
+            $es_externo_sql = $esExterno ? 1 : 0;
+            $codigoContpacRaw = $esExterno ? '' : trim((string)($data['codigo_contpac'] ?? ''));
             $codigo_contpac_sql = $codigoContpacRaw !== '' ? "'" . addslashes($codigoContpacRaw) . "'" : 'NULL';
 
             if ($cp === '' && $id_div_nivel3 !== 'NULL') {
@@ -7566,9 +7654,9 @@ class CapHum extends Model
 
             $db->queryOne("
             INSERT INTO __SPARTA_SECRET_REDACTED__.persona
-            (nombres, segundo_nombre, apellidop, apellidom, curp, numero_empleado, codigo_contpac, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal)
+            (nombres, segundo_nombre, apellidop, apellidom, curp, numero_empleado, codigo_contpac, es_externo, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal)
             VALUES
-            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', $curp_sql, '$numero_empleado', $codigo_contpac_sql, '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro', $id_pais, $id_div_nivel1, $id_div_nivel2, $id_div_nivel3, $dom_calle_sql, $dom_ext_sql, $dom_int_sql, $cp_sql)
+            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', $curp_sql, '$numero_empleado', $codigo_contpac_sql, $es_externo_sql, '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro', $id_pais, $id_div_nivel1, $id_div_nivel2, $id_div_nivel3, $dom_calle_sql, $dom_ext_sql, $dom_int_sql, $cp_sql)
         ");
 
 
@@ -9049,7 +9137,10 @@ class CapHum extends Model
             bp.id AS registro_baja,
             bp.motivo,
             bp.descripcion,
-            p.user_name
+            p.user_name,
+            c_reingreso.id AS id_candidato_reingreso,
+            c_reingreso.estatus AS estatus_candidato_reingreso,
+            TRIM(CONCAT_WS(' ', c_reingreso.nombres, c_reingreso.segundo_nombre, c_reingreso.apellidop, c_reingreso.apellidom)) AS nombre_candidato_reingreso
         FROM __SPARTA_SECRET_REDACTED__.persona p
         INNER JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON p.id = bp.id_persona
         INNER JOIN (
@@ -9067,6 +9158,15 @@ class CapHum extends Model
         LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON ap.id_puesto = pu.id
         LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON pu.departamento_id = d.id
         LEFT JOIN __SPARTA_SECRET_REDACTED__.perfil pf ON pf.id_persona = p.id
+        LEFT JOIN __SPARTA_SECRET_REDACTED__.candidatos c_reingreso ON c_reingreso.id = (
+            SELECT c2.id
+            FROM __SPARTA_SECRET_REDACTED__.candidatos c2
+            WHERE c2.id_persona_reingreso = p.id
+              AND COALESCE(c2.es_reingreso, 0) = 1
+              AND COALESCE(c2.estatus, '') NOT IN ('Proceso cerrado', 'Eliminado')
+            ORDER BY COALESCE(c2.fecha_actualizacion, c2.fecha_registro) DESC, c2.id DESC
+            LIMIT 1
+        )
         WHERE p.estatus = 'Baja'
         {$exB}
         SQL;
@@ -9125,7 +9225,10 @@ class CapHum extends Model
             bp.id AS registro_baja,
             bp.motivo,
             bp.descripcion,
-            p.user_name
+            p.user_name,
+            c_reingreso.id AS id_candidato_reingreso,
+            c_reingreso.estatus AS estatus_candidato_reingreso,
+            TRIM(CONCAT_WS(' ', c_reingreso.nombres, c_reingreso.segundo_nombre, c_reingreso.apellidop, c_reingreso.apellidom)) AS nombre_candidato_reingreso
         FROM __SPARTA_SECRET_REDACTED__.persona p
         INNER JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON p.id = bp.id_persona
         INNER JOIN (
@@ -9143,6 +9246,15 @@ class CapHum extends Model
         LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON ap.id_puesto = pu.id
         LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON pu.departamento_id = d.id
         LEFT JOIN __SPARTA_SECRET_REDACTED__.perfil pf ON pf.id_persona = p.id
+        LEFT JOIN __SPARTA_SECRET_REDACTED__.candidatos c_reingreso ON c_reingreso.id = (
+            SELECT c2.id
+            FROM __SPARTA_SECRET_REDACTED__.candidatos c2
+            WHERE c2.id_persona_reingreso = p.id
+              AND COALESCE(c2.es_reingreso, 0) = 1
+              AND COALESCE(c2.estatus, '') NOT IN ('Proceso cerrado', 'Eliminado')
+            ORDER BY COALESCE(c2.fecha_actualizacion, c2.fecha_registro) DESC, c2.id DESC
+            LIMIT 1
+        )
         WHERE p.estatus = 'Baja'
         {$exB}
         SQL;
@@ -9207,7 +9319,15 @@ class CapHum extends Model
             $db = new Database();
 
             // Verificar que la persona existe
-            $persona = $db->queryOne("SELECT id, nombre, apellido_paterno, apellido_materno FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id", ['id' => $id_persona]);
+            $persona = $db->queryOne("
+                SELECT
+                    id,
+                    nombres AS nombre,
+                    apellidop AS apellido_paterno,
+                    apellidom AS apellido_materno
+                FROM __SPARTA_SECRET_REDACTED__.persona
+                WHERE id = :id
+            ", ['id' => $id_persona]);
             if (!$persona) {
                 return self::resultado(false, 'Persona no encontrada.');
             }
@@ -9216,6 +9336,45 @@ class CapHum extends Model
 
             // Buscar todas las dependencias
             $dependencias = [];
+            $columnasTicketHistorico = [];
+            try {
+                $colsTicket = $db->queryAll("
+                    SELECT COLUMN_NAME
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = '__SPARTA_SECRET_REDACTED__'
+                      AND TABLE_NAME = 'ticket_historico'
+                      AND COLUMN_NAME IN ('gestor_id', 'usuario_asignado')
+                ");
+                foreach ($colsTicket ?: [] as $colTicket) {
+                    $columnasTicketHistorico[(string) ($colTicket['COLUMN_NAME'] ?? '')] = true;
+                }
+            } catch (\Throwable $e) {
+                $columnasTicketHistorico = [];
+            }
+            $tablasOpcionales = [];
+            try {
+                $rowsTablas = $db->queryAll("
+                    SELECT TABLE_NAME
+                    FROM INFORMATION_SCHEMA.TABLES
+                    WHERE TABLE_SCHEMA = '__SPARTA_SECRET_REDACTED__'
+                      AND TABLE_NAME IN (
+                          'documentos_persona',
+                          'carga_documento_persona',
+                          'persona_datos_rrhh',
+                          'perfil',
+                          'privilegios_departamento',
+                          'asigna_modulo_web',
+                          'reingresos',
+                          'asigna_creditos_adjudicacion',
+                          'personal_adjudicacion'
+                      )
+                ");
+                foreach ($rowsTablas ?: [] as $rowTabla) {
+                    $tablasOpcionales[(string) ($rowTabla['TABLE_NAME'] ?? '')] = true;
+                }
+            } catch (\Throwable $e) {
+                $tablasOpcionales = [];
+            }
 
             // 1. asigna_puesto
             $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = :id", ['id' => $id_persona]);
@@ -9237,20 +9396,79 @@ class CapHum extends Model
             $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = :id", ['id' => $id_persona]);
             if ($count['c'] > 0) $dependencias['baja_persona'] = (int)$count['c'];
             // 5b. reingresos
-            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.reingresos WHERE id_persona = :id", ['id' => $id_persona]);
-            if ($count['c'] > 0) $dependencias['reingresos'] = (int)$count['c'];
+            if (!empty($tablasOpcionales['reingresos'])) {
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.reingresos WHERE id_persona = :id", ['id' => $id_persona]);
+                if ($count['c'] > 0) $dependencias['reingresos'] = (int)$count['c'];
+            }
 
             // 6. ticket_historico (gestor_id)
-            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.ticket_historico WHERE gestor_id = :id", ['id' => $id_persona]);
-            if ($count['c'] > 0) $dependencias['ticket_historico_gestor'] = (int)$count['c'];
+            if (!empty($columnasTicketHistorico['gestor_id'])) {
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.ticket_historico WHERE gestor_id = :id", ['id' => $id_persona]);
+                if ($count['c'] > 0) $dependencias['ticket_historico_gestor'] = (int)$count['c'];
+            }
 
             // 7. ticket_historico (usuario_asignado)
-            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.ticket_historico WHERE usuario_asignado = :id", ['id' => $id_persona]);
-            if ($count['c'] > 0) $dependencias['ticket_historico_asignado'] = (int)$count['c'];
+            if (!empty($columnasTicketHistorico['usuario_asignado'])) {
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.ticket_historico WHERE usuario_asignado = :id", ['id' => $id_persona]);
+                if ($count['c'] > 0) $dependencias['ticket_historico_asignado'] = (int)$count['c'];
+            }
 
             // 8. documentos_persona
-            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.documentos_persona WHERE id_persona = :id", ['id' => $id_persona]);
-            if ($count['c'] > 0) $dependencias['documentos_persona'] = (int)$count['c'];
+            if (!empty($tablasOpcionales['documentos_persona'])) {
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.documentos_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                if ($count['c'] > 0) $dependencias['documentos_persona'] = (int)$count['c'];
+            }
+
+            // 9. carga_documento_persona
+            if (!empty($tablasOpcionales['carga_documento_persona'])) {
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                if ($count['c'] > 0) $dependencias['carga_documento_persona'] = (int)$count['c'];
+            }
+
+            // 10. persona_datos_rrhh
+            if (!empty($tablasOpcionales['persona_datos_rrhh'])) {
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.persona_datos_rrhh WHERE id_persona = :id", ['id' => $id_persona]);
+                if ($count['c'] > 0) $dependencias['persona_datos_rrhh'] = (int)$count['c'];
+            }
+
+            // 11. perfil
+            if (!empty($tablasOpcionales['perfil'])) {
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.perfil WHERE id_persona = :id", ['id' => $id_persona]);
+                if ($count['c'] > 0) $dependencias['perfil'] = (int)$count['c'];
+            }
+
+            // 12. privilegios_departamento
+            if (!empty($tablasOpcionales['privilegios_departamento'])) {
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.privilegios_departamento WHERE idPersona = :id", ['id' => $id_persona]);
+                if ($count['c'] > 0) $dependencias['privilegios_departamento'] = (int)$count['c'];
+            }
+
+            // 13. asigna_modulo_web
+            if (!empty($tablasOpcionales['asigna_modulo_web'])) {
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_modulo_web WHERE usuario_id = :id", ['id' => $id_persona]);
+                if ($count['c'] > 0) $dependencias['asigna_modulo_web'] = (int)$count['c'];
+            }
+
+            // 14. asigna_creditos_adjudicacion (historial de alta)
+            if (!empty($tablasOpcionales['asigna_creditos_adjudicacion'])) {
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_creditos_adjudicacion WHERE alta = :id", ['id' => $id_persona]);
+                if ($count['c'] > 0) $dependencias['asigna_creditos_adjudicacion_alta'] = (int)$count['c'];
+            }
+
+            // 15. personal_adjudicacion
+            if (!empty($tablasOpcionales['personal_adjudicacion'])) {
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.personal_adjudicacion WHERE id_persona = :id", ['id' => $id_persona]);
+                if ($count['c'] > 0) $dependencias['personal_adjudicacion'] = (int)$count['c'];
+                if (!empty($tablasOpcionales['asigna_creditos_adjudicacion'])) {
+                    $count = $db->queryOne("
+                        SELECT COUNT(*) as c
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_creditos_adjudicacion aca
+                        INNER JOIN __SPARTA_SECRET_REDACTED__.personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+                        WHERE pa.id_persona = :id
+                    ", ['id' => $id_persona]);
+                    if ($count['c'] > 0) $dependencias['asigna_creditos_adjudicacion_personal_adj'] = (int)$count['c'];
+                }
+            }
 
             // Si solo es consulta (no confirmar), devolver dependencias
             if (!$confirmar) {
@@ -9267,17 +9485,36 @@ class CapHum extends Model
 
             try {
                 // Eliminar en orden de dependencias
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.documentos_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['documentos_persona'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.documentos_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['carga_documento_persona'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['persona_datos_rrhh'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.persona_datos_rrhh WHERE id_persona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['perfil'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.perfil WHERE id_persona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['privilegios_departamento'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.privilegios_departamento WHERE idPersona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['asigna_modulo_web'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_modulo_web WHERE usuario_id = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['personal_adjudicacion']) && !empty($tablasOpcionales['asigna_creditos_adjudicacion'])) {
+                    $db->CRUD("
+                        DELETE aca
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_creditos_adjudicacion aca
+                        INNER JOIN __SPARTA_SECRET_REDACTED__.personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+                        WHERE pa.id_persona = :id
+                    ", ['id' => $id_persona]);
+                }
+                if (!empty($tablasOpcionales['personal_adjudicacion'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.personal_adjudicacion WHERE id_persona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['asigna_creditos_adjudicacion'])) $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.asigna_creditos_adjudicacion SET alta = NULL WHERE alta = :id", ['id' => $id_persona]);
                 $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_legion WHERE id_persona = :id", ['id' => $id_persona]);
                 $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_persona = :id", ['id' => $id_persona]);
                 $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_jefe = :id", ['id' => $id_persona]);
                 $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = :id", ['id' => $id_persona]);
                 $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = :id", ['id' => $id_persona]);
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.reingresos WHERE id_persona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['reingresos'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.reingresos WHERE id_persona = :id", ['id' => $id_persona]);
 
                 // Para tickets, en lugar de eliminar, ponemos NULL (para no perder historial)
-                $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET gestor_id = NULL WHERE gestor_id = :id", ['id' => $id_persona]);
-                $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET usuario_asignado = NULL WHERE usuario_asignado = :id", ['id' => $id_persona]);
+                if (!empty($columnasTicketHistorico['gestor_id'])) {
+                    $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET gestor_id = NULL WHERE gestor_id = :id", ['id' => $id_persona]);
+                }
+                if (!empty($columnasTicketHistorico['usuario_asignado'])) {
+                    $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET usuario_asignado = NULL WHERE usuario_asignado = :id", ['id' => $id_persona]);
+                }
 
                 // Finalmente eliminar la persona
                 $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id", ['id' => $id_persona]);
