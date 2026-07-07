@@ -21327,21 +21327,26 @@ class CapHum extends Controller
         $healthUrl = rtrim($baseUrl, '/') . '/health';
         $healthOk = false;
         $hLastErr = '';
-        for ($hi = 0; $hi < 1; $hi++) {
+        $healthAttempts = [];
+        $healthTimeoutsMs = [1500, 2500, 3500];
+        foreach ($healthTimeoutsMs as $hi => $healthTimeoutMs) {
             if ($hi > 0) {
-                usleep(500000);
+                usleep(350000);
             }
             $hc = curl_init($healthUrl);
+            $hStart = microtime(true);
             curl_setopt_array($hc, [
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT_MS => 1500,
-                CURLOPT_CONNECTTIMEOUT_MS => 1000,
+                CURLOPT_TIMEOUT_MS => $healthTimeoutMs,
+                CURLOPT_CONNECTTIMEOUT_MS => min(1500, $healthTimeoutMs),
                 CURLOPT_NOBODY => false,
             ]);
             $hBody = curl_exec($hc);
             $hCode = (int) curl_getinfo($hc, CURLINFO_HTTP_CODE);
             $hErr = curl_error($hc);
+            $hMs = (int) round((microtime(true) - $hStart) * 1000);
             curl_close($hc);
+            $healthAttempts[] = '#' . ($hi + 1) . ' HTTP ' . ($hCode ?: 'sin respuesta') . ' en ' . $hMs . 'ms' . ($hErr !== '' ? ' (' . $hErr . ')' : '');
             if ($hCode === 200 && $hBody !== false) {
                 $healthOk = true;
                 break;
@@ -21349,7 +21354,8 @@ class CapHum extends Controller
             $hLastErr = $hErr;
         }
         if (!$healthOk) {
-            return ['error' => 'La API no responde (health-check en ' . $healthUrl . '). Revise [doc_verificacion] api_url/api_key en backend/config/config.ini, que el agente Python esté en marcha (puerto 8001, ej. backend\\API\\iniciar-agente.bat) y que la clave coincida con la del servicio. ' . ($hLastErr !== '' ? $hLastErr : '')];
+            $detalleHealth = implode('; ', $healthAttempts);
+            return ['error' => 'La API no responde despues de 3 intentos de health-check en ' . $healthUrl . '. Revise [doc_verificacion] api_url/api_key en backend/config/config.ini, que el agente Python esté en marcha en el puerto configurado y que la clave coincida con la del servicio. ' . ($detalleHealth !== '' ? $detalleHealth : $hLastErr)];
         }
 
         $docCfg = is_array($config['doc_verificacion'] ?? null) ? $config['doc_verificacion'] : [];
