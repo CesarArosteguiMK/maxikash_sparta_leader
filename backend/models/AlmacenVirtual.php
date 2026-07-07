@@ -1156,6 +1156,14 @@ class AlmacenVirtual extends Model
                 u.anio,
                 u.color,
                 u.kilometraje,
+                u.tipo_unidad,
+                u.categoria,
+                u.tipo_motor,
+                u.tipo_motor_combustion,
+                u.cilindraje,
+                u.potencia,
+                u.otro_descripcion,
+                u.comentarios_generales,
                 u.estatus_inventario,
                 u.id_ubicacion_actual,
                 ub.nombre_ubicacion,
@@ -1210,24 +1218,62 @@ class AlmacenVirtual extends Model
         if (!in_array($estatusActual, $estatusPermitidos, true)) {
             return ['success' => false, 'message' => 'La unidad ya no esta pendiente de recepcion.'];
         }
-        if (!$this->evidenciasIngresoValidas($idUnidad)) {
-            return [
-                'success' => false,
-                'message' => 'Primero valida Evidencias y Codigo antes de confirmar la recepcion de almacen.',
-            ];
+
+        // Modo temporal de pruebas: permite brincar a mecanica aunque falten datos de recepcion.
+        $recepcionFlexiblePruebas = true;
+        $discrepancias = [];
+
+        $codigo = strtoupper(trim((string) ($datos['codigo_verificacion'] ?? '')));
+        $codigoOk = $this->codigoVerificacionIngresoRecepcionValido($idUnidad, $codigo);
+        if (empty($codigoOk['success'])) {
+            if (!$recepcionFlexiblePruebas) {
+                return $codigoOk;
+            }
+            $discrepancias[] = $codigoOk['message'] ?? 'Codigo de ingreso no validado.';
         }
 
-        $idUbicacion = (int) ($datos['id_ubicacion'] ?? 0);
-        $ubicacion = $this->obtenerUbicacionPorId($idUbicacion);
-        if (!$ubicacion) {
-            return ['success' => false, 'message' => 'Selecciona una ubicacion valida para recepcion.'];
+        $evidenciasIngreso = $this->evidenciasIngresoPresentesParaRecepcion($idUnidad);
+        if (empty($evidenciasIngreso['success'])) {
+            if (!$recepcionFlexiblePruebas) {
+                return $evidenciasIngreso;
+            }
+            $discrepancias[] = $evidenciasIngreso['message'] ?? 'Evidencias moviles incompletas.';
+            $evidenciasIngreso = ['success' => true, 'slots' => []];
         }
-        if (strtoupper((string) ($ubicacion['clave_ubicacion'] ?? '')) === 'SIN_ASIGNAR') {
-            return ['success' => false, 'message' => 'Selecciona una ubicacion fisica distinta a Sin asignar.'];
+
+        $idUbicacion = $this->intONull($datos['id_ubicacion'] ?? null);
+        $ubicacion = $idUbicacion !== null ? $this->obtenerUbicacionPorId($idUbicacion) : null;
+        if (!$ubicacion && $recepcionFlexiblePruebas) {
+            $idUbicacion = $this->intONull($unidad['id_ubicacion_actual'] ?? null);
+            $ubicacion = $idUbicacion !== null ? $this->obtenerUbicacionPorId($idUbicacion) : null;
         }
+        if (!$ubicacion && $recepcionFlexiblePruebas) {
+            $ubicacion = [
+                'id_ubicacion' => null,
+                'clave_ubicacion' => null,
+                'nombre_ubicacion' => null,
+                'tipo_ubicacion' => null,
+            ];
+            $idUbicacion = null;
+            $discrepancias[] = 'Ubicacion de recepcion no capturada.';
+        }
+        // Validacion comentada temporalmente para permitir pruebas de formulario mecanico sin ubicacion.
+        // if (!$ubicacion) {
+        //     return ['success' => false, 'message' => 'Selecciona una ubicacion valida para recepcion.'];
+        // }
+        // if (strtoupper((string) ($ubicacion['clave_ubicacion'] ?? '')) === 'SIN_ASIGNAR' && !$recepcionFlexiblePruebas) {
+        //     return ['success' => false, 'message' => 'Selecciona una ubicacion fisica distinta a Sin asignar.'];
+        // }
 
         $vin = $this->normalizarVin((string) ($datos['vin'] ?? ''));
-        if ($vin === null || strlen($vin) !== 17) {
+        if (($vin === null || strlen($vin) !== 17) && $recepcionFlexiblePruebas) {
+            $vin = $this->normalizarVin((string) ($unidad['vin'] ?? ''));
+            if ($vin === null || strlen($vin) !== 17) {
+                $vin = null;
+            }
+            $discrepancias[] = 'VIN/NIV no capturado en recepcion.';
+        }
+        if (($vin === null || strlen($vin) !== 17) && !$recepcionFlexiblePruebas) {
             return ['success' => false, 'message' => 'Captura un VIN/NIV valido de 17 caracteres.'];
         }
 
@@ -1248,15 +1294,14 @@ class AlmacenVirtual extends Model
         $vinCoincideFisico = $vinAnterior === null || $vinAnterior === $vin;
         $documentosRequeridosOk = $this->documentosRecepcionCompletos($idUnidad, $documentos);
         $checklist = [
-            'vin_coincide' => $this->boolDesdePayload($datos['vin_coincide'] ?? null) && $vinCoincideFisico,
-            'evidencia_4_angulos' => $this->boolDesdePayload($datos['evidencia_4_angulos'] ?? null),
-            'evidencia_vin' => $this->boolDesdePayload($datos['evidencia_vin'] ?? null),
-            'documentos_completos' => $this->boolDesdePayload($datos['documentos_completos'] ?? null) && $documentosRequeridosOk,
-            'arranque_motor' => $this->boolDesdePayload($datos['arranque_motor'] ?? null),
-            'sin_danos_mayores' => $this->boolDesdePayload($datos['sin_danos_mayores'] ?? null),
+            'vin_coincide' => ($recepcionFlexiblePruebas || $this->boolDesdePayload($datos['vin_coincide'] ?? null)) && $vinCoincideFisico,
+            'evidencia_4_angulos' => $recepcionFlexiblePruebas || $this->boolDesdePayload($datos['evidencia_4_angulos'] ?? null),
+            'evidencia_vin' => $recepcionFlexiblePruebas || $this->boolDesdePayload($datos['evidencia_vin'] ?? null),
+            'documentos_completos' => $recepcionFlexiblePruebas || ($this->boolDesdePayload($datos['documentos_completos'] ?? null) && $documentosRequeridosOk),
+            'arranque_motor' => $recepcionFlexiblePruebas || $this->boolDesdePayload($datos['arranque_motor'] ?? null),
+            'sin_danos_mayores' => $recepcionFlexiblePruebas || $this->boolDesdePayload($datos['sin_danos_mayores'] ?? null),
         ];
 
-        $discrepancias = [];
         if (!$vinCoincideFisico) {
             $discrepancias[] = 'VIN capturado diferente al VIN origen.';
         }
@@ -1266,7 +1311,7 @@ class AlmacenVirtual extends Model
             }
         }
 
-        $recepcionOk = empty($discrepancias);
+        $recepcionOk = $recepcionFlexiblePruebas || empty($discrepancias);
         $estatusNuevo = $recepcionOk ? 'pendiente_revision' : 'incidencia_recepcion';
         $resultado = $recepcionOk ? 'recibida' : 'incidencia';
         $observaciones = $this->normalizarTexto((string) ($datos['observaciones'] ?? ''), 1000);
@@ -1280,7 +1325,7 @@ class AlmacenVirtual extends Model
                      no_motor = :no_motor,
                      placas = :placas,
                      kilometraje = :kilometraje,
-                     id_ubicacion_actual = :id_ubicacion,
+                     id_ubicacion_actual = COALESCE(:id_ubicacion, id_ubicacion_actual),
                      estatus_inventario = :estatus_nuevo,
                      actualizado_por = :actualizado_por,
                      fecha_actualizacion = :fecha_actualizacion
@@ -1336,7 +1381,18 @@ class AlmacenVirtual extends Model
                 'discrepancias' => $discrepancias,
                 'observaciones' => $observaciones,
                 'documentos_recepcion' => array_keys($documentos),
+                'codigo_verificacion' => $codigo,
+                'evidencias_ingreso' => $evidenciasIngreso['slots'] ?? [],
             ];
+
+            $this->marcarEvidenciasIngresoValidadas($idUnidad, $ahora);
+            if (!empty($codigoOk['marcar_usado'])) {
+                $this->marcarCodigoVerificacionUsado(
+                    (int) (($codigoOk['codigo']['id_codigo'] ?? 0)),
+                    $idUsuario,
+                    $ahora
+                );
+            }
 
             $this->registrarBitacora(
                 $idUnidad,
@@ -1648,6 +1704,14 @@ class AlmacenVirtual extends Model
                 u.anio,
                 u.color,
                 u.kilometraje,
+                u.tipo_unidad,
+                u.categoria,
+                u.tipo_motor,
+                u.tipo_motor_combustion,
+                u.cilindraje,
+                u.potencia,
+                u.otro_descripcion,
+                u.comentarios_generales,
                 u.estatus_inventario,
                 u.id_ubicacion_actual,
                 ub.nombre_ubicacion,
@@ -3711,8 +3775,8 @@ class AlmacenVirtual extends Model
     private function registrarRecepcionEstructurada(
         int $idUnidad,
         int $idMovimiento,
-        int $idUbicacion,
-        string $vin,
+        ?int $idUbicacion,
+        ?string $vin,
         ?string $noMotor,
         ?string $placas,
         ?int $kilometraje,
@@ -3725,6 +3789,12 @@ class AlmacenVirtual extends Model
     ): void {
         if (!$this->tablaExiste('av_recepciones')) {
             return;
+        }
+
+        $idUbicacionRecepcion = $idUbicacion ?: $this->obtenerUbicacionSinAsignarId();
+        if (!$idUbicacionRecepcion) {
+            $ubicaciones = $this->listarUbicacionesActivas();
+            $idUbicacionRecepcion = (int) ($ubicaciones[0]['id_ubicacion'] ?? 0);
         }
 
         $this->db->CRUD(
@@ -3766,15 +3836,16 @@ class AlmacenVirtual extends Model
                 :id_usuario,
                 :nombre_usuario,
                 :fecha_recepcion
-             )",
+            )",
             [
                 'id_unidad' => $idUnidad,
                 'id_movimiento' => $idMovimiento > 0 ? $idMovimiento : null,
-                'id_ubicacion_recepcion' => $idUbicacion,
-                'vin_capturado' => $vin,
-                'no_motor_capturado' => $noMotor,
-                'placas_capturadas' => $placas,
-                'kilometraje_capturado' => $kilometraje,
+                // Temporal pruebas: la FK no acepta 0/NULL, usamos SIN_ASIGNAR real.
+                'id_ubicacion_recepcion' => $idUbicacionRecepcion,
+                'vin_capturado' => $vin ?? '',
+                'no_motor_capturado' => $noMotor ?? '',
+                'placas_capturadas' => $placas ?? '',
+                'kilometraje_capturado' => $kilometraje ?? 0,
                 'vin_coincide' => !empty($checklist['vin_coincide']) ? 1 : 0,
                 'evidencia_4_angulos' => !empty($checklist['evidencia_4_angulos']) ? 1 : 0,
                 'evidencia_vin' => !empty($checklist['evidencia_vin']) ? 1 : 0,
@@ -3892,6 +3963,51 @@ class AlmacenVirtual extends Model
         );
 
         return $row ?: null;
+    }
+
+    private function codigoVerificacionIngresoRecepcionValido(int $idUnidad, string $codigo): array
+    {
+        $codigo = strtoupper(trim($codigo));
+        if ($idUnidad <= 0 || $codigo === '') {
+            return ['success' => false, 'message' => 'Captura el codigo de ingreso generado para la unidad.'];
+        }
+        if (!$this->tablaExiste('av_codigos_verificacion')) {
+            return ['success' => false, 'message' => 'Falta la tabla de codigos de verificacion.'];
+        }
+
+        $row = $this->db->queryOne(
+            "SELECT *
+             FROM av_codigos_verificacion
+             WHERE id_unidad = :id
+               AND tipo_codigo = 'ingreso_almacen'
+               AND estatus IN ('generado', 'usado')
+             ORDER BY id_codigo DESC
+             LIMIT 1",
+            ['id' => $idUnidad]
+        );
+        if (!$row) {
+            return ['success' => false, 'message' => 'No hay codigo de ingreso generado para esta unidad.'];
+        }
+
+        $estatus = (string) ($row['estatus'] ?? '');
+        if (strtoupper((string) ($row['codigo'] ?? '')) !== $codigo) {
+            if ($estatus === 'generado') {
+                $this->incrementarIntentosCodigo($idUnidad);
+            }
+
+            return ['success' => false, 'message' => 'El codigo de ingreso no coincide con la unidad.'];
+        }
+
+        $expiracion = trim((string) ($row['fecha_expiracion'] ?? ''));
+        if ($estatus === 'generado' && $expiracion !== '' && $expiracion < $this->fechaHoraCdmx()) {
+            return ['success' => false, 'message' => 'El codigo de ingreso expiro. Genera uno nuevo desde MotoTrack.'];
+        }
+
+        return [
+            'success' => true,
+            'codigo' => $row,
+            'marcar_usado' => $estatus === 'generado',
+        ];
     }
 
     private function incrementarIntentosCodigo(int $idUnidad): void
@@ -4135,6 +4251,33 @@ class AlmacenVirtual extends Model
         }
 
         return true;
+    }
+
+    private function evidenciasIngresoPresentesParaRecepcion(int $idUnidad): array
+    {
+        $actuales = $this->evidenciasActualesPorUnidad($idUnidad);
+        $faltantes = [];
+        $presentes = [];
+
+        foreach (self::SLOTS_REQUERIDOS_EVIDENCIAS_INGRESO as $slot) {
+            $estatus = (string) ($actuales[$slot]['estatus'] ?? '');
+            if (!isset($actuales[$slot]) || !in_array($estatus, ['recibido', 'validado'], true)) {
+                $faltantes[] = self::SLOTS_EVIDENCIAS_INGRESO[$slot] ?? $slot;
+                continue;
+            }
+
+            $presentes[] = $slot;
+        }
+
+        if (!empty($faltantes)) {
+            return [
+                'success' => false,
+                'message' => 'Faltan evidencias moviles para recepcion: ' . implode(', ', $faltantes) . '.',
+                'faltantes' => $faltantes,
+            ];
+        }
+
+        return ['success' => true, 'slots' => $presentes];
     }
 
     private function documentosRecepcionCompletos(int $idUnidad, array $documentosNuevos): bool

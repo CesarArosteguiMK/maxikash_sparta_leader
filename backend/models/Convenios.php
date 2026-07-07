@@ -159,20 +159,10 @@ class Convenios extends Model
         $adeudoTotal = (float) ($credito['Adeudo_total']       ?? 0);
         $saldoCapital = (float) ($credito['Saldo_total_capital'] ?? 0);
 
-        // Bucket e→i requerido
-        if (!in_array($bucket, self::$BUCKETS_ELEGIBLES)) {
-            return self::resultado(true, 'El crédito no cumple los criterios de bucket.', [
-                'credito'              => $credito,
-                'ofertas'              => [],
-                'elegible'             => false,
-                'razon'                => 'bucket_fuera_de_rango',
-                'productos_bloqueados' => [],
-            ]);
-        }
-
-        // 2. Productos con el ultimo flujo cancelado. Reactivar es una excepcion de negocio:
-        // no depende de quien cancelo, solo de que ya no exista convenio activo y el ultimo
-        // convenio de ese producto este cancelado.
+        // Bucket requerido para ofertas normales; la reactivacion es una excepcion auditada.
+        $bucketElegible = in_array($bucket, self::$BUCKETS_ELEGIBLES);
+        // 2. Productos con historial previo. Reactivar es una excepcion de negocio:
+        // no depende del estatus anterior; el permiso especial decide si procede.
         $bloqueadosRows = $db->queryAll(
             "SELECT cc.id_producto_convenio
              FROM convenio_cliente cc
@@ -220,6 +210,11 @@ class Convenios extends Model
             return self::resultado(false, 'No hay productos configurados.');
         }
 
+        $origenesReactivables = [];
+        foreach (self::_getUltimosConveniosPorProducto($db, (int) $id_credito) as $origenReact) {
+            $origenesReactivables[(int) $origenReact['id_producto_convenio']] = $origenReact;
+        }
+
         // 4. Filtrar ofertas elegibles
         $ofertas = [];
         $ofertasReactivables = [];
@@ -232,7 +227,7 @@ class Convenios extends Model
             $estaBloqueado = in_array($idProdActual, $productosBloqueados, true);
 
             $bucketsProducto = array_map('trim', explode(',', $prod['buckets_aplicables']));
-            $cumpleReglasProducto = in_array($bucket, $bucketsProducto);
+            $cumpleReglasProducto = $bucketElegible && in_array($bucket, $bucketsProducto);
 
             // Validar bucket
             if (!in_array($bucket, $bucketsProducto)) {
@@ -290,10 +285,15 @@ class Convenios extends Model
                 'reactivacion_estado'  => $reactivacionAbierta ? (string) $reactivacionAbierta['estatus'] : null,
             ];
 
+            if (isset($origenesReactivables[$idProdActual]) && !$reactivacion && !$reactivacionAbierta) {
+                $oferta['reactivable'] = true;
+                $ofertasReactivables[$idProdActual] = $oferta;
+            }
+
             if ($estaBloqueado && !$reactivacion) {
-                if (!$reactivacionAbierta) {
+                if (!$reactivacionAbierta && !isset($ofertasReactivables[$idProdActual])) {
                     $oferta['reactivable'] = true;
-                    $ofertasReactivables[] = $oferta;
+                    $ofertasReactivables[$idProdActual] = $oferta;
                 }
                 continue;
             }
@@ -315,7 +315,7 @@ class Convenios extends Model
         return self::resultado(true, 'Ofertas calculadas.', [
             'credito'              => $credito,
             'ofertas'              => $ofertas,
-            'ofertas_reactivables' => $ofertasReactivables,
+            'ofertas_reactivables' => array_values($ofertasReactivables),
             'elegible'             => count($ofertas) > 0,
             'productos_bloqueados' => $productosBloqueadosVisibles,
             'reactivado'           => count($reactivacionesAprobadas) > 0,
@@ -2175,10 +2175,7 @@ public static function solicitarReactivacionOferta($id_credito, $id_producto, $u
 
         $origen = self::_getUltimoConvenioProducto($db, $idCredito, $idProducto);
         if (!$origen) {
-            return self::resultado(false, 'No existe un convenio anterior para reactivar este producto.');
-        }
-        if (($origen['estatus'] ?? '') !== 'cancelado') {
-            return self::resultado(false, 'Esta oferta no tiene un convenio cancelado vigente para reactivar.');
+            return self::resultado(false, 'No existe historial anterior para reactivar esta oferta.');
         }
 
         $pendiente = $db->queryOne(
@@ -2306,9 +2303,6 @@ public static function reactivarOfertasCredito($id_credito, $usuario, $motivo = 
         $aprobadas = [];
         foreach ($origenes as $origen) {
             $prod = (int) $origen['id_producto_convenio'];
-            if (($origen['estatus'] ?? '') !== 'cancelado') {
-                continue;
-            }
             $existente = $db->queryOne(
                 "SELECT id, estatus
                  FROM convenio_reactivacion_peticion
@@ -2369,7 +2363,7 @@ public static function reactivarOfertasCredito($id_credito, $usuario, $motivo = 
         }
 
         if (!$aprobadas) {
-            return self::resultado(false, 'No hay ofertas con convenio cancelado vigente para reactivar.');
+            return self::resultado(false, 'No hay ofertas con historial anterior para reactivar.');
         }
 
         return self::resultado(true, 'Oferta(s) reactivada(s). Ya puedes generar un nuevo convenio.', [

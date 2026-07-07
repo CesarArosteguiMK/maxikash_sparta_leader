@@ -233,18 +233,19 @@
         display: block;
         font-size: .73rem;
     }
-    .avk-payload {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: .4rem;
-        color: #475569;
-        font-size: .72rem;
-        margin-top: .35rem;
-        max-height: 7rem;
-        overflow: auto;
-        padding: .45rem;
-        white-space: pre-wrap;
+    .avk-history-badge {
+        border-radius: 999px;
+        display: inline-flex;
+        font-size: .68rem;
+        font-weight: 800;
+        margin-bottom: .25rem;
+        padding: .18rem .5rem;
+        text-transform: uppercase;
     }
+    .avk-history-badge.info { background: #dbeafe; color: #1d4ed8; }
+    .avk-history-badge.success { background: #dcfce7; color: #15803d; }
+    .avk-history-badge.warning { background: #fef3c7; color: #92400e; }
+    .avk-history-badge.danger { background: #fee2e2; color: #b91c1c; }
     .avk-sla {
         border-radius: 999px;
         display: inline-flex;
@@ -446,6 +447,23 @@
         window.alert((title ? title + '\n' : '') + (text || ''));
     }
 
+    async function confirmarIrreparable() {
+        if (window.Swal && typeof window.Swal.fire === 'function') {
+            const res = await window.Swal.fire({
+                icon: 'warning',
+                title: 'Estas seguro de que quieres pasarlo aqui?',
+                text: 'Esta accion no se puede deshacer.',
+                showCancelButton: true,
+                confirmButtonText: 'Si, irreparable',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc2626',
+            });
+            return !!res.isConfirmed;
+        }
+
+        return window.confirm('Estas seguro de que quieres pasarlo aqui?\nEsta accion no se puede deshacer.');
+    }
+
     function params() {
         const p = new URLSearchParams();
         const q = $('avk-q')?.value.trim() || '';
@@ -629,13 +647,235 @@
         renderBoard(json.columnas || [], json.total || 0);
     }
 
-    function payloadPretty(raw) {
-        if (!raw) return '';
+    function parsePayload(raw) {
+        if (!raw || typeof raw !== 'string') return null;
         try {
-            return JSON.stringify(JSON.parse(raw), null, 2);
+            return JSON.parse(raw);
         } catch (err) {
-            return String(raw);
+            return null;
         }
+    }
+
+    function labelEstatus(value) {
+        const map = {
+            pendiente_evidencias: 'Pendiente evidencias',
+            incidencia_evidencias: 'Incidencia evidencias',
+            pendiente_recepcion: 'Pendiente recepcion',
+            en_recepcion: 'En recepcion',
+            incidencia_recepcion: 'Incidencia recepcion',
+            recepcion_rechazada: 'Recepcion rechazada',
+            pendiente_revision: 'Pendiente revision',
+            en_revision: 'En revision',
+            reparada: 'Reparada',
+            fuera_presupuesto: 'Fuera presupuesto',
+            irreparable: 'Irreparable',
+            lista_venta: 'Lista para venta',
+            en_traspaso: 'En traspaso',
+        };
+        return map[value] || value || '';
+    }
+
+    function titleCaseWords(value) {
+        return String(value || '')
+            .replace(/_/g, ' ')
+            .toLowerCase()
+            .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    }
+
+    function accionOperativa(row) {
+        const accion = String(row.accion || row.tipo_movimiento || '').toUpperCase();
+        const payload = parsePayload(row.payload_json);
+        const anterior = payload?.estatus_anterior || row.estatus_anterior || '';
+        const nuevo = payload?.estatus_nuevo || row.estatus_nuevo || '';
+        const evento = payload?.evento_negocio || row.tipo_movimiento || '';
+
+        if (accion.includes('OVERRIDE')) {
+            return {
+                titulo: 'Ajuste manual de supervisor',
+                badge: 'warning',
+                detalle: [labelEstatus(anterior), labelEstatus(nuevo)].filter(Boolean).join(' -> '),
+                comentario: row.detalle || payload?.justificacion || row.comentario || '',
+            };
+        }
+        if (accion.includes('RECEPCION')) {
+            return {
+                titulo: 'Recepcion de almacen',
+                badge: 'success',
+                detalle: row.detalle || row.comentario || 'Unidad recibida en almacen.',
+                comentario: '',
+            };
+        }
+        if (accion.includes('REVISION INICIADA') || evento === 'asignacion_mecanico') {
+            return {
+                titulo: 'Revision mecanica iniciada',
+                badge: 'info',
+                detalle: 'La unidad paso a revision mecanica.',
+                comentario: row.detalle || row.comentario || '',
+            };
+        }
+        if (evento === 'cierre_revision_mecanica') {
+            const dictamen = payload?.contexto?.diagnostico_general || labelEstatus(nuevo);
+            return {
+                titulo: 'Revision mecanica cerrada',
+                badge: nuevo === 'fuera_presupuesto' || nuevo === 'irreparable' ? 'danger' : 'success',
+                detalle: dictamen ? 'Dictamen: ' + dictamen : [labelEstatus(anterior), labelEstatus(nuevo)].filter(Boolean).join(' -> '),
+                comentario: row.detalle || row.comentario || '',
+            };
+        }
+        if (accion.includes('CAMBIO ESTATUS')) {
+            return {
+                titulo: 'Cambio de estatus',
+                badge: 'info',
+                detalle: [labelEstatus(anterior), labelEstatus(nuevo)].filter(Boolean).join(' -> '),
+                comentario: row.detalle || row.comentario || '',
+            };
+        }
+
+        return {
+            titulo: titleCaseWords(row.accion || row.tipo_movimiento || 'Movimiento'),
+            badge: 'info',
+            detalle: row.detalle || row.comentario || '',
+            comentario: '',
+        };
+    }
+
+    function renderHistorialOperativo(bitacora, movimientos) {
+        const fuente = bitacora.length ? bitacora : movimientos.map((row) => ({
+            accion: row.tipo_movimiento,
+            detalle: row.comentario,
+            nombre_usuario: row.nombre_usuario,
+            fecha_alta_fmt: row.fecha_movimiento_fmt,
+            estatus_anterior: row.estatus_anterior,
+            estatus_nuevo: row.estatus_nuevo,
+            tipo_movimiento: row.tipo_movimiento,
+            comentario: row.comentario,
+        }));
+        if (!fuente.length) {
+            return '<div class="text-muted small">Sin historial registrado.</div>';
+        }
+
+        return `
+            <div class="avk-timeline">
+                ${fuente.map((row) => {
+                    const item = accionOperativa(row);
+                    const meta = [row.nombre_usuario || 'Sistema', row.fecha_alta_fmt || row.fecha_movimiento_fmt].filter(Boolean).join(' | ');
+                    return `
+                        <div class="avk-timeline-item">
+                            <span class="avk-history-badge ${esc(item.badge)}">${esc(item.titulo)}</span>
+                            ${item.detalle ? `<strong>${esc(item.detalle)}</strong>` : ''}
+                            ${meta ? `<span>${esc(meta)}</span>` : ''}
+                            ${item.comentario && item.comentario !== item.detalle ? `<span>${esc(item.comentario)}</span>` : ''}
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+
+    const formularioMotoTrackCampos = [
+        ['tiene_llave_fisica', 'Llave fisica'],
+        ['tiene_tarjeta_circulacion', 'Tarjeta circulacion'],
+        ['tiene_placa_fisica', 'Placa fisica'],
+        ['tipo_unidad', 'Tipo de moto'],
+        ['categoria', 'Categoria'],
+        ['tipo_motor', 'Tipo motor'],
+        ['tipo_motor_combustion', 'Combustion'],
+        ['cilindraje', 'Cilindraje'],
+        ['potencia', 'Potencia'],
+        ['otro_descripcion', 'Otro'],
+        ['comentarios_generales', 'Comentarios generales'],
+    ];
+
+    const formularioMotoTrackLabels = {
+        si: 'Si',
+        no: 'No',
+        '2_ruedas': '2 ruedas',
+        '3_ruedas': '3 ruedas',
+        cuatrimoto: 'Cuatrimoto',
+        combustion: 'Combustion',
+        electrica: 'Electrica',
+        carburador: 'Carburador',
+        full_inyeccion: 'Full inyeccion',
+        doble_proposito: 'Doble proposito',
+        cross_enduro: 'Cross/Enduro',
+        naked: 'Naked',
+        deportivas: 'Deportivas',
+        custom: 'Custom',
+        scrambler: 'Scrambler',
+        scooter: 'Scooter',
+        touring: 'Touring',
+        otro: 'Otro',
+    };
+
+    function prettyFormularioValue(value) {
+        if (value === null || value === undefined || value === '') return 'Sin capturar';
+        const raw = String(value);
+        if (formularioMotoTrackLabels[raw]) return formularioMotoTrackLabels[raw];
+        return raw.replace(/^otro:\s*/i, 'Otro: ').replace(/_/g, ' ').replace(/\bcc\b/gi, 'CC').replace(/\bkw\b/gi, 'KW');
+    }
+
+    function formularioMotoTrackData(unidad, bitacora) {
+        const data = {};
+        (bitacora || []).forEach((row) => {
+            const payload = parsePayload(row.payload_json);
+            if (!payload || typeof payload !== 'object') return;
+            const form = payload.formulario || payload.formulario_mototrack || payload.datos_formulario || payload.evidencias_formulario;
+            if (!form || typeof form !== 'object') return;
+            formularioMotoTrackCampos.forEach(([key]) => {
+                if ((data[key] === undefined || data[key] === null || data[key] === '') && form[key] !== undefined) {
+                    data[key] = form[key];
+                }
+            });
+        });
+        formularioMotoTrackCampos.forEach(([key]) => {
+            if (unidad && unidad[key] !== undefined && unidad[key] !== null && unidad[key] !== '') {
+                data[key] = unidad[key];
+            }
+        });
+        return data;
+    }
+
+    function formularioMotoTrackCamposVisibles(data) {
+        const hasValue = (key) => data[key] !== undefined && data[key] !== null && data[key] !== '';
+        const tipoMotor = String(data.tipo_motor || '').toLowerCase();
+        const keys = [
+            'tiene_llave_fisica',
+            'tiene_tarjeta_circulacion',
+            'tiene_placa_fisica',
+            'tipo_unidad',
+            'categoria',
+            'tipo_motor',
+        ];
+
+        if (tipoMotor === 'electrica') {
+            keys.push('potencia');
+        } else if (tipoMotor === 'combustion') {
+            keys.push('tipo_motor_combustion', 'cilindraje');
+        } else {
+            ['tipo_motor_combustion', 'cilindraje', 'potencia'].forEach((key) => {
+                if (hasValue(key)) keys.push(key);
+            });
+        }
+        if (hasValue('otro_descripcion')) keys.push('otro_descripcion');
+        keys.push('comentarios_generales');
+
+        return formularioMotoTrackCampos.filter(([key]) => keys.includes(key));
+    }
+
+    function renderFormularioMotoTrack(unidad, bitacora) {
+        const data = formularioMotoTrackData(unidad || {}, bitacora || []);
+        const hasData = formularioMotoTrackCampos.some(([key]) => data[key] !== undefined && data[key] !== null && data[key] !== '');
+        if (!hasData) return '<div class="text-muted small">Sin formulario MotoTrack capturado.</div>';
+        return `
+            <div class="avk-timeline">
+                ${formularioMotoTrackCamposVisibles(data).map(([key, label]) => `
+                    <div class="avk-timeline-item">
+                        <strong>${esc(label)}</strong>
+                        <span>${esc(prettyFormularioValue(data[key]))}</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
     }
 
     function renderFicha(json) {
@@ -646,7 +886,6 @@
         const moto = [u.marca, u.modelo, u.anio].filter(Boolean).join(' ');
         const bitacora = Array.isArray(json.bitacora) ? json.bitacora : [];
         const movimientos = Array.isArray(json.movimientos) ? json.movimientos : [];
-        const transiciones = Array.isArray(json.kanban_transiciones) ? json.kanban_transiciones : [];
         return `
             <div class="avk-ficha-block">
                 <div class="avk-ficha-title">${esc(u.folio_unidad || ('Unidad #' + u.id_unidad))}</div>
@@ -654,43 +893,12 @@
                 <div class="text-muted small mt-1">${esc([u.vin ? 'Serie ' + u.vin : '', u.no_motor ? 'Motor ' + u.no_motor : '', u.color ? 'Color ' + u.color : ''].filter(Boolean).join(' | '))}</div>
             </div>
             <div class="avk-ficha-block">
-                <div class="avk-ficha-title">Transiciones Kanban</div>
-                <div class="avk-timeline">
-                    ${transiciones.length ? transiciones.map((row) => `
-                        <div class="avk-timeline-item">
-                            <strong>${esc([row.estatus_anterior, row.estatus_nuevo].filter(Boolean).join(' -> '))}</strong>
-                            <span>${esc([row.origen_evento, row.evento_negocio, row.nombre_usuario, row.fecha_hora_fmt].filter(Boolean).join(' | '))}</span>
-                            <span>${esc(row.justificacion || '')}</span>
-                            ${row.payload_json ? `<pre class="avk-payload">${esc(payloadPretty(row.payload_json))}</pre>` : ''}
-                        </div>
-                    `).join('') : '<div class="text-muted small">Sin transiciones Kanban registradas.</div>'}
-                </div>
+                <div class="avk-ficha-title">Formulario MotoTrack</div>
+                ${renderFormularioMotoTrack(u, bitacora)}
             </div>
             <div class="avk-ficha-block">
-                <div class="avk-ficha-title">Bitacora</div>
-                <div class="avk-timeline">
-                    ${bitacora.length ? bitacora.map((row) => `
-                        <div class="avk-timeline-item">
-                            <strong>${esc(row.accion || 'Movimiento')}</strong>
-                            <span>${esc([row.modulo, row.nombre_usuario, row.fecha_alta_fmt].filter(Boolean).join(' | '))}</span>
-                            <span>${esc(row.detalle || '')}</span>
-                            ${row.payload_json ? `<pre class="avk-payload">${esc(payloadPretty(row.payload_json))}</pre>` : ''}
-                        </div>
-                    `).join('') : '<div class="text-muted small">Sin bitacora registrada.</div>'}
-                </div>
-            </div>
-            <div class="avk-ficha-block">
-                <div class="avk-ficha-title">Movimientos</div>
-                <div class="avk-timeline">
-                    ${movimientos.length ? movimientos.map((row) => `
-                        <div class="avk-timeline-item">
-                            <strong>${esc(row.tipo_movimiento || 'Movimiento')}</strong>
-                            <span>${esc([row.estatus_anterior, row.estatus_nuevo].filter(Boolean).join(' -> '))}</span>
-                            <span>${esc([row.nombre_usuario, row.fecha_movimiento_fmt].filter(Boolean).join(' | '))}</span>
-                            <span>${esc(row.comentario || '')}</span>
-                        </div>
-                    `).join('') : '<div class="text-muted small">Sin movimientos registrados.</div>'}
-                </div>
+                <div class="avk-ficha-title">Historial operativo</div>
+                ${renderHistorialOperativo(bitacora, movimientos)}
             </div>
         `;
     }
@@ -797,6 +1005,11 @@
         const form = $('avk-form-override');
         const btn = $('avk-btn-override');
         if (!form || !btn) return;
+        const fd = new FormData(form);
+        if (String(fd.get('estatus_nuevo') || '') === 'irreparable') {
+            const confirmado = await confirmarIrreparable();
+            if (!confirmado) return;
+        }
         btn.disabled = true;
         const oldHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Aplicando';
@@ -804,7 +1017,7 @@
             const res = await fetch('/MotosAdjudicadas/kanbanOperativoOverrideSupervisor', {
                 method: 'POST',
                 headers: { Accept: 'application/json' },
-                body: new FormData(form),
+                body: fd,
             });
             const json = await res.json();
             if (!json.success) {
@@ -857,21 +1070,6 @@
         ['avk-celula', 'avk-ubicacion', 'avk-tipo', 'avk-limit'].forEach((id) => {
             $(id)?.addEventListener('change', reload);
         });
-        window.addEventListener('storage', (ev) => {
-            if (ev.key === 'av_kanban_refresh_at') {
-                reload();
-            }
-        });
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                reload();
-            }
-        });
-        window.setInterval(() => {
-            if (!document.hidden) {
-                reload();
-            }
-        }, 60000);
 
         cargarCatalogos()
             .catch(() => {})
