@@ -108,6 +108,8 @@ if ((!isset($_SESSION['login']) && !$rutaPublicaSinLogin) || strtolower($urlSoli
     exit;
 }
 
+\Core\SessionGuard::validar();
+
 // Alias historico: las rutas /analitica/* viven en el controlador Reporteria.
 $controladorSolicitado = $urlSolicitada[0];
 $controladorArchivo = strtolower((string) $controladorSolicitado) === 'analitica'

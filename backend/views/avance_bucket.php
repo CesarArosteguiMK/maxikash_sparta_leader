@@ -8,8 +8,12 @@ $nombreUsuario = isset($_SESSION['usuario_nombre'])
     ? htmlspecialchars(strtoupper((string) $_SESSION['usuario_nombre']), ENT_QUOTES, 'UTF-8')
     : 'USUARIO';
 $vistaAvanceBucket = isset($avance_bucket_vista) ? (string) $avance_bucket_vista : '';
-$mostrarAvanceBucket = in_array($vistaAvanceBucket, ['avance', 'historico'], true);
+$mostrarAvanceBucket = in_array($vistaAvanceBucket, ['avance', 'historico', 'estresado'], true);
 $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
+$esEstresadoAvanceBucket = $vistaAvanceBucket === 'estresado';
+$tituloVistaAvanceBucket = $esHistoricoAvanceBucket
+    ? 'Historico Avance Bucket'
+    : ($esEstresadoAvanceBucket ? 'Bucket estresado' : 'Avance Bucket');
 ?>
 <div class="avance-bucket <?= $mostrarAvanceBucket ? 'container-fluid py-3 px-2 px-md-3' : 'ab-landing-root'; ?>">
     <?php if (!$mostrarAvanceBucket): ?>
@@ -82,6 +86,26 @@ $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
                                     </div>
                                 </div>
                             </div>
+                            <div class="col-12 col-lg-4">
+                                <div class="card shadow-none bg-label-primary h-100">
+                                    <div class="card-body d-flex justify-content-between flex-wrap-reverse">
+                                        <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                                            <div class="card-title">
+                                                <h5 class="text-primary mb-2">Bucket estresado</h5>
+                                                <p class="text-body w-sm-80 app-academy-xl-100">Consulta la simulacion +1 desde mas_menos, cruzando bucket morosidad real contra cierre actual.</p>
+                                            </div>
+                                            <div class="mb-0 mt-3">
+                                                <a href="/analitica/avanceBucket/estresado" class="btn btn-primary w-100">
+                                                    <i class="fa-solid fa-chart-simple me-1" aria-hidden="true"></i>Ver bucket estresado
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0 ab-option-icon ab-option-icon-cyan">
+                                            <i class="fa-solid fa-arrow-up-right-dots" aria-hidden="true"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -93,7 +117,7 @@ $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
     <div class="ab-report-toolbar d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
         <h4 class="mb-0 text-primary d-flex align-items-center flex-wrap">
             <i class="fa-solid fa-chart-line me-2" aria-hidden="true"></i>
-            <span><?= $esHistoricoAvanceBucket ? 'Historico Avance Bucket' : 'Avance Bucket'; ?></span>
+            <span><?= htmlspecialchars($tituloVistaAvanceBucket, ENT_QUOTES, 'UTF-8'); ?></span>
             <span id="ab-corte-badge" class="badge rounded-pill bg-label-primary ms-2">-</span>
         </h4>
         <div class="d-flex flex-wrap align-items-center gap-2">
@@ -103,7 +127,7 @@ $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
                 <select id="ab-semana" class="form-select form-select-sm"></select>
             </label>
             <?php endif; ?>
-            <?php if (!$esHistoricoAvanceBucket): ?>
+            <?php if (!$esHistoricoAvanceBucket && !$esEstresadoAvanceBucket): ?>
             <label class="ab-corte-control mb-0">
                 <span>Corte</span>
                 <select id="ab-corte" class="form-select form-select-sm"></select>
@@ -134,11 +158,11 @@ $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
         <div class="ab-content">
             <div class="ab-resumen-grid">
                 <section class="ab-panel">
-                    <h5 class="ab-card-title">Bucket Inicio Creditos</h5>
+                    <h5 class="ab-card-title" id="ab-resumen-inicio-title">Bucket Inicio Creditos</h5>
                     <div id="ab-resumen-inicio"></div>
                 </section>
                 <section class="ab-panel">
-                    <h5 class="ab-card-title">Bucket Inicio %</h5>
+                    <h5 class="ab-card-title" id="ab-resumen-pct-title">Bucket Inicio %</h5>
                     <div id="ab-resumen-inicio-pct"></div>
                 </section>
             </div>
@@ -151,7 +175,7 @@ $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
             </section>
 
             <section class="ab-panel ab-matrix-panel">
-                <h5 class="ab-card-title">Matriz de avance bucket %</h5>
+                <h5 class="ab-card-title" id="ab-matriz-secundaria-title">Matriz de avance bucket %</h5>
                 <div class="table-responsive ab-table-wrap">
                     <table class="table table-sm table-bordered ab-table mb-0" id="ab-matriz-porcentajes"></table>
                 </div>
@@ -479,7 +503,10 @@ $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
 (function () {
     const initialData = <?= $avance_bucket_initial_json ?? 'null'; ?>;
     const isHistorico = <?= $esHistoricoAvanceBucket ? 'true' : 'false'; ?>;
-    const endpoint = isHistorico ? '/analitica/getAvanceBucketHistoricoJson' : '/analitica/getAvanceBucketJson';
+    const isEstresado = <?= $esEstresadoAvanceBucket ? 'true' : 'false'; ?>;
+    const endpoint = isEstresado
+        ? '/analitica/getAvanceBucketEstresadoJson'
+        : (isHistorico ? '/analitica/getAvanceBucketHistoricoJson' : '/analitica/getAvanceBucketJson');
     const fmtInt = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
     const fmtPct = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -541,7 +568,7 @@ $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
         if (typeof Swal === 'undefined') return;
         Swal.fire({
             title: 'Cargando datos',
-            text: isHistorico ? 'Consultando historico de Avance Bucket...' : 'Consultando Avance Bucket...',
+            text: isEstresado ? 'Consultando Bucket estresado...' : (isHistorico ? 'Consultando historico de Avance Bucket...' : 'Consultando Avance Bucket...'),
             allowOutsideClick: false,
             allowEscapeKey: false,
             showConfirmButton: false,
@@ -589,6 +616,8 @@ $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
         const table = el(targetId);
         if (!table || !matrix) return;
         const order = bucketOrder(buckets);
+        const rowLabel = matrix.row_label || 'Bucket Inicio';
+        const totalLabel = matrix.total_label || 'Creditos';
         const headers = (buckets || []).map(b => '<th class="text-end">' + escapeHtml(shortBucket(b.bucket)) + '</th>').join('');
         const body = (matrix.filas || []).map(row => {
             const cells = (buckets || []).map(col => {
@@ -596,11 +625,11 @@ $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
                 const cls = Number(value || 0) === 0 ? 'ab-cell-zero' : (order[col.bucket] < order[row.bucket] ? 'ab-cell-improve' : (order[col.bucket] > order[row.bucket] ? 'ab-cell-worse' : ''));
                 return '<td class="text-end ' + cls + '">' + formatValue(value, isPct) + '</td>';
             }).join('');
-            return '<tr><td>' + escapeHtml(row.bucket || '') + '</td>' + cells + '<td class="text-end fw-bold">' + formatValue(row.total, isPct) + '</td></tr>';
+            return '<tr><td>' + escapeHtml(row.bucket || '') + '</td><td class="text-end fw-bold">' + formatValue(row.total, isPct) + '</td>' + cells + '</tr>';
         }).join('');
         const totals = (buckets || []).map(col => '<td class="text-end">' + formatValue(matrix.totales_columnas ? matrix.totales_columnas[col.bucket] : 0, isPct) + '</td>').join('');
-        table.innerHTML = '<thead><tr><th>Bucket Inicio</th>' + headers + '<th class="text-end">Total</th></tr></thead>' +
-            '<tbody>' + body + '<tr class="ab-total-row"><td>Total</td>' + totals + '<td class="text-end">' + formatValue(matrix.total, isPct) + '</td></tr></tbody>';
+        table.innerHTML = '<thead><tr><th>' + escapeHtml(rowLabel) + '</th><th class="text-end">' + escapeHtml(totalLabel) + '</th>' + headers + '</tr></thead>' +
+            '<tbody>' + body + '<tr class="ab-total-row"><td>Total</td><td class="text-end">' + formatValue(matrix.total, isPct) + '</td>' + totals + '</tr></tbody>';
     }
     function render(data) {
         if (!data || data.success === false) {
@@ -612,15 +641,38 @@ $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
         syncCorteOptions(data);
         syncSemanaOptions(data);
         setStatus(true);
+        const rowLabel = data.row_label || 'Bucket Inicio';
+        const totalLabel = data.total_label || 'Creditos';
+        const resumenInicioTitle = el('ab-resumen-inicio-title');
+        const resumenPctTitle = el('ab-resumen-pct-title');
+        const matrizSecundariaTitle = el('ab-matriz-secundaria-title');
+        if (resumenInicioTitle) resumenInicioTitle.textContent = rowLabel + ' ' + totalLabel;
+        if (resumenPctTitle) resumenPctTitle.textContent = rowLabel + ' %';
+        if (matrizSecundariaTitle) matrizSecundariaTitle.textContent = data.matriz_secundaria_titulo || 'Matriz de avance bucket %';
         const corteBadge = el('ab-corte-badge');
         if (corteBadge) {
             const corteLabel = (data.dia_corte ? data.dia_corte + ' ' : '') + (data.corte || '');
-            corteBadge.textContent = isHistorico && data.semana ? data.semana : corteLabel;
+            corteBadge.textContent = isEstresado ? (data.origen || 'mas_menos') : (isHistorico && data.semana ? data.semana : corteLabel);
+        }
+        const matrizCreditos = data.matriz_creditos || {};
+        const matrizPorcentajes = data.matriz_porcentajes || {};
+        matrizCreditos.row_label = rowLabel;
+        matrizCreditos.total_label = totalLabel;
+        matrizPorcentajes.row_label = rowLabel;
+        matrizPorcentajes.total_label = totalLabel;
+        const matrizInvertida = data.matriz_invertida || null;
+        if (matrizInvertida) {
+            matrizInvertida.row_label = 'Cierre Actual';
+            matrizInvertida.total_label = totalLabel;
         }
         renderResumen('ab-resumen-inicio', data.resumen_inicio, data.total, 'count');
         renderResumen('ab-resumen-inicio-pct', data.resumen_inicio, data.total, 'pct');
-        renderMatriz('ab-matriz-creditos', data.matriz_creditos, data.buckets, false);
-        renderMatriz('ab-matriz-porcentajes', data.matriz_porcentajes, data.buckets, true);
+        renderMatriz('ab-matriz-creditos', matrizCreditos, data.buckets, false);
+        if (matrizInvertida) {
+            renderMatriz('ab-matriz-porcentajes', matrizInvertida, data.buckets, false);
+        } else {
+            renderMatriz('ab-matriz-porcentajes', matrizPorcentajes, data.buckets, true);
+        }
     }
     async function refresh() {
         const btn = el('ab-refresh');
@@ -630,7 +682,7 @@ $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
         showLoading();
         try {
             const params = new URLSearchParams();
-            if (!isHistorico && selectedCorte()) params.set('corte', selectedCorte());
+            if (!isHistorico && !isEstresado && selectedCorte()) params.set('corte', selectedCorte());
             if (isHistorico && selectedSemana()) params.set('semana', selectedSemana());
             const suffix = params.toString() ? '?' + params.toString() : '';
             const res = await fetch(endpoint + suffix, { headers: { 'Accept': 'application/json' } });

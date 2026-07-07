@@ -504,6 +504,21 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                 <label class="form-label">Correo <span class="text-danger">*</span></label>
                 <input type="email" name="email" id="candidato_email" class="form-control" required maxlength="150">
             </div>
+            <input type="hidden" name="es_reingreso" id="candidato_es_reingreso" value="0">
+            <input type="hidden" name="id_persona_reingreso" id="candidato_id_persona_reingreso" value="">
+            <div class="alert alert-warning py-2 px-3 mb-2 d-none" id="candidato_reingreso_alerta">
+                <div class="d-flex gap-2 align-items-start">
+                    <i class="fa fa-rotate-left mt-1"></i>
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold">Posible reingreso detectado</div>
+                        <div class="small" id="candidato_reingreso_texto">Esta persona existe en bajas.</div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="candidato_marcar_reingreso">
+                            <label class="form-check-label" for="candidato_marcar_reingreso">Marcar este candidato como reingreso</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="mb-2">
                 <label class="form-label">País <span class="text-danger">*</span></label>
                 <select name="id_pais" id="candidato_id_pais" class="form-select js-select-buscador" required>

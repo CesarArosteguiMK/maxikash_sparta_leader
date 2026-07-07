@@ -58,7 +58,31 @@ class SessionGuard
     {
         session_unset();
         session_destroy();
+
+        if (self::esSolicitudAjax()) {
+            http_response_code(401);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Tu sesión fue cerrada por seguridad. Inicia sesión nuevamente.',
+                'redirect' => '/Login',
+                'force_logout' => true,
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
         header('Location: /Login');
         exit;
+    }
+
+    private static function esSolicitudAjax(): bool
+    {
+        $requestedWith = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+        $frontRequest = strtolower((string) ($_SERVER['HTTP_FRONT_REQUEST'] ?? ''));
+        $accept = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
+
+        return $requestedWith === 'xmlhttprequest'
+            || $frontRequest === 'true'
+            || strpos($accept, 'application/json') !== false;
     }
 }
