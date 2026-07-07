@@ -30,18 +30,43 @@ class AlmacenVirtual extends Model
     private const EVENTO_ORDEN_TRASPASO = 'orden_traspaso';
     private const EVENTO_CIERRE_TRASPASO = 'cierre_traspaso';
     private const ETAPA_EVIDENCIAS_INGRESO = 'evidencias_ingreso';
+    private const ETAPA_RECEPCION_ALMACEN = 'recepcion_almacen';
     private const ETAPA_REVISION_MECANICA = 'revision_mecanica';
     private const SLOTS_EVIDENCIAS_INGRESO = [
+        'foto_dacion_hoja_1' => 'Foto dacion hoja 1',
+        'foto_dacion_hoja_2' => 'Foto dacion hoja 2',
+        'foto_tacometro' => 'Foto tacometro',
         'foto_frontal' => 'Foto frontal',
         'foto_lateral_derecha' => 'Foto lateral derecha',
         'foto_trasera' => 'Foto trasera',
         'foto_lateral_izquierda' => 'Foto lateral izquierda',
         'foto_vin' => 'Foto VIN/NIV',
+        'video_360_encendida' => 'Video 360 encendida',
+        'foto_checklist' => 'Foto checklist',
     ];
+    private const SLOTS_REQUERIDOS_EVIDENCIAS_INGRESO = [
+        'foto_tacometro',
+        'foto_frontal',
+        'foto_lateral_derecha',
+        'foto_trasera',
+        'foto_lateral_izquierda',
+        'foto_vin',
+        'video_360_encendida',
+    ];
+    private const TIPOS_MOTO = ['2_ruedas', '3_ruedas', 'cuatrimoto'];
+    private const CATEGORIAS_MOTO = ['naked', 'deportivas', 'doble_proposito', 'cross_enduro', 'custom', 'scrambler', 'scooter', 'touring'];
+    private const TIPOS_MOTOR = ['combustion', 'electrica'];
+    private const TIPOS_MOTOR_COMBUSTION = ['carburador', 'full_inyeccion'];
+    private const CILINDRAJES_MOTO = ['50_cc', '100_cc', '110_cc', '125_cc', '150_cc', '160_cc', '170_cc', '180_cc', '200_cc', '210_cc', '220_cc', '250_cc', '300_cc', '400_cc', 'otro'];
+    private const POTENCIAS_MOTO = ['5_kw', '8_kw', '9_kw', '10_kw', '11_kw', '12_kw', '13_kw', '15_kw', 'otro'];
     private const SLOTS_EVIDENCIAS_REVISION = [
         'revision_mecanica' => 'Evidencia reparacion mecanica',
         'revision_electrica' => 'Evidencia reparacion electrica',
         'revision_estetica' => 'Evidencia reparacion estetica',
+    ];
+    private const SLOTS_DOCUMENTOS_RECEPCION = [
+        'doc_factura_moto' => 'Factura de la moto',
+        'doc_tarjeta_circulacion' => 'Tarjeta de circulacion',
     ];
     private const CHECKLIST_REVISION_MECANICA = [
         'mecanica' => [
@@ -491,7 +516,7 @@ class AlmacenVirtual extends Model
         SQL;
         }
 
-        $slotsSql = $this->sqlInConstantes(array_keys(self::SLOTS_EVIDENCIAS_INGRESO));
+        $slotsSql = $this->sqlInConstantes(self::SLOTS_REQUERIDOS_EVIDENCIAS_INGRESO);
         $whereSql = 'WHERE ' . implode(' AND ', $where);
         $totalRow = $this->db->queryOne(
             "SELECT COUNT(*) AS total
@@ -570,7 +595,7 @@ class AlmacenVirtual extends Model
         ) ?: [];
 
         $celulas = $this->obtenerCelulas();
-        $totalSlots = count(self::SLOTS_EVIDENCIAS_INGRESO);
+        $totalSlots = count(self::SLOTS_REQUERIDOS_EVIDENCIAS_INGRESO);
         foreach ($rows as &$row) {
             $id = (int) ($row['id_celula'] ?? 0);
             $row['nombre_celula'] = $celulas[$id] ?? ('Celula ' . $id);
@@ -723,6 +748,7 @@ class AlmacenVirtual extends Model
             return ['success' => false, 'message' => 'Captura un VIN/NIV valido de 17 caracteres.'];
         }
 
+        $formulario = $this->normalizarFormularioEvidenciasIngreso($datos);
         $vinAnterior = $this->normalizarVin((string) ($unidad['vin'] ?? ''));
         $vinCoincide = $vinAnterior === null || $vinAnterior === $vin;
         $evidenciasActuales = $this->evidenciasActualesPorUnidad($idUnidad);
@@ -734,14 +760,15 @@ class AlmacenVirtual extends Model
         }
 
         $faltantes = [];
-        foreach (self::SLOTS_EVIDENCIAS_INGRESO as $slot => $titulo) {
+        foreach (self::SLOTS_REQUERIDOS_EVIDENCIAS_INGRESO as $slot) {
+            $titulo = self::SLOTS_EVIDENCIAS_INGRESO[$slot] ?? $slot;
             if (empty($slotsPresentes[$slot])) {
                 $faltantes[] = $titulo;
             }
         }
 
         $observaciones = $this->normalizarTexto((string) ($datos['observaciones'] ?? ''), 1000);
-        $discrepancias = [];
+        $discrepancias = $formulario['discrepancias'];
         if (!$vinCoincide) {
             $discrepancias[] = 'VIN capturado diferente al VIN origen.';
         }
@@ -755,21 +782,32 @@ class AlmacenVirtual extends Model
 
         try {
             $this->db->beginTransaction();
+            $setsUnidad = [
+                'vin = :vin',
+                'estatus_inventario = :estatus_nuevo',
+                'actualizado_por = :actualizado_por',
+                'fecha_actualizacion = :fecha_actualizacion',
+            ];
+            $paramsUnidad = [
+                'vin' => $vin,
+                'estatus_nuevo' => $estatusNuevo,
+                'actualizado_por' => $idUsuario > 0 ? $idUsuario : null,
+                'fecha_actualizacion' => $ahora,
+                'id_unidad' => $idUnidad,
+            ];
+            foreach (($formulario['unidad'] ?? []) as $columna => $valor) {
+                if ($this->tablaTieneColumna('av_unidades', (string) $columna)) {
+                    $param = 'form_' . $columna;
+                    $setsUnidad[] = "`{$columna}` = :{$param}";
+                    $paramsUnidad[$param] = $valor;
+                }
+            }
             $this->db->CRUD(
-                "UPDATE av_unidades
-                 SET vin = :vin,
-                     estatus_inventario = :estatus_nuevo,
-                     actualizado_por = :actualizado_por,
-                     fecha_actualizacion = :fecha_actualizacion
+                'UPDATE av_unidades
+                 SET ' . implode(', ', $setsUnidad) . '
                  WHERE id_unidad = :id_unidad
-                   AND deleted_at IS NULL",
-                [
-                    'vin' => $vin,
-                    'estatus_nuevo' => $estatusNuevo,
-                    'actualizado_por' => $idUsuario > 0 ? $idUsuario : null,
-                    'fecha_actualizacion' => $ahora,
-                    'id_unidad' => $idUnidad,
-                ]
+                   AND deleted_at IS NULL',
+                $paramsUnidad
             );
 
             $estatusEvidencia = $validacionOk ? 'validado' : 'recibido';
@@ -812,6 +850,7 @@ class AlmacenVirtual extends Model
                     'vin_capturado' => $vin,
                     'vin_origen' => $unidad['vin'] ?? null,
                     'codigo_verificacion' => $codigo,
+                    'formulario' => $formulario['payload'],
                     'evidencias_subidas' => array_keys($evidenciasSubidas),
                     'faltantes' => $faltantes,
                     'discrepancias' => $discrepancias,
@@ -1152,7 +1191,7 @@ class AlmacenVirtual extends Model
         ];
     }
 
-    public function confirmarRecepcionAlmacen(int $idUnidad, array $datos, int $idUsuario = 0, string $nombreUsuario = ''): array
+    public function confirmarRecepcionAlmacen(int $idUnidad, array $datos, array $documentos = [], int $idUsuario = 0, string $nombreUsuario = ''): array
     {
         if ($idUnidad <= 0) {
             return ['success' => false, 'message' => 'Unidad invalida.'];
@@ -1207,11 +1246,12 @@ class AlmacenVirtual extends Model
 
         $vinAnterior = $this->normalizarVin((string) ($unidad['vin'] ?? ''));
         $vinCoincideFisico = $vinAnterior === null || $vinAnterior === $vin;
+        $documentosRequeridosOk = $this->documentosRecepcionCompletos($idUnidad, $documentos);
         $checklist = [
             'vin_coincide' => $this->boolDesdePayload($datos['vin_coincide'] ?? null) && $vinCoincideFisico,
             'evidencia_4_angulos' => $this->boolDesdePayload($datos['evidencia_4_angulos'] ?? null),
             'evidencia_vin' => $this->boolDesdePayload($datos['evidencia_vin'] ?? null),
-            'documentos_completos' => $this->boolDesdePayload($datos['documentos_completos'] ?? null),
+            'documentos_completos' => $this->boolDesdePayload($datos['documentos_completos'] ?? null) && $documentosRequeridosOk,
             'arranque_motor' => $this->boolDesdePayload($datos['arranque_motor'] ?? null),
             'sin_danos_mayores' => $this->boolDesdePayload($datos['sin_danos_mayores'] ?? null),
         ];
@@ -1295,6 +1335,7 @@ class AlmacenVirtual extends Model
                 'checklist' => $checklist,
                 'discrepancias' => $discrepancias,
                 'observaciones' => $observaciones,
+                'documentos_recepcion' => array_keys($documentos),
             ];
 
             $this->registrarBitacora(
@@ -1307,6 +1348,23 @@ class AlmacenVirtual extends Model
                 $nombreUsuario,
                 $ahora
             );
+
+            foreach ($documentos as $slot => $info) {
+                if (!isset(self::SLOTS_DOCUMENTOS_RECEPCION[$slot]) || !is_array($info)) {
+                    continue;
+                }
+                $this->registrarEvidenciaUnidadEtapa(
+                    $idUnidad,
+                    self::ETAPA_RECEPCION_ALMACEN,
+                    (string) $slot,
+                    self::SLOTS_DOCUMENTOS_RECEPCION[$slot],
+                    $info,
+                    'validado',
+                    $idUsuario,
+                    $nombreUsuario,
+                    $ahora
+                );
+            }
 
             $this->registrarRecepcionEstructurada(
                 $idUnidad,
@@ -4070,13 +4128,50 @@ class AlmacenVirtual extends Model
     private function evidenciasIngresoValidas(int $idUnidad): bool
     {
         $actuales = $this->evidenciasActualesPorUnidad($idUnidad);
-        foreach (self::SLOTS_EVIDENCIAS_INGRESO as $slot => $_titulo) {
+        foreach (self::SLOTS_REQUERIDOS_EVIDENCIAS_INGRESO as $slot) {
             if (($actuales[$slot]['estatus'] ?? '') !== 'validado') {
                 return false;
             }
         }
 
         return true;
+    }
+
+    private function documentosRecepcionCompletos(int $idUnidad, array $documentosNuevos): bool
+    {
+        $slots = array_fill_keys(array_keys(self::SLOTS_DOCUMENTOS_RECEPCION), false);
+        foreach ($documentosNuevos as $slot => $info) {
+            if (isset($slots[$slot]) && is_array($info) && trim((string) ($info['url'] ?? '')) !== '') {
+                $slots[$slot] = true;
+            }
+        }
+
+        if (!in_array(false, $slots, true)) {
+            return true;
+        }
+        if ($idUnidad <= 0 || !$this->tablaExiste('av_evidencias')) {
+            return false;
+        }
+
+        $slotsSql = $this->sqlInConstantes(array_keys(self::SLOTS_DOCUMENTOS_RECEPCION));
+        $rows = $this->db->queryAll(
+            "SELECT slot
+             FROM av_evidencias
+             WHERE id_unidad = :id
+               AND etapa = :etapa
+               AND slot IN ({$slotsSql})
+               AND estatus NOT IN ('reemplazado', 'eliminado', 'rechazado')",
+            ['id' => $idUnidad, 'etapa' => self::ETAPA_RECEPCION_ALMACEN]
+        ) ?: [];
+
+        foreach ($rows as $row) {
+            $slot = (string) ($row['slot'] ?? '');
+            if (isset($slots[$slot])) {
+                $slots[$slot] = true;
+            }
+        }
+
+        return !in_array(false, $slots, true);
     }
 
     private function registrarPisoVentaEstructurado(
@@ -4782,6 +4877,110 @@ class AlmacenVirtual extends Model
         return $labels[$dictamen] ?? $dictamen;
     }
 
+    private function normalizarFormularioEvidenciasIngreso(array $datos): array
+    {
+        $discrepancias = [];
+        $siNo = [
+            'tiene_llave_fisica' => 'Tiene llave fisica',
+            'tiene_tarjeta_circulacion' => 'Tiene tarjeta de circulacion',
+            'tiene_placa_fisica' => 'La moto tiene placa fisica',
+        ];
+        $payload = [];
+        $unidad = [];
+
+        foreach ($siNo as $campo => $label) {
+            $valor = $this->normalizarSiNo($datos[$campo] ?? null);
+            if ($valor === null) {
+                $discrepancias[] = 'Falta responder: ' . $label . '.';
+            }
+            $payload[$campo] = $valor;
+            $unidad[$campo] = $valor;
+        }
+
+        $tipoUnidad = $this->normalizarOpcion((string) ($datos['tipo_unidad'] ?? ''), self::TIPOS_MOTO);
+        if ($tipoUnidad === null) {
+            $discrepancias[] = 'Selecciona el tipo de moto.';
+        }
+        $payload['tipo_unidad'] = $tipoUnidad;
+        $unidad['tipo_unidad'] = $tipoUnidad;
+
+        $categoria = $this->normalizarOpcion((string) ($datos['categoria'] ?? ''), self::CATEGORIAS_MOTO);
+        if ($categoria === null) {
+            $discrepancias[] = 'Selecciona la categoria de la moto.';
+        }
+        $payload['categoria'] = $categoria;
+        $unidad['categoria'] = $categoria;
+
+        $tipoMotor = $this->normalizarOpcion((string) ($datos['tipo_motor'] ?? ''), self::TIPOS_MOTOR);
+        if ($tipoMotor === null) {
+            $discrepancias[] = 'Selecciona el tipo de motor.';
+        }
+        $payload['tipo_motor'] = $tipoMotor;
+        $unidad['tipo_motor'] = $tipoMotor;
+
+        $tipoCombustion = null;
+        $cilindraje = null;
+        $potencia = null;
+        if ($tipoMotor === 'combustion') {
+            $tipoCombustion = $this->normalizarOpcion((string) ($datos['tipo_motor_combustion'] ?? ''), self::TIPOS_MOTOR_COMBUSTION);
+            if ($tipoCombustion === null) {
+                $discrepancias[] = 'Selecciona si la moto es carburador o full inyeccion.';
+            }
+            $cilindraje = $this->normalizarOpcion((string) ($datos['cilindraje'] ?? ''), self::CILINDRAJES_MOTO);
+            if ($cilindraje === null) {
+                $discrepancias[] = 'Selecciona el cilindraje.';
+            } elseif ($cilindraje === 'otro') {
+                $otro = $this->normalizarTexto((string) ($datos['cilindraje_otro'] ?? ''), 50);
+                if ($otro === null) {
+                    $discrepancias[] = 'Captura el cilindraje en Otro.';
+                }
+                $cilindraje = $otro ? 'otro: ' . $otro : 'otro';
+            }
+        } elseif ($tipoMotor === 'electrica') {
+            $potencia = $this->normalizarOpcion((string) ($datos['potencia'] ?? ''), self::POTENCIAS_MOTO);
+            if ($potencia === null) {
+                $discrepancias[] = 'Selecciona la potencia.';
+            } elseif ($potencia === 'otro') {
+                $otro = $this->normalizarTexto((string) ($datos['potencia_otro'] ?? ''), 50);
+                if ($otro === null) {
+                    $discrepancias[] = 'Captura la potencia en Otro.';
+                }
+                $potencia = $otro ? 'otro: ' . $otro : 'otro';
+            }
+        }
+        $payload['tipo_motor_combustion'] = $tipoCombustion;
+        $payload['cilindraje'] = $cilindraje;
+        $payload['potencia'] = $potencia;
+        $unidad['tipo_motor_combustion'] = $tipoCombustion;
+        $unidad['cilindraje'] = $cilindraje;
+        $unidad['potencia'] = $potencia;
+
+        $otroDescripcion = $this->normalizarTexto((string) ($datos['otro_descripcion'] ?? ''), 255);
+        $comentariosGenerales = $this->normalizarTexto((string) ($datos['comentarios_generales'] ?? ''), 1500);
+        if ($comentariosGenerales === null) {
+            $discrepancias[] = 'Captura comentarios generales.';
+        }
+        $payload['otro_descripcion'] = $otroDescripcion;
+        $payload['comentarios_generales'] = $comentariosGenerales;
+        $unidad['otro_descripcion'] = $otroDescripcion;
+        $unidad['comentarios_generales'] = $comentariosGenerales;
+
+        return [
+            'payload' => $payload,
+            'unidad' => $unidad,
+            'discrepancias' => $discrepancias,
+        ];
+    }
+
+    private function normalizarOpcion(string $valor, array $validos): ?string
+    {
+        $valor = strtolower(trim($valor));
+        $valor = str_replace([' ', '-', '/'], '_', $valor);
+        $valor = preg_replace('/[^a-z0-9_:]/', '', $valor);
+
+        return in_array($valor, $validos, true) ? $valor : null;
+    }
+
     private function urlPublicaEvidencia(string $url): string
     {
         $url = trim($url);
@@ -4898,6 +5097,19 @@ class AlmacenVirtual extends Model
         return in_array($valor, ['1', 'true', 'on', 'si', 'yes'], true);
     }
 
+    private function normalizarSiNo($valor): ?int
+    {
+        $valor = strtolower(trim((string) $valor));
+        if (in_array($valor, ['1', 'true', 'on', 'si', 'sí', 'yes'], true)) {
+            return 1;
+        }
+        if (in_array($valor, ['0', 'false', 'off', 'no'], true)) {
+            return 0;
+        }
+
+        return null;
+    }
+
     private function fechaHoraCdmx(): string
     {
         $dt = new \DateTime('now', new \DateTimeZone('America/Mexico_City'));
@@ -4931,6 +5143,21 @@ class AlmacenVirtual extends Model
     {
         try {
             return (bool) $this->db->queryOne("SHOW TABLES LIKE :tabla", ['tabla' => $tabla]);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    private function tablaTieneColumna(string $tabla, string $columna): bool
+    {
+        $tabla = preg_replace('/[^a-zA-Z0-9_]/', '', $tabla);
+        $columna = preg_replace('/[^a-zA-Z0-9_]/', '', $columna);
+        if ($tabla === '' || $columna === '') {
+            return false;
+        }
+
+        try {
+            return (bool) $this->db->queryOne("SHOW COLUMNS FROM `{$tabla}` LIKE :columna", ['columna' => $columna]);
         } catch (\Throwable $e) {
             return false;
         }

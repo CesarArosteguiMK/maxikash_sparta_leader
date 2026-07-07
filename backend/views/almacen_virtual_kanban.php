@@ -857,6 +857,21 @@
         ['avk-celula', 'avk-ubicacion', 'avk-tipo', 'avk-limit'].forEach((id) => {
             $(id)?.addEventListener('change', reload);
         });
+        window.addEventListener('storage', (ev) => {
+            if (ev.key === 'av_kanban_refresh_at') {
+                reload();
+            }
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                reload();
+            }
+        });
+        window.setInterval(() => {
+            if (!document.hidden) {
+                reload();
+            }
+        }, 60000);
 
         cargarCatalogos()
             .catch(() => {})

@@ -159,6 +159,79 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: .5rem .85rem;
     }
+    .avr-review-panel {
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        border-radius: .5rem;
+        padding: .85rem;
+        height: 100%;
+    }
+    .avr-review-title {
+        color: #1e293b;
+        font-size: .82rem;
+        font-weight: 800;
+        margin-bottom: .55rem;
+    }
+    .avr-cedis-lock {
+        border: 1px dashed #cbd5e1;
+        background: #fff;
+        border-radius: .45rem;
+        padding: .7rem;
+        margin-bottom: .85rem;
+    }
+    .avr-cedis-lock .label {
+        color: #64748b;
+        font-size: .72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+    .avr-cedis-lock .value {
+        color: #0f172a;
+        font-weight: 800;
+    }
+    .avr-evidence-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .55rem;
+    }
+    .avr-evidence-cell {
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        border-radius: .45rem;
+        overflow: hidden;
+        min-height: 8rem;
+    }
+    .avr-evidence-cell img {
+        width: 100%;
+        height: 5.75rem;
+        object-fit: cover;
+        display: block;
+        background: #e2e8f0;
+    }
+    .avr-evidence-cell .meta {
+        padding: .45rem .5rem;
+        color: #475569;
+        font-size: .72rem;
+        font-weight: 700;
+    }
+    .avr-evidence-empty {
+        border: 1px dashed #cbd5e1;
+        background: #fff;
+        border-radius: .45rem;
+        min-height: 8rem;
+        color: #94a3b8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: .75rem;
+        font-size: .78rem;
+    }
+    .avr-doc-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .6rem;
+    }
     @media (max-width: 992px) {
         .avr-kpi-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -166,7 +239,8 @@
     }
     @media (max-width: 576px) {
         .avr-kpi-grid,
-        .avr-check-grid {
+        .avr-check-grid,
+        .avr-evidence-grid {
             grid-template-columns: 1fr;
         }
         .avr-head {
@@ -322,8 +396,8 @@
 </div>
 
 <div class="modal fade" id="avr-modal-recepcion" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <form class="modal-content" id="avr-form-recepcion">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <form class="modal-content" id="avr-form-recepcion" enctype="multipart/form-data">
             <div class="modal-header">
                 <h5 class="modal-title">Confirmar recepcion</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -332,59 +406,86 @@
                 <input type="hidden" name="id_unidad" id="avr-id-unidad">
                 <div class="avr-modal-summary mb-3" id="avr-modal-summary"></div>
                 <div class="row g-3">
-                    <div class="col-12 col-md-6">
-                        <label class="form-label small fw-bold" for="avr-modal-ubicacion">Ubicacion de recepcion</label>
-                        <select class="form-select" name="id_ubicacion" id="avr-modal-ubicacion" required>
-                            <option value="">Seleccionar</option>
-                        </select>
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <label class="form-label small fw-bold" for="avr-vin">VIN/NIV</label>
-                        <input type="text" class="form-control" name="vin" id="avr-vin" maxlength="17" autocomplete="off" required>
-                    </div>
-                    <div class="col-12 col-md-4">
-                        <label class="form-label small fw-bold" for="avr-no-motor">No. motor</label>
-                        <input type="text" class="form-control" name="no_motor" id="avr-no-motor" maxlength="24" autocomplete="off">
-                    </div>
-                    <div class="col-12 col-md-4">
-                        <label class="form-label small fw-bold" for="avr-placas">Placas</label>
-                        <input type="text" class="form-control" name="placas" id="avr-placas" maxlength="20" autocomplete="off">
-                    </div>
-                    <div class="col-12 col-md-4">
-                        <label class="form-label small fw-bold" for="avr-kilometraje">Kilometraje</label>
-                        <input type="number" class="form-control" name="kilometraje" id="avr-kilometraje" min="0" step="1">
-                    </div>
-                    <div class="col-12">
-                        <div class="avr-check-grid">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="1" id="avr-vin-coincide" name="vin_coincide">
-                                <label class="form-check-label" for="avr-vin-coincide">VIN coincide con origen</label>
+                    <div class="col-12 col-lg-7">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small fw-bold" for="avr-modal-ubicacion">Ubicacion de recepcion</label>
+                                <select class="form-select" name="id_ubicacion" id="avr-modal-ubicacion" required>
+                                    <option value="">Seleccionar</option>
+                                </select>
                             </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="1" id="avr-evidencia-4" name="evidencia_4_angulos">
-                                <label class="form-check-label" for="avr-evidencia-4">4 angulos revisados</label>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small fw-bold" for="avr-vin">VIN/NIV</label>
+                                <input type="text" class="form-control" name="vin" id="avr-vin" maxlength="17" autocomplete="off" required>
                             </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="1" id="avr-evidencia-vin" name="evidencia_vin">
-                                <label class="form-check-label" for="avr-evidencia-vin">Evidencia VIN revisada</label>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label small fw-bold" for="avr-no-motor">No. motor</label>
+                                <input type="text" class="form-control" name="no_motor" id="avr-no-motor" maxlength="24" autocomplete="off">
                             </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="1" id="avr-documentos" name="documentos_completos">
-                                <label class="form-check-label" for="avr-documentos">Documentos completos</label>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label small fw-bold" for="avr-placas">Placas</label>
+                                <input type="text" class="form-control" name="placas" id="avr-placas" maxlength="20" autocomplete="off">
                             </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="1" id="avr-arranque" name="arranque_motor">
-                                <label class="form-check-label" for="avr-arranque">Motor arranca</label>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label small fw-bold" for="avr-kilometraje">Kilometraje</label>
+                                <input type="number" class="form-control" name="kilometraje" id="avr-kilometraje" min="0" step="1">
                             </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="1" id="avr-danos" name="sin_danos_mayores">
-                                <label class="form-check-label" for="avr-danos">Sin danos mayores visibles</label>
+                            <div class="col-12">
+                                <div class="avr-check-grid">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="1" id="avr-vin-coincide" name="vin_coincide">
+                                        <label class="form-check-label" for="avr-vin-coincide">VIN coincide con origen</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="1" id="avr-evidencia-4" name="evidencia_4_angulos">
+                                        <label class="form-check-label" for="avr-evidencia-4">4 angulos revisados</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="1" id="avr-evidencia-vin" name="evidencia_vin">
+                                        <label class="form-check-label" for="avr-evidencia-vin">Evidencia VIN revisada</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="1" id="avr-documentos" name="documentos_completos">
+                                        <label class="form-check-label" for="avr-documentos">Documentos completos</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="1" id="avr-arranque" name="arranque_motor">
+                                        <label class="form-check-label" for="avr-arranque">Motor arranca</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="1" id="avr-danos" name="sin_danos_mayores">
+                                        <label class="form-check-label" for="avr-danos">Sin danos mayores visibles</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small fw-bold" for="avr-observaciones">Observaciones</label>
+                                <textarea class="form-control" name="observaciones" id="avr-observaciones" rows="3" maxlength="1000"></textarea>
                             </div>
                         </div>
                     </div>
-                    <div class="col-12">
-                        <label class="form-label small fw-bold" for="avr-observaciones">Observaciones</label>
-                        <textarea class="form-control" name="observaciones" id="avr-observaciones" rows="3" maxlength="1000"></textarea>
+                    <div class="col-12 col-lg-5">
+                        <aside class="avr-review-panel">
+                            <div class="avr-cedis-lock">
+                                <div class="label">CEDIS asignado</div>
+                                <div class="value" id="avr-cedis-asignado">Sin CEDIS</div>
+                            </div>
+                            <div class="avr-review-title">Evidencias fotograficas</div>
+                            <div class="avr-evidence-grid mb-3" id="avr-evidencias-grid">
+                                <div class="avr-evidence-empty">Cargando evidencias...</div>
+                            </div>
+                            <div class="avr-review-title">Documentos requeridos</div>
+                            <div class="avr-doc-grid">
+                                <div>
+                                    <label class="form-label small fw-bold" for="rec_doc_factura_moto">Factura de la moto</label>
+                                    <input type="file" class="form-control" name="rec_doc_factura_moto" id="rec_doc_factura_moto" accept=".pdf,image/*" required>
+                                </div>
+                                <div>
+                                    <label class="form-label small fw-bold" for="rec_doc_tarjeta_circulacion">Tarjeta de circulacion</label>
+                                    <input type="file" class="form-control" name="rec_doc_tarjeta_circulacion" id="rec_doc_tarjeta_circulacion" accept=".pdf,image/*" required>
+                                </div>
+                            </div>
+                        </aside>
                     </div>
                 </div>
             </div>
@@ -449,6 +550,48 @@
             ? 'avr-status-' + key
             : 'avr-status-default';
         return '<span class="avr-status ' + safe + '"><i class="fa-solid fa-circle"></i>' + esc(statusLabel(value)) + '</span>';
+    }
+
+    const evidenciaLabels = {
+        foto_frontal: 'Frontal',
+        foto_lateral_derecha: 'Lateral derecha',
+        foto_trasera: 'Trasera',
+        foto_lateral_izquierda: 'Lateral izquierda',
+        foto_vin: 'VIN/NIV',
+    };
+
+    function renderEvidenciasPanel(evidencias) {
+        const grid = $('avr-evidencias-grid');
+        if (!grid) return;
+        const bySlot = new Map();
+        (evidencias || []).forEach((ev) => bySlot.set(String(ev.slot || ''), ev));
+        grid.innerHTML = Object.keys(evidenciaLabels).map((slot) => {
+            const ev = bySlot.get(slot);
+            if (!ev || !ev.url_publica) {
+                return '<div class="avr-evidence-empty">' + esc(evidenciaLabels[slot]) + '<br>Sin evidencia</div>';
+            }
+            const tipo = String(ev.tipo_evidencia || 'foto');
+            const isImage = tipo === 'foto' || /\.(jpg|jpeg|png|webp|gif|heic|heif)(\?|$)/i.test(String(ev.url_publica || ''));
+            if (!isImage) {
+                return '<a class="avr-evidence-cell text-decoration-none" href="' + esc(ev.url_publica) + '" target="_blank" rel="noopener">' +
+                    '<div class="avr-evidence-empty"><i class="fa-solid fa-file me-1"></i>Ver archivo</div>' +
+                    '<div class="meta">' + esc(evidenciaLabels[slot]) + '</div>' +
+                '</a>';
+            }
+            return '<a class="avr-evidence-cell text-decoration-none" href="' + esc(ev.url_publica) + '" target="_blank" rel="noopener">' +
+                '<img src="' + esc(ev.url_publica) + '" alt="' + esc(evidenciaLabels[slot]) + '">' +
+                '<div class="meta">' + esc(evidenciaLabels[slot]) + '</div>' +
+            '</a>';
+        }).join('');
+    }
+
+    function syncDocumentosCheck() {
+        const factura = $('rec_doc_factura_moto');
+        const tarjeta = $('rec_doc_tarjeta_circulacion');
+        const check = $('avr-documentos');
+        if (check) {
+            check.checked = Boolean(factura?.files?.length && tarjeta?.files?.length);
+        }
     }
 
     function rangeInfo(total, page, limit, label) {
@@ -675,6 +818,13 @@
         $('avr-placas').value = row.placas || '';
         $('avr-kilometraje').value = row.kilometraje || '';
         $('avr-modal-ubicacion').value = row.id_ubicacion_actual || '';
+        const almacenGeneral = state.ubicaciones.find((u) => String(u.nombre_ubicacion || '').toLowerCase() === 'almacen general');
+        if (almacenGeneral && (!row.id_ubicacion_actual || String(row.nombre_ubicacion || '').toLowerCase() === 'sin asignar')) {
+            $('avr-modal-ubicacion').value = String(almacenGeneral.id_ubicacion);
+        }
+        const cedisAsignado = row.tracking_cedis_destino_nombre || row.nombre_ubicacion || 'Almacen General';
+        $('avr-cedis-asignado').textContent = cedisAsignado;
+        renderEvidenciasPanel([]);
 
         const moto = [row.marca, row.modelo, row.anio].filter(Boolean).join(' ');
         const ruta = row.tracking_id_ruta ? ('Ruta #' + row.tracking_id_ruta) : '';
@@ -689,6 +839,23 @@
         if (window.bootstrap && window.bootstrap.Modal && modalEl) {
             window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
         }
+
+        fetch('/MotosAdjudicadas/inventarioFichaUnidad?id_unidad=' + encodeURIComponent(String(row.id_unidad)), {
+            headers: { Accept: 'application/json' },
+        })
+            .then((res) => res.json())
+            .then((json) => {
+                if (json && json.success) {
+                    renderEvidenciasPanel(json.evidencias || []);
+                } else {
+                    const grid = $('avr-evidencias-grid');
+                    if (grid) grid.innerHTML = '<div class="avr-evidence-empty">No se pudieron cargar evidencias.</div>';
+                }
+            })
+            .catch(() => {
+                const grid = $('avr-evidencias-grid');
+                if (grid) grid.innerHTML = '<div class="avr-evidence-empty">No se pudieron cargar evidencias.</div>';
+            });
     }
 
     async function confirmarRecepcion(ev) {
@@ -714,6 +881,9 @@
             if (window.bootstrap && window.bootstrap.Modal && modalEl) {
                 window.bootstrap.Modal.getOrCreateInstance(modalEl).hide();
             }
+            try {
+                window.localStorage.setItem('av_kanban_refresh_at', String(Date.now()));
+            } catch (e) {}
             notify(json.resultado === 'recibida' ? 'success' : 'warning', 'Recepcion guardada', json.message || 'Recepcion actualizada.');
             reloadAll(false);
         } catch (err) {
@@ -760,6 +930,8 @@
             if (!btn) return;
             abrirModalRecepcion(btn.dataset.id);
         });
+        $('rec_doc_factura_moto')?.addEventListener('change', syncDocumentosCheck);
+        $('rec_doc_tarjeta_circulacion')?.addEventListener('change', syncDocumentosCheck);
         $('avr-q')?.addEventListener('input', () => {
             window.clearTimeout(state.timer);
             state.timer = window.setTimeout(() => reloadAll(true), 350);

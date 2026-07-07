@@ -32,11 +32,16 @@ class MotosAdjudicadas extends Controller
     private function slotsEvidenciasAlmacenVirtual(): array
     {
         return [
+            'foto_dacion_hoja_1' => 'ev_foto_dacion_hoja_1',
+            'foto_dacion_hoja_2' => 'ev_foto_dacion_hoja_2',
+            'foto_tacometro' => 'ev_foto_tacometro',
             'foto_frontal' => 'ev_foto_frontal',
             'foto_lateral_derecha' => 'ev_foto_lateral_derecha',
             'foto_trasera' => 'ev_foto_trasera',
             'foto_lateral_izquierda' => 'ev_foto_lateral_izquierda',
             'foto_vin' => 'ev_foto_vin',
+            'video_360_encendida' => 'ev_video_360_encendida',
+            'foto_checklist' => 'ev_foto_checklist',
         ];
     }
 
@@ -65,8 +70,9 @@ class MotosAdjudicadas extends Controller
             return ['success' => false, 'message' => 'No se pudo crear la carpeta de evidencias.'];
         }
 
-        $permitidas = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
-        $maxBytes = 15 * 1024 * 1024;
+        $permitidas = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'mp4', 'mov', 'webm'];
+        $videoExt = ['mp4', 'mov', 'webm'];
+        $maxBytes = 80 * 1024 * 1024;
         foreach ($this->slotsEvidenciasAlmacenVirtual() as $slot => $campo) {
             $file = $_FILES[$campo] ?? null;
             if (!$file || !isset($file['error']) || (int) $file['error'] === UPLOAD_ERR_NO_FILE) {
@@ -104,7 +110,7 @@ class MotosAdjudicadas extends Controller
                 'url' => '/uploads/almacen_virtual/' . $idUnidad . '/evidencias/' . $filename,
                 'mime_type' => $mime ?: null,
                 'tamano_bytes' => $size,
-                'tipo_evidencia' => 'foto',
+                'tipo_evidencia' => in_array($ext, $videoExt, true) ? 'video' : 'foto',
             ];
         }
 
@@ -251,6 +257,73 @@ class MotosAdjudicadas extends Controller
                 ],
             ],
         ];
+    }
+
+    private function guardarDocumentosRecepcionAlmacen(int $idUnidad): array
+    {
+        $archivos = [];
+        if ($idUnidad <= 0) {
+            return ['success' => false, 'message' => 'Unidad invalida.'];
+        }
+
+        $slots = [
+            'doc_factura_moto' => 'rec_doc_factura_moto',
+            'doc_tarjeta_circulacion' => 'rec_doc_tarjeta_circulacion',
+        ];
+
+        if (!function_exists('sparta_uploads_join')) {
+            require_once dirname(__DIR__) . '/core/UploadsPaths.php';
+        }
+
+        $dir = sparta_uploads_join('almacen_virtual', (string) $idUnidad, 'recepcion');
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            return ['success' => false, 'message' => 'No se pudo crear la carpeta de documentos de recepcion.'];
+        }
+
+        $permitidas = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
+        $maxBytes = 20 * 1024 * 1024;
+        foreach ($slots as $slot => $campo) {
+            $file = $_FILES[$campo] ?? null;
+            if (!$file || !isset($file['error']) || (int) $file['error'] === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+            if ((int) $file['error'] !== UPLOAD_ERR_OK) {
+                return ['success' => false, 'message' => 'No se pudo recibir el documento ' . $slot . '.'];
+            }
+            $size = (int) ($file['size'] ?? 0);
+            if ($size <= 0 || $size > $maxBytes) {
+                return ['success' => false, 'message' => 'El documento ' . $slot . ' excede el tamano permitido.'];
+            }
+            $tmp = (string) ($file['tmp_name'] ?? '');
+            if ($tmp === '' || !is_uploaded_file($tmp)) {
+                return ['success' => false, 'message' => 'Archivo temporal invalido para ' . $slot . '.'];
+            }
+
+            $ext = strtolower((string) pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+            $ext = preg_replace('/[^a-z0-9]/', '', $ext);
+            if ($ext === 'jpeg') {
+                $ext = 'jpg';
+            }
+            if (!in_array($ext, $permitidas, true)) {
+                return ['success' => false, 'message' => 'Formato no permitido para ' . $slot . '.'];
+            }
+
+            $mime = function_exists('mime_content_type') ? (string) @mime_content_type($tmp) : null;
+            $filename = $slot . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+            $destino = rtrim($dir, DIRECTORY_SEPARATOR . '/\\') . DIRECTORY_SEPARATOR . $filename;
+            if (!@move_uploaded_file($tmp, $destino)) {
+                return ['success' => false, 'message' => 'No se pudo guardar el documento ' . $slot . '.'];
+            }
+
+            $archivos[$slot] = [
+                'url' => '/uploads/almacen_virtual/' . $idUnidad . '/recepcion/' . $filename,
+                'mime_type' => $mime ?: null,
+                'tamano_bytes' => $size,
+                'tipo_evidencia' => 'documento',
+            ];
+        }
+
+        return ['success' => true, 'archivos' => $archivos];
     }
 
     private function tieneModuloSesion(int $moduloId): bool
@@ -710,6 +783,19 @@ class MotosAdjudicadas extends Controller
         $datos = [
             'vin' => trim((string) ($_POST['vin'] ?? '')),
             'codigo_verificacion' => trim((string) ($_POST['codigo_verificacion'] ?? '')),
+            'tiene_llave_fisica' => trim((string) ($_POST['tiene_llave_fisica'] ?? '')),
+            'tiene_tarjeta_circulacion' => trim((string) ($_POST['tiene_tarjeta_circulacion'] ?? '')),
+            'tiene_placa_fisica' => trim((string) ($_POST['tiene_placa_fisica'] ?? '')),
+            'tipo_unidad' => trim((string) ($_POST['tipo_unidad'] ?? '')),
+            'categoria' => trim((string) ($_POST['categoria'] ?? '')),
+            'tipo_motor' => trim((string) ($_POST['tipo_motor'] ?? '')),
+            'tipo_motor_combustion' => trim((string) ($_POST['tipo_motor_combustion'] ?? '')),
+            'cilindraje' => trim((string) ($_POST['cilindraje'] ?? '')),
+            'cilindraje_otro' => trim((string) ($_POST['cilindraje_otro'] ?? '')),
+            'potencia' => trim((string) ($_POST['potencia'] ?? '')),
+            'potencia_otro' => trim((string) ($_POST['potencia_otro'] ?? '')),
+            'otro_descripcion' => trim((string) ($_POST['otro_descripcion'] ?? '')),
+            'comentarios_generales' => trim((string) ($_POST['comentarios_generales'] ?? '')),
             'observaciones' => trim((string) ($_POST['observaciones'] ?? '')),
         ];
 
@@ -807,8 +893,20 @@ class MotosAdjudicadas extends Controller
         ];
 
         try {
+            $documentos = $this->guardarDocumentosRecepcionAlmacen($idUnidad);
+            if (empty($documentos['success'])) {
+                echo json_encode($documentos, JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
             echo json_encode(
-                $this->inventarioDao()->confirmarRecepcionAlmacen($idUnidad, $datos, $idUsuario, $nombreUsuario),
+                $this->inventarioDao()->confirmarRecepcionAlmacen(
+                    $idUnidad,
+                    $datos,
+                    $documentos['archivos'] ?? [],
+                    $idUsuario,
+                    $nombreUsuario
+                ),
                 JSON_UNESCAPED_UNICODE
             );
         } catch (\Throwable $e) {

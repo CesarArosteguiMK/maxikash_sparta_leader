@@ -4987,8 +4987,8 @@ $trackingIsPlaneacion = $trackingShowMainTabs
             <div class="trk-catalog-shell">
                 <div class="trk-admin-kpis">
                     <div class="trk-admin-kpi" data-tone="info"><i class="fa-solid fa-warehouse"></i><div><span>CEDIS activos</span><strong id="statAgenciasTracking">0</strong></div></div>
-                    <div class="trk-admin-kpi" data-tone="success"><i class="fa-solid fa-user-check"></i><div><span>Transportistas internos</span><strong id="statTransportistasInternos">0</strong></div></div>
-                    <div class="trk-admin-kpi" data-tone="warning"><i class="fa-solid fa-user-tie"></i><div><span>Transportistas externos</span><strong id="statTransportistasExternos">0</strong></div></div>
+                    <div class="trk-admin-kpi" data-tone="success"><i class="fa-solid fa-user-check"></i><div><span>Transportistas</span><strong id="statTransportistasInternos">0</strong></div></div>
+                    <div class="trk-admin-kpi" data-tone="warning"><i class="fa-solid fa-clipboard-check"></i><div><span>Almacenistas</span><strong id="statTransportistasExternos">0</strong></div></div>
                     <div class="trk-admin-kpi" data-tone="info"><i class="fa-solid fa-address-book"></i><div><span>Directorio total</span><strong id="statCatalogoTotal">0</strong></div></div>
                 </div>
 
@@ -5005,7 +5005,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                         <i class="fa-solid fa-plus me-1"></i>Registrar CEDIS <i class="fa-solid fa-warehouse ms-1"></i>
                     </button>
                     <button type="button" class="btn btn-sm btn-label-info" id="btnNuevoTransportistaTracking">
-                        <i class="fa-solid fa-plus me-1"></i>Registrar Transportista <i class="fa-solid fa-id-card-clip ms-1"></i>
+                        <i class="fa-solid fa-plus me-1"></i>Registrar Usuario <i class="fa-solid fa-id-card-clip ms-1"></i>
                     </button>
                     <button type="button" class="btn btn-sm btn-label-info" id="btnNuevaUnidadTracking">
                         <i class="fa-solid fa-plus me-1"></i>Registrar Unidad <i class="fa-solid fa-truck ms-1"></i>
@@ -5044,8 +5044,8 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                         <table id="tablaTransportistasTracking" class="table table-hover mb-0 w-100 trk-operacion-table trk-admin-table" style="font-size:.82rem;">
                             <thead>
                                 <tr>
-                                    <th>Transportista</th>
-                                    <th>Tipo</th>
+                                    <th>Usuario operativo</th>
+                                    <th>Rol / tipo</th>
                                     <th>CEDIS / empresa</th>
                                     <th>Contacto</th>
                                     <th>Acciones</th>
@@ -5230,25 +5230,32 @@ $trackingIsPlaneacion = $trackingShowMainTabs
 </div>
 
 <!-- ==========================================================
-     Modal  -  Transportista tracking
+     Modal  -  Usuario operativo tracking
 ========================================================== -->
 <div class="modal fade" id="modalTransportistaTracking" tabindex="-1" aria-labelledby="modalTransportistaTrackingLabel">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title mb-0" id="modalTransportistaTrackingLabel">
-                    <i class="fa-solid fa-id-card-clip me-2" style="color:var(--track-color);"></i>Registrar Transportista
+                    <i class="fa-solid fa-id-card-clip me-2" style="color:var(--track-color);"></i>Registrar Usuario Operativo
                 </h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="transportistaIdTracking" value="">
                 <div class="row g-2">
-                    <div class="col-12 col-md-8">
-                        <label class="form-label small fw-semibold">Nombre transportista *</label>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-semibold">Nombre usuario operativo *</label>
                         <input type="text" class="form-control form-control-sm" id="transportistaNombreTracking" maxlength="180">
                     </div>
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small fw-semibold">Rol operativo</label>
+                        <select class="form-select form-select-sm" id="transportistaActorTracking">
+                            <option value="transportista">Transportista</option>
+                            <option value="almacenista">Almacenista</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3">
                         <label class="form-label small fw-semibold">Tipo</label>
                         <select class="form-select form-select-sm" id="transportistaTipoTracking" disabled>
                             <option value="interno">Interno</option>
@@ -5299,7 +5306,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
             <div class="modal-footer py-2">
                 <button type="button" class="btn btn-sm btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-sm btn-primary" id="btnGuardarTransportistaTracking">
-                    <i class="fa-solid fa-floppy-disk me-1"></i>Guardar Transportista
+                    <i class="fa-solid fa-floppy-disk me-1"></i>Guardar Usuario
                 </button>
             </div>
         </div>
@@ -8505,6 +8512,12 @@ function _trkTipoTransportistaBadge(tipo) {
         : '<span class="badge bg-primary">Externo</span>';
 }
 
+function _trkTipoActorBadge(actor) {
+    return actor === 'almacenista'
+        ? '<span class="badge bg-warning text-dark"><i class="fa-solid fa-clipboard-check me-1"></i>Almacenista</span>'
+        : '<span class="badge bg-info"><i class="fa-solid fa-truck-fast me-1"></i>Transportista</span>';
+}
+
 function _trkActualizarBadgeTransportista() {
     const t = _trkTransportistaSeleccionado();
     const $badge = $('#rutaTransportistaTipoBadge');
@@ -8576,7 +8589,10 @@ function _trkInicializarTablasCatalogosDT() {
                 render: t => `<div class="fw-semibold">${_trkChatEscapeHtml(t.nombre_transportista || '')}</div>
                     <small class="text-muted">${_trkChatEscapeHtml(t.curp_rfc || '')}</small>`,
             },
-            { data: 'tipo_transportista', render: v => _trkTipoTransportistaBadge(v) },
+            {
+                data: null,
+                render: t => `${_trkTipoActorBadge(t.tipo_actor || 'transportista')} <span class="ms-1">${_trkTipoTransportistaBadge(t.tipo_transportista)}</span>`,
+            },
             {
                 data: null,
                 render: t => `<div>${_trkChatEscapeHtml(t.nombre_agencia || t.empresa_origen || '-')}</div>
@@ -8635,6 +8651,7 @@ function _trkInicializarCatalogosTrackingUI() {
         _trkCambiarEstadoTransportistaTracking(Number($(this).data('id')), Number($(this).data('activo')));
     });
     $('#transportistaCedisTracking').on('change', () => _trkCatalogoSincronizarTipoTransportista());
+    $('#transportistaActorTracking').on('change', () => _trkSincronizarActorOperativo());
     $('#unidadTransportistaTracking').on('change', function () {
         _trkPrecargarUnidadTransportista(Number(this.value || 0));
     });
@@ -8655,6 +8672,7 @@ function _trkCatalogoFiltradoTexto(item, tipo) {
     }
     return [
         item.nombre_transportista,
+        item.tipo_actor,
         item.tipo_transportista,
         item.nombre_agencia,
         item.empresa_origen,
@@ -8704,18 +8722,19 @@ function _trkCatalogoAccionesCedis(a) {
 
 function _trkCatalogoAccionesTransportista(t) {
     const activo = Number(t?.activo ?? 1) === 1 ? 0 : 1;
-    const title = activo ? 'Activar transportista' : 'Desactivar transportista';
+    const esTransportista = String(t?.tipo_actor || 'transportista') !== 'almacenista';
+    const title = activo ? 'Activar usuario operativo' : 'Desactivar usuario operativo';
     const icon = activo ? 'fa-toggle-off' : 'fa-toggle-on';
     const klass = activo ? 'btn-label-secondary' : 'btn-label-danger';
     return `<div class="d-flex justify-content-end gap-1">
         <button type="button" class="btn btn-icon btn-sm rounded-pill btn-label-primary trk-action-btn btn-editar-transportista"
-            data-id="${_trkChatEscapeHtml(t?.id_transportista || '')}" title="Editar transportista">
+            data-id="${_trkChatEscapeHtml(t?.id_transportista || '')}" title="Editar usuario operativo">
             <i class="fa-solid fa-pen-to-square"></i>
         </button>
-        <button type="button" class="btn btn-icon btn-sm rounded-pill btn-label-info trk-action-btn btn-editar-unidad"
+        ${esTransportista ? `<button type="button" class="btn btn-icon btn-sm rounded-pill btn-label-info trk-action-btn btn-editar-unidad"
             data-id="${_trkChatEscapeHtml(t?.id_transportista || '')}" title="Unidad y capacidad">
             <i class="fa-solid fa-truck"></i>
-        </button>
+        </button>` : ''}
         <button type="button" class="btn btn-icon btn-sm rounded-pill ${klass} trk-action-btn btn-toggle-transportista"
             data-id="${_trkChatEscapeHtml(t?.id_transportista || '')}" data-activo="${activo}" title="${title}">
             <i class="fa-solid ${icon}"></i>
@@ -8749,7 +8768,7 @@ function _trkCatalogoTransportistaCard(t) {
     return `<article class="trk-catalog-card trk-admin-card">
         <div class="d-flex align-items-start justify-content-between gap-2">
             <div>
-                ${_trkTipoTransportistaBadge(t.tipo_transportista)}
+                ${_trkTipoActorBadge(t.tipo_actor || 'transportista')} <span class="ms-1">${_trkTipoTransportistaBadge(t.tipo_transportista)}</span>
                 <div class="trk-catalog-card-title mt-1">${_trkChatEscapeHtml(t.nombre_transportista || 'Sin nombre')}</div>
                 <div class="trk-catalog-card-sub">${_trkChatEscapeHtml(cedis)}</div>
             </div>
@@ -8783,7 +8802,7 @@ function _trkRenderCatalogoAgrupado(agencias, transportistas) {
                     <div class="trk-catalog-card-sub">ID ${_trkChatEscapeHtml(a.id_agencia || '-')} / ${_trkChatEscapeHtml(a.clave_agencia || 'Sin clave')}</div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-label-primary">${relacionados.length} transportista${relacionados.length !== 1 ? 's' : ''}</span>
+                    <span class="badge bg-label-primary">${relacionados.length} usuario${relacionados.length !== 1 ? 's' : ''}</span>
                     ${_trkCatalogoAccionesCedis(a)}
                 </div>
             </div>
@@ -8798,7 +8817,7 @@ function _trkRenderCatalogoAgrupado(agencias, transportistas) {
             <div class="trk-catalog-group-head">
                 <div>
                     <span class="badge bg-secondary mb-1">Sin CEDIS</span>
-                    <div class="trk-catalog-group-title">Transportistas sin CEDIS asignado</div>
+                    <div class="trk-catalog-group-title">Usuarios operativos sin CEDIS asignado</div>
                 </div>
                 <span class="badge bg-label-secondary">${sinCedis.length}</span>
             </div>
@@ -8848,6 +8867,13 @@ function _trkCatalogoSincronizarTipoTransportista() {
     const cedis = _trkCedisCatalogoPorId($('#transportistaCedisTracking').val());
     const tipo = cedis && _trkEsCedisDestinoInternoPermitido(cedis) ? 'interno' : 'externo';
     $('#transportistaTipoTracking').val(tipo);
+}
+
+function _trkSincronizarActorOperativo() {
+    const actor = $('#transportistaActorTracking').val() || 'transportista';
+    const esAlmacenista = actor === 'almacenista';
+    $('#transportistaPuestoTracking').attr('placeholder', esAlmacenista ? 'Almacenista / auxiliar de almacen' : 'Operador / transportista');
+    $('#transportistaEmpresaTracking').attr('placeholder', esAlmacenista ? 'CEDIS / area de almacen' : 'Empresa transportista');
 }
 
 function _trkExtraerCoordsGoogleMaps(link) {
@@ -8924,8 +8950,9 @@ function _trkAbrirModalCedisTracking(id = 0) {
 
 function _trkAbrirModalTransportistaTracking(id = 0) {
     const t = id ? _trkTransportistaCatalogoPorId(id) : null;
-    $('#modalTransportistaTrackingLabel').html(`<i class="fa-solid fa-id-card-clip me-2" style="color:var(--track-color);"></i>${t ? 'Editar Transportista' : 'Registrar Transportista'}`);
+    $('#modalTransportistaTrackingLabel').html(`<i class="fa-solid fa-id-card-clip me-2" style="color:var(--track-color);"></i>${t ? 'Editar Usuario Operativo' : 'Registrar Usuario Operativo'}`);
     $('#transportistaIdTracking').val(t?.id_transportista || '');
+    $('#transportistaActorTracking').val(t?.tipo_actor || 'transportista');
     $('#transportistaNombreTracking').val(t?.nombre_transportista || '');
     $('#transportistaCurpTracking').val(t?.curp_rfc || '');
     $('#transportistaTelefonoTracking').val(t?.telefono || '');
@@ -8937,6 +8964,7 @@ function _trkAbrirModalTransportistaTracking(id = 0) {
     $('#transportistaActivoTracking').prop('checked', Number(t?.activo ?? 1) === 1);
     _trkCatalogoLlenarSelectCedis(t?.id_agencia || '');
     if (t?.tipo_transportista) $('#transportistaTipoTracking').val(t.tipo_transportista);
+    _trkSincronizarActorOperativo();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTransportistaTracking')).show();
 }
 
@@ -9136,9 +9164,11 @@ function _trkDriverMiniHtml(evalInfo) {
 function _trkTransportistasUnidadBase() {
     const map = new Map();
     (_trk.transportistasTracking || []).forEach(t => {
+        if (String(t?.tipo_actor || 'transportista') === 'almacenista') return;
         if (t?.id_transportista) map.set(String(t.id_transportista), t);
     });
     (_trk.operacionTransportistas || []).forEach(t => {
+        if (String(t?.tipo_actor || 'transportista') === 'almacenista') return;
         if (!t?.id_transportista) return;
         const key = String(t.id_transportista);
         map.set(key, { ...(map.get(key) || {}), ...t });
@@ -9285,6 +9315,7 @@ function _trkPayloadTransportistaTracking() {
         id_transportista: $('#transportistaIdTracking').val() || 0,
         id_agencia: $('#transportistaCedisTracking').val() || null,
         tipo_transportista: $('#transportistaTipoTracking').val() || 'externo',
+        tipo_actor: $('#transportistaActorTracking').val() || 'transportista',
         nombre_transportista: $('#transportistaNombreTracking').val(),
         curp_rfc: $('#transportistaCurpTracking').val(),
         email: $('#transportistaEmailTracking').val(),
@@ -9353,7 +9384,11 @@ function _trkGuardarCedisTracking() {
 function _trkGuardarTransportistaTracking() {
     const payload = _trkPayloadTransportistaTracking();
     if (!String(payload.nombre_transportista || '').trim()) {
-        Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'El nombre del transportista es obligatorio.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'El nombre del usuario operativo es obligatorio.', confirmButtonText: 'Aceptar' });
+        return;
+    }
+    if (payload.tipo_actor === 'almacenista' && !Number(payload.id_agencia || 0)) {
+        Swal.fire({ icon: 'warning', title: 'CEDIS requerido', text: 'El almacenista debe tener un CEDIS asignado.', confirmButtonText: 'Aceptar' });
         return;
     }
     _trkGuardarCatalogo('/TrackingRecoleccion/guardarTransportistaTracking', payload, '#btnGuardarTransportistaTracking', 'modalTransportistaTracking');
@@ -9487,12 +9522,12 @@ function _trkRenderCatalogosTracking() {
     const agenciasTotal = _trk.agenciasTracking || [];
     const transportistasTotal = _trk.transportistasTracking || [];
     const { agencias, transportistas } = _trkCatalogoDatosFiltrados();
-    const internos = transportistasTotal.filter(t => t.tipo_transportista === 'interno').length;
-    const externos = transportistasTotal.filter(t => t.tipo_transportista === 'externo').length;
+    const transportistasActores = transportistasTotal.filter(t => String(t.tipo_actor || 'transportista') !== 'almacenista').length;
+    const almacenistasActores = transportistasTotal.filter(t => String(t.tipo_actor || '') === 'almacenista').length;
 
     $('#statAgenciasTracking').text(agenciasTotal.filter(a => Number(a.activo ?? 1) === 1).length);
-    $('#statTransportistasInternos').text(internos);
-    $('#statTransportistasExternos').text(externos);
+    $('#statTransportistasInternos').text(transportistasActores);
+    $('#statTransportistasExternos').text(almacenistasActores);
     $('#statCatalogoTotal').text(agenciasTotal.length + transportistasTotal.length);
     _trkSetBadge('badgeCatalogos', agenciasTotal.length + transportistasTotal.length);
     _trkSetCatalogoVista(_trk.catalogoVista);
