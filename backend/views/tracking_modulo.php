@@ -11408,6 +11408,27 @@ function _trkFechaSumarDias(fecha, dias) {
     return d.toISOString().split('T')[0];
 }
 
+function _trkFechaDiffDias(fechaBase, fechaDestino) {
+    const parse = (fecha) => {
+        const parts = String(fecha || '').split('-').map(Number);
+        if (parts.length !== 3 || parts.some(n => !Number.isFinite(n))) return null;
+        return Date.UTC(parts[0], parts[1] - 1, parts[2]);
+    };
+    const base = parse(fechaBase);
+    const destino = parse(fechaDestino);
+    if (base === null || destino === null) return 0;
+    return Math.round((destino - base) / 86400000);
+}
+
+function _trkFechaMinimaHorarioPlaneacion() {
+    const fechaRuta = $('#rutaFecha').val() || _trkFechaMinimaProgramacion();
+    return _trkFechaSumarDias(fechaRuta, -1) || fechaRuta;
+}
+
+function _trkPlanDayIndexPorFecha(fecha) {
+    return _trkFechaDiffDias(_trkPlanFechaBaseRuta(), fecha);
+}
+
 function _trkSincronizarFechaFinalizacion(force = false) {
     const $fin = $('#rutaFechaFin');
     if (!$fin.length) return;
@@ -15883,12 +15904,13 @@ function _trkPlanFechaBaseRuta() {
 
 function _trkPlanPoliticaFechaDia(days, dayIndex) {
     const base = _trkPlanFechaBaseRuta();
+    const minGlobal = _trkFechaSumarDias(base, -1) || base;
+    const maxManual = _trkPlanFechaMaxManual();
     if (dayIndex <= 0) {
-        return { min: base, max: base, locked: true };
+        return { min: minGlobal, max: maxManual, locked: false };
     }
     const prev = days?.[dayIndex - 1]?.date || _trkFechaSumarDias(base, dayIndex - 1);
     const min = _trkFechaSumarDias(prev, 1);
-    const maxManual = _trkPlanFechaMaxManual();
     return {
         min,
         max: _trkCompararFecha(min, maxManual) > 0 ? min : maxManual,
@@ -17677,7 +17699,7 @@ function _trkAbrirEditarHorarioPlaneacion(c) {
     $('#trkPlanHorarioCreditoLabel').text(`#${c.id_credito || '-'} - ${c.nombre_cliente || 'Sin cliente'}`);
     $('#trkPlanHorarioTipo').val(c.estatus_planeacion === 'adelantado' ? 'adelanto_operativo' : 'reprogramacion_manual');
     $('#trkPlanHorarioFecha')
-        .attr('min', $('#rutaFecha').val() || _trkFechaMinimaProgramacion())
+        .attr('min', _trkFechaMinimaHorarioPlaneacion())
         .val(_trkPlaneacionFechaCredito(c));
     $('#trkPlanHorarioLlegada').val(_trkMinutesToHora(llegadaActual));
     $('#trkPlanHorarioSalida').val(_trkMinutesToHora(salidaActual));
@@ -17699,8 +17721,8 @@ function _trkGuardarEditorHorarioPlaneacion() {
     const salida = _trkPlanTimeToMinutes($('#trkPlanHorarioSalida').val(), NaN);
     const motivoValidado = _trkValidarMotivoPlaneacion($('#trkPlanHorarioMotivo').val(), 300);
     if (!fecha) return _trkMostrarErrorHorarioPlaneacion('La fecha es obligatoria.');
-    if (_trkCompararFecha(fecha, $('#rutaFecha').val() || _trkFechaMinimaProgramacion()) < 0) {
-        return _trkMostrarErrorHorarioPlaneacion('La fecha no puede ser anterior al inicio de la ruta.');
+    if (_trkCompararFecha(fecha, _trkFechaMinimaHorarioPlaneacion()) < 0) {
+        return _trkMostrarErrorHorarioPlaneacion('Solo puedes adelantar el punto un dia antes de la fecha de inicio de la ruta.');
     }
     if (!Number.isFinite(llegada) || !Number.isFinite(salida)) {
         return _trkMostrarErrorHorarioPlaneacion('Captura hora de llegada y salida.');
@@ -17712,6 +17734,7 @@ function _trkGuardarEditorHorarioPlaneacion() {
         return _trkMostrarErrorHorarioPlaneacion(motivoValidado.message);
     }
     c.fecha_planeacion = fecha;
+    c.day_index = _trkPlanDayIndexPorFecha(fecha);
     c.arrival_minutes = llegada;
     c.departure_minutes = salida;
     c.operation_minutes = salida - llegada;

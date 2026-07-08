@@ -374,13 +374,13 @@
             <div class="col-md-3 mb-3" id="empresaSelectSlot">
                 <label for="empresaSelect" class="form-label"><strong>Empresa:</strong></label>
                 <select id="empresaSelect" class="form-select">
-                    <option value="">Todas las empresas</option>
+                    <option value="">Seleccione empresa</option>
                 </select>
             </div>
-            <div class="col-md-3 mb-3" id="dirSelectSlot">
+            <div class="col-md-3 mb-3 d-none" id="dirSelectSlot">
                 <label for="dirSelect" class="form-label"><strong>Direccion:</strong></label>
-                <select id="dirSelect" class="form-select">
-                    <option value="">Seleccione direccion</option>
+                <select id="dirSelect" class="form-select" disabled>
+                    <option value="">Seleccione empresa primero</option>
                 </select>
             </div>
             <div class="col-md-3 mb-3 d-none" id="areaSelectSlot">
@@ -629,6 +629,88 @@
                 <button type="button" class="btn btn-primary" onclick="guardarJefePersonaOrganigrama()">
                     <i class="fa fa-save me-1"></i>Guardar
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalDetalleAusenciaOrganigrama" tabindex="-1" aria-labelledby="modalDetalleAusenciaOrganigramaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title d-flex align-items-center gap-2" id="modalDetalleAusenciaOrganigramaLabel">
+                    <i class="fa fa-calendar-times text-danger"></i>
+                    <span>Detalle de ausencia</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="rounded border bg-body-tertiary p-3 mb-3">
+                    <div class="fw-semibold text-dark" id="orgAusenciaNombre">Persona</div>
+                    <div class="small text-muted" id="orgAusenciaPuesto">Puesto</div>
+                </div>
+
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                    <span class="badge bg-label-danger text-danger" id="orgAusenciaMotivo">Ausencia</span>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-12 col-md-6">
+                        <div class="border rounded p-3 h-100 bg-body">
+                            <div class="small text-muted mb-1">Inicio</div>
+                            <div class="fw-semibold" id="orgAusenciaInicio">Sin fecha inicio</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="border rounded p-3 h-100 bg-body">
+                            <div class="small text-muted mb-1">Fin</div>
+                            <div class="fw-semibold" id="orgAusenciaFin">Sin fecha fin</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3 d-none" id="orgAusenciaDescripcionWrap">
+                    <div class="small text-muted mb-1">Descripción</div>
+                    <div class="border rounded p-3 bg-body" id="orgAusenciaDescripcion"></div>
+                </div>
+
+                <div>
+                    <div class="fw-semibold mb-2">Documento adjunto</div>
+                    <div id="orgAusenciaDocumentos" class="d-grid gap-2"></div>
+                    <div id="orgAusenciaSinDocumentos" class="alert alert-light border small text-muted mb-0">
+                        Esta ausencia no tiene documento adjunto registrado.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="orgAusenciaCambiarJefeBtn">
+                    <i class="fa fa-user-tie me-1"></i>Cambiar jefe
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalDocumentoAusenciaOrganigrama" tabindex="-1" aria-labelledby="modalDocumentoAusenciaOrganigramaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title d-flex align-items-center gap-2" id="modalDocumentoAusenciaOrganigramaLabel">
+                    <i class="fa fa-file-pdf text-danger"></i>
+                    <span id="modalDocumentoAusenciaOrganigramaTitulo">Documento de ausencia</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0 bg-light">
+                <iframe
+                    id="modalDocumentoAusenciaOrganigramaFrame"
+                    title="Vista previa documento de ausencia"
+                    style="width:100%;height:72vh;border:0;background:#fff;"
+                    src="about:blank"></iframe>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -938,13 +1020,15 @@
         }
 
         function actualizarVisibilidadFiltrosOrganigrama() {
+            var empresaValue = document.getElementById("empresaSelect")?.value || "";
             var dirValue = document.getElementById("dirSelect")?.value || "";
             var areaValue = document.getElementById("areaSelect")?.value || "";
             var depValue = document.getElementById("depSelect")?.value || "";
 
-            setVisibleOrgSlot("areaSelectSlot", !!dirValue);
-            setVisibleOrgSlot("depSelectSlot", !!dirValue && !!areaValue);
-            setVisibleOrgSlot("personaSelectSlot", !!dirValue && !!areaValue && !!depValue);
+            setVisibleOrgSlot("dirSelectSlot", !!empresaValue);
+            setVisibleOrgSlot("areaSelectSlot", !!empresaValue && !!dirValue);
+            setVisibleOrgSlot("depSelectSlot", !!empresaValue && !!dirValue && !!areaValue);
+            setVisibleOrgSlot("personaSelectSlot", !!empresaValue && !!dirValue && !!areaValue && !!depValue);
         }
 
         function resetSeleccionOrganigrama(mensajePersona) {
@@ -991,7 +1075,7 @@
                 if (!mapa.has(id)) mapa.set(id, nombre);
             });
 
-            empresaSelect.innerHTML = '<option value="">Todas las empresas</option>';
+            empresaSelect.innerHTML = '<option value="">Seleccione empresa</option>';
             Array.from(mapa.entries()).sort(function (a, b) { return a[1].localeCompare(b[1]); }).forEach(function (row) {
                 var opt = document.createElement("option");
                 opt.value = row[0];
@@ -999,7 +1083,7 @@
                 empresaSelect.appendChild(opt);
             });
             if (valorActual && mapa.has(valorActual)) empresaSelect.value = valorActual;
-            empresaSelect.disabled = mapa.size <= 1;
+            empresaSelect.disabled = mapa.size === 0;
             refrescarSelectBuscadorOrg(empresaSearchSelect);
         }
 
@@ -1007,8 +1091,25 @@
             var dirSelect = document.getElementById("dirSelect");
             var areaSelect = document.getElementById("areaSelect");
             var depSelect = document.getElementById("depSelect");
+            var empresaSeleccionada = getEmpresaSeleccionadaOrganigrama();
             depSelect.innerHTML = "<option value=\"\">Seleccione area primero</option>";
             depSelect.disabled = true;
+
+            if (!empresaSeleccionada) {
+                dirSelect.innerHTML = '<option value="">Seleccione empresa primero</option>';
+                dirSelect.value = "";
+                dirSelect.disabled = true;
+                areaSelect.innerHTML = '<option value="">Seleccione direccion primero</option>';
+                areaSelect.disabled = true;
+                depSelect.innerHTML = '<option value="">Seleccione area primero</option>';
+                depSelect.disabled = true;
+                refrescarSelectBuscadorOrg(dirSearchSelect);
+                refrescarSelectBuscadorOrg(areaSearchSelect);
+                refrescarSelectBuscadorOrg(depSearchSelect);
+                actualizarVisibilidadFiltrosOrganigrama();
+                return;
+            }
+
             var catalogo = Array.isArray(window.organigramaDepartamentosCatalogo) ? window.organigramaDepartamentosCatalogo : [];
             var mapa = new Map();
 
@@ -2587,6 +2688,128 @@
             return String(id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         }
 
+        function buscarFilaOrganigramaPorId(id) {
+            return (organigramaRows || []).find(function (r) {
+                return String(r && r.id) === String(id);
+            }) || (organigramaRowsBase || []).find(function (r) {
+                return String(r && r.id) === String(id);
+            }) || null;
+        }
+
+        function formatearFechaOrg(valor) {
+            if (!valor) return '';
+            var texto = String(valor).trim();
+            var partes = texto.split(/[ T]/)[0].split('-');
+            if (partes.length !== 3) return texto;
+            return partes[2] + '/' + partes[1] + '/' + partes[0];
+        }
+
+        function abrirModalAusenciaOrganigrama(idPersona) {
+            var fila = buscarFilaOrganigramaPorId(idPersona);
+            if (!fila || !fila.ausencia) {
+                abrirModalPersonaJefeOrganigrama(idPersona);
+                return;
+            }
+
+            var ausencia = fila.ausencia || {};
+            var documentos = Array.isArray(ausencia.documentos) ? ausencia.documentos : [];
+            var nombreEl = document.getElementById('orgAusenciaNombre');
+            var puestoEl = document.getElementById('orgAusenciaPuesto');
+            var motivoEl = document.getElementById('orgAusenciaMotivo');
+            var inicioEl = document.getElementById('orgAusenciaInicio');
+            var finEl = document.getElementById('orgAusenciaFin');
+            var descripcionWrap = document.getElementById('orgAusenciaDescripcionWrap');
+            var descripcionEl = document.getElementById('orgAusenciaDescripcion');
+            var docsEl = document.getElementById('orgAusenciaDocumentos');
+            var sinDocsEl = document.getElementById('orgAusenciaSinDocumentos');
+            var cambiarJefeBtn = document.getElementById('orgAusenciaCambiarJefeBtn');
+            var modalEl = document.getElementById('modalDetalleAusenciaOrganigrama');
+
+            if (nombreEl) nombreEl.textContent = fila.nombre || 'Persona';
+            if (puestoEl) puestoEl.textContent = fila.puesto || 'Sin puesto';
+            if (motivoEl) motivoEl.textContent = ausencia.motivo || fila.estado_label || 'Ausencia';
+
+            var inicio = formatearFechaOrg(ausencia.fecha_inicio);
+            var fin = formatearFechaOrg(ausencia.fecha_fin);
+            if (inicioEl) inicioEl.textContent = inicio || 'Sin fecha inicio';
+            if (finEl) finEl.textContent = fin || 'Sin fecha fin';
+
+            var descripcion = String(ausencia.descripcion || '').trim();
+            if (descripcionWrap && descripcionEl) {
+                if (descripcion) {
+                    descripcionEl.textContent = descripcion;
+                    descripcionWrap.classList.remove('d-none');
+                } else {
+                    descripcionEl.textContent = '';
+                    descripcionWrap.classList.add('d-none');
+                }
+            }
+
+            if (docsEl) {
+                docsEl.innerHTML = documentos.map(function (doc) {
+                    var archivo = doc.archivo || '';
+                    var nombreDoc = doc.documento_nombre || 'Documento de ausencia';
+                    var fechaCarga = doc.fecha_carga ? ('Cargado: ' + doc.fecha_carga) : '';
+                    return '<div class="d-flex align-items-center justify-content-between gap-3 rounded border bg-body px-3 py-2">' +
+                        '<div class="min-w-0">' +
+                            '<div class="fw-semibold">' + escapeHtml(nombreDoc) + '</div>' +
+                            '<div class="small text-muted text-truncate">' + escapeHtml(fechaCarga || archivo) + '</div>' +
+                        '</div>' +
+                        '<button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0 org-ausencia-doc-ver" data-archivo="' + escapeHtml(archivo) + '" data-titulo="' + escapeHtml(nombreDoc) + '">' +
+                            '<i class="fa fa-eye me-1"></i>Ver' +
+                        '</button>' +
+                    '</div>';
+                }).join('');
+                docsEl.querySelectorAll('.org-ausencia-doc-ver').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        verDocumentoAusenciaOrganigrama(btn.dataset.archivo || '', btn.dataset.titulo || 'Documento de ausencia');
+                    });
+                });
+            }
+            if (sinDocsEl) sinDocsEl.classList.toggle('d-none', documentos.length > 0);
+
+            if (cambiarJefeBtn) {
+                cambiarJefeBtn.onclick = function () {
+                    if (modalEl && typeof bootstrap !== 'undefined') {
+                        bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+                    }
+                    abrirModalPersonaJefeOrganigrama(idPersona);
+                };
+            }
+
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            }
+        }
+
+        function verDocumentoAusenciaOrganigrama(archivo, titulo) {
+            if (!archivo) {
+                Swal.fire('Sin archivo', 'No se encontro el documento para mostrar.', 'info');
+                return;
+            }
+            var modalEl = document.getElementById('modalDocumentoAusenciaOrganigrama');
+            var frame = document.getElementById('modalDocumentoAusenciaOrganigramaFrame');
+            var tituloEl = document.getElementById('modalDocumentoAusenciaOrganigramaTitulo');
+            var url = '/caphum/verDocumentoPersona?archivo=' + encodeURIComponent(archivo);
+
+            if (!modalEl || !frame || !tituloEl || typeof bootstrap === 'undefined') {
+                window.open(url, '_blank');
+                return;
+            }
+
+            tituloEl.textContent = titulo || 'Documento de ausencia';
+            frame.src = url;
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+
+            if (!modalEl.dataset.orgAusenciaPreviewBound) {
+                modalEl.dataset.orgAusenciaPreviewBound = '1';
+                modalEl.addEventListener('hidden.bs.modal', function () {
+                    var iframe = document.getElementById('modalDocumentoAusenciaOrganigramaFrame');
+                    if (iframe) iframe.src = 'about:blank';
+                });
+            }
+        }
+
         /* ============================= */
         /*   ORGANIGRAMA                 */
         /* ============================= */
@@ -2682,6 +2905,9 @@
                 } else if (fila && fila.tipo_estado === 'baja') {
                     chart.setSelection([]);
                     abrirModalResolverBajaOrganigrama(idSeleccionado);
+                } else if (fila && fila.tipo_estado === 'ausencia') {
+                    chart.setSelection([]);
+                    abrirModalAusenciaOrganigrama(idSeleccionado);
                 } else if (fila) {
                     chart.setSelection([]);
                     abrirModalPersonaJefeOrganigrama(idSeleccionado);
@@ -2705,6 +2931,8 @@
                     abrirModalVacanteOrganigrama(node.dataset.orgId);
                 } else if (node.dataset.orgEstado === 'baja') {
                     abrirModalResolverBajaOrganigrama(node.dataset.orgId);
+                } else if (node.dataset.orgEstado === 'ausencia') {
+                    abrirModalAusenciaOrganigrama(node.dataset.orgId);
                 } else {
                     abrirModalPersonaJefeOrganigrama(node.dataset.orgId);
                 }

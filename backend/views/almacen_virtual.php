@@ -156,13 +156,170 @@
         opacity: .35;
         margin-bottom: .65rem;
     }
+    .av-ficha-hero,
+    .av-ficha-section,
+    .av-ficha-timeline-wrap {
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        border-radius: .5rem;
+    }
+    .av-ficha-hero {
+        background: #f8fafc;
+        padding: 1rem;
+    }
+    .av-ficha-title {
+        color: #1e293b;
+        font-size: 1rem;
+        font-weight: 800;
+    }
+    .av-ficha-moto {
+        color: #475569;
+        font-size: .82rem;
+    }
+    .av-ficha-section {
+        padding: .9rem;
+    }
+    .av-ficha-section-title {
+        color: #1e293b;
+        font-size: .78rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        margin-bottom: .65rem;
+    }
+    .av-ficha-timeline-wrap {
+        overflow-x: auto;
+        padding: 1rem .85rem .85rem;
+    }
+    .av-ficha-timeline {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(7.2rem, 1fr));
+        min-width: 52rem;
+        position: relative;
+    }
+    .av-ficha-timeline::before {
+        content: "";
+        position: absolute;
+        top: 1.35rem;
+        left: 3.6rem;
+        right: 3.6rem;
+        height: 2px;
+        background: #e2e8f0;
+        z-index: 0;
+    }
+    .av-ficha-step {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: .35rem;
+        padding: 0 .35rem;
+    }
+    .av-ficha-step-dot {
+        width: 2.7rem;
+        height: 2.7rem;
+        border-radius: 999px;
+        border: 2px solid #cbd5e1;
+        background: #fff;
+        color: #94a3b8;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .95rem;
+    }
+    .av-ficha-step.is-done .av-ficha-step-dot {
+        border-color: #22c55e;
+        background: #dcfce7;
+        color: #15803d;
+    }
+    .av-ficha-step.is-active .av-ficha-step-dot {
+        border-color: #2563eb;
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+    .av-ficha-step.is-issue .av-ficha-step-dot {
+        border-color: #dc2626;
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+    .av-ficha-step-label {
+        color: #334155;
+        font-size: .72rem;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+    .av-ficha-step-status {
+        color: #64748b;
+        font-size: .68rem;
+        min-height: 1rem;
+        line-height: 1.2;
+    }
+    .av-ficha-kv-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .65rem;
+    }
+    .av-ficha-kv {
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        border-radius: .45rem;
+        padding: .65rem;
+        min-height: 4.25rem;
+    }
+    .av-ficha-kv .label {
+        color: #64748b;
+        font-size: .68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+    .av-ficha-kv .value {
+        color: #1e293b;
+        font-size: .84rem;
+        font-weight: 700;
+        overflow-wrap: anywhere;
+        margin-top: .2rem;
+    }
+    .av-ficha-list {
+        display: flex;
+        flex-direction: column;
+        gap: .55rem;
+    }
+    .av-ficha-list-item {
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        border-radius: .45rem;
+        padding: .65rem;
+    }
+    .av-ficha-list-title {
+        color: #1e293b;
+        font-size: .8rem;
+        font-weight: 800;
+    }
+    .av-ficha-list-meta {
+        color: #64748b;
+        font-size: .72rem;
+        margin-top: .15rem;
+    }
+    .av-ficha-movement-head {
+        display: flex;
+        justify-content: space-between;
+        gap: .75rem;
+        flex-wrap: wrap;
+    }
     @media (max-width: 992px) {
         .av-kpi-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .av-ficha-kv-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
     }
     @media (max-width: 576px) {
         .av-kpi-grid {
+            grid-template-columns: 1fr;
+        }
+        .av-ficha-kv-grid {
             grid-template-columns: 1fr;
         }
         .av-head {
@@ -316,7 +473,7 @@
 </div>
 
 <div class="modal fade" id="av-modal-ficha" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Ficha tecnica</h5>
@@ -387,6 +544,262 @@
             ? 'av-status-' + key
             : 'av-status-default';
         return '<span class="av-status ' + safeClass + '"><i class="fa-solid fa-circle"></i>' + esc(statusLabel(value)) + '</span>';
+    }
+
+    const fichaTimelineSteps = [
+        { key: 'evidencias', label: 'Evidencias', icon: 'fa-camera' },
+        { key: 'recepcion', label: 'Recepcion', icon: 'fa-clipboard-check' },
+        { key: 'pendiente_revision', label: 'Pendiente revision', icon: 'fa-clock' },
+        { key: 'en_revision', label: 'En revision', icon: 'fa-screwdriver-wrench' },
+        { key: 'dictamen', label: 'Dictamen', icon: 'fa-file-circle-check' },
+        { key: 'lista_venta', label: 'Piso de venta', icon: 'fa-store' },
+        { key: 'en_traspaso', label: 'Traspaso', icon: 'fa-right-left' },
+    ];
+
+    function fichaTimelineIndex(estatus) {
+        const map = {
+            pendiente_evidencias: 0,
+            incidencia_evidencias: 0,
+            pendiente_recepcion: 1,
+            en_recepcion: 1,
+            incidencia_recepcion: 1,
+            pendiente_revision: 2,
+            en_revision: 3,
+            reparada: 4,
+            fuera_presupuesto: 4,
+            irreparable: 4,
+            lista_venta: 5,
+            en_traspaso: 6,
+        };
+        return Object.prototype.hasOwnProperty.call(map, estatus) ? map[estatus] : 0;
+    }
+
+    function renderFichaTimeline(estatus) {
+        const current = fichaTimelineIndex(String(estatus || ''));
+        const issue = ['incidencia_evidencias', 'incidencia_recepcion', 'fuera_presupuesto', 'irreparable'].includes(String(estatus || ''));
+        return `
+            <div class="av-ficha-timeline-wrap">
+                <div class="av-ficha-timeline">
+                    ${fichaTimelineSteps.map((step, index) => {
+                        const classes = ['av-ficha-step'];
+                        if (index < current) classes.push('is-done');
+                        if (index === current) classes.push(issue ? 'is-issue' : 'is-active');
+                        return `
+                            <div class="${classes.join(' ')}">
+                                <span class="av-ficha-step-dot"><i class="fa-solid ${step.icon}"></i></span>
+                                <div class="av-ficha-step-label">${esc(step.label)}</div>
+                                <div class="av-ficha-step-status">${index === current ? esc(statusLabel(estatus)) : ''}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    function kv(label, value) {
+        const safeValue = value === null || value === undefined || value === '' ? 'N/A' : value;
+        return `
+            <div class="av-ficha-kv">
+                <div class="label">${esc(label)}</div>
+                <div class="value">${esc(safeValue)}</div>
+            </div>
+        `;
+    }
+
+    const fichaFormularioMotoTrackCampos = [
+        ['tiene_llave_fisica', 'Llave fisica'],
+        ['tiene_tarjeta_circulacion', 'Tarjeta circulacion'],
+        ['tiene_placa_fisica', 'Placa fisica'],
+        ['tipo_unidad', 'Tipo de moto'],
+        ['categoria', 'Categoria'],
+        ['tipo_motor', 'Tipo motor'],
+        ['tipo_motor_combustion', 'Combustion'],
+        ['cilindraje', 'Cilindraje'],
+        ['potencia', 'Potencia'],
+        ['otro_descripcion', 'Otro'],
+        ['comentarios_generales', 'Comentarios generales'],
+    ];
+
+    const fichaFormularioMotoTrackLabels = {
+        si: 'Si',
+        no: 'No',
+        '2_ruedas': '2 ruedas',
+        '3_ruedas': '3 ruedas',
+        cuatrimoto: 'Cuatrimoto',
+        combustion: 'Combustion',
+        electrica: 'Electrica',
+        carburador: 'Carburador',
+        full_inyeccion: 'Full inyeccion',
+        doble_proposito: 'Doble proposito',
+        cross_enduro: 'Cross/Enduro',
+        naked: 'Naked',
+        deportivas: 'Deportivas',
+        custom: 'Custom',
+        scrambler: 'Scrambler',
+        scooter: 'Scooter',
+        touring: 'Touring',
+        otro: 'Otro',
+    };
+
+    function prettyFichaFormularioValue(value) {
+        if (value === null || value === undefined || value === '') return 'Sin capturar';
+        const raw = String(value);
+        if (fichaFormularioMotoTrackLabels[raw]) return fichaFormularioMotoTrackLabels[raw];
+        return raw.replace(/^otro:\s*/i, 'Otro: ').replace(/_/g, ' ').replace(/\bcc\b/gi, 'CC').replace(/\bkw\b/gi, 'KW');
+    }
+
+    function parseFichaPayload(value) {
+        if (!value || typeof value !== 'string') return null;
+        try {
+            return JSON.parse(value);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function fichaFormularioMotoTrackData(unidad, bitacora) {
+        const data = {};
+        (bitacora || []).forEach((row) => {
+            const payload = parseFichaPayload(row.payload_json);
+            if (!payload || typeof payload !== 'object') return;
+            const form = payload.formulario || payload.formulario_mototrack || payload.datos_formulario || payload.evidencias_formulario;
+            if (!form || typeof form !== 'object') return;
+            fichaFormularioMotoTrackCampos.forEach(([key]) => {
+                if ((data[key] === undefined || data[key] === null || data[key] === '') && form[key] !== undefined) {
+                    data[key] = form[key];
+                }
+            });
+        });
+        fichaFormularioMotoTrackCampos.forEach(([key]) => {
+            if (unidad && unidad[key] !== undefined && unidad[key] !== null && unidad[key] !== '') {
+                data[key] = unidad[key];
+            }
+        });
+        return data;
+    }
+
+    function fichaFormularioMotoTrackCamposVisibles(data) {
+        const hasValue = (key) => data[key] !== undefined && data[key] !== null && data[key] !== '';
+        const tipoMotor = String(data.tipo_motor || '').toLowerCase();
+        const keys = [
+            'tiene_llave_fisica',
+            'tiene_tarjeta_circulacion',
+            'tiene_placa_fisica',
+            'tipo_unidad',
+            'categoria',
+            'tipo_motor',
+        ];
+
+        if (tipoMotor === 'electrica') {
+            keys.push('potencia');
+        } else if (tipoMotor === 'combustion') {
+            keys.push('tipo_motor_combustion', 'cilindraje');
+        } else {
+            ['tipo_motor_combustion', 'cilindraje', 'potencia'].forEach((key) => {
+                if (hasValue(key)) keys.push(key);
+            });
+        }
+        if (hasValue('otro_descripcion')) keys.push('otro_descripcion');
+        keys.push('comentarios_generales');
+
+        return fichaFormularioMotoTrackCampos.filter(([key]) => keys.includes(key));
+    }
+
+    function renderFichaDatos(u) {
+        return `
+            <section class="av-ficha-section">
+                <div class="av-ficha-section-title">Datos de inventario</div>
+                <div class="av-ficha-kv-grid">
+                    <div class="av-ficha-kv">
+                        <div class="label">Estatus actual</div>
+                        <div class="value">${statusHtml(u.estatus_inventario)}</div>
+                    </div>
+                    ${kv('VIN/NIV', u.vin)}
+                    ${kv('No. motor', u.no_motor)}
+                    ${kv('Placas', u.placas)}
+                    ${kv('Kilometraje', u.kilometraje)}
+                    ${kv('Ubicacion', u.nombre_ubicacion || 'Sin ubicacion')}
+                    ${kv('Credito historico', u.id_credito || 'N/A')}
+                    ${kv('Ingreso virtual', u.fecha_ingreso_virtual_fmt || u.fecha_alta_fmt || 'N/A')}
+                </div>
+            </section>
+        `;
+    }
+
+    function renderFichaFormularioMotoTrack(u, bitacora) {
+        const data = fichaFormularioMotoTrackData(u || {}, bitacora || []);
+        const hasData = fichaFormularioMotoTrackCampos.some(([key]) => data[key] !== undefined && data[key] !== null && data[key] !== '');
+        return `
+            <section class="av-ficha-section">
+                <div class="av-ficha-section-title">Formulario MotoTrack</div>
+                ${hasData ? `
+                    <div class="av-ficha-kv-grid">
+                        ${fichaFormularioMotoTrackCamposVisibles(data).map(([key, label]) => kv(label, prettyFichaFormularioValue(data[key]))).join('')}
+                    </div>
+                ` : '<div class="text-muted small">Sin formulario MotoTrack capturado.</div>'}
+            </section>
+        `;
+    }
+
+    function renderFichaEvidencias(evidencias) {
+        if (!evidencias.length) {
+            return '<div class="text-muted small">Sin evidencias registradas.</div>';
+        }
+        return '<div class="av-ficha-list">' + evidencias.map((ev) => `
+            <div class="av-ficha-list-item">
+                <div class="av-ficha-list-title">${esc(ev.titulo_slot || ev.slot || 'Evidencia')}</div>
+                <div class="av-ficha-list-meta">
+                    ${esc(ev.estatus || 'recibido')}
+                    ${ev.fecha_alta_fmt || ev.fecha_alta ? ' | ' + esc(ev.fecha_alta_fmt || ev.fecha_alta) : ''}
+                    ${ev.nombre_usuario_alta ? ' | ' + esc(ev.nombre_usuario_alta) : ''}
+                </div>
+                ${ev.url_publica ? `<a class="small" href="${esc(ev.url_publica)}" target="_blank" rel="noopener">Ver archivo</a>` : ''}
+            </div>
+        `).join('') + '</div>';
+    }
+
+    function renderFichaCodigos(codigos) {
+        if (!codigos.length) {
+            return '<div class="text-muted small">Sin codigos registrados.</div>';
+        }
+        return '<div class="av-ficha-list">' + codigos.map((codigo) => `
+            <div class="av-ficha-list-item">
+                <div class="av-ficha-list-title">${esc(codigo.codigo || 'Codigo')}</div>
+                <div class="av-ficha-list-meta">
+                    ${esc(codigo.estatus || '')}
+                    ${codigo.fecha_generacion_fmt ? ' | Generado ' + esc(codigo.fecha_generacion_fmt) : ''}
+                    ${codigo.fecha_expiracion_fmt ? ' | Expira ' + esc(codigo.fecha_expiracion_fmt) : ''}
+                    ${codigo.fecha_uso_fmt ? ' | Usado ' + esc(codigo.fecha_uso_fmt) : ''}
+                </div>
+            </div>
+        `).join('') + '</div>';
+    }
+
+    function renderFichaMovimientos(movimientos) {
+        if (!movimientos.length) {
+            return '<div class="text-muted small">Sin movimientos registrados.</div>';
+        }
+        return '<div class="av-ficha-list">' + movimientos.map((mov) => {
+            const cambio = [statusLabel(mov.estatus_anterior), statusLabel(mov.estatus_nuevo)]
+                .filter((value) => value && value !== 'Sin estatus')
+                .join(' -> ');
+            const ubicacion = [mov.ubicacion_origen, mov.ubicacion_destino].filter(Boolean).join(' -> ');
+            return `
+                <div class="av-ficha-list-item">
+                    <div class="av-ficha-movement-head">
+                        <div class="av-ficha-list-title">${esc(mov.tipo_movimiento || 'Movimiento')}</div>
+                        <div class="av-ficha-list-meta">${esc(mov.fecha_movimiento_fmt || 'Sin fecha')}</div>
+                    </div>
+                    <div class="av-ficha-list-meta">
+                        Usuario: ${esc(mov.nombre_usuario || 'Sistema')}
+                        ${cambio ? ' | ' + esc(cambio) : ''}
+                    </div>
+                    ${ubicacion ? `<div class="av-ficha-list-meta">Ubicacion: ${esc(ubicacion)}</div>` : ''}
+                    ${mov.comentario ? `<div class="small mt-1">${esc(mov.comentario)}</div>` : ''}
+                </div>
+            `;
+        }).join('') + '</div>';
     }
 
     function rangeInfo(total, page, limit, label) {
@@ -646,33 +1059,50 @@
             const evidencias = json.evidencias || [];
             const movimientos = json.movimientos || [];
             const codigos = json.codigos || [];
+            const bitacora = json.bitacora || [];
             if (body) {
                 body.innerHTML = `
                     <div class="row g-3">
-                        <div class="col-12 col-md-6">
-                            <div class="av-unit-main">${esc(u.folio_unidad || ('Unidad #' + u.id_unidad))}</div>
-                            <div class="text-muted small">${esc(moto || 'Sin datos de moto')}</div>
-                            <div class="mt-2">${statusHtml(u.estatus_inventario)}</div>
-                        </div>
-                        <div class="col-12 col-md-6">
-                            <div class="small"><strong>Celula:</strong> ${esc(u.nombre_celula || '')}</div>
-                            <div class="small"><strong>Credito historico:</strong> ${esc(u.id_credito || 'N/A')}</div>
-                            <div class="small"><strong>Ubicacion:</strong> ${esc(u.nombre_ubicacion || 'Sin ubicacion')}</div>
+                        <div class="col-12">
+                            <section class="av-ficha-hero">
+                                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                                    <div>
+                                        <div class="av-ficha-title">${esc(u.folio_unidad || ('Unidad #' + u.id_unidad))}</div>
+                                        <div class="av-ficha-moto">${esc(moto || 'Sin datos de moto')}</div>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="av-unit-sub">Celula</div>
+                                        <div class="fw-bold">${esc(u.nombre_celula || 'Sin celula')}</div>
+                                    </div>
+                                </div>
+                            </section>
                         </div>
                         <div class="col-12">
-                            <div class="small"><strong>VIN:</strong> ${esc(u.vin || 'N/A')} &nbsp; <strong>Motor:</strong> ${esc(u.no_motor || 'N/A')} &nbsp; <strong>Placas:</strong> ${esc(u.placas || 'N/A')}</div>
+                            ${renderFichaTimeline(u.estatus_inventario)}
+                        </div>
+                        <div class="col-12">
+                            ${renderFichaDatos(u)}
+                        </div>
+                        <div class="col-12">
+                            ${renderFichaFormularioMotoTrack(u, bitacora)}
                         </div>
                         <div class="col-12 col-lg-4">
-                            <div class="fw-bold small mb-2">Evidencias</div>
-                            ${evidencias.length ? evidencias.map(ev => `<div class="av-unit-sub">${esc(ev.titulo_slot || ev.slot)} - ${esc(ev.estatus || '')} ${ev.url_publica ? `<a href="${esc(ev.url_publica)}" target="_blank" rel="noopener">ver</a>` : ''}</div>`).join('') : '<div class="text-muted small">Sin evidencias.</div>'}
+                            <section class="av-ficha-section h-100">
+                                <div class="av-ficha-section-title">Evidencias</div>
+                                ${renderFichaEvidencias(evidencias)}
+                            </section>
                         </div>
                         <div class="col-12 col-lg-4">
-                            <div class="fw-bold small mb-2">Codigos</div>
-                            ${codigos.length ? codigos.map(c => `<div class="av-unit-sub">${esc(c.codigo)} - ${esc(c.estatus || '')}</div>`).join('') : '<div class="text-muted small">Sin codigos.</div>'}
+                            <section class="av-ficha-section h-100">
+                                <div class="av-ficha-section-title">Codigos</div>
+                                ${renderFichaCodigos(codigos)}
+                            </section>
                         </div>
                         <div class="col-12 col-lg-4">
-                            <div class="fw-bold small mb-2">Movimientos</div>
-                            ${movimientos.length ? movimientos.map(m => `<div class="av-unit-sub">${esc(m.fecha_movimiento_fmt || '')} - ${esc(m.tipo_movimiento || '')}</div>`).join('') : '<div class="text-muted small">Sin movimientos.</div>'}
+                            <section class="av-ficha-section h-100">
+                                <div class="av-ficha-section-title">Movimientos</div>
+                                ${renderFichaMovimientos(movimientos)}
+                            </section>
                         </div>
                     </div>
                 `;

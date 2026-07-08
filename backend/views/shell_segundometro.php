@@ -265,7 +265,8 @@
     }
     #shellSegundometroAgenteBar .sg-agent-row-bottom {
         margin-top: 8px;
-        display: flex;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         width: 100%;
         gap: 10px;
     }
@@ -288,6 +289,7 @@
         line-height: 1;
         transition: all 0.16s ease;
         white-space: nowrap;
+        min-width: 0;
     }
     #shellSegundometroAgenteBar .sg-tip-btn-face {
         position: relative;
@@ -323,6 +325,9 @@
     #shellSegundometroAgenteBar .sg-btn-label {
         flex: 1;
         text-align: left;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     #shellSegundometroAgenteBar .sg-tip-btn:hover {
         transform: translateY(-1px);
@@ -382,7 +387,6 @@
         min-height: 38px;
         height: 38px;
         width: 100%;
-        flex: 1 1 auto;
         font-size: 0.82rem;
         display: flex;
         justify-content: center;
@@ -447,6 +451,21 @@
         }
         #shellSegundometroAgenteBar .sg-tip-btn-run {
             width: 100%;
+            min-height: 40px;
+        }
+        #shellSegundometroAgenteBar .sg-agent-row-bottom {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+        #shellSegundometroAgenteBar .sg-tip-btn-face {
+            padding-right: 1.2rem;
+        }
+        #shellSegundometroAgenteBar .sg-tip-btn-run .sg-btn-label {
+            flex: 1 1 auto;
+            text-align: left;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
         }
     }
     body.dark-mode #shellSegundometroAgenteBar {

@@ -1312,6 +1312,29 @@ class CapHum extends Controller
                         const puestosPersonaTexto = tienePuestos
                             ? p.puestos.map(puesto => puesto.nombre_puesto || '').filter(Boolean).join(' | ')
                             : (p.nombre_puesto || '');
+                        const normalizarDireccionGestion = value => String(value || '')
+                            .normalize('NFD')
+                            .replace(/[\u0300-\u036f]/g, '')
+                            .trim()
+                            .toLowerCase();
+                        const usuarioPerteneceDireccionCobranza = usuario => {
+                            const direcciones = [];
+                            const respaldos = [];
+                            const agregar = (destino, ...valores) => valores.forEach(valor => {
+                                const limpio = String(valor || '').trim();
+                                if (limpio) destino.push(limpio);
+                            });
+                            agregar(direcciones, usuario?.nombre_direccion, usuario?.direccion_nombre, usuario?.direccion_organizacional, usuario?.direccion);
+                            agregar(respaldos, usuario?.departamento_organizacional_nombre, usuario?.nombre_area, usuario?.area_nombre, usuario?.nombre_departamento);
+                            if (Array.isArray(usuario?.puestos)) {
+                                usuario.puestos.forEach(puesto => {
+                                    agregar(direcciones, puesto?.nombre_direccion, puesto?.direccion_nombre, puesto?.direccion_organizacional, puesto?.direccion);
+                                    agregar(respaldos, puesto?.departamento_organizacional_nombre, puesto?.nombre_area, puesto?.area_nombre, puesto?.nombre_departamento);
+                                });
+                            }
+                            const base = direcciones.length ? direcciones : respaldos;
+                            return base.some(valor => normalizarDireccionGestion(valor).includes('cobranza'));
+                        };
                         const esExternoGestion = ['1', 'true', 'si', 'sí'].includes(String(p.es_externo || '').trim().toLowerCase());
                         const badgeExternoGestion = esExternoGestion
                             ? '<span class="gestion-personal-external-badge" title="Usuario externo: no forma parte de la plantilla interna">Externo</span>'
@@ -1408,10 +1431,12 @@ class CapHum extends Controller
                             acciones: (() => {
                                 const puedeEditar = !!window.puedeEditarTodos;
                                 const miUsuarioId = Number(window.miUsuarioId || 0);
-                                const mostrarEditar = puedeEditar;
+                                const perteneceDireccionCobranza = usuarioPerteneceDireccionCobranza(p);
+                                const mostrarEditar = puedeEditar && perteneceDireccionCobranza;
                                 const mostrarVisualizar = !puedeEditar || miUsuarioId === 1;
                                 const puedePermisos = window.puedeGestionarPermisos;
                                 const puedeEditarRrhh = !!window.puedeEditarUsuarioRrhh;
+                                const mostrarEditarRrhh = puedeEditarRrhh && !perteneceDireccionCobranza;
                                 const puedeActualizarInfo = !!window.puedeActualizarInfo;
                                 const puedeCargarDocumento = !!window.puedeCargarDocumentoGestion;
                                 const puedeRegistrarAusencia = !!window.puedeRegistrarAusenciaGestion;
@@ -1423,7 +1448,7 @@ class CapHum extends Controller
                                 <div class="d-flex flex-column align-items-start gap-1" style="min-width: fit-content;">
                                     <div class="d-flex flex-wrap gap-1">
                                     ${mostrarEditar
-                                        ? `<button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar (M&uacute;ltiples puestos)' : 'Editar'}">
+                                        ? `<button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar cobranza con m&uacute;ltiples puestos' : 'Editar cobranza'}">
                                         ${tienePuestos ? '<span class="indicator-multiples-puestos">' + p.puestos.length + '</span>' : ''}
                                         <i class="fa fa-edit"></i>
                                     </button>`
@@ -1455,7 +1480,7 @@ class CapHum extends Controller
                                         <i class="fa fa-lock" style="color: #007bff;"></i>
                                     </button>` : ''}
                                     </div>
-                                    ${puedeEditarRrhh ? `<button class="btn btn-sm btn-info text-white d-inline-flex align-items-center justify-content-center gap-1 px-3" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH.">
+                                    ${mostrarEditarRrhh ? `<button class="btn btn-sm btn-info text-white d-inline-flex align-items-center justify-content-center gap-1 px-3" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH.">
                                         <i class="fa fa-user-pen"></i><span>Editar RR.HH.</span>
                                     </button>` : ''}
                                 </div>`;
@@ -1637,30 +1662,185 @@ class CapHum extends Controller
                 });
             };
 
+            function actualizarEncabezadoCobranza(persona, usuarioData) {
+                const avatar = document.getElementById('edit_cobranza_avatar');
+                const subtitulo = document.getElementById('edit_cobranza_subtitle');
+                const contador = document.getElementById('edit_cobranza_puestos_count');
+                const nombre = [
+                    persona?.nombres,
+                    persona?.segundo_nombre,
+                    persona?.apellidop,
+                    persona?.apellidom
+                ].map(v => String(v || '').trim()).filter(Boolean);
+                const iniciales = nombre.length
+                    ? nombre.slice(0, 2).map(v => v.charAt(0)).join('').toUpperCase()
+                    : '--';
+                const puestos = Array.isArray(usuarioData?.puestos) && usuarioData.puestos.length
+                    ? usuarioData.puestos
+                    : (persona?.nombre_puesto || persona?.nombre_departamento ? [{
+                        nombre_puesto: persona?.nombre_puesto || '',
+                        nombre_departamento: persona?.nombre_departamento || ''
+                    }] : []);
+                const puestoPrincipal = puestos[0] || {};
+                const textoPuesto = [puestoPrincipal.nombre_puesto, puestoPrincipal.nombre_departamento]
+                    .map(v => String(v || '').trim())
+                    .filter(Boolean)
+                    .join(' · ');
+                if (avatar) {
+                    const fotoPerfil = String(persona?.foto_perfil || usuarioData?.foto_perfil || '').trim();
+                    avatar.innerHTML = '';
+                    avatar.setAttribute('aria-label', nombre.length ? `Foto de ${nombre.join(' ')}` : 'Avatar de usuario');
+                    if (fotoPerfil) {
+                        const img = document.createElement('img');
+                        img.src = fotoPerfil;
+                        img.alt = nombre.length ? `Foto de ${nombre.join(' ')}` : 'Foto de usuario';
+                        img.loading = 'lazy';
+                        img.decoding = 'async';
+                        img.onerror = () => {
+                            avatar.textContent = iniciales;
+                        };
+                        avatar.appendChild(img);
+                    } else {
+                        avatar.textContent = iniciales;
+                    }
+                }
+                if (subtitulo) subtitulo.textContent = textoPuesto || 'Usuario de cobranza';
+                if (contador) contador.textContent = String(puestos.length || 0);
+            }
+
             function setModoEdicion() {
+                window.modoAltaCobranza = false;
                 const rowContrasena = document.getElementById('edit_row_contrasena');
                 const inputContrasena = document.getElementById('edit_contrasena');
                 const titulo = document.getElementById('offcanvasEditUserTitle');
                 const btnGuardar = document.getElementById('edit_btn_guardar');
                 const form = document.getElementById('editNewUserForm');
+                const numeroEmpleadoWrap = document.getElementById('edit_num_empleado_wrap');
+                const fechaIngresoWrap = document.getElementById('edit_fecha_ingreso_wrap');
+                const curpLabel = document.getElementById('edit_curp_label');
+                const inputUsuario = document.getElementById('edit_usuario');
+                if (numeroEmpleadoWrap) numeroEmpleadoWrap.classList.remove('d-none');
+                if (fechaIngresoWrap) fechaIngresoWrap.classList.add('d-none');
+                if (curpLabel) curpLabel.textContent = 'CURP (opcional)';
                 if (rowContrasena) rowContrasena.style.display = '';
                 if (inputContrasena) inputContrasena.disabled = false;
-                if (titulo) titulo.textContent = 'Editar Usuario';
+                if (inputUsuario) inputUsuario.readOnly = true;
+                if (titulo) titulo.textContent = 'Editar cobranza';
                 if (btnGuardar) btnGuardar.style.display = '';
                 if (form) {
                     form.querySelectorAll('input, select, button[type="button"]').forEach(el => { el.disabled = false; });
                 }
             }
+            function inicializarFechaIngresoCobranza() {
+                const input = document.getElementById('edit_fecha_ingreso');
+                if (!input) return;
+                const hoy = new Date();
+                hoy.setDate(hoy.getDate() + 1);
+                const fechaMax = hoy.toISOString().slice(0, 10);
+                if (typeof flatpickr === 'undefined') {
+                    input.type = 'date';
+                    input.max = fechaMax;
+                    input.readOnly = false;
+                    return;
+                }
+                if (input._flatpickr) {
+                    input._flatpickr.destroy();
+                }
+                flatpickr(input, {
+                    dateFormat: 'Y-m-d',
+                    maxDate: fechaMax,
+                    allowInput: false,
+                    clickOpens: true,
+                    appendTo: document.body,
+                    static: false,
+                    locale: (flatpickr.l10ns && flatpickr.l10ns.es) ? flatpickr.l10ns.es : undefined
+                });
+            }
+            function setModoAltaCobranza() {
+                window.modoAltaCobranza = true;
+                window.modoVisualizarConEdicionCobranza = false;
+                window.puestosUsuarioActual = [];
+                window.puestosUsuarioModificados = false;
+                window.puestosEliminadosUsuario = [];
+                window.puestoPrincipalOriginalUsuario = null;
+                resetEditCombos();
+
+                const form = document.getElementById('editNewUserForm');
+                const titulo = document.getElementById('offcanvasEditUserTitle');
+                const subtitulo = document.getElementById('edit_cobranza_subtitle');
+                const btnGuardar = document.getElementById('edit_btn_guardar');
+                const numeroEmpleadoWrap = document.getElementById('edit_num_empleado_wrap');
+                const fechaIngresoWrap = document.getElementById('edit_fecha_ingreso_wrap');
+                const curpLabel = document.getElementById('edit_curp_label');
+                const inputUsuario = document.getElementById('edit_usuario');
+                const inputContrasena = document.getElementById('edit_contrasena');
+                const rowContrasena = document.getElementById('edit_row_contrasena');
+                const contenedorPuestos = document.getElementById('edit_contenedor_multiples_puestos');
+                const alertaPuestos = document.getElementById('edit_alerta_multiples_puestos');
+                const contador = document.getElementById('edit_cobranza_puestos_count');
+
+                if (form) {
+                    form.querySelectorAll('input, select, button[type="button"]').forEach(el => {
+                        el.disabled = false;
+                        if ('readOnly' in el) el.readOnly = false;
+                    });
+                    form.querySelectorAll('input').forEach(el => {
+                        if (['checkbox', 'radio'].includes(el.type)) el.checked = false;
+                        else el.value = '';
+                    });
+                    form.querySelectorAll('select').forEach(el => { el.value = ''; });
+                }
+                if (titulo) titulo.textContent = 'Agregar cobranza';
+                if (subtitulo) subtitulo.textContent = 'Nuevo usuario de cobranza';
+                if (btnGuardar) {
+                    btnGuardar.style.display = '';
+                    btnGuardar.disabled = false;
+                    btnGuardar.innerHTML = '<i class="fa fa-save me-1"></i>Guardar usuario';
+                }
+                if (numeroEmpleadoWrap) numeroEmpleadoWrap.classList.add('d-none');
+                if (fechaIngresoWrap) fechaIngresoWrap.classList.remove('d-none');
+                if (curpLabel) curpLabel.textContent = 'CURP *';
+                if (inputUsuario) inputUsuario.readOnly = false;
+                if (inputContrasena) inputContrasena.disabled = false;
+                if (rowContrasena) rowContrasena.style.display = '';
+                if (contenedorPuestos) contenedorPuestos.classList.add('d-none');
+                if (alertaPuestos) alertaPuestos.classList.add('d-none');
+                if (contador) contador.textContent = '0';
+                actualizarEncabezadoCobranza({}, { puestos: [] });
+                cargarPaisesCobranzaCombo('');
+                window.cargarAreasCobranzaCombo('', '');
+                if (typeof resetCascadaEdit === 'function') {
+                    resetCascadaEdit();
+                } else if (typeof ocultarBloquesDomicilio === 'function') {
+                    ocultarBloquesDomicilio('edit');
+                }
+                if (typeof window.refrescarSelectsBuscadorOffcanvas === 'function') {
+                    window.refrescarSelectsBuscadorOffcanvas('offcanvasEditUser');
+                }
+                setTimeout(inicializarFechaIngresoCobranza, 50);
+            }
+            window.abrirAgregarCobranza = function () {
+                setModoAltaCobranza();
+                const modalEditarCobranza = bootstrap.Modal.getOrCreateInstance(document.getElementById('offcanvasEditUser'));
+                modalEditarCobranza.show();
+            };
             function setModoVisualizar() {
+                window.modoAltaCobranza = false;
                 const rowContrasena = document.getElementById('edit_row_contrasena');
                 const inputContrasena = document.getElementById('edit_contrasena');
                 const titulo = document.getElementById('offcanvasEditUserTitle');
                 const btnGuardar = document.getElementById('edit_btn_guardar');
                 const form = document.getElementById('editNewUserForm');
+                const numeroEmpleadoWrap = document.getElementById('edit_num_empleado_wrap');
+                const fechaIngresoWrap = document.getElementById('edit_fecha_ingreso_wrap');
+                const curpLabel = document.getElementById('edit_curp_label');
+                if (numeroEmpleadoWrap) numeroEmpleadoWrap.classList.remove('d-none');
+                if (fechaIngresoWrap) fechaIngresoWrap.classList.add('d-none');
+                if (curpLabel) curpLabel.textContent = 'CURP (opcional)';
                 const permisosEdicion = window.permisosEdicionCobranzaGestion || {};
                 const puedeVerContrasena = !!window.puedeVisualizarContrasenaGestion || !!permisosEdicion.contrasena;
                 if (rowContrasena) rowContrasena.style.display = puedeVerContrasena ? '' : 'none';
-                if (titulo) titulo.textContent = 'Visualizar Usuario';
+                if (titulo) titulo.textContent = 'Visualizar cobranza';
                 if (btnGuardar) btnGuardar.style.display = 'none';
                 if (form) {
                     form.querySelectorAll('input, select').forEach(el => { el.disabled = true; });
@@ -1720,11 +1900,11 @@ class CapHum extends Controller
                     if ('readOnly' in el) el.readOnly = false;
                     el.disabled = true;
                 });
-                if (titulo) titulo.textContent = 'Visualizar Usuario - edici\u00f3n limitada';
+                if (titulo) titulo.textContent = 'Visualizar cobranza - edici\u00f3n limitada';
                 if (btnGuardar) {
                     btnGuardar.style.display = '';
                     btnGuardar.disabled = false;
-                    btnGuardar.innerHTML = 'Guardar';
+                    btnGuardar.innerHTML = '<i class="fa fa-save me-1"></i>Guardar cambios';
                 }
 
                 const campos = {
@@ -1830,6 +2010,7 @@ class CapHum extends Controller
 
                     // Siempre mostrar sección de múltiples puestos para poder agregar más
                     const usuarioData = usuariosData.find(u => u.id === id);
+                    actualizarEncabezadoCobranza(persona, usuarioData);
                     const labelPrincipal = document.getElementById('edit_label_principal');
                     const labelPuestoPrincipal = document.getElementById('edit_label_puesto_principal');
                     const tieneVarios = usuarioData && usuarioData.puestos && usuarioData.puestos.length > 1;
@@ -1855,14 +2036,19 @@ class CapHum extends Controller
                     document.getElementById("edit_contrasena").value = persona.password ?? '';
 
                     // 1ï¸âƒ£ DEPARTAMENTOS (SIEMPRE)
-                    cargarDepartamentosCombo(null, persona.id_departamento);
+                    prepararJerarquiaCobranzaDesdeDepartamento(
+                        persona.id_pais,
+                        persona.id_departamento,
+                        persona.id_puesto,
+                        persona.id_jefe
+                    );
 
                     // 2ï¸âƒ£ PUESTOS (SOLO SI HAY DEPARTAMENTO)
                     if (persona.id_departamento) {
-                        cargarPuestosCombo(persona.id_departamento, persona.id_puesto);
+
 
                         // 3ï¸âƒ£ JEFE (SOLO SI HAY DEPARTAMENTO; con puesto para Legal/Abogado etc.)
-                        cargarComboJefeDirecto(persona.id_departamento, persona.id_jefe, persona.id_puesto);
+
                     }
 
                     // 4ï¸âƒ£ LEGIÃ“N
@@ -1888,11 +2074,11 @@ class CapHum extends Controller
                          );
                     }
 
-                    // MOSTRAR OFFCANVAS
-                    const offcanvas = new bootstrap.Offcanvas(
+                    // MOSTRAR MODAL
+                    const modalEditarCobranza = bootstrap.Modal.getOrCreateInstance(
                         document.getElementById('offcanvasEditUser')
                     );
-                    offcanvas.show();
+                    modalEditarCobranza.show();
                 })
                 .catch(err => {
                     console.error(err);
@@ -1925,6 +2111,8 @@ class CapHum extends Controller
                         return;
                     }
                     const persona = data.datos;
+                    const usuarioData = usuariosData.find(u => u.id === id);
+                    actualizarEncabezadoCobranza(persona, usuarioData);
                     document.getElementById("edit_num_empleado").value = persona.numero_empleado ?? '';
                     document.getElementById("edit_id").value = persona.id ?? '';
                     document.getElementById("edit_nombres").value = persona.nombres ?? '';
@@ -1938,11 +2126,12 @@ class CapHum extends Controller
                     if (elCorreoV) elCorreoV.value = persona.correo ?? '';
                     document.getElementById("edit_usuario").value = persona.user_name ?? '';
                     document.getElementById("edit_contrasena").value = (window.puedeVisualizarContrasenaGestion || tienePermisoEdicionCobranza('contrasena')) ? (persona.password ?? '') : '';
-                    cargarDepartamentosCombo(null, persona.id_departamento);
-                    if (persona.id_departamento) {
-                        cargarPuestosCombo(persona.id_departamento, persona.id_puesto);
-                        cargarComboJefeDirecto(persona.id_departamento, persona.id_jefe, persona.id_puesto);
-                    }
+                    prepararJerarquiaCobranzaDesdeDepartamento(
+                        persona.id_pais,
+                        persona.id_departamento,
+                        persona.id_puesto,
+                        persona.id_jefe
+                    );
                     const checkLegion = document.getElementById('edit_asignar_legion');
                     const divLegion = document.getElementById('edit_div_select_legion');
                     const selectLegion = document.getElementById('edit_id_legion');
@@ -1974,8 +2163,8 @@ class CapHum extends Controller
                         setTimeout(aplicarPermisosEdicionCobranzaAlOffcanvas, 250);
                         setTimeout(aplicarPermisosEdicionCobranzaAlOffcanvas, 700);
                     }
-                    const offcanvas = new bootstrap.Offcanvas(document.getElementById('offcanvasEditUser'));
-                    offcanvas.show();
+                    const modalEditarCobranza = bootstrap.Modal.getOrCreateInstance(document.getElementById('offcanvasEditUser'));
+                    modalEditarCobranza.show();
                 })
                 .catch(err => {
                     console.error(err);
@@ -1984,11 +2173,19 @@ class CapHum extends Controller
             }
 
             function resetEditCombos() {
+            const pais = document.getElementById('edit_id_pais');
+            const area = document.getElementById('edit_area_id');
             const dep = document.getElementById('edit_departamento_id');
             const puesto = document.getElementById('edit_id_puesto');
             const jefe = document.getElementById('edit_id_jefe');
 
+            if (pais) pais.value = '';
+            if (area) {
+                area.innerHTML = '<option value="">Seleccione un area</option>';
+                area.disabled = true;
+            }
             dep.innerHTML = '<option value="">Seleccione un departamento</option>';
+            dep.disabled = true;
 
             puesto.innerHTML = '<option value="">Seleccione un puesto</option>';
             puesto.disabled = true;
@@ -2003,6 +2200,8 @@ class CapHum extends Controller
             if (selectLegion) selectLegion.value = '';
             if (divLegion) divLegion.style.display = 'none';
             if (typeof window.refreshSelectBuscador === 'function') {
+                window.refreshSelectBuscador('edit_id_pais');
+                window.refreshSelectBuscador('edit_area_id');
                 window.refreshSelectBuscador('edit_departamento_id');
                 window.refreshSelectBuscador('edit_id_puesto');
                 window.refreshSelectBuscador('edit_id_jefe');
@@ -2022,62 +2221,185 @@ class CapHum extends Controller
                 }
             }
 
-            function cargarDepartamentosCombo(id, seleccionado = null) {
-                    fetch('/CapHum/getDepartamento', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
+            function normalizarTextoCobranzaGestion(valor) {
+                return String(valor || '')
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .trim()
+                    .toLowerCase();
+            }
 
-                        if (!data.success) {
-                            Swal.fire("Error", data.mensaje, "error");
-                            return;
-                        }
+            function valorDeptoCobranza(dep, campos) {
+                for (const campo of campos) {
+                    if (dep && dep[campo] !== undefined && dep[campo] !== null && String(dep[campo]).trim() !== '') {
+                        return dep[campo];
+                    }
+                }
+                return '';
+            }
 
-                        const select = document.getElementById('edit_departamento_id');
-                        if (typeof window.jQuery !== 'undefined') {
-                            const jqSelect = window.jQuery(select);
-                            if (jqSelect.hasClass('select2-hidden-accessible')) {
-                                jqSelect.select2('destroy');
-                            }
-                        }
-                        select.innerHTML = '<option value="">Seleccione un departamento</option>';
+            function idDeptoCobranza(dep) {
+                return valorDeptoCobranza(dep, ['id', 'departamento_id', 'id_departamento']);
+            }
 
-                        const idsPermitidos = new Set((Array.isArray(data.datos) ? data.datos : [])
-                            .map(dep => String(dep.id || dep.departamento_id || ''))
-                            .filter(Boolean));
-                        const listaCobranza = Array.isArray(window.departamentosCobranzaEditarUsuarioBackend)
-                            ? window.departamentosCobranzaEditarUsuarioBackend.filter(dep => {
-                                const idDep = dep.id || dep.departamento_id || '';
-                                return idDep && idsPermitidos.has(String(idDep));
-                            })
-                            : (Array.isArray(data.datos) ? data.datos : []).filter(dep => {
-                                const area = String(dep.departamento_organizacional_nombre || dep.nombre_departamento_organizacional || dep.area_nombre || dep.nombre_area || '')
-                                    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').trim().toLowerCase();
-                                return area === 'cobranza' || area === 'cobranza corporativo';
-                            });
+            function nombreDeptoCobranza(dep) {
+                return valorDeptoCobranza(dep, ['nombre', 'departamento_nombre', 'nombre_departamento']);
+            }
 
-                        listaCobranza.forEach(dep => {
-                            const option = document.createElement('option');
-                            option.value = dep.id;
-                            option.textContent = dep.nombre;
+            function idAreaCobranza(dep) {
+                return valorDeptoCobranza(dep, ['id_departamento_organizacional', 'id_area', 'area_id']);
+            }
 
-                            if (String(dep.id) === String(seleccionado)) {
-                                option.selected = true;
-                            }
+            function nombreAreaCobranza(dep) {
+                return valorDeptoCobranza(dep, ['departamento_organizacional_nombre', 'nombre_departamento_organizacional', 'nombre_area', 'area_nombre']);
+            }
 
-                            select.appendChild(option);
-                        });
-                        if (typeof window.refreshSelectBuscador === 'function') {
-                            window.refreshSelectBuscador('edit_departamento_id');
-                        }
-                        if (typeof aplicarPermisosEdicionCobranzaAlOffcanvas === 'function') {
-                            aplicarPermisosEdicionCobranzaAlOffcanvas();
-                        }
+            function idPaisCobranza(dep) {
+                return valorDeptoCobranza(dep, ['id_pais', 'pais_id', 'idPais']) || '1';
+            }
+
+            function obtenerDepartamentosCobranzaGestion() {
+                const base = Array.isArray(window.departamentosCobranzaEditarUsuarioBackend)
+                    ? window.departamentosCobranzaEditarUsuarioBackend
+                    : [];
+                if (base.length) return base;
+                return (Array.isArray(window.catalogoCompletoDeptosBackend) ? window.catalogoCompletoDeptosBackend : [])
+                    .filter(dep => {
+                        const area = normalizarTextoCobranzaGestion(nombreAreaCobranza(dep));
+                        return area === 'cobranza' || area === 'cobranza campo' || area === 'cobranza corporativo';
+                    });
+            }
+
+            function refrescarSelectCobranzaGestion(selectId) {
+                if (typeof window.refreshSelectBuscador === 'function') {
+                    window.refreshSelectBuscador(selectId);
+                }
+            }
+
+            function cargarPaisesCobranzaCombo(seleccionado = '') {
+                const select = document.getElementById('edit_id_pais');
+                if (!select) return;
+                const paises = Array.isArray(window.paisesActivosBackend) ? window.paisesActivosBackend : [];
+                if (!select.options.length || select.options.length <= 1) {
+                    select.innerHTML = '<option value="">Seleccione un pais</option>';
+                    paises.forEach(pais => {
+                        const option = document.createElement('option');
+                        option.value = pais.id || pais.id_pais || '';
+                        option.textContent = pais.nombre || pais.pais || '';
+                        if (pais.codigo_iso) option.dataset.iso = pais.codigo_iso;
+                        select.appendChild(option);
                     });
                 }
+                select.value = seleccionado ? String(seleccionado) : '';
+                select.disabled = false;
+                refrescarSelectCobranzaGestion('edit_id_pais');
+            }
+
+            window.cargarAreasCobranzaCombo = function (idPais = '', seleccionado = '') {
+                const select = document.getElementById('edit_area_id');
+                const depSelect = document.getElementById('edit_departamento_id');
+                const puestoSelect = document.getElementById('edit_id_puesto');
+                const jefeSelect = document.getElementById('edit_id_jefe');
+                if (!select) return;
+
+                select.innerHTML = '<option value="">Seleccione un area</option>';
+                select.disabled = true;
+                if (depSelect) {
+                    depSelect.innerHTML = '<option value="">Seleccione un departamento</option>';
+                    depSelect.disabled = true;
+                }
+                if (puestoSelect) {
+                    puestoSelect.innerHTML = '<option value="">Seleccione un puesto</option>';
+                    puestoSelect.disabled = true;
+                }
+                if (jefeSelect) {
+                    jefeSelect.innerHTML = '<option value="">Seleccione un jefe</option>';
+                    jefeSelect.disabled = true;
+                }
+
+                const paisFiltro = String(idPais || '');
+                const areas = new Map();
+                obtenerDepartamentosCobranzaGestion().forEach(dep => {
+                    const paisDep = String(idPaisCobranza(dep) || '');
+                    if (paisFiltro && paisDep && paisDep !== paisFiltro) return;
+                    const idArea = String(idAreaCobranza(dep) || '');
+                    const nombreArea = String(nombreAreaCobranza(dep) || '').trim();
+                    if (!idArea || !nombreArea) return;
+                    areas.set(idArea, nombreArea);
+                });
+
+                Array.from(areas.entries())
+                    .sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }))
+                    .forEach(([idArea, nombreArea]) => {
+                        const option = document.createElement('option');
+                        option.value = idArea;
+                        option.textContent = nombreArea;
+                        if (String(idArea) === String(seleccionado)) option.selected = true;
+                        select.appendChild(option);
+                    });
+
+                select.disabled = !paisFiltro || areas.size === 0;
+                refrescarSelectCobranzaGestion('edit_area_id');
+                refrescarSelectCobranzaGestion('edit_departamento_id');
+                refrescarSelectCobranzaGestion('edit_id_puesto');
+                refrescarSelectCobranzaGestion('edit_id_jefe');
+            };
+
+            function cargarDepartamentosCombo(idArea = null, seleccionado = null, opts = {}) {
+                const select = document.getElementById('edit_departamento_id');
+                if (!select) return;
+                const paisFiltro = String(opts.idPais || document.getElementById('edit_id_pais')?.value || '');
+                const areaFiltro = String(idArea || document.getElementById('edit_area_id')?.value || '');
+
+                select.innerHTML = '<option value="">Seleccione un departamento</option>';
+                select.disabled = true;
+
+                const departamentos = obtenerDepartamentosCobranzaGestion()
+                    .filter(dep => {
+                        const paisDep = String(idPaisCobranza(dep) || '');
+                        const areaDep = String(idAreaCobranza(dep) || '');
+                        if (paisFiltro && paisDep && paisDep !== paisFiltro) return false;
+                        if (areaFiltro && areaDep !== areaFiltro) return false;
+                        if (window.modoAltaCobranza && !areaFiltro) return false;
+                        return true;
+                    })
+                    .sort((a, b) => String(nombreDeptoCobranza(a)).localeCompare(String(nombreDeptoCobranza(b)), 'es', { sensitivity: 'base' }));
+
+                departamentos.forEach(dep => {
+                    const option = document.createElement('option');
+                    option.value = idDeptoCobranza(dep);
+                    option.textContent = nombreDeptoCobranza(dep);
+                    option.dataset.pais = idPaisCobranza(dep);
+                    option.dataset.area = idAreaCobranza(dep);
+                    if (String(option.value) === String(seleccionado)) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+
+                select.disabled = departamentos.length === 0;
+                refrescarSelectCobranzaGestion('edit_departamento_id');
+                if (typeof aplicarPermisosEdicionCobranzaAlOffcanvas === 'function') {
+                    aplicarPermisosEdicionCobranzaAlOffcanvas();
+                }
+            }
+
+            function prepararJerarquiaCobranzaDesdeDepartamento(idPais, idDepartamento, idPuesto = null, idJefe = null) {
+                const depActual = obtenerDepartamentosCobranzaGestion().find(dep => String(idDeptoCobranza(dep)) === String(idDepartamento || ''));
+                const paisFinal = String(idPais || (depActual ? idPaisCobranza(depActual) : '') || '');
+                const areaFinal = depActual ? String(idAreaCobranza(depActual) || '') : '';
+
+                cargarPaisesCobranzaCombo(paisFinal);
+                window.cargarAreasCobranzaCombo(paisFinal, areaFinal);
+                cargarDepartamentosCombo(areaFinal, idDepartamento, { idPais: paisFinal });
+
+                if (idDepartamento) {
+                    cargarPuestosCombo(idDepartamento, idPuesto);
+                    if (idPuesto) {
+                        cargarComboJefeDirecto(idDepartamento, idJefe, idPuesto);
+                    }
+                }
+            }
 
             function cargarPuestosCombo(id_departamento, seleccionado = null) {
                     fetch('/CapHum/getPuestosParaGestor', {
@@ -2180,7 +2502,25 @@ class CapHum extends Controller
                 if (!idDepartamento) return;
 
                 cargarPuestosCombo(idDepartamento);
-                cargarComboJefeDirecto(idDepartamento, null, null);
+            }
+            function handleEditAreaChange() {
+                const areaEl = document.getElementById('edit_area_id');
+                const idArea = areaEl ? areaEl.value : '';
+                const puesto = document.getElementById('edit_id_puesto');
+                const jefe = document.getElementById('edit_id_jefe');
+                if (puesto) {
+                    puesto.innerHTML = '<option value="">Seleccione un puesto</option>';
+                    puesto.disabled = true;
+                }
+                if (jefe) {
+                    jefe.innerHTML = '<option value="">Seleccione un jefe</option>';
+                    jefe.disabled = true;
+                }
+                cargarDepartamentosCombo(idArea, null);
+                if (typeof window.refreshSelectBuscador === 'function') {
+                    window.refreshSelectBuscador('edit_id_puesto');
+                    window.refreshSelectBuscador('edit_id_jefe');
+                }
             }
             function onEditDepartamentoChangeCompleto() {
                 handleEditDepartamentoChange();
@@ -2188,20 +2528,39 @@ class CapHum extends Controller
                     sincronizarPrincipalConListaPuestos();
                 }
             }
+            function handleEditPuestoChange() {
+                const puestoEl = document.getElementById('edit_id_puesto');
+                const depEl = document.getElementById('edit_departamento_id');
+                const jefe = document.getElementById('edit_id_jefe');
+                const idPuesto = puestoEl ? puestoEl.value : '';
+                const idDepartamento = depEl ? depEl.value : '';
+
+                if (jefe) {
+                    jefe.innerHTML = '<option value="">Seleccione un jefe</option>';
+                    jefe.disabled = true;
+                }
+                if (typeof window.refreshSelectBuscador === 'function') {
+                    window.refreshSelectBuscador('edit_id_jefe');
+                }
+
+                if (!idDepartamento || !idPuesto) return;
+                cargarComboJefeDirecto(idDepartamento, null, idPuesto);
+                if (typeof sincronizarPrincipalConListaPuestos === 'function') {
+                    sincronizarPrincipalConListaPuestos();
+                }
+            }
             if (typeof window.jQuery !== 'undefined' && window.jQuery.fn.select2) {
+                window.jQuery('#edit_area_id').off('change.gestionEditArea').on('change.gestionEditArea', handleEditAreaChange);
                 window.jQuery('#edit_departamento_id').off('change.gestionEditDepto').on('change.gestionEditDepto', onEditDepartamentoChangeCompleto);
+                window.jQuery('#edit_id_puesto').off('change.gestionEditPuesto').on('change.gestionEditPuesto', handleEditPuestoChange);
             } else {
+                const areaEdit = document.getElementById('edit_area_id');
+                if (areaEdit) areaEdit.addEventListener('change', handleEditAreaChange);
                 const depEdit = document.getElementById('edit_departamento_id');
                 if (depEdit) depEdit.addEventListener('change', onEditDepartamentoChangeCompleto);
+                const puestoEdit = document.getElementById('edit_id_puesto');
+                if (puestoEdit) puestoEdit.addEventListener('change', handleEditPuestoChange);
             }
-
-            document.getElementById('edit_id_puesto').addEventListener('change', function () {
-                const idPuesto = this.value;
-                const idDepartamento = document.getElementById('edit_departamento_id').value;
-                if (!idDepartamento) return;
-                cargarComboJefeDirecto(idDepartamento, null, idPuesto || null);
-                if (typeof sincronizarPrincipalConListaPuestos === 'function') sincronizarPrincipalConListaPuestos();
-            });
 
 
             let currentPersonaId = null;
@@ -3142,6 +3501,20 @@ class CapHum extends Controller
                 }
 
                 const sortByName = (a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' });
+                const razonSocialEmpresaPerfil = (id, nombre, razonSocial) => {
+                    const eid = String(id || '');
+                    const nombreNormalizado = String(nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                    if (eid === '2' || nombreNormalizado.includes('furia')) return 'Pensionamx S.A.P.I. de C.V';
+                    if (eid === '1' || nombreNormalizado.includes('__SPARTA_SECRET_REDACTED__')) return 'Amigos Efectivo S.A.P.I. de C.V';
+                    const razon = String(razonSocial || '').trim();
+                    if (razon) return razon;
+                    return '';
+                };
+                const nombreEmpresaPerfil = (id, nombre, razonSocial) => {
+                    const base = String(nombre || (String(id || '') === '2' ? 'Furia Motos' : 'MaxiKash')).trim();
+                    const razon = razonSocialEmpresaPerfil(id, base, razonSocial);
+                    return razon ? `${base} (${razon})` : base;
+                };
                 const byPais = {};
                 (permisosJerarquia.areas || []).forEach(a => {
                     const k = String(a.id_pais || 0);
@@ -3188,7 +3561,7 @@ class CapHum extends Controller
                         const eid = String(emp.id || 1);
                         empresasMap.set(eid, {
                             id: eid,
-                            nombre: emp.nombre || (eid === '2' ? 'Furia Motos' : 'MaxiKash'),
+                            nombre: nombreEmpresaPerfil(eid, emp.nombre, emp.razon_social),
                             areas: []
                         });
                     });
@@ -3198,7 +3571,7 @@ class CapHum extends Controller
                         if (!empresasMap.has(eid)) {
                             empresasMap.set(eid, {
                                 id: eid,
-                                nombre: areaOriginal?.nombre_empresa || (eid === '2' ? 'Furia Motos' : 'MaxiKash'),
+                                nombre: nombreEmpresaPerfil(eid, areaOriginal?.nombre_empresa, areaOriginal?.razon_social_empresa),
                                 areas: []
                             });
                         }
@@ -3319,7 +3692,9 @@ class CapHum extends Controller
                 function actualizarTotalesFooter(paisObj) {
                     const ids = puestosDePais(paisObj);
                     const st = estadoMaster(ids);
-                    totalLbl.textContent = String(st.selected);
+                    totalLbl.textContent = st.total > 0
+                        ? `${st.selected} de ${st.total} puestos seleccionados`
+                        : 'Sin puestos disponibles';
                 }
 
                 function renderSidebar() {
@@ -3340,7 +3715,8 @@ class CapHum extends Controller
                         const banderaHtml = pais.codigoIso
                             ? '<span class="fi fi-' + pais.codigoIso + ' fis" style="font-size:1.05rem;border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,.15);" aria-hidden="true"></span>'
                             : '<i class="fa fa-globe text-muted" aria-hidden="true"></i>';
-                        left.innerHTML = banderaHtml + '<span class="small fw-semibold">' + escPermisos(pais.nombre) + '</span><span class="badge text-bg-light border">' + st.selected + '</span>';
+                        const textoSeleccionPais = st.total > 0 ? `${st.selected} de ${st.total}` : 'Sin puestos';
+                        left.innerHTML = banderaHtml + '<span class="small fw-semibold">' + escPermisos(pais.nombre) + '</span><span class="badge text-bg-light border" title="Puestos seleccionados en este país">' + escPermisos(textoSeleccionPais) + '</span>';
 
                         const cb = document.createElement('input');
                         cb.type = 'checkbox';
@@ -3397,7 +3773,7 @@ class CapHum extends Controller
                     if (!pais) {
                         switchPais.checked = false;
                         switchPais.indeterminate = false;
-                        totalLbl.textContent = '0';
+                        totalLbl.textContent = 'Sin puestos disponibles';
                         return;
                     }
 
@@ -6037,9 +6413,9 @@ class CapHum extends Controller
                         tituloPendiente: 'Usuario actualizado, Legacy pendiente',
                         mensajeDefault: 'Gestor actualizado correctamente'
                     }).then(() => {
-                        bootstrap.Offcanvas.getInstance(
-                            document.getElementById('offcanvasEditUser')
-                        ).hide();
+                        const modalEditarCobranza = bootstrap.Modal.getInstance(document.getElementById('offcanvasEditUser'))
+                            || bootstrap.Modal.getOrCreateInstance(document.getElementById('offcanvasEditUser'));
+                        modalEditarCobranza.hide();
 
                         if (typeof getUsuarios === 'function') getUsuarios();
                     });
@@ -6125,7 +6501,137 @@ class CapHum extends Controller
                 });
             }
 
+            function guardarGestorCobranzaDesdeModal() {
+                let departamento = document.getElementById("edit_departamento_id")?.value || '';
+                let area = document.getElementById("edit_area_id")?.value || '';
+                let puesto = document.getElementById("edit_id_puesto")?.value || '';
+                const jefe = document.getElementById("edit_id_jefe")?.value || '';
+                const asignarLegion = !!document.getElementById("edit_asignar_legion")?.checked;
+                const idLegion = document.getElementById("edit_id_legion")?.value || '';
+                const nombres = document.getElementById("edit_nombres")?.value?.trim() || '';
+                const segundo_nombre = document.getElementById("edit_segundo_nombre")?.value?.trim() || '';
+                const apellidop = document.getElementById("edit_apellidop")?.value?.trim() || '';
+                const apellidom = document.getElementById("edit_apellidom")?.value?.trim() || '';
+                const curp = (document.getElementById("edit_curp")?.value || '').trim().toUpperCase();
+                const telefono = document.getElementById("edit_telefono")?.value?.trim() || '';
+                const correo = document.getElementById("edit_correo")?.value?.trim() || '';
+                const usuario = document.getElementById("edit_usuario")?.value?.trim() || '';
+                const contrasena = document.getElementById("edit_contrasena")?.value?.trim() || '';
+                const fecha_ingreso = document.getElementById("edit_fecha_ingreso")?.value?.trim() || '';
+                const id_div_nivel1 = leerValorSelectDivision('edit_id_div_nivel1');
+                const id_div_nivel2 = leerValorSelectDivision('edit_id_div_nivel2');
+                const id_div_nivel3 = leerValorSelectDivision('edit_id_div_nivel3');
+                const id_div_nivel4 = leerValorSelectDivision('edit_id_div_nivel4');
+                const domicilio_calle_texto = document.getElementById('edit_domicilio_calle_texto')?.value?.trim() || null;
+                const domicilio_num_exterior = document.getElementById('edit_domicilio_num_exterior')?.value?.trim() || null;
+                const domicilio_num_interior = document.getElementById('edit_domicilio_num_interior')?.value?.trim() || null;
+                const codigo_postal = document.getElementById('edit_codigo_postal')?.value?.trim() || null;
+                const depOption = document.getElementById("edit_departamento_id")?.selectedOptions?.[0];
+                const id_pais = document.getElementById("edit_id_pais")?.value || depOption?.dataset?.pais || '';
+
+                if (!nombres) return Swal.fire('Error', 'Los nombres son obligatorios', 'error');
+                if (!apellidop) return Swal.fire('Error', 'El apellido paterno es obligatorio', 'error');
+                if (!apellidom) return Swal.fire('Error', 'El apellido materno es obligatorio', 'error');
+                if (!curp) return Swal.fire('Error', 'El CURP es obligatorio', 'error');
+                if (!/^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d$/.test(curp)) {
+                    return Swal.fire('Error', 'El CURP debe tener 18 caracteres con formato valido.', 'error');
+                }
+                if (!telefono) return Swal.fire('Error', 'El telefono es obligatorio', 'error');
+                if (!fecha_ingreso) return Swal.fire('Error', 'La fecha de ingreso es obligatoria', 'error');
+                if (!id_pais) return Swal.fire('Error', 'Debe seleccionar un pais', 'error');
+                if (!area) return Swal.fire('Error', 'Debe seleccionar un area', 'error');
+                if (!departamento) return Swal.fire('Error', 'Debe seleccionar un departamento', 'error');
+                if (!puesto) return Swal.fire('Error', 'Debe seleccionar un puesto', 'error');
+                if (asignarLegion && !idLegion) return Swal.fire('Error', 'Debe seleccionar una legion', 'error');
+                if (!usuario) return Swal.fire('Error', 'Usuario obligatorio', 'error');
+                if (!contrasena) return Swal.fire('Error', 'Ingresa una contrasena', 'error');
+                if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+                    return Swal.fire('Correo invalido', 'Revisa el formato del correo electronico o dejalo vacio.', 'warning');
+                }
+
+                const idColoniaEdit = id_div_nivel3 || '';
+                const cpEdit = document.getElementById('edit_codigo_postal')?.value?.trim() || '';
+                const calleTxtEdit = document.getElementById('edit_domicilio_calle_texto')?.value?.trim() || '';
+                const idCalleEdit = id_div_nivel4 || '';
+                const capturaDomicilioEdit = !!(idColoniaEdit || cpEdit || calleTxtEdit || idCalleEdit);
+                if (capturaDomicilioEdit && !domicilio_num_exterior) {
+                    return Swal.fire('Error', 'El numero exterior es obligatorio cuando captura domicilio.', 'error');
+                }
+
+                Swal.fire({
+                    title: 'Guardando usuario...',
+                    html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p style="margin-top: 1rem;">Guardando en Spartan y sincronizando con Legacy...</p>',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                fetch('/CapHum/getInsertarGestor', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        nombres,
+                        segundo_nombre,
+                        apellidop,
+                        apellidom,
+                        curp,
+                        telefono,
+                        correo,
+                        fecha_ingreso,
+                        id_pais,
+                        id_div_nivel1: id_div_nivel1 || null,
+                        id_div_nivel2: id_div_nivel2 || null,
+                        id_div_nivel3: id_div_nivel3 || null,
+                        id_div_nivel4: id_div_nivel4 || null,
+                        domicilio_calle_texto,
+                        domicilio_num_exterior,
+                        domicilio_num_interior,
+                        codigo_postal,
+                        id_puesto: puesto,
+                        departamento_id: departamento,
+                        id_jefe: jefe || null,
+                        asignar_legion: asignarLegion,
+                        id_legion: asignarLegion ? idLegion : null,
+                        es_externo: false,
+                        usuario,
+                        contrasena
+                    })
+                })
+                .then(res => {
+                    if (!res.ok) throw new Error('Error HTTP');
+                    return res.json();
+                })
+                .then(data => {
+                    if (!data.success) {
+                        return Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.mensaje || 'No se pudo registrar'
+                        });
+                    }
+                    return swalAltaUsuarioLegacy(data).then(() => {
+                        const modalEditarCobranza = bootstrap.Modal.getInstance(document.getElementById('offcanvasEditUser'))
+                            || bootstrap.Modal.getOrCreateInstance(document.getElementById('offcanvasEditUser'));
+                        modalEditarCobranza.hide();
+                        window.modoAltaCobranza = false;
+                        if (typeof getUsuarios === 'function') getUsuarios({ showLoader: false });
+                    });
+                })
+                .catch(err => {
+                    console.error(err);
+                    Swal.fire('Error', 'No se pudo registrar el usuario', 'error');
+                });
+            }
+
             function UpdateGestor() {
+                if (window.modoAltaCobranza) {
+                    guardarGestorCobranzaDesdeModal();
+                    return;
+                }
                 const esEdicionParcialCobranza = !!window.modoVisualizarConEdicionCobranza;
 
                 let departamento = document.getElementById("edit_departamento_id").value;  // <---- esta es la linea 2009
@@ -6268,9 +6774,9 @@ class CapHum extends Controller
 
                     Swal.fire("Exito", "Gestor actualizado correctamente", "success");
 
-                    bootstrap.Offcanvas.getInstance(
-                        document.getElementById('offcanvasEditUser')
-                    ).hide();
+                    const modalEditarCobranza = bootstrap.Modal.getInstance(document.getElementById('offcanvasEditUser'))
+                        || bootstrap.Modal.getOrCreateInstance(document.getElementById('offcanvasEditUser'));
+                    modalEditarCobranza.hide();
 
                     if (typeof getUsuarios === 'function') getUsuarios();
                 });
@@ -21327,21 +21833,26 @@ class CapHum extends Controller
         $healthUrl = rtrim($baseUrl, '/') . '/health';
         $healthOk = false;
         $hLastErr = '';
-        for ($hi = 0; $hi < 1; $hi++) {
+        $healthAttempts = [];
+        $healthTimeoutsMs = [1500, 2500, 3500];
+        foreach ($healthTimeoutsMs as $hi => $healthTimeoutMs) {
             if ($hi > 0) {
-                usleep(500000);
+                usleep(350000);
             }
             $hc = curl_init($healthUrl);
+            $hStart = microtime(true);
             curl_setopt_array($hc, [
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT_MS => 1500,
-                CURLOPT_CONNECTTIMEOUT_MS => 1000,
+                CURLOPT_TIMEOUT_MS => $healthTimeoutMs,
+                CURLOPT_CONNECTTIMEOUT_MS => min(1500, $healthTimeoutMs),
                 CURLOPT_NOBODY => false,
             ]);
             $hBody = curl_exec($hc);
             $hCode = (int) curl_getinfo($hc, CURLINFO_HTTP_CODE);
             $hErr = curl_error($hc);
+            $hMs = (int) round((microtime(true) - $hStart) * 1000);
             curl_close($hc);
+            $healthAttempts[] = '#' . ($hi + 1) . ' HTTP ' . ($hCode ?: 'sin respuesta') . ' en ' . $hMs . 'ms' . ($hErr !== '' ? ' (' . $hErr . ')' : '');
             if ($hCode === 200 && $hBody !== false) {
                 $healthOk = true;
                 break;
@@ -21349,7 +21860,8 @@ class CapHum extends Controller
             $hLastErr = $hErr;
         }
         if (!$healthOk) {
-            return ['error' => 'La API no responde (health-check en ' . $healthUrl . '). Revise [doc_verificacion] api_url/api_key en backend/config/config.ini, que el agente Python esté en marcha (puerto 8001, ej. backend\\API\\iniciar-agente.bat) y que la clave coincida con la del servicio. ' . ($hLastErr !== '' ? $hLastErr : '')];
+            $detalleHealth = implode('; ', $healthAttempts);
+            return ['error' => 'La API no responde despues de 3 intentos de health-check en ' . $healthUrl . '. Revise [doc_verificacion] api_url/api_key en backend/config/config.ini, que el agente Python esté en marcha en el puerto configurado y que la clave coincida con la del servicio. ' . ($detalleHealth !== '' ? $detalleHealth : $hLastErr)];
         }
 
         $docCfg = is_array($config['doc_verificacion'] ?? null) ? $config['doc_verificacion'] : [];
@@ -27491,8 +28003,17 @@ public function getEstadosMunicipiosMexico()
             foreach ($rows as &$rowOrg) {
                 $rid = isset($rowOrg['id']) && is_numeric($rowOrg['id']) ? (int)$rowOrg['id'] : 0;
                 if ($rid > 0 && isset($ausencias[$rid]) && empty($rowOrg['tipo_estado'])) {
+                    $documentosAusencia = $ausencias[$rid]['documentos'] ?? [];
                     $rowOrg['tipo_estado'] = 'ausencia';
                     $rowOrg['estado_label'] = $ausencias[$rid]['razon_nombre'] ?? 'Ausencia';
+                    $rowOrg['ausencia'] = [
+                        'id' => isset($ausencias[$rid]['id']) ? (int)$ausencias[$rid]['id'] : null,
+                        'motivo' => $ausencias[$rid]['razon_nombre'] ?? 'Ausencia',
+                        'fecha_inicio' => $ausencias[$rid]['fecha_inicio'] ?? null,
+                        'fecha_fin' => $ausencias[$rid]['fecha_fin'] ?? null,
+                        'descripcion' => $ausencias[$rid]['descripcion'] ?? '',
+                        'documentos' => is_array($documentosAusencia) ? array_values($documentosAusencia) : [],
+                    ];
                 }
             }
             unset($rowOrg);

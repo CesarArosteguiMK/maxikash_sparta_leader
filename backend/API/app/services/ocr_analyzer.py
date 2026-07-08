@@ -79,7 +79,8 @@ class OCRAnalyzer:
         try:
             texto_completo = self._extraer_mejor_texto(image_bytes)
             if tipo_doc in [TipoDocumento.INE_NUEVA, TipoDocumento.INE_ANTERIOR]:
-                resultado = self._validar_ine(texto_completo)
+                mrz_text = self._extraer_mrz_dedicado(image_bytes)
+                resultado = self._validar_ine(texto_completo + "\n" + mrz_text)
                 if not resultado.curp or not resultado.curp.get("valor"):
                     curp_zona = self._extraer_curp_zona_dedicada(image_bytes)
                     if curp_zona:
@@ -479,19 +480,50 @@ class OCRAnalyzer:
                 alertas.append(f"Sección electoral inválida: {seccion_num}")
                 score -= 0.10
 
-        vigencia_match = re.search(r"VIGENCIA[:\s]+(\d{4})", texto) or re.search(r"VIGE[:\s]+(\d{4})", texto)
+        vigencia_match = (
+            re.search(r"VIGENCIA[:\s]+(\d{4})(?:\s*[-/A]\s*(\d{4}))?", texto)
+            or re.search(r"VIGE[:\s]+(\d{4})(?:\s*[-/A]\s*(\d{4}))?", texto)
+        )
         vigencia_resultado = None
         if vigencia_match:
             campos_detectados += 1
-            año_vigencia = int(vigencia_match.group(1))
-            año_actual = datetime.now().year
-            es_valida = año_actual <= año_vigencia <= año_actual + 10
-            vigencia_resultado = {"valor": año_vigencia, "coherente": es_valida}
+            anio_inicio = int(vigencia_match.group(1))
+            anio_fin = int(vigencia_match.group(2) or vigencia_match.group(1))
+            anio_actual = datetime.now().year
+            es_valida = anio_actual <= anio_fin <= anio_actual + 10
+            vigencia_resultado = {"valor": anio_fin, "inicio": anio_inicio if vigencia_match.group(2) else None, "fin": anio_fin, "coherente": es_valida}
             if es_valida:
                 campos_validos += 1
             else:
-                alertas.append(f"Vigencia incoherente: {año_vigencia}")
+                alertas.append(f"Vigencia incoherente: {anio_fin}")
                 score -= 0.15
+
+        mrz = self._parsear_mrz(self._normalizar(texto))
+        mrz_venc = mrz.get("fecha_vencimiento_mrz")
+        if mrz_venc:
+            try:
+                d, m, y = [int(part) for part in mrz_venc.split("/")]
+                anio_mrz = y
+                anio_actual = datetime.now().year
+                if anio_actual <= anio_mrz <= anio_actual + 10 and (
+                    not vigencia_resultado or not vigencia_resultado.get("coherente")
+                ):
+                    if not vigencia_resultado:
+                        campos_detectados += 1
+                    else:
+                        alertas = [a for a in alertas if "Vigencia incoherente" not in str(a)]
+                        score += 0.15
+                    campos_validos += 1
+                    vigencia_resultado = {
+                        "valor": anio_mrz,
+                        "inicio": None,
+                        "fin": anio_mrz,
+                        "fecha": f"{y:04d}-{m:02d}-{d:02d}",
+                        "fuente": "MRZ",
+                        "coherente": True,
+                    }
+            except Exception:
+                pass
 
         if "INSTITUTO NACIONAL ELECTORAL" in texto or "INE" in texto:
             campos_detectados += 1

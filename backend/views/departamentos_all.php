@@ -219,18 +219,19 @@
     .organizacion-empresa-visual {
         width: 112px;
         height: 112px;
-        border-radius: 1rem;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #f3f6fa 0%, #ffffff 100%);
-        border: 1px solid rgba(67, 89, 113, 0.18);
+        background: transparent;
+        border: none;
         color: #2f3f50;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 8px 18px rgba(47,63,80,.08);
+        box-shadow: none;
     }
     .organizacion-empresa-visual i {
         font-size: 3.8rem;
         line-height: 1;
+        opacity: .9;
+        filter: drop-shadow(0 4px 8px rgba(47,63,80,.14));
     }
     .organizacion-back-btn {
         border-color: #1d2f4f !important;
@@ -257,6 +258,53 @@
     #departamentosAccordion .dept-card:hover {
         transform: translateY(-3px);
         box-shadow: 0 10px 28px rgba(0, 0, 0, 0.1) !important;
+    }
+    #departamentosAccordion .dept-visual {
+        width: 112px;
+        height: 112px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #1d2f4f;
+        background: transparent;
+    }
+    #departamentosAccordion .dept-visual i {
+        font-size: 3.7rem;
+        line-height: 1;
+        opacity: .9;
+        filter: drop-shadow(0 4px 8px rgba(29,47,79,.14));
+    }
+    #departamentosAccordion .dept-visual-img {
+        max-width: 120px;
+        max-height: 120px;
+        object-fit: contain;
+    }
+    #departamentosAccordion .dept-visual-tech {
+        color: #1d2f4f;
+    }
+    #departamentosAccordion .dept-visual-audit {
+        color: #1d2f4f;
+    }
+    #departamentosAccordion .dept-visual-support {
+        color: #1d2f4f;
+    }
+    #departamentosAccordion .dept-visual-data {
+        color: #1d2f4f;
+    }
+    #departamentosAccordion .dept-visual-legal {
+        color: #1d2f4f;
+    }
+    #departamentosAccordion .dept-visual-money {
+        color: #1d2f4f;
+    }
+    #departamentosAccordion .dept-visual-digital {
+        color: #1d2f4f;
+    }
+    #departamentosAccordion .dept-visual-ops {
+        color: #1d2f4f;
+    }
+    #departamentosAccordion .dept-visual-risk {
+        color: #1d2f4f;
     }
 
     /* ===== LIQUID GLASS: MODALES DEPARTAMENTO ===== */
@@ -323,6 +371,9 @@
     }
     body.dark-mode #departamentosAccordion .dept-card:hover {
         box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3) !important;
+    }
+    body.dark-mode #departamentosAccordion .dept-visual {
+        color: #dbeafe;
     }
     /* Dark Mode: Modales */
     body.dark-mode #addDepartamentoModal .modal-content {
