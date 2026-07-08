@@ -2147,8 +2147,7 @@ function _actualizarBotonReactivacion() {
 
     var hayPermiso = _permSolicitarReactivacion || _permReactivarOfertas;
     var hayOfertas = Array.isArray(_ofertasReactivables) && _ofertasReactivables.length > 0;
-    var estaSaldado = _estatusS2 && _estatusS2.statusCredito === 'Saldado';
-    var puedeMostrar = hayPermiso && hayOfertas && _estatusConvenio !== 'activo' && !estaSaldado;
+    var puedeMostrar = hayPermiso && hayOfertas && _estatusConvenio !== 'activo';
 
     btn.style.display = puedeMostrar ? 'inline-block' : 'none';
     if (puedeMostrar) {
@@ -4891,14 +4890,14 @@ window.reactivarOfertasCredito = function (preselectId, ev) {
     if (!_credito) return;
 
     var ofertas = (_ofertasReactivables || []).filter(function (o) {
-        return o && o.nombre !== 'Convenio Pago Mixto';
+        return !!o;
     });
     if (!ofertas.length) {
         _actualizarBotonReactivacion();
         Swal.fire({
             icon: 'info',
             title: 'Sin ofertas por reactivar',
-            text: 'No hay ofertas con convenio cancelado vigente para iniciar este flujo.'
+            text: 'No hay ofertas con historial anterior disponible para iniciar este flujo.'
         });
         return;
     }

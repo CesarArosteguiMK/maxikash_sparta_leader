@@ -14,6 +14,9 @@ $modulosAlmacenVirtual = [
         'estado' => 'Activo',
         'activo' => true,
     ],
+    /*
+     * Flujo migrado a MaxiApp-Sparta-MotoTrack. Se conserva la vista web anterior
+     * como respaldo, pero Sparta ya no debe operar evidencias/codigo.
     [
         'titulo' => 'Evidencias y codigo',
         'texto' => 'Fotografias, serial VIN de 17 digitos y codigo unico antes de recepcion.',
@@ -24,9 +27,10 @@ $modulosAlmacenVirtual = [
         'estado' => 'Activo',
         'activo' => true,
     ],
+     */
     [
         'titulo' => 'Recepcion almacen',
-        'texto' => 'Checklist espejo, validacion de evidencia, arranque de motor y discrepancias.',
+        'texto' => 'Revision de evidencias moviles, codigo de ingreso, documentos y pase a mecanica.',
         'url' => '/MotosAdjudicadas/recepcionAlmacen',
         'btn' => 'Abrir recepcion',
         'icon' => 'fa-clipboard-check',
@@ -88,7 +92,7 @@ $modulosAlmacenVirtual = [
                     <div class="av-eyebrow">Motos Adjudicadas</div>
                     <h4 class="mb-1">Almacen Virtual</h4>
                     <div class="text-muted small">
-                        HOLA, <?= $nombreUsuario; ?>. Entrada operativa para inventario, recepcion, mecanico, kanban, piso de venta y traspasos.
+                        HOLA, <?= $nombreUsuario; ?>. Entrada operativa para inventario, recepcion, revision administrativa de mecanica, kanban, piso de venta y traspasos.
                     </div>
                 </div>
             </div>
@@ -102,7 +106,7 @@ $modulosAlmacenVirtual = [
     <div class="av-roadmap-strip mb-4">
         <div>
             <div class="av-roadmap-title">Roadmap del proyecto</div>
-            <div class="text-muted small">Base alineada a requerimientos: transportista, recepcion, evidencias, mecanico, kanban, venta y traspaso.</div>
+            <div class="text-muted small">Base alineada a requerimientos: transportista, evidencias moviles, recepcion, revision mecanica administrativa, kanban, venta y traspaso.</div>
         </div>
         <span class="badge bg-label-primary text-primary">Modulo 139</span>
     </div>

@@ -29,6 +29,15 @@ class MotosAdjudicadas extends Controller
         return $this->inventarioModel;
     }
 
+    private function respuestaEvidenciasCodigoMigrado(): array
+    {
+        return [
+            'success' => false,
+            'migrado_mototrack' => true,
+            'message' => 'Evidencias y Codigo fue migrado a MotoTrack. Usa la app movil para cargar evidencias y Recepcion de Almacen en Sparta para validar ingreso.',
+        ];
+    }
+
     private function slotsEvidenciasAlmacenVirtual(): array
     {
         return [
@@ -521,9 +530,11 @@ class MotosAdjudicadas extends Controller
     public function evidenciasCodigo()
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        self::set('titulo', 'Evidencias y Codigo - Almacen Virtual ' . $emp);
+        self::set('titulo', 'Evidencias y Codigo migrado a MotoTrack - Almacen Virtual ' . $emp);
         self::set('av_modulo_id', InventarioMotosDAO::moduloAlmacenVirtual());
-        return self::render('almacen_virtual_evidencias');
+        // Flujo migrado a MotoTrack. Se conserva la vista anterior como respaldo.
+        // return self::render('almacen_virtual_evidencias');
+        return self::render('almacen_virtual_evidencias_migrado');
     }
 
     /**
@@ -717,6 +728,9 @@ class MotosAdjudicadas extends Controller
     public function evidenciasCodigoResumen()
     {
         header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($this->respuestaEvidenciasCodigoMigrado(), JSON_UNESCAPED_UNICODE);
+        return;
+
         try {
             echo json_encode([
                 'success' => true,
@@ -734,6 +748,9 @@ class MotosAdjudicadas extends Controller
     public function evidenciasCodigoUnidades()
     {
         header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($this->respuestaEvidenciasCodigoMigrado(), JSON_UNESCAPED_UNICODE);
+        return;
+
         try {
             $filtros = [
                 'q' => trim((string) ($_GET['q'] ?? '')),
@@ -756,6 +773,9 @@ class MotosAdjudicadas extends Controller
     public function evidenciasCodigoGenerar()
     {
         header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($this->respuestaEvidenciasCodigoMigrado(), JSON_UNESCAPED_UNICODE);
+        return;
+
         $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
         $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
         $idUnidad = (int) ($_POST['id_unidad'] ?? $_GET['id_unidad'] ?? 0);
@@ -777,6 +797,9 @@ class MotosAdjudicadas extends Controller
     public function evidenciasCodigoValidar()
     {
         header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($this->respuestaEvidenciasCodigoMigrado(), JSON_UNESCAPED_UNICODE);
+        return;
+
         $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
         $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
         $idUnidad = (int) ($_POST['id_unidad'] ?? 0);
@@ -879,6 +902,7 @@ class MotosAdjudicadas extends Controller
         $idUnidad = (int) ($_POST['id_unidad'] ?? 0);
         $datos = [
             'id_ubicacion' => (int) ($_POST['id_ubicacion'] ?? 0),
+            'codigo_verificacion' => trim((string) ($_POST['codigo_verificacion'] ?? '')),
             'vin' => trim((string) ($_POST['vin'] ?? '')),
             'no_motor' => trim((string) ($_POST['no_motor'] ?? '')),
             'placas' => trim((string) ($_POST['placas'] ?? '')),

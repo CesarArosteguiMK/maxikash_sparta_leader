@@ -216,7 +216,7 @@ class TrackingRecoleccion extends Model
         $departure = isset($extra['departure_minutes']) ? max(0, (int) $extra['departure_minutes']) : null;
         $travel = isset($extra['travel_from_prev_minutes']) ? max(0, (int) $extra['travel_from_prev_minutes']) : null;
         $operation = isset($extra['operation_minutes']) ? max(0, (int) $extra['operation_minutes']) : null;
-        $dayIndex = isset($extra['day_index']) ? max(0, (int) $extra['day_index']) : 0;
+        $dayIndex = isset($extra['day_index']) ? max(-1, (int) $extra['day_index']) : 0;
         $pinned = !empty($extra['pinned']) ? 1 : 0;
         $edited = !empty($extra['edited']) ? 1 : 0;
         $this->db->CRUD(
@@ -430,9 +430,13 @@ class TrackingRecoleccion extends Model
             if (!$punto) {
                 return ['success' => false, 'message' => 'Punto de ruta no encontrado.'];
             }
-            if (strtotime($fecha) < strtotime((string) $punto['fecha_programada'])) {
-                return ['success' => false, 'message' => 'La planeacion no puede ser anterior a la fecha de inicio de la ruta.'];
+            $fechaInicioRuta = (string) $punto['fecha_programada'];
+            $fechaMinimaPermitida = date('Y-m-d', strtotime($fechaInicioRuta . ' -1 day'));
+            if (strtotime($fecha) < strtotime($fechaMinimaPermitida)) {
+                return ['success' => false, 'message' => 'La planeacion solo puede adelantarse un dia antes de la fecha de inicio de la ruta.'];
             }
+            $segundosDiferencia = strtotime($fecha) - strtotime($fechaInicioRuta);
+            $extraPlaneacion['day_index'] = (int) floor($segundosDiferencia / 86400);
             $anterior = [
                 'fecha_recoleccion' => $punto['fecha_recoleccion'] ?? null,
                 'orden_dia' => $punto['orden_dia'] ?? null,
@@ -490,6 +494,24 @@ class TrackingRecoleccion extends Model
             return ['success' => false, 'message' => $motivoValidado['message']];
         }
         $motivo = $motivoValidado['value'];
+        $ruta = $this->db->queryOne(
+            "SELECT fecha_programada
+             FROM asigna_horas_tracking
+             WHERE id_ruta = :id_ruta
+             LIMIT 1",
+            ['id_ruta' => $idRuta]
+        );
+        if (!$ruta) {
+            return ['success' => false, 'message' => 'Ruta no encontrada.'];
+        }
+        $fechaInicioRuta = (string) $ruta['fecha_programada'];
+        $fechaMinimaPermitida = date('Y-m-d', strtotime($fechaInicioRuta . ' -1 day'));
+        foreach ($items as $item) {
+            $fechaItem = trim((string) ($item['fecha_recoleccion'] ?? ''));
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaItem) && strtotime($fechaItem) < strtotime($fechaMinimaPermitida)) {
+                return ['success' => false, 'message' => 'La planeacion solo puede adelantarse un dia antes de la fecha de inicio de la ruta.'];
+            }
+        }
         try {
             $this->db->beginTransaction();
             $total = 0;

@@ -179,6 +179,35 @@
         padding: .7rem;
         margin-bottom: .85rem;
     }
+    .avr-formulario-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .45rem;
+        margin-bottom: .85rem;
+    }
+    .avr-formulario-item {
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        border-radius: .45rem;
+        padding: .55rem;
+        min-height: 3.75rem;
+    }
+    .avr-formulario-item.is-wide {
+        grid-column: 1 / -1;
+    }
+    .avr-formulario-item .label {
+        color: #64748b;
+        font-size: .68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+    .avr-formulario-item .value {
+        color: #1e293b;
+        font-size: .78rem;
+        font-weight: 700;
+        overflow-wrap: anywhere;
+        margin-top: .15rem;
+    }
     .avr-cedis-lock .label {
         color: #64748b;
         font-size: .72rem;
@@ -240,8 +269,12 @@
     @media (max-width: 576px) {
         .avr-kpi-grid,
         .avr-check-grid,
-        .avr-evidence-grid {
+        .avr-evidence-grid,
+        .avr-formulario-grid {
             grid-template-columns: 1fr;
+        }
+        .avr-formulario-item.is-wide {
+            grid-column: auto;
         }
         .avr-head {
             padding: .9rem;
@@ -264,7 +297,7 @@
             <span class="avr-head-icon"><i class="fa-solid fa-clipboard-check"></i></span>
             <div>
                 <h4 class="mb-1">Recepcion de Almacen</h4>
-                <div class="text-muted small">Entrada fisica de unidades con evidencias y codigo validados.</div>
+                <div class="text-muted small">Revision de evidencias recibidas desde MotoTrack, codigo de ingreso y pase a revision mecanica.</div>
                 <div class="avr-sync-status" id="avr-sync-status"></div>
             </div>
         </div>
@@ -399,7 +432,7 @@
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <form class="modal-content" id="avr-form-recepcion" enctype="multipart/form-data">
             <div class="modal-header">
-                <h5 class="modal-title">Confirmar recepcion</h5>
+                <h5 class="modal-title">Validar recepcion y codigo</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
@@ -408,15 +441,19 @@
                 <div class="row g-3">
                     <div class="col-12 col-lg-7">
                         <div class="row g-3">
-                            <div class="col-12 col-md-6">
+                            <div class="col-12 col-md-4">
                                 <label class="form-label small fw-bold" for="avr-modal-ubicacion">Ubicacion de recepcion</label>
-                                <select class="form-select" name="id_ubicacion" id="avr-modal-ubicacion" required>
+                                <select class="form-select" name="id_ubicacion" id="avr-modal-ubicacion">
                                     <option value="">Seleccionar</option>
                                 </select>
                             </div>
-                            <div class="col-12 col-md-6">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label small fw-bold" for="avr-codigo-verificacion">Codigo de ingreso</label>
+                                <input type="text" class="form-control text-uppercase" name="codigo_verificacion" id="avr-codigo-verificacion" maxlength="24" autocomplete="off">
+                            </div>
+                            <div class="col-12 col-md-4">
                                 <label class="form-label small fw-bold" for="avr-vin">VIN/NIV</label>
-                                <input type="text" class="form-control" name="vin" id="avr-vin" maxlength="17" autocomplete="off" required>
+                                <input type="text" class="form-control" name="vin" id="avr-vin" maxlength="17" autocomplete="off">
                             </div>
                             <div class="col-12 col-md-4">
                                 <label class="form-label small fw-bold" for="avr-no-motor">No. motor</label>
@@ -462,6 +499,12 @@
                                 <label class="form-label small fw-bold" for="avr-observaciones">Observaciones</label>
                                 <textarea class="form-control" name="observaciones" id="avr-observaciones" rows="3" maxlength="1000"></textarea>
                             </div>
+                            <div class="col-12">
+                                <div class="avr-review-title mb-2">Formulario MotoTrack</div>
+                                <div class="avr-formulario-grid" id="avr-formulario-mototrack">
+                                    <div class="avr-evidence-empty">Cargando formulario...</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="col-12 col-lg-5">
@@ -478,11 +521,11 @@
                             <div class="avr-doc-grid">
                                 <div>
                                     <label class="form-label small fw-bold" for="rec_doc_factura_moto">Factura de la moto</label>
-                                    <input type="file" class="form-control" name="rec_doc_factura_moto" id="rec_doc_factura_moto" accept=".pdf,image/*" required>
+                                    <input type="file" class="form-control" name="rec_doc_factura_moto" id="rec_doc_factura_moto" accept=".pdf,image/*">
                                 </div>
                                 <div>
                                     <label class="form-label small fw-bold" for="rec_doc_tarjeta_circulacion">Tarjeta de circulacion</label>
-                                    <input type="file" class="form-control" name="rec_doc_tarjeta_circulacion" id="rec_doc_tarjeta_circulacion" accept=".pdf,image/*" required>
+                                    <input type="file" class="form-control" name="rec_doc_tarjeta_circulacion" id="rec_doc_tarjeta_circulacion" accept=".pdf,image/*">
                                 </div>
                             </div>
                         </aside>
@@ -553,12 +596,132 @@
     }
 
     const evidenciaLabels = {
+        foto_tacometro: 'Tacometro',
         foto_frontal: 'Frontal',
         foto_lateral_derecha: 'Lateral derecha',
         foto_trasera: 'Trasera',
         foto_lateral_izquierda: 'Lateral izquierda',
         foto_vin: 'VIN/NIV',
+        video_360_encendida: 'Video 360 encendida',
+        foto_checklist: 'Checklist',
     };
+
+    const formularioMotoTrackCampos = [
+        ['tiene_llave_fisica', 'Llave fisica'],
+        ['tiene_tarjeta_circulacion', 'Tarjeta circulacion'],
+        ['tiene_placa_fisica', 'Placa fisica'],
+        ['tipo_unidad', 'Tipo de moto'],
+        ['categoria', 'Categoria'],
+        ['tipo_motor', 'Tipo motor'],
+        ['tipo_motor_combustion', 'Combustion'],
+        ['cilindraje', 'Cilindraje'],
+        ['potencia', 'Potencia'],
+        ['otro_descripcion', 'Otro'],
+        ['comentarios_generales', 'Comentarios generales', true],
+    ];
+
+    const formularioMotoTrackLabels = {
+        si: 'Si',
+        no: 'No',
+        '2_ruedas': '2 ruedas',
+        '3_ruedas': '3 ruedas',
+        cuatrimoto: 'Cuatrimoto',
+        combustion: 'Combustion',
+        electrica: 'Electrica',
+        carburador: 'Carburador',
+        full_inyeccion: 'Full inyeccion',
+        doble_proposito: 'Doble proposito',
+        cross_enduro: 'Cross/Enduro',
+        naked: 'Naked',
+        deportivas: 'Deportivas',
+        custom: 'Custom',
+        scrambler: 'Scrambler',
+        scooter: 'Scooter',
+        touring: 'Touring',
+        otro: 'Otro',
+    };
+
+    function prettyFormularioValue(value) {
+        if (value === null || value === undefined || value === '') return 'Sin capturar';
+        const raw = String(value);
+        if (formularioMotoTrackLabels[raw]) return formularioMotoTrackLabels[raw];
+        return raw.replace(/^otro:\s*/i, 'Otro: ').replace(/_/g, ' ').replace(/\bcc\b/gi, 'CC').replace(/\bkw\b/gi, 'KW');
+    }
+
+    function parsePayloadJson(value) {
+        if (!value || typeof value !== 'string') return null;
+        try {
+            return JSON.parse(value);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function formularioMotoTrackData(unidad, bitacora) {
+        const data = {};
+        (bitacora || []).forEach((row) => {
+            const payload = parsePayloadJson(row.payload_json);
+            if (!payload || typeof payload !== 'object') return;
+            const form = payload.formulario || payload.formulario_mototrack || payload.datos_formulario || payload.evidencias_formulario;
+            if (!form || typeof form !== 'object') return;
+            formularioMotoTrackCampos.forEach(([key]) => {
+                if ((data[key] === undefined || data[key] === null || data[key] === '') && form[key] !== undefined) {
+                    data[key] = form[key];
+                }
+            });
+        });
+        formularioMotoTrackCampos.forEach(([key]) => {
+            if (unidad && unidad[key] !== undefined && unidad[key] !== null && unidad[key] !== '') {
+                data[key] = unidad[key];
+            }
+        });
+        return data;
+    }
+
+    function formularioMotoTrackCamposVisibles(data) {
+        const hasValue = (key) => data[key] !== undefined && data[key] !== null && data[key] !== '';
+        const tipoMotor = String(data.tipo_motor || '').toLowerCase();
+        const keys = [
+            'tiene_llave_fisica',
+            'tiene_tarjeta_circulacion',
+            'tiene_placa_fisica',
+            'tipo_unidad',
+            'categoria',
+            'tipo_motor',
+        ];
+
+        if (tipoMotor === 'electrica') {
+            keys.push('potencia');
+        } else if (tipoMotor === 'combustion') {
+            keys.push('tipo_motor_combustion', 'cilindraje');
+        } else {
+            ['tipo_motor_combustion', 'cilindraje', 'potencia'].forEach((key) => {
+                if (hasValue(key)) keys.push(key);
+            });
+        }
+        if (hasValue('otro_descripcion')) keys.push('otro_descripcion');
+        keys.push('comentarios_generales');
+
+        return formularioMotoTrackCampos.filter(([key]) => keys.includes(key));
+    }
+
+    function renderFormularioMotoTrack(unidad, bitacora) {
+        const target = $('avr-formulario-mototrack');
+        if (!target) return;
+        const data = formularioMotoTrackData(unidad || {}, bitacora || []);
+        const hasData = formularioMotoTrackCampos.some(([key]) => data[key] !== undefined && data[key] !== null && data[key] !== '');
+        if (!hasData) {
+            target.innerHTML = '<div class="avr-evidence-empty">Sin formulario MotoTrack capturado.</div>';
+            return;
+        }
+
+        target.innerHTML = formularioMotoTrackCamposVisibles(data).map(([key, label, wide]) => `
+            <div class="avr-formulario-item${wide ? ' is-wide' : ''}">
+                <div class="label">${esc(label)}</div>
+                <div class="value">${esc(prettyFormularioValue(data[key]))}</div>
+            </div>
+        `).join('');
+    }
 
     function renderEvidenciasPanel(evidencias) {
         const grid = $('avr-evidencias-grid');
@@ -825,6 +988,10 @@
         const cedisAsignado = row.tracking_cedis_destino_nombre || row.nombre_ubicacion || 'Almacen General';
         $('avr-cedis-asignado').textContent = cedisAsignado;
         renderEvidenciasPanel([]);
+        const formMotoTrack = $('avr-formulario-mototrack');
+        if (formMotoTrack) {
+            formMotoTrack.innerHTML = '<div class="avr-evidence-empty">Cargando formulario...</div>';
+        }
 
         const moto = [row.marca, row.modelo, row.anio].filter(Boolean).join(' ');
         const ruta = row.tracking_id_ruta ? ('Ruta #' + row.tracking_id_ruta) : '';
@@ -846,13 +1013,16 @@
             .then((res) => res.json())
             .then((json) => {
                 if (json && json.success) {
+                    renderFormularioMotoTrack(json.unidad || {}, json.bitacora || []);
                     renderEvidenciasPanel(json.evidencias || []);
                 } else {
+                    renderFormularioMotoTrack(null, null);
                     const grid = $('avr-evidencias-grid');
                     if (grid) grid.innerHTML = '<div class="avr-evidence-empty">No se pudieron cargar evidencias.</div>';
                 }
             })
             .catch(() => {
+                renderFormularioMotoTrack(null, null);
                 const grid = $('avr-evidencias-grid');
                 if (grid) grid.innerHTML = '<div class="avr-evidence-empty">No se pudieron cargar evidencias.</div>';
             });
@@ -863,6 +1033,10 @@
         const form = $('avr-form-recepcion');
         const btn = $('avr-btn-confirmar');
         if (!form || !btn) return;
+        const codigoInput = $('avr-codigo-verificacion');
+        if (codigoInput) {
+            codigoInput.value = String(codigoInput.value || '').trim().toUpperCase();
+        }
         btn.disabled = true;
         const oldHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Guardando';
@@ -881,9 +1055,6 @@
             if (window.bootstrap && window.bootstrap.Modal && modalEl) {
                 window.bootstrap.Modal.getOrCreateInstance(modalEl).hide();
             }
-            try {
-                window.localStorage.setItem('av_kanban_refresh_at', String(Date.now()));
-            } catch (e) {}
             notify(json.resultado === 'recibida' ? 'success' : 'warning', 'Recepcion guardada', json.message || 'Recepcion actualizada.');
             reloadAll(false);
         } catch (err) {

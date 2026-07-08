@@ -383,6 +383,7 @@ $checklistRevision = is_array($av_revision_checklist ?? null) ? $av_revision_che
                 <input type="hidden" name="id_unidad" id="avm-id-unidad">
                 <div class="avm-modal-summary mb-3" id="avm-modal-summary"></div>
                 <div class="avm-modal-summary mb-3" id="avm-recepcion-summary"></div>
+                <div class="avm-modal-summary mb-3" id="avm-mototrack-summary"></div>
 
                 <div class="row g-3">
                     <div class="col-12">
@@ -476,6 +477,23 @@ $checklistRevision = is_array($av_revision_checklist ?? null) ? $av_revision_che
             return;
         }
         window.alert((title ? title + '\n' : '') + (text || ''));
+    }
+
+    async function confirmarIrreparable() {
+        if (window.Swal && typeof window.Swal.fire === 'function') {
+            const res = await window.Swal.fire({
+                icon: 'warning',
+                title: 'Estas seguro de que quieres pasarlo aqui?',
+                text: 'Esta accion no se puede deshacer.',
+                showCancelButton: true,
+                confirmButtonText: 'Si, irreparable',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc2626',
+            });
+            return !!res.isConfirmed;
+        }
+
+        return window.confirm('Estas seguro de que quieres pasarlo aqui?\nEsta accion no se puede deshacer.');
     }
 
     function statusLabel(value) {
@@ -727,6 +745,90 @@ $checklistRevision = is_array($av_revision_checklist ?? null) ? $av_revision_che
         return Number(value || 0) === 1 ? 'Si' : 'No';
     }
 
+    const formularioMotoTrackCampos = [
+        ['tiene_llave_fisica', 'Llave fisica'],
+        ['tiene_tarjeta_circulacion', 'Tarjeta circulacion'],
+        ['tiene_placa_fisica', 'Placa fisica'],
+        ['tipo_unidad', 'Tipo de moto'],
+        ['categoria', 'Categoria'],
+        ['tipo_motor', 'Tipo motor'],
+        ['tipo_motor_combustion', 'Combustion'],
+        ['cilindraje', 'Cilindraje'],
+        ['potencia', 'Potencia'],
+        ['otro_descripcion', 'Otro'],
+        ['comentarios_generales', 'Comentarios generales'],
+    ];
+
+    const formularioMotoTrackLabels = {
+        si: 'Si',
+        no: 'No',
+        '2_ruedas': '2 ruedas',
+        '3_ruedas': '3 ruedas',
+        cuatrimoto: 'Cuatrimoto',
+        combustion: 'Combustion',
+        electrica: 'Electrica',
+        carburador: 'Carburador',
+        full_inyeccion: 'Full inyeccion',
+        doble_proposito: 'Doble proposito',
+        cross_enduro: 'Cross/Enduro',
+        naked: 'Naked',
+        deportivas: 'Deportivas',
+        custom: 'Custom',
+        scrambler: 'Scrambler',
+        scooter: 'Scooter',
+        touring: 'Touring',
+        otro: 'Otro',
+    };
+
+    function prettyFormularioValue(value) {
+        if (value === null || value === undefined || value === '') return 'Sin capturar';
+        const raw = String(value);
+        if (formularioMotoTrackLabels[raw]) return formularioMotoTrackLabels[raw];
+        return raw.replace(/^otro:\s*/i, 'Otro: ').replace(/_/g, ' ').replace(/\bcc\b/gi, 'CC').replace(/\bkw\b/gi, 'KW');
+    }
+
+    function formularioMotoTrackCamposVisibles(data) {
+        const hasValue = (key) => data[key] !== undefined && data[key] !== null && data[key] !== '';
+        const tipoMotor = String(data.tipo_motor || '').toLowerCase();
+        const keys = [
+            'tiene_llave_fisica',
+            'tiene_tarjeta_circulacion',
+            'tiene_placa_fisica',
+            'tipo_unidad',
+            'categoria',
+            'tipo_motor',
+        ];
+
+        if (tipoMotor === 'electrica') {
+            keys.push('potencia');
+        } else if (tipoMotor === 'combustion') {
+            keys.push('tipo_motor_combustion', 'cilindraje');
+        } else {
+            ['tipo_motor_combustion', 'cilindraje', 'potencia'].forEach((key) => {
+                if (hasValue(key)) keys.push(key);
+            });
+        }
+        if (hasValue('otro_descripcion')) keys.push('otro_descripcion');
+        keys.push('comentarios_generales');
+
+        return formularioMotoTrackCampos.filter(([key]) => keys.includes(key));
+    }
+
+    function renderMotoTrack(row) {
+        const hasData = formularioMotoTrackCampos.some(([key]) => row[key] !== undefined && row[key] !== null && row[key] !== '');
+        if (!hasData) return '';
+        return `
+            <div class="avm-unit-main mb-2">Formulario MotoTrack</div>
+            <div class="avm-reception-grid">
+                ${formularioMotoTrackCamposVisibles(row).map(([key, label]) => `
+                    <div class="avm-reception-item">
+                        <strong>${esc(label)}</strong>${esc(prettyFormularioValue(row[key]))}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
     function renderReception(row) {
         return `
             <div class="avm-unit-main mb-2">Respuestas de recepcion</div>
@@ -767,6 +869,12 @@ $checklistRevision = is_array($av_revision_checklist ?? null) ? $av_revision_che
             </div>
         `;
         $('avm-recepcion-summary').innerHTML = renderReception(row);
+        const mototrackSummary = $('avm-mototrack-summary');
+        if (mototrackSummary) {
+            const mototrackHtml = renderMotoTrack(row);
+            mototrackSummary.innerHTML = mototrackHtml;
+            mototrackSummary.classList.toggle('d-none', !mototrackHtml);
+        }
 
         try {
             const fd = new FormData();
@@ -799,6 +907,11 @@ $checklistRevision = is_array($av_revision_checklist ?? null) ? $av_revision_che
         const form = $('avm-form-revision');
         const btn = $('avm-btn-finalizar');
         if (!form || !btn) return;
+        const fd = new FormData(form);
+        if (String(fd.get('dictamen') || '') === 'irreparable') {
+            const confirmado = await confirmarIrreparable();
+            if (!confirmado) return;
+        }
         btn.disabled = true;
         const oldHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Guardando';
@@ -806,7 +919,7 @@ $checklistRevision = is_array($av_revision_checklist ?? null) ? $av_revision_che
             const res = await fetch('/MotosAdjudicadas/revisionMecanicaFinalizar', {
                 method: 'POST',
                 headers: { Accept: 'application/json' },
-                body: new FormData(form),
+                body: fd,
             });
             const json = await res.json();
             if (!json.success) {
