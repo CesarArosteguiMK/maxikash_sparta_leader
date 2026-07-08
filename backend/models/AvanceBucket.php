@@ -355,7 +355,7 @@ final class AvanceBucket
                 WHEN Variable_8 IS NOT NULL AND TRIM(CAST(Variable_8 AS CHAR)) <> '' THEN 'a) Current'
                 WHEN Ghost IS NOT NULL AND TRIM(CAST(Ghost AS CHAR)) <> '' AND TRIM(CAST(Ghost AS CHAR)) <> '-' THEN 'a) Current'
                 WHEN ({$ordenReal}) IS NULL OR ({$ordenCierre}) IS NULL THEN NULL
-                WHEN ({$ordenReal}) <= 5 AND ({$ordenCierre}) > ({$ordenReal}) THEN ({$bucketReal})
+                WHEN ({$ordenCierre}) > ({$ordenReal}) THEN ({$bucketReal})
                 ELSE ({$cierreActual})
             END
         ";
@@ -378,7 +378,7 @@ final class AvanceBucket
         return "
             CASE
                 WHEN ({$ordenReal}) IS NULL OR ({$ordenCierre}) IS NULL THEN NULL
-                WHEN ({$ordenReal}) <= 5 AND ({$ordenCierre}) > ({$ordenReal}) THEN ({$bucketReal})
+                WHEN ({$ordenCierre}) > ({$ordenReal}) THEN ({$bucketReal})
                 ELSE ({$cierreActual})
             END
         ";

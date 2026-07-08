@@ -165,9 +165,13 @@ final class ComparativoCierreSemanal
             throw new \InvalidArgumentException('Tabla no permitida.');
         }
 
-        $bucketSql = $modoBucket === 'conciliado'
-            ? self::bucketConciliadoSql((string) $columnaDiasMora)
-            : self::bucketHistoricoSql((string) $columnaDiasMora);
+        if ($semana !== null) {
+            $bucketSql = self::bucketCierreHistoricoSql();
+        } else {
+            $bucketSql = $modoBucket === 'conciliado'
+                ? self::bucketConciliadoSql((string) $columnaDiasMora)
+                : self::bucketHistoricoSql((string) $columnaDiasMora);
+        }
         $saldoSql = "COALESCE(CAST(REPLACE(REPLACE(NULLIF(TRIM(CAST(Saldo_total_capital AS CHAR)), ''), '$', ''), ',', '') AS DECIMAL(18,2)), 0)";
         $where = $semana === null ? '' : 'WHERE SEMANA = :semana';
 
@@ -246,7 +250,6 @@ final class ComparativoCierreSemanal
             CASE
                 WHEN ({$ordenReal}) IS NOT NULL
                      AND ({$ordenDia}) IS NOT NULL
-                     AND ({$ordenReal}) <= 5
                      AND ({$ordenReal}) < ({$ordenDia})
                 THEN Bucket_Morosidad_Real
                 ELSE ({$bucketDia})
@@ -302,7 +305,44 @@ final class ComparativoCierreSemanal
                 WHEN Variable_8 IS NOT NULL AND TRIM(CAST(Variable_8 AS CHAR)) <> '' THEN 'a) Current'
                 WHEN Ghost IS NOT NULL AND TRIM(CAST(Ghost AS CHAR)) <> '' AND TRIM(CAST(Ghost AS CHAR)) <> '-' THEN 'a) Current'
                 WHEN ({$ordenReal}) IS NULL OR ({$ordenCierre}) IS NULL THEN NULL
-                WHEN ({$ordenReal}) <= 5 AND ({$ordenCierre}) > ({$ordenReal}) THEN Bucket_Morosidad_Real
+                WHEN ({$ordenCierre}) > ({$ordenReal}) THEN Bucket_Morosidad_Real
+                ELSE Cierre_Actual
+            END
+        ";
+    }
+
+    private static function bucketCierreHistoricoSql(): string
+    {
+        $bucketReal = self::normalizarBucketSql('Bucket_Morosidad_Real');
+        $cierreBase = self::normalizarBucketSql("COALESCE(NULLIF(TRIM(CAST(Bucket_ajustado_ghost AS CHAR)), ''), Cierre_Actual)");
+        $cierreActual = "
+            CASE
+                WHEN Variable_8 IS NOT NULL AND TRIM(CAST(Variable_8 AS CHAR)) <> '' THEN 'a) Current'
+                WHEN Ghost IS NOT NULL AND TRIM(CAST(Ghost AS CHAR)) <> '' AND TRIM(CAST(Ghost AS CHAR)) <> '-' THEN 'a) Current'
+                ELSE ({$cierreBase})
+            END
+        ";
+        $ordenReal = self::ordenBucketCaseSql($bucketReal);
+        $ordenCierre = self::ordenBucketCaseSql($cierreActual);
+
+        return "
+            CASE
+                WHEN ({$ordenReal}) IS NULL OR ({$ordenCierre}) IS NULL THEN NULL
+                WHEN ({$ordenCierre}) > ({$ordenReal}) THEN ({$bucketReal})
+                ELSE ({$cierreActual})
+            END
+        ";
+    }
+
+    private static function bucketCierreActualSql(): string
+    {
+        $ordenReal = self::ordenBucketSql('Bucket_Morosidad_Real');
+        $ordenCierre = self::ordenBucketSql('Cierre_Actual');
+
+        return "
+            CASE
+                WHEN ({$ordenReal}) IS NULL OR ({$ordenCierre}) IS NULL THEN NULL
+                WHEN ({$ordenCierre}) > ({$ordenReal}) THEN Bucket_Morosidad_Real
                 ELSE Cierre_Actual
             END
         ";
@@ -315,6 +355,25 @@ final class ComparativoCierreSemanal
         }
 
         return self::ordenBucketCaseSql($columna);
+    }
+
+    private static function normalizarBucketSql(string $expresion): string
+    {
+        return "
+            CASE TRIM(CAST({$expresion} AS CHAR))
+                WHEN 'a) Current' THEN 'a) Current'
+                WHEN 'b) 1 a 7 dias' THEN 'b) 1 a 7 dias'
+                WHEN 'c) 8 a 14 dias' THEN 'c) 8 a 14 dias'
+                WHEN 'd) 15 a 21 dias' THEN 'd) 15 a 21 dias'
+                WHEN 'e) 22 a 30 dias' THEN 'e) 22 a 30 dias'
+                WHEN 'f) 31 a 60 dias' THEN 'f) 31 a 60 dias'
+                WHEN 'g) 61 a 90 dias' THEN 'g) 61 a 90 dias'
+                WHEN 'h) 91 a 120 dias' THEN 'h) 91 a 120 dias'
+                WHEN 'i) 120+ dias' THEN 'i) 121+ dias'
+                WHEN 'i) 121+ dias' THEN 'i) 121+ dias'
+                ELSE NULL
+            END
+        ";
     }
 
     private static function ordenBucketCaseSql(string $expresion): string
