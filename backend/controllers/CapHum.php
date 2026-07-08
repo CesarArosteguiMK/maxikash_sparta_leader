@@ -28880,6 +28880,65 @@ public function getEstadosMunicipiosMexico()
         }
     }
 
+    private static function bytesDesdeIniRrhh(string $valor): int
+    {
+        $valor = trim($valor);
+        if ($valor === '') {
+            return 0;
+        }
+        $unidad = strtolower(substr($valor, -1));
+        $numero = (float) $valor;
+        switch ($unidad) {
+            case 'g':
+                $numero *= 1024;
+                // no break
+            case 'm':
+                $numero *= 1024;
+                // no break
+            case 'k':
+                $numero *= 1024;
+        }
+        return (int) round($numero);
+    }
+
+    private static function formatoBytesRrhh(int $bytes): string
+    {
+        if ($bytes <= 0) {
+            return '0 MB';
+        }
+        if ($bytes >= 1024 * 1024) {
+            return number_format($bytes / 1024 / 1024, 1) . ' MB';
+        }
+        return max(1, (int) ceil($bytes / 1024)) . ' KB';
+    }
+
+    private static function respuestaSinFuentesImportacionRrhh(string $batchId = ''): array
+    {
+        $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+        $postMaxBytes = self::bytesDesdeIniRrhh((string) ini_get('post_max_size'));
+        if ($contentLength > 0 && $postMaxBytes > 0 && $contentLength > $postMaxBytes) {
+            return [
+                'success' => false,
+                'codigo' => 'post_max_size_superado',
+                'mensaje' => 'La carga enviada pesa ' . self::formatoBytesRrhh($contentLength) . ', pero el servidor solo permite ' . self::formatoBytesRrhh($postMaxBytes) . ' por solicitud. Selecciona una carpeta para que el sistema procese los documentos por lotes más pequeños o divide el expediente antes de volver a intentar.'
+            ];
+        }
+
+        if ($batchId !== '') {
+            return [
+                'success' => false,
+                'codigo' => 'lote_temporal_no_disponible',
+                'mensaje' => 'La preparación temporal de la carga ya no está disponible. Esto puede pasar si el lote tardó demasiado o si el navegador liberó los archivos. Selecciona nuevamente la carpeta o los archivos para volver a analizar.'
+            ];
+        }
+
+        return [
+            'success' => false,
+            'codigo' => 'sin_archivos_validos',
+            'mensaje' => 'No se recibieron archivos válidos para importar. Verifica que la selección contenga PDF, FAD o ZIP, que la carpeta no esté vacía y que ningún archivo supere el límite permitido por solicitud.'
+        ];
+    }
+
     public function analizarImportacionDocumentosRrhh()
     {
         try {
@@ -28908,15 +28967,7 @@ public function getEstadosMunicipiosMexico()
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
-                if ($batchId !== '') {
-                    self::respuestaJSON([
-                        'success' => false,
-                        'codigo' => 'lote_temporal_no_disponible',
-                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. Selecciona la carpeta nuevamente para volver a analizar.'
-                    ]);
-                    return;
-                }
-                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
+                self::respuestaJSON(self::respuestaSinFuentesImportacionRrhh($batchId));
                 return;
             }
 
@@ -28927,8 +28978,8 @@ public function getEstadosMunicipiosMexico()
                 'mensaje' => 'Análisis completado.',
                 'datos' => $resultado
             ]);
-        } catch (\Exception $e) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al analizar documentos: ' . $e->getMessage()]);
+        } catch (\Throwable $e) {
+            self::respuestaJSON(['success' => false, 'codigo' => 'error_analisis_documentos_rrhh', 'mensaje' => 'Error al analizar documentos RR.HH.: ' . $e->getMessage()]);
         }
     }
 
@@ -28949,15 +29000,7 @@ public function getEstadosMunicipiosMexico()
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
-                if ($batchId !== '') {
-                    self::respuestaJSON([
-                        'success' => false,
-                        'codigo' => 'lote_temporal_no_disponible',
-                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. El sistema reintentara con los archivos seleccionados; si vuelve a fallar, selecciona la carpeta otra vez.'
-                    ]);
-                    return;
-                }
-                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
+                self::respuestaJSON(self::respuestaSinFuentesImportacionRrhh($batchId));
                 return;
             }
 
@@ -28971,8 +29014,8 @@ public function getEstadosMunicipiosMexico()
                 'mensaje' => 'Importación finalizada. Documentos importados: ' . (int) ($resultado['importados'] ?? 0) . '.',
                 'datos' => $resultado
             ]);
-        } catch (\Exception $e) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al importar documentos: ' . $e->getMessage()]);
+        } catch (\Throwable $e) {
+            self::respuestaJSON(['success' => false, 'codigo' => 'error_importacion_documentos_rrhh', 'mensaje' => 'Error al importar documentos RR.HH.: ' . $e->getMessage()]);
         }
     }
 
@@ -29023,15 +29066,7 @@ public function getEstadosMunicipiosMexico()
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
-                if ($batchId !== '') {
-                    self::respuestaJSON([
-                        'success' => false,
-                        'codigo' => 'lote_temporal_no_disponible',
-                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. Selecciona la carpeta nuevamente para volver a analizar.'
-                    ]);
-                    return;
-                }
-                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
+                self::respuestaJSON(self::respuestaSinFuentesImportacionRrhh($batchId));
                 return;
             }
 
@@ -29042,8 +29077,8 @@ public function getEstadosMunicipiosMexico()
                 'mensaje' => 'Analisis completado.',
                 'datos' => $resultado
             ]);
-        } catch (\Exception $e) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al analizar expediente: ' . $e->getMessage()]);
+        } catch (\Throwable $e) {
+            self::respuestaJSON(['success' => false, 'codigo' => 'error_analisis_expediente_rrhh', 'mensaje' => 'Error al analizar expediente RR.HH.: ' . $e->getMessage()]);
         }
     }
 
@@ -29065,15 +29100,7 @@ public function getEstadosMunicipiosMexico()
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
-                if ($batchId !== '') {
-                    self::respuestaJSON([
-                        'success' => false,
-                        'codigo' => 'lote_temporal_no_disponible',
-                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. El sistema reintentara con los archivos seleccionados; si vuelve a fallar, selecciona la carpeta otra vez.'
-                    ]);
-                    return;
-                }
-                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
+                self::respuestaJSON(self::respuestaSinFuentesImportacionRrhh($batchId));
                 return;
             }
 
@@ -29087,8 +29114,8 @@ public function getEstadosMunicipiosMexico()
                 'mensaje' => 'Importacion finalizada. Documentos importados: ' . (int) ($resultado['importados'] ?? 0) . '.',
                 'datos' => $resultado
             ]);
-        } catch (\Exception $e) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al importar expediente: ' . $e->getMessage()]);
+        } catch (\Throwable $e) {
+            self::respuestaJSON(['success' => false, 'codigo' => 'error_importacion_expediente_rrhh', 'mensaje' => 'Error al importar expediente RR.HH.: ' . $e->getMessage()]);
         }
     }
 
