@@ -1134,9 +1134,14 @@ def _join_user_messages(messages: List[str]) -> str:
     return "; ".join(str(msg).strip().rstrip(".") for msg in messages if str(msg).strip())
 
 
+def _format_user_date(value: date) -> str:
+    return value.strftime("%d/%m/%Y")
+
+
 def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[str]) -> Dict[str, Any]:
     errors: List[str] = []
     warnings: List[str] = []
+    expired_identification_message: Optional[str] = None
     _limpiar_identificadores_extraidos(data)
     doc_type = data.get("tipo_documento") or "desconocido"
     fields = data.get("campos") or {}
@@ -1185,7 +1190,11 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
             errors.append("No se pudo leer el nombre completo")
         exp = _normalizar_vigencia_identificacion(data, fields)
         if exp and exp < today_cdmx():
-            errors.append(f"Identificación oficial vencida desde {exp.isoformat()}. Solicite una identificación vigente.")
+            expired_identification_message = (
+                f"La identificación oficial venció el {_format_user_date(exp)}. "
+                "Solicite una identificación vigente."
+            )
+            errors.append(expired_identification_message)
 
     if doc_type == "comprobante_domicilio":
         if not fields.get("domicilio"):
@@ -1261,7 +1270,10 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
             warnings.append("No se pudo confirmar automaticamente la firma de la carta")
 
     if errors:
-        message = "No se puede cargar este documento: " + _join_user_messages(errors) + "."
+        if expired_identification_message and len(errors) == 1:
+            message = expired_identification_message
+        else:
+            message = "No se puede cargar este documento: " + _join_user_messages(errors) + "."
     elif warnings:
         message = f"{user_document_name(doc_type)} detectado. Revisa: " + _join_user_messages(warnings) + "."
     else:
