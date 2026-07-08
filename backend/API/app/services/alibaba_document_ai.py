@@ -1174,11 +1174,11 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
         frente_detectado = bool(fr.get("frente_detectado"))
         reverso_detectado = bool(fr.get("reverso_detectado"))
         if not frente_detectado and not reverso_detectado:
-            warnings.append("No se detecto frente ni reverso en la identificacion")
+            warnings.append("No se detectaron el frente ni el reverso de la identificación")
         elif not frente_detectado:
-            warnings.append("No se detecto frente en la identificacion")
+            warnings.append("No se detectó el frente de la identificación")
         elif not reverso_detectado:
-            warnings.append("No se detecto reverso en la identificacion")
+            warnings.append("No se detectó el reverso de la identificación")
 
     if doc_type in compatible_document_types("identificacion_oficial"):
         if not fields.get("nombre_completo"):
