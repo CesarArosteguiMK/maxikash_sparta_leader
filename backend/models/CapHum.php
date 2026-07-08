@@ -4706,6 +4706,505 @@ class CapHum extends Model
         }
     }
 
+    public static function importarCambiosEstructuraPorExternalId(array $filas, int $idUsuario, bool $aplicar = false): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarAsignaJefeSoportaVacante($db);
+            $plan = self::prepararCambiosEstructuraPorExternalId($db, $filas);
+
+            if (!$aplicar) {
+                return self::resultado(true, 'Prevalidacion de estructura finalizada.', $plan);
+            }
+
+            if ((int)($plan['resumen']['errores'] ?? 0) > 0) {
+                return self::resultado(false, 'Corrige los errores del archivo antes de aplicar cambios.', $plan);
+            }
+
+            if ((int)($plan['resumen']['con_cambios'] ?? 0) <= 0) {
+                return self::resultado(true, 'El archivo no contiene cambios pendientes por aplicar.', $plan);
+            }
+
+            $db->beginTransaction();
+            $aplicados = 0;
+            foreach (($plan['detalles'] ?? []) as $detalle) {
+                if (($detalle['estado'] ?? '') === 'error') {
+                    continue;
+                }
+
+                $acciones = $detalle['acciones'] ?? [];
+                $idPersona = (int)($acciones['id_persona'] ?? 0);
+                $idPuesto = (int)($acciones['id_puesto'] ?? 0);
+                if ($idPersona <= 0 || $idPuesto <= 0) {
+                    continue;
+                }
+
+                if (!empty($acciones['cambiar_puesto'])) {
+                    self::asignarPuestoUnicoCambioEstructura($db, $idPersona, $idPuesto, $idUsuario);
+                }
+
+                foreach (($acciones['jefes'] ?? []) as $relacion) {
+                    $idSubordinado = (int)($relacion['id_persona'] ?? 0);
+                    $idJefe = (int)($relacion['id_jefe'] ?? 0);
+                    if ($idSubordinado <= 0 || $idJefe <= 0) {
+                        continue;
+                    }
+                    $resultadoJefe = self::actualizarJefePersonaConDb($db, $idSubordinado, $idJefe);
+                    if (empty($resultadoJefe['success'])) {
+                        throw new \RuntimeException((string)($resultadoJefe['mensaje'] ?? 'No se pudo actualizar un jefe.'));
+                    }
+                }
+
+                $aplicados++;
+            }
+
+            $db->commit();
+            $plan['resumen']['aplicados'] = $aplicados;
+            return self::resultado(true, 'Cambios de estructura aplicados correctamente.', $plan);
+        } catch (\Throwable $e) {
+            if (isset($db) && $db instanceof Database && $db->inTransaction()) {
+                try { $db->rollback(); } catch (\Throwable $rollbackError) {}
+            }
+            return self::resultado(false, 'No se pudo importar el cambio de estructura.', null, $e->getMessage());
+        }
+    }
+
+    private static function prepararCambiosEstructuraPorExternalId(Database $db, array $filas): array
+    {
+        $personasPorNumero = self::indicePersonasPorNumeroEmpleado($db);
+        $personasPorNombre = self::indicePersonasActivasPorNombre($db);
+        $puestosPorClave = self::indicePuestosCambioEstructura($db);
+
+        $conteoExternal = [];
+        foreach ($filas as $fila) {
+            $external = trim((string)($fila['external_id'] ?? ''));
+            if ($external !== '') {
+                $conteoExternal[$external] = ($conteoExternal[$external] ?? 0) + 1;
+            }
+        }
+
+        $resumen = [
+            'total' => 0,
+            'encontrados' => 0,
+            'con_cambios' => 0,
+            'sin_cambios' => 0,
+            'errores' => 0,
+            'aplicados' => 0,
+        ];
+        $detalles = [];
+
+        foreach ($filas as $fila) {
+            $resumen['total']++;
+            $numeroFila = (int)($fila['fila'] ?? 0);
+            $external = trim((string)($fila['external_id'] ?? ''));
+            $puestoExcel = trim((string)($fila['puesto_legacy'] ?? ''));
+            $departamentoExcel = trim((string)($fila['departamento'] ?? ''));
+            $errores = [];
+            $avisos = [];
+            $acciones = ['jefes' => []];
+
+            $detalle = [
+                'fila' => $numeroFila,
+                'external_id' => $external,
+                'nombre_excel' => trim((string)($fila['nombre_completo'] ?? '')),
+                'persona_id' => null,
+                'persona_nombre' => '',
+                'puesto_actual' => '',
+                'puesto_nuevo' => $puestoExcel,
+                'departamento_actual' => '',
+                'departamento_nuevo' => $departamentoExcel,
+                'jefe_actual' => '',
+                'jefe_nuevo' => '',
+                'supervisor' => trim((string)($fila['supervisor'] ?? '')),
+                'subgerente' => trim((string)($fila['subgerente'] ?? '')),
+                'gerente' => trim((string)($fila['gerente'] ?? '')),
+                'estado' => 'sin_cambio',
+                'mensajes' => [],
+                'acciones' => [],
+            ];
+
+            if ($external === '') {
+                $errores[] = 'external_id vacio.';
+            } elseif (($conteoExternal[$external] ?? 0) > 1) {
+                $errores[] = 'external_id repetido dentro del Excel.';
+            }
+
+            if ($puestoExcel === '') {
+                $errores[] = 'puesto_legacy vacio.';
+            }
+            if ($departamentoExcel === '') {
+                $errores[] = 'departamento vacio.';
+            }
+
+            $personas = $personasPorNumero[$external] ?? [];
+            if ($external !== '' && count($personas) === 0) {
+                $errores[] = 'No existe persona con numero_empleado igual a ' . $external . '.';
+            } elseif (count($personas) > 1) {
+                $errores[] = 'Hay mas de una persona con numero_empleado ' . $external . '.';
+            }
+
+            $persona = count($personas) === 1 ? $personas[0] : null;
+            if ($persona) {
+                $detalle['persona_id'] = (int)$persona['id'];
+                $detalle['persona_nombre'] = self::nombreCompletoPersonaCambioEstructura($persona);
+                if ($detalle['nombre_excel'] !== ''
+                    && self::normalizarTextoCambioEstructura($detalle['nombre_excel']) !== self::normalizarTextoCambioEstructura($detalle['persona_nombre'])) {
+                    $avisos[] = 'El nombre del Excel no coincide exactamente con la persona encontrada por external_id.';
+                }
+                if (strcasecmp(trim((string)($persona['estatus'] ?? '')), 'Baja') === 0) {
+                    $errores[] = 'La persona esta en estatus Baja; no se actualiza estructura de bajas.';
+                } else {
+                    $resumen['encontrados']++;
+                }
+            }
+
+            $clavePuesto = self::normalizarTextoCambioEstructura($departamentoExcel) . '|' . self::normalizarTextoCambioEstructura($puestoExcel);
+            $puestos = ($puestoExcel !== '' && $departamentoExcel !== '') ? ($puestosPorClave[$clavePuesto] ?? []) : [];
+            if ($puestoExcel !== '' && $departamentoExcel !== '' && count($puestos) === 0) {
+                $errores[] = 'No existe el puesto "' . $puestoExcel . '" dentro del departamento "' . $departamentoExcel . '".';
+            } elseif (count($puestos) > 1) {
+                $errores[] = 'El puesto y departamento coinciden con mas de un registro del catalogo.';
+            }
+
+            $puestoNuevo = count($puestos) === 1 ? $puestos[0] : null;
+            if ($persona && $puestoNuevo) {
+                $puestosActuales = self::puestosActivosTrayectoria($db, (int)$persona['id']);
+                $puestoActual = array_values($puestosActuales)[0] ?? null;
+                $detalle['puesto_actual'] = (string)($puestoActual['nombre_puesto'] ?? 'Sin puesto');
+                $detalle['departamento_actual'] = (string)($puestoActual['nombre_departamento'] ?? 'Sin departamento');
+                $detalle['puesto_nuevo'] = (string)$puestoNuevo['nombre_puesto'];
+                $detalle['departamento_nuevo'] = (string)$puestoNuevo['nombre_departamento'];
+
+                $idsActivos = array_values(array_unique(array_map(static function ($row) {
+                    return (int)($row['id_puesto'] ?? 0);
+                }, $puestosActuales)));
+                $cambiaPuesto = count($idsActivos) !== 1 || (int)($idsActivos[0] ?? 0) !== (int)$puestoNuevo['id_puesto'];
+                $acciones['id_persona'] = (int)$persona['id'];
+                $acciones['id_puesto'] = (int)$puestoNuevo['id_puesto'];
+                $acciones['cambiar_puesto'] = $cambiaPuesto;
+            }
+
+            $supervisor = self::resolverPersonaActivaPorNombreCambioEstructura($personasPorNombre, $detalle['supervisor'], 'supervisor', $errores);
+            $subgerente = self::resolverPersonaActivaPorNombreCambioEstructura($personasPorNombre, $detalle['subgerente'], 'subgerente', $errores);
+            $gerente = self::resolverPersonaActivaPorNombreCambioEstructura($personasPorNombre, $detalle['gerente'], 'gerente', $errores);
+
+            if ($persona) {
+                $jefeDirecto = $supervisor ?: ($subgerente ?: $gerente);
+                $jefeActual = self::obtenerJefeActualCambioEstructura($db, (int)$persona['id']);
+                $detalle['jefe_actual'] = $jefeActual ? (string)$jefeActual['nombre'] : 'Sin jefe';
+                if ($jefeDirecto) {
+                    $detalle['jefe_nuevo'] = self::nombreCompletoPersonaCambioEstructura($jefeDirecto);
+                    if ((int)$jefeDirecto['id'] === (int)$persona['id']) {
+                        $errores[] = 'La persona no puede ser su propio jefe.';
+                    } else {
+                        $cambiaJefe = (int)($jefeActual['id_jefe'] ?? 0) !== (int)$jefeDirecto['id'];
+                        if ($cambiaJefe) {
+                            $acciones['jefes'][] = ['id_persona' => (int)$persona['id'], 'id_jefe' => (int)$jefeDirecto['id'], 'orden' => 30];
+                        }
+                    }
+                } else {
+                    $detalle['jefe_nuevo'] = $detalle['jefe_actual'] ?: 'Sin jefe';
+                    $avisos[] = 'No se recibio supervisor, subgerente ni gerente; se conserva el jefe actual.';
+                }
+            }
+
+            if ($supervisor && $subgerente) {
+                if ((int)$supervisor['id'] === (int)$subgerente['id']) {
+                    $errores[] = 'Supervisor y subgerente no pueden ser la misma persona.';
+                } else {
+                    $jefeSupervisor = self::obtenerJefeActualCambioEstructura($db, (int)$supervisor['id']);
+                    if ((int)($jefeSupervisor['id_jefe'] ?? 0) !== (int)$subgerente['id']) {
+                        $acciones['jefes'][] = ['id_persona' => (int)$supervisor['id'], 'id_jefe' => (int)$subgerente['id'], 'orden' => 20];
+                    }
+                }
+            }
+
+            if ($subgerente && $gerente) {
+                if ((int)$subgerente['id'] === (int)$gerente['id']) {
+                    $errores[] = 'Subgerente y gerente no pueden ser la misma persona.';
+                } else {
+                    $jefeSubgerente = self::obtenerJefeActualCambioEstructura($db, (int)$subgerente['id']);
+                    if ((int)($jefeSubgerente['id_jefe'] ?? 0) !== (int)$gerente['id']) {
+                        $acciones['jefes'][] = ['id_persona' => (int)$subgerente['id'], 'id_jefe' => (int)$gerente['id'], 'orden' => 10];
+                    }
+                }
+            }
+
+            $tieneCambio = !empty($acciones['cambiar_puesto']) || !empty($acciones['jefes']);
+            if (!empty($errores)) {
+                $detalle['estado'] = 'error';
+                $detalle['mensajes'] = $errores;
+                $resumen['errores']++;
+            } elseif ($tieneCambio) {
+                usort($acciones['jefes'], static function ($a, $b) {
+                    return (int)($a['orden'] ?? 99) <=> (int)($b['orden'] ?? 99);
+                });
+                $detalle['estado'] = 'cambio';
+                $detalle['mensajes'] = array_merge(['Listo para actualizar.'], $avisos);
+                $detalle['acciones'] = $acciones;
+                $resumen['con_cambios']++;
+            } else {
+                $detalle['estado'] = 'sin_cambio';
+                $detalle['mensajes'] = array_merge(['Sin cambios detectados.'], $avisos);
+                $detalle['acciones'] = $acciones;
+                $resumen['sin_cambios']++;
+            }
+
+            $detalles[] = $detalle;
+        }
+
+        return ['resumen' => $resumen, 'detalles' => $detalles];
+    }
+
+    private static function indicePersonasPorNumeroEmpleado(Database $db): array
+    {
+        $rows = $db->queryAll("
+            SELECT id, numero_empleado, nombres, segundo_nombre, apellidop, apellidom, estatus
+            FROM __SPARTA_SECRET_REDACTED__.persona
+            WHERE TRIM(COALESCE(numero_empleado, '')) <> ''
+        ");
+        $out = [];
+        foreach ($rows as $row) {
+            $numero = trim((string)($row['numero_empleado'] ?? ''));
+            if ($numero === '') {
+                continue;
+            }
+            $out[$numero][] = $row;
+        }
+        return $out;
+    }
+
+    private static function indicePersonasActivasPorNombre(Database $db): array
+    {
+        $rows = $db->queryAll("
+            SELECT id, numero_empleado, nombres, segundo_nombre, apellidop, apellidom, estatus
+            FROM __SPARTA_SECRET_REDACTED__.persona
+            WHERE COALESCE(estatus, '') <> 'Baja'
+        ");
+        $out = [];
+        foreach ($rows as $row) {
+            $nombre = self::normalizarTextoCambioEstructura(self::nombreCompletoPersonaCambioEstructura($row));
+            if ($nombre === '') {
+                continue;
+            }
+            $out[$nombre][] = $row;
+        }
+        return $out;
+    }
+
+    private static function indicePuestosCambioEstructura(Database $db): array
+    {
+        $rows = $db->queryAll("
+            SELECT
+                pu.id AS id_puesto,
+                pu.nombre AS nombre_puesto,
+                dep.id AS id_departamento,
+                dep.nombre AS nombre_departamento
+            FROM __SPARTA_SECRET_REDACTED__.puesto pu
+            INNER JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = pu.departamento_id
+            WHERE COALESCE(pu.activo, 1) = 1
+              AND COALESCE(dep.activo, 1) = 1
+        ");
+        $out = [];
+        foreach ($rows as $row) {
+            $clave = self::normalizarTextoCambioEstructura($row['nombre_departamento'] ?? '')
+                . '|'
+                . self::normalizarTextoCambioEstructura($row['nombre_puesto'] ?? '');
+            if ($clave === '|') {
+                continue;
+            }
+            $out[$clave][] = $row;
+        }
+        return $out;
+    }
+
+    private static function resolverPersonaActivaPorNombreCambioEstructura(array $indice, string $nombre, string $rol, array &$errores): ?array
+    {
+        $nombre = trim($nombre);
+        if ($nombre === '') {
+            return null;
+        }
+        $clave = self::normalizarTextoCambioEstructura($nombre);
+        $personas = $indice[$clave] ?? [];
+        if (count($personas) === 0) {
+            $errores[] = 'No se encontro ' . $rol . ' activo con nombre "' . $nombre . '".';
+            return null;
+        }
+        if (count($personas) > 1) {
+            $errores[] = 'El nombre "' . $nombre . '" coincide con mas de una persona activa para ' . $rol . '.';
+            return null;
+        }
+        return $personas[0];
+    }
+
+    private static function obtenerJefeActualCambioEstructura(Database $db, int $idPersona): ?array
+    {
+        return $db->queryOne("
+            SELECT
+                aj.id_jefe,
+                TRIM(CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom)) AS nombre
+            FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.persona pj ON pj.id = aj.id_jefe
+            WHERE aj.id_persona = :id_persona
+            ORDER BY aj.id DESC
+            LIMIT 1
+        ", ['id_persona' => $idPersona]);
+    }
+
+    private static function asignarPuestoUnicoCambioEstructura(Database $db, int $idPersona, int $idPuesto, int $idUsuario): void
+    {
+        $puestosAntes = self::puestosActivosTrayectoria($db, $idPersona);
+        $fechaAsignacion = self::fechaHoraCdmx();
+
+        $db->CRUD(
+            "UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto
+             SET activo = 0
+             WHERE id_persona = :id_persona",
+            ['id_persona' => $idPersona]
+        );
+
+        $existente = $db->queryOne(
+            "SELECT id
+             FROM __SPARTA_SECRET_REDACTED__.asigna_puesto
+             WHERE id_persona = :id_persona
+               AND id_puesto = :id_puesto
+             ORDER BY id DESC
+             LIMIT 1",
+            ['id_persona' => $idPersona, 'id_puesto' => $idPuesto]
+        );
+
+        if ($existente) {
+            $db->CRUD(
+                "UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto
+                 SET activo = 1,
+                     fecha_asignacion = :fecha_asignacion
+                 WHERE id = :id",
+                ['id' => (int)$existente['id'], 'fecha_asignacion' => $fechaAsignacion]
+            );
+        } else {
+            $db->CRUD(
+                "INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto (id_persona, id_puesto, fecha_asignacion, activo)
+                 VALUES (:id_persona, :id_puesto, :fecha_asignacion, 1)",
+                ['id_persona' => $idPersona, 'id_puesto' => $idPuesto, 'fecha_asignacion' => $fechaAsignacion]
+            );
+        }
+
+        self::aplicarPermisosPuestoAPersonaConDb($db, $idPersona, $idPuesto);
+        $puestosDespues = self::puestosActivosTrayectoria($db, $idPersona);
+        self::registrarCambiosTrayectoriaPuestos($db, $idPersona, $puestosAntes, $puestosDespues, $idUsuario, 'importacion_cambio_estructura');
+    }
+
+    private static function actualizarJefePersonaConDb(Database $db, int $idPersona, int $idJefe): array
+    {
+        if ($idPersona <= 0 || $idJefe <= 0) {
+            return self::resultado(false, 'Seleccione persona y jefe destino.');
+        }
+        if ($idPersona === $idJefe) {
+            return self::resultado(false, 'Una persona no puede ser su propio jefe.');
+        }
+
+        $persona = $db->queryOne("
+            SELECT id
+            FROM __SPARTA_SECRET_REDACTED__.persona
+            WHERE id = :id_persona
+              AND COALESCE(estatus, '') <> 'Baja'
+            LIMIT 1
+        ", ['id_persona' => $idPersona]);
+        if (!$persona) {
+            return self::resultado(false, 'La persona seleccionada no esta activa.');
+        }
+
+        $jefe = $db->queryOne("
+            SELECT id
+            FROM __SPARTA_SECRET_REDACTED__.persona
+            WHERE id = :id_jefe
+              AND COALESCE(estatus, '') <> 'Baja'
+            LIMIT 1
+        ", ['id_jefe' => $idJefe]);
+        if (!$jefe) {
+            return self::resultado(false, 'El jefe seleccionado no esta activo.');
+        }
+
+        $actual = $idJefe;
+        $vistos = [];
+        for ($i = 0; $i < 80 && $actual > 0; $i++) {
+            if ($actual === $idPersona) {
+                return self::resultado(false, 'No se puede asignar ese jefe porque generaria un ciclo en el organigrama.');
+            }
+            if (isset($vistos[$actual])) {
+                break;
+            }
+            $vistos[$actual] = true;
+
+            $rel = $db->queryOne("
+                SELECT id_jefe
+                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                WHERE id_persona = :id_persona
+                ORDER BY id DESC
+                LIMIT 1
+            ", ['id_persona' => $actual]);
+            $actual = !empty($rel['id_jefe']) ? (int)$rel['id_jefe'] : 0;
+        }
+
+        $asignacion = $db->queryOne("
+            SELECT id
+            FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+            WHERE id_persona = :id_persona
+            ORDER BY id DESC
+            LIMIT 1
+        ", ['id_persona' => $idPersona]);
+
+        if ($asignacion) {
+            $db->CRUD("
+                UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                SET id_jefe = :id_jefe,
+                    id_vacante_jefe = NULL
+                WHERE id = :id
+                LIMIT 1
+            ", ['id_jefe' => $idJefe, 'id' => (int)$asignacion['id']]);
+        } else {
+            $db->CRUD("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_jefe (id_persona, id_jefe, id_vacante_jefe)
+                VALUES (:id_persona, :id_jefe, NULL)
+            ", ['id_persona' => $idPersona, 'id_jefe' => $idJefe]);
+        }
+
+        return self::resultado(true, 'Jefe actualizado correctamente.');
+    }
+
+    private static function nombreCompletoPersonaCambioEstructura(array $persona): string
+    {
+        return trim(implode(' ', array_filter([
+            trim((string)($persona['nombres'] ?? '')),
+            trim((string)($persona['segundo_nombre'] ?? '')),
+            trim((string)($persona['apellidop'] ?? '')),
+            trim((string)($persona['apellidom'] ?? '')),
+        ], static function ($valor) {
+            return $valor !== '';
+        })));
+    }
+
+    private static function normalizarTextoCambioEstructura($valor): string
+    {
+        $texto = trim((string)$valor);
+        if ($texto === '') {
+            return '';
+        }
+        $texto = strtr($texto, [
+            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+        ]);
+        if (function_exists('iconv')) {
+            $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
+            if ($ascii !== false) {
+                $texto = $ascii;
+            }
+        }
+        $texto = strtolower($texto);
+        $texto = preg_replace('/[^a-z0-9]+/', ' ', $texto);
+        return trim((string)preg_replace('/\s+/', ' ', (string)$texto));
+    }
+
     public static function registrarAuditoriaSalarioSensibleRrhh(array $datos): void
     {
         try {

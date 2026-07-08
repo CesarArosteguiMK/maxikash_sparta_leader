@@ -40,6 +40,7 @@ class CapHum extends Controller
     private const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
     private const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
     private const MODULO_AUDITORIA_RRHH = 154;
+    private const MODULO_GESTION_ACTUALIZAR_ESTRUCTURA = 191;
     private const MODULOS_DOCUMENTO_RRHH = [
         8 => 155,
         9 => 156,
@@ -4981,6 +4982,14 @@ class CapHum extends Controller
                         && !descripcionModulo.includes('motos adjudicadas');
                 }).map(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
+                    if (idMod === 191) {
+                        return Object.assign({}, mod, {
+                            menu_grupo: 'Capital Humano',
+                            menu_grupo_icono: 'fa-solid fa-users',
+                            menu_grupo_orden: 11,
+                            menu_item_orden: idMod
+                        });
+                    }
                     if (idMod === 152 || idMod === 153) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Capital Humano',
@@ -5037,7 +5046,20 @@ class CapHum extends Controller
 
             function renderModulos(perfiles) {
                 const container = document.getElementById('modal-edit-perfil-modulos-form') || document.getElementById('modulos-form');
-                renderAgrupadoPorMenuGrupo(perfiles, container, {
+                const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).map(mod => {
+                    const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
+                    const nombreModulo = String(mod.modulo_nombre ?? mod.nombre ?? '').trim().toLowerCase();
+                    if (idMod === 188 || nombreModulo === 'reporteria motos') {
+                        return Object.assign({}, mod, {
+                            menu_grupo: 'Motos Adjudicadas',
+                            menu_grupo_icono: 'fa-solid fa-motorcycle',
+                            menu_grupo_orden: 7,
+                            menu_item_orden: idMod
+                        });
+                    }
+                    return mod;
+                });
+                renderAgrupadoPorMenuGrupo(perfilesNormalizados, container, {
                     masterIdPrefix: 'modal-perfil-modulo-master-',
                     iconosMap: iconosModulosSistemaPerfil,
                     emptyHtml: '<div class="text-muted small text-center py-4">No hay módulos disponibles</div>',
@@ -26196,6 +26218,7 @@ class CapHum extends Controller
             : ['datos' => []];
         self::set("departamento", $departamentosView);
         self::set("puedeDescargarPlantillaGestion", in_array(self::MODULO_GESTION_PLANTILLA, $modulos));
+        self::set("puedeImportarEstructuraGestion", in_array(self::MODULO_GESTION_ACTUALIZAR_ESTRUCTURA, $modulos));
         self::set("puedeAgregarUsuarioGestion", in_array(self::MODULO_GESTION_AGREGAR_USUARIO, $modulos));
         self::set("puedeEditarUsuarioGestion", in_array(self::MODULO_GESTION_EDITAR_USUARIO, $modulos));
         self::set("puedeCargarDocumentoGestion", in_array(self::MODULO_GESTION_CARGAR_DOCUMENTO, $modulos));
@@ -26777,6 +26800,139 @@ class CapHum extends Controller
         } catch (\Throwable $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo leer el archivo de sueldos.', 'error' => $e->getMessage()]);
         }
+    }
+
+    public function importarCambioEstructuraGestion()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!self::tieneModuloWeb(self::MODULO_GESTION_ACTUALIZAR_ESTRUCTURA)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para importar cambios de estructura.']);
+            return;
+        }
+
+        $archivo = $_FILES['archivo'] ?? null;
+        if (empty($archivo) || !empty($archivo['error'])) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona un archivo Excel o CSV valido.']);
+            return;
+        }
+
+        $nombre = (string)($archivo['name'] ?? '');
+        $tmp = (string)($archivo['tmp_name'] ?? '');
+        $extension = strtolower(pathinfo($nombre, PATHINFO_EXTENSION));
+        if (!is_uploaded_file($tmp) || !in_array($extension, ['xlsx', 'xls', 'csv'], true)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El archivo debe ser .xlsx, .xls o .csv.']);
+            return;
+        }
+
+        try {
+            $filas = $this->leerFilasCambioEstructuraGestion($tmp, $extension);
+            if (empty($filas)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se encontraron filas para actualizar estructura.']);
+                return;
+            }
+
+            $aplicar = !empty($_POST['aplicar']) && (string)$_POST['aplicar'] !== '0';
+            $resultado = CapHumDAO::importarCambiosEstructuraPorExternalId($filas, self::usuarioSesionId(), $aplicar);
+            self::respuestaJSON($resultado);
+        } catch (\Throwable $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No se pudo leer el archivo de cambio de estructura.',
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    private function leerFilasCambioEstructuraGestion(string $ruta, string $extension): array
+    {
+        $matriz = [];
+        if ($extension === 'csv') {
+            $handle = fopen($ruta, 'r');
+            if (!$handle) {
+                return [];
+            }
+            while (($row = fgetcsv($handle, 0, ',')) !== false) {
+                $matriz[] = $row;
+            }
+            fclose($handle);
+        } else {
+            if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+                $autoload = dirname(__DIR__, 2) . '/vendor/autoload.php';
+                if (is_file($autoload)) {
+                    require_once $autoload;
+                }
+            }
+            if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+                throw new \RuntimeException('PhpSpreadsheet no esta disponible.');
+            }
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
+            $matriz = $spreadsheet->getActiveSheet()->toArray(null, true, true, false);
+        }
+
+        if (count($matriz) < 2) {
+            return [];
+        }
+
+        $normalizarHeader = static function ($valor): string {
+            $texto = strtolower(trim((string)$valor));
+            $texto = strtr($texto, [
+                'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n',
+                'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u', 'Ñ' => 'n',
+            ]);
+            return trim((string)preg_replace('/[^a-z0-9]+/', '_', $texto), '_');
+        };
+
+        $headers = array_map($normalizarHeader, array_shift($matriz));
+        $buscarIndice = static function (array $alias) use ($headers) {
+            foreach ($alias as $header) {
+                $idx = array_search($header, $headers, true);
+                if ($idx !== false) {
+                    return $idx;
+                }
+            }
+            return false;
+        };
+
+        $idxExternal = $buscarIndice(['external_id', 'externalid', 'numero_empleado', 'no_empleado', 'num_empleado']);
+        $idxNombre = $buscarIndice(['nombre_completo', 'nombre']);
+        $idxPuesto = $buscarIndice(['puesto_legacy', 'puesto', 'nombre_puesto']);
+        $idxDepartamento = $buscarIndice(['departamento', 'nombre_departamento']);
+        $idxSupervisor = $buscarIndice(['supervisor', 'jefe_directo', 'jefe']);
+        $idxSubgerente = $buscarIndice(['subgerente']);
+        $idxGerente = $buscarIndice(['gerente']);
+
+        if ($idxExternal === false || $idxPuesto === false || $idxDepartamento === false) {
+            throw new \RuntimeException('El archivo debe tener las columnas external_id, puesto_legacy y departamento.');
+        }
+
+        $filas = [];
+        foreach ($matriz as $offset => $row) {
+            $externalId = trim((string)($row[$idxExternal] ?? ''));
+            $puesto = trim((string)($row[$idxPuesto] ?? ''));
+            $departamento = trim((string)($row[$idxDepartamento] ?? ''));
+            $nombreCompleto = $idxNombre !== false ? trim((string)($row[$idxNombre] ?? '')) : '';
+            $supervisor = $idxSupervisor !== false ? trim((string)($row[$idxSupervisor] ?? '')) : '';
+            $subgerente = $idxSubgerente !== false ? trim((string)($row[$idxSubgerente] ?? '')) : '';
+            $gerente = $idxGerente !== false ? trim((string)($row[$idxGerente] ?? '')) : '';
+
+            if ($externalId === '' && $puesto === '' && $departamento === '' && $nombreCompleto === '') {
+                continue;
+            }
+
+            $filas[] = [
+                'fila' => $offset + 2,
+                'external_id' => $externalId,
+                'nombre_completo' => $nombreCompleto,
+                'puesto_legacy' => $puesto,
+                'departamento' => $departamento,
+                'supervisor' => $supervisor,
+                'subgerente' => $subgerente,
+                'gerente' => $gerente,
+            ];
+        }
+
+        return $filas;
     }
 
     private function leerFilasSueldosRrhh(string $ruta, string $extension): array
