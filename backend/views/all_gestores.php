@@ -11469,6 +11469,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
               </button>`
                 : ''
               }
+              ${mostrarEditarRrhh ? `<button class="btn btn-sm text-white" style="background-color: #7c3aed; border-color: #7c3aed;" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH." aria-label="Editar RR.HH.">
+                  <i class="fa fa-user-pen"></i>
+              </button>` : ''}
               ${mostrarVisualizar
                 ? `<button class="btn btn-sm btn-outline-secondary" onclick="visualizar(${p.id})" title="Visualizar">
                   <i class="fa fa-eye"></i>
@@ -11491,9 +11494,6 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                  <i class="fa fa-lock" style="color: #007bff;"></i>
              </button>` : ''}
            </div>
-              ${mostrarEditarRrhh ? `<button class="btn btn-sm btn-info text-white d-inline-flex align-items-center justify-content-center gap-1 px-3" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH.">
-                  <i class="fa fa-user-pen"></i><span>Editar RR.HH.</span>
-              </button>` : ''}
          </div>`;
         })()
       };

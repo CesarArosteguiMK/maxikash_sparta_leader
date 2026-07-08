@@ -1454,6 +1454,9 @@ class CapHum extends Controller
                                     </button>`
                                         : ''
                                     }
+                                    ${mostrarEditarRrhh ? `<button class="btn btn-sm text-white" style="background-color: #7c3aed; border-color: #7c3aed;" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH." aria-label="Editar RR.HH.">
+                                        <i class="fa fa-user-pen"></i>
+                                    </button>` : ''}
                                     ${mostrarVisualizar
                                         ? `<button class="btn btn-sm btn-outline-secondary" onclick="visualizar(${p.id})" title="Visualizar">
                                         <i class="fa fa-eye"></i>
@@ -1480,9 +1483,6 @@ class CapHum extends Controller
                                         <i class="fa fa-lock" style="color: #007bff;"></i>
                                     </button>` : ''}
                                     </div>
-                                    ${mostrarEditarRrhh ? `<button class="btn btn-sm btn-info text-white d-inline-flex align-items-center justify-content-center gap-1 px-3" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH.">
-                                        <i class="fa fa-user-pen"></i><span>Editar RR.HH.</span>
-                                    </button>` : ''}
                                 </div>`;
                             })()
                         };
@@ -2565,18 +2565,118 @@ class CapHum extends Controller
 
             let currentPersonaId = null;
             let perfilAbortController = null;
+            let perfilPuestosAbortController = null;
             let perfilModalLazyRender = null;
+
+            function setPerfilPuestosLoading() {
+                const loadingHtml = '<div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Cargando accesos a puestos...</div>';
+                const puestosForm = document.getElementById('modal-edit-perfil-puestos-form');
+                const paisesList = document.getElementById('perfilPuestosPaisList');
+                if (puestosForm) puestosForm.innerHTML = loadingHtml;
+                if (paisesList) paisesList.innerHTML = '<div class="text-muted small px-2 py-3">Cargando...</div>';
+            }
+
+            function setPerfilPuestosError(mensaje) {
+                const msg = String(mensaje || 'No se pudieron cargar los accesos a puestos.');
+                const safe = msg.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+                const puestosForm = document.getElementById('modal-edit-perfil-puestos-form');
+                const paisesList = document.getElementById('perfilPuestosPaisList');
+                if (puestosForm) {
+                    puestosForm.innerHTML = '<div class="alert alert-warning mb-0"><i class="fa fa-triangle-exclamation me-2"></i>' + safe + '</div>';
+                }
+                if (paisesList) paisesList.innerHTML = '';
+            }
+
+            function isPerfilTabActive(tabId) {
+                return document.querySelector('#modalEditPerfil .tab-pane.active')?.id === tabId;
+            }
+
+            function cargarPerfilPuestosDiferido(options = {}) {
+                if (!perfilModalLazyRender || perfilModalLazyRender.puestosCargando || perfilModalLazyRender.puestosRenderizados) return;
+                const mostrarLoading = options.mostrarLoading !== false || isPerfilTabActive('tabPuestos');
+                if (!currentPersonaId) {
+                    setPerfilPuestosError('No se encontro el usuario seleccionado.');
+                    return;
+                }
+
+                perfilModalLazyRender.puestosCargando = true;
+                if (mostrarLoading) {
+                    setPerfilPuestosLoading();
+                }
+
+                if (perfilPuestosAbortController) {
+                    perfilPuestosAbortController.abort();
+                }
+                perfilPuestosAbortController = new AbortController();
+                const signal = perfilPuestosAbortController.signal;
+
+                fetch('/CapHum/getPermisosJerarquicosPerfil', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ idPersona: parseInt(currentPersonaId, 10) }),
+                    signal: signal
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (signal.aborted || !perfilModalLazyRender) return;
+                    perfilModalLazyRender.puestosCargando = false;
+                    if (!data.success) {
+                        setPerfilPuestosError(data.mensaje || 'No se pudieron cargar los accesos a puestos.');
+                        return;
+                    }
+                    perfilModalLazyRender.permisosJerarquia = data.datos || null;
+                    renderPuestos(perfilModalLazyRender.puestos || [], perfilModalLazyRender.permisosJerarquia || null);
+                    perfilModalLazyRender.puestosRenderizados = true;
+                })
+                .catch(err => {
+                    if (err.name === 'AbortError') return;
+                    console.error('cargarPerfilPuestosDiferido:', err);
+                    if (perfilModalLazyRender) perfilModalLazyRender.puestosCargando = false;
+                    if (mostrarLoading || isPerfilTabActive('tabPuestos')) {
+                        setPerfilPuestosError('No se pudieron cargar los accesos a puestos. Revisa la conexion o intenta nuevamente.');
+                    }
+                });
+            }
 
             function renderPerfilTabDiferida(tabId) {
                 if (!perfilModalLazyRender) return;
                 if (tabId === 'tabPuestos' && !perfilModalLazyRender.puestosRenderizados) {
-                    renderPuestos(perfilModalLazyRender.puestos || [], perfilModalLazyRender.permisosJerarquia || null);
-                    perfilModalLazyRender.puestosRenderizados = true;
+                    if (perfilModalLazyRender.puestosCargando) {
+                        setPerfilPuestosLoading();
+                        return;
+                    }
+                    if (perfilModalLazyRender.permisosJerarquiaDiferida && !perfilModalLazyRender.permisosJerarquia) {
+                        cargarPerfilPuestosDiferido();
+                    } else {
+                        renderPuestos(perfilModalLazyRender.puestos || [], perfilModalLazyRender.permisosJerarquia || null);
+                        perfilModalLazyRender.puestosRenderizados = true;
+                    }
                 }
                 if (tabId === 'tabPermisosEspeciales' && !perfilModalLazyRender.permisosRenderizados) {
                     renderPermisosEspeciales(perfilModalLazyRender.permisosEspeciales || []);
                     perfilModalLazyRender.permisosRenderizados = true;
                 }
+            }
+
+            function precargarPerfilTabsDiferidas() {
+                const runAfterPaint = window.requestAnimationFrame || function(cb) { return setTimeout(cb, 0); };
+                const runIdle = window.requestIdleCallback || function(cb) { return setTimeout(cb, 250); };
+                runAfterPaint(function() {
+                    if (!perfilModalLazyRender || Number(currentPersonaId || 0) <= 0) return;
+                    if (!perfilModalLazyRender.permisosRenderizados) {
+                        renderPermisosEspeciales(perfilModalLazyRender.permisosEspeciales || []);
+                        perfilModalLazyRender.permisosRenderizados = true;
+                    }
+                    runIdle(function() {
+                        if (!perfilModalLazyRender || Number(currentPersonaId || 0) <= 0) return;
+                        if (perfilModalLazyRender.permisosJerarquiaDiferida && !perfilModalLazyRender.puestosRenderizados) {
+                            cargarPerfilPuestosDiferido({ mostrarLoading: false });
+                        }
+                    });
+                });
             }
 
             document.getElementById('tabPuestos-tab')?.addEventListener('shown.bs.tab', function () {
@@ -2629,6 +2729,10 @@ class CapHum extends Controller
 
                 if (perfilAbortController) {
                     perfilAbortController.abort();
+                }
+                if (perfilPuestosAbortController) {
+                    perfilPuestosAbortController.abort();
+                    perfilPuestosAbortController = null;
                 }
                 perfilAbortController = new AbortController();
                 const signal = perfilAbortController.signal;
@@ -2759,12 +2863,15 @@ class CapHum extends Controller
                     perfilModalLazyRender = {
                         puestos: puestos,
                         permisosJerarquia: permisosJerarquia,
+                        permisosJerarquiaDiferida: Boolean(data.datos.permisos_jerarquia_diferida),
+                        puestosCargando: false,
                         permisosEspeciales: perfilesPermisosEspeciales,
                         puestosRenderizados: false,
                         permisosRenderizados: false
                     };
                     renderModulos(perfilesModulosSistema);
                     renderPerfilTabDiferida(document.querySelector('#modalEditPerfil .tab-pane.active')?.id || 'tabModulos');
+                    precargarPerfilTabsDiferidas();
                     actualizarEstadoForceLogoutPanel(persona);
 
                     // Abrir modal en lugar de offcanvas
@@ -27286,6 +27393,30 @@ class CapHum extends Controller
         $detalles = CapHumDAO::getPersonaDetallePerfil($idPersona);
 
         self::respuestaJSON($detalles);
+    }
+
+    public function getPermisosJerarquicosPerfil()
+    {
+        if (!self::puedeGestionarPermisosEspeciales()) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No tienes permiso para consultar accesos a puestos del usuario.'
+            ]);
+            return;
+        }
+
+        $input = json_decode(file_get_contents("php://input"), true);
+        $idPersona = isset($input['idPersona']) ? (int) $input['idPersona'] : 0;
+
+        if ($idPersona <= 0) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'ID de persona no recibido'
+            ]);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::getPermisosJerarquicosPerfil($idPersona));
     }
 
     public function getDatosReasignacionBaja()

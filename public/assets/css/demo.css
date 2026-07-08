@@ -33,6 +33,21 @@
   overflow-y: auto;
   overflow-x: hidden;
 }
+#layout-menu .menu-inner {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+#layout-menu .menu-inner::-webkit-scrollbar {
+  display: none;
+}
+#layout-menu .menu-inner > .ps__rail-y,
+#layout-menu .menu-inner > .ps__rail-x,
+#layout-menu .menu-inner > .ps__rail-y > .ps__thumb-y,
+#layout-menu .menu-inner > .ps__rail-x > .ps__thumb-x {
+  opacity: 0 !important;
+  background: transparent !important;
+  pointer-events: none !important;
+}
 
 /* Iconos modernos modo oscuro / modo claro */
 .dropdown-item.dark-mode-toggle i.dark-mode-icon {

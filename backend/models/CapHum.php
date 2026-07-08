@@ -5803,8 +5803,6 @@ class CapHum extends Model
 
         try {
             $db = new Database();
-            self::asegurarModuloConveniosDescargarExcel($db);
-            self::asegurarModuloAccesosCapitalHumanoDb($db);
 
             $query = <<<SQL
             SELECT
@@ -5907,7 +5905,6 @@ class CapHum extends Model
 
 
             $persona = $db->queryOne($query);
-            self::asegurarModuloTrackingCancelarRuta($db);
             $perfiles = $db->queryAll($query_perfiles);
             $perfiles = self::agregarModuloConveniosDescargarExcelSiFalta($perfiles, $idPersona, $db);
             require_once __DIR__ . '/../config/menu_modulos_sidebar.php';
@@ -5916,14 +5913,14 @@ class CapHum extends Model
             // Evitamos mandar el catalogo legacy completo para que el modal abra mas rapido.
             $puestos = [];
             $asignacionActual = $db->queryOne($query_asignacion_actual);
-            $permisosJerarquia = self::getPermisosJerarquicosPerfil($idPersona, $db);
 
             return self::resultado(true, 'Persona encontrada.', [
                 'persona' => $persona,
                 'perfiles' => $perfiles,
                 'puestos' => $puestos,
                 'asignacion_actual' => $asignacionActual,
-                'permisos_jerarquia' => ($permisosJerarquia['success'] ?? false) ? ($permisosJerarquia['datos'] ?? []) : null
+                'permisos_jerarquia' => null,
+                'permisos_jerarquia_diferida' => true
             ]);
 
         } catch (\Exception $e) {
