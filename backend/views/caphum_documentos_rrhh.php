@@ -681,9 +681,11 @@
         const fd = new FormData();
         const batchId = String(importAnalisis?.batch_id || '').trim();
         const usarBatch = options.usarBatch !== false;
+        const cacheLote = options.cacheLote !== false;
         const files = Array.isArray(options.files) ? options.files : importFiles;
         const sourceOffset = Number(options.sourceOffset || 0);
         const manualesGlobales = options.manualesGlobales || null;
+        fd.append('cache_lote', cacheLote ? '1' : '0');
         if (importPersonaObjetivo && Number(importPersonaObjetivo.id_persona || 0) > 0) {
             fd.append('id_persona', Number(importPersonaObjetivo.id_persona || 0));
         }
@@ -712,6 +714,47 @@
             });
         }
         return fd;
+    }
+
+    function importFormatoBytes(bytes) {
+        const valor = Number(bytes || 0);
+        if (valor <= 0) return '0 MB';
+        if (valor >= 1024 * 1024) return `${(valor / 1024 / 1024).toFixed(1)} MB`;
+        return `${Math.max(1, Math.round(valor / 1024))} KB`;
+    }
+
+    function importDescripcionLote(batch, index, total) {
+        const inicio = Number(batch?.sourceOffset || 0) + 1;
+        const fin = inicio + Number(batch?.files?.length || 0) - 1;
+        const nombres = Array.from(batch?.files || []).slice(0, 3).map(file => file.name).filter(Boolean);
+        const extra = Number(batch?.files?.length || 0) > 3 ? ` y ${Number(batch.files.length) - 3} mas` : '';
+        return `lote ${index + 1} de ${total}, archivos ${inicio}-${fin}, ${importFormatoBytes(batch?.bytes || 0)}${nombres.length ? ` (${nombres.join(', ')}${extra})` : ''}`;
+    }
+
+    function importMensajeErrorOperacion(err, contexto = {}) {
+        const partes = [];
+        const fase = contexto.fase || 'operación';
+        const codigo = String(err?.codigo || '').trim();
+        const sugerencias = {
+            post_max_size_superado: 'La carga enviada supera el límite permitido por el servidor. Selecciona una carpeta para procesar en lotes más pequeños o divide los archivos.',
+            lote_temporal_no_disponible: 'El lote temporal expiró o el navegador liberó los archivos. Vuelve a seleccionar la carpeta o los archivos y reintenta.',
+            sin_archivos_validos: 'El servidor no recibió PDF, FAD o ZIP válidos. Revisa que la carpeta no esté vacía y que los archivos tengan extensión permitida.',
+            respuesta_no_json: 'El servidor devolvió una respuesta inesperada. Normalmente pasa por un error PHP, timeout o rechazo del servidor antes de llegar al controlador.',
+            conexion_fallida: 'No se pudo comunicar con el servidor. Revisa conexión, sesión activa y que el servicio esté disponible.'
+        };
+        partes.push(`No se pudo completar ${fase}.`);
+        if (contexto.batch) {
+            partes.push(`Dónde falló: ${importDescripcionLote(contexto.batch, contexto.index || 0, contexto.total || 1)}.`);
+        }
+        if (contexto.endpoint) {
+            partes.push(`Proceso técnico: ${contexto.endpoint}.`);
+        }
+        if (codigo) {
+            partes.push(`Código: ${codigo}.`);
+        }
+        partes.push(`Motivo detectado: ${err?.message || 'El servidor no devolvió detalle del error.'}`);
+        partes.push(`Qué hacer: ${sugerencias[codigo] || 'Revisa el archivo o lote indicado; si se repite, comparte este detalle técnico para ubicar el punto exacto.'}`);
+        return partes.join('\n');
     }
 
     function importResumenVacio() {
@@ -1004,17 +1047,23 @@
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
         } catch (err) {
-            throw new Error('No se pudo conectar con el servidor. En produccion los documentos se envian por lotes; si elegiste un ZIP grande, descomprimelo y usa "Elegir carpeta".');
+            const error = new Error(`No se pudo conectar con el servidor al llamar ${endpoint}. Revisa la red, el tamaño del lote o si el navegador liberó los archivos temporales.`);
+            error.codigo = 'conexion_fallida';
+            throw error;
         }
         const contentType = res.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
             const texto = await res.text();
-            throw new Error(texto ? texto.slice(0, 250) : 'Respuesta no JSON del servidor.');
+            const error = new Error(texto ? texto.slice(0, 500) : `El servidor respondio HTTP ${res.status} sin JSON.`);
+            error.codigo = 'respuesta_no_json';
+            error.status = res.status;
+            throw error;
         }
         const json = await res.json();
         if (!json.success) {
             const error = new Error(json.mensaje || 'La operacion no se completo.');
             error.codigo = json.codigo || json?.datos?.codigo || '';
+            error.status = res.status;
             throw error;
         }
         return json.datos || {};
@@ -1150,11 +1199,23 @@
                 if (batches.length > 1) {
                     importSetLoading(true, `Analizando lote ${i + 1} de ${batches.length} (${batch.files.length} archivo(s))...`);
                 }
-                const parcial = await importEnviar(endpoint, {
-                    files: batch.files,
-                    sourceOffset: batch.sourceOffset,
-                    usarBatch: false
-                });
+                let parcial;
+                try {
+                    parcial = await importEnviar(endpoint, {
+                        files: batch.files,
+                        sourceOffset: batch.sourceOffset,
+                        usarBatch: false,
+                        cacheLote: false
+                    });
+                } catch (err) {
+                    throw new Error(importMensajeErrorOperacion(err, {
+                        fase: 'analisis de documentos',
+                        endpoint,
+                        batch,
+                        index: i,
+                        total: batches.length
+                    }));
+                }
                 if (!combinado.catalogo.length && Array.isArray(parcial.catalogo)) {
                     combinado.catalogo = parcial.catalogo;
                 }
@@ -1163,6 +1224,11 @@
                 }
                 combinado.items.push(...importNormalizarItemsBatch(parcial.items || [], batch.sourceOffset));
                 importSumarResumen(combinado.resumen, parcial.resumen || {});
+                importRenderResumen(combinado.resumen);
+                if (batches.length > 1) {
+                    const procesados = combinado.items.length;
+                    importSetLoading(true, `Analizando lote ${i + 1} de ${batches.length}. Acumulado: ${procesados}/${importFiles.length} archivo(s), ${Number(combinado.resumen.listo || 0)} listo(s).`);
+                }
             }
             importAnalisis = combinado;
             if (mostrarPreparando) {
@@ -1237,15 +1303,32 @@
                             Swal.getHtmlContainer().textContent = `Lote ${i + 1} de ${batches.length}.`;
                         }
                     }
-                    const parcial = await importEnviar(endpoint, {
-                        files: batch.files,
-                        sourceOffset: batch.sourceOffset,
-                        usarBatch: false,
-                        manualesGlobales
-                    });
+                    let parcial;
+                    try {
+                        parcial = await importEnviar(endpoint, {
+                            files: batch.files,
+                            sourceOffset: batch.sourceOffset,
+                            usarBatch: false,
+                            cacheLote: false,
+                            manualesGlobales
+                        });
+                    } catch (err) {
+                        throw new Error(importMensajeErrorOperacion(err, {
+                            fase: 'importacion de documentos',
+                            endpoint,
+                            batch,
+                            index: i,
+                            total: batches.length
+                        }));
+                    }
                     resultado.items.push(...importNormalizarItemsBatch(parcial.items || [], batch.sourceOffset));
                     importSumarResumen(resultado.resumen, parcial.resumen || {});
                     resultado.importados += Number(parcial.importados || 0);
+                    importRenderResumen(resultado.resumen);
+                    if (batches.length > 1) {
+                        const procesados = resultado.items.length;
+                        importSetLoading(true, `Importando lote ${i + 1} de ${batches.length}. Acumulado: ${procesados}/${importFiles.length} archivo(s), ${Number(resultado.importados || 0)} importado(s).`);
+                    }
                 }
             }
             importAnalisis = resultado;
