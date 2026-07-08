@@ -39,6 +39,7 @@ from app.services.alibaba_document_ai import (
     summary_is_usable,
     normalize_text,
     is_digital_bank,
+    user_document_name,
 )
 from app.core.config import get_settings
 
@@ -1224,6 +1225,23 @@ def _v2_doc_has_any_value(doc: Dict[str, Any], keys: List[str]) -> bool:
     return False
 
 
+def _v2_doc_digits(doc: Dict[str, Any], keys: List[str]) -> str:
+    values: List[str] = []
+    for key in keys:
+        value = doc.get(key)
+        if value is not None:
+            values.append(str(value))
+    return re.sub(r"\D+", "", " ".join(values))
+
+
+def _v2___SPARTA_SECRET_REDACTED___tiene_soporte_bancario(doc: Dict[str, Any]) -> bool:
+    bank = str(doc.get("banco") or "").strip()
+    account_digits = _v2_doc_digits(doc, ["clabe", "numero_cuenta"])
+    if not bank or is_digital_bank(bank):
+        return False
+    return len(account_digits) >= 6
+
+
 def _v2_int_or_none(value: Any) -> Optional[int]:
     try:
         if value is None or str(value).strip() == "":
@@ -1708,9 +1726,9 @@ def _resultado_v2_reglas_expediente(
 
         if not summary_is_usable(summary):
             out["estado"] = "requiere_revision"
-            out["mensaje"] = "No se pudo obtener lectura automatica de este documento en el ultimo intento."
+            out["mensaje"] = f"{label} ({filename}): no se pudo obtener lectura automatica en el ultimo intento."
             docs_out[key] = out
-            alertas.append(f"{label}: no se pudo leer automaticamente en el ultimo intento.")
+            alertas.append(f"{label} ({filename}): no se pudo leer automaticamente en el ultimo intento.")
             continue
 
         out["nombre"] = _v2_first_value(previo, ["nombre", "nombre_completo", "nombre_propietario", "nombre_titular", "titular_cuenta"])
@@ -1742,12 +1760,35 @@ def _resultado_v2_reglas_expediente(
         rechazado = _v2_bool(previo.get("rechazado"))
         valido = _v2_bool(previo.get("valido"))
         revision_manual = _v2_bool(previo.get("revision_manual"))
+        if key == "__SPARTA_SECRET_REDACTED__" and _v2___SPARTA_SECRET_REDACTED___tiene_soporte_bancario(out):
+            tipo_leido = str(out.get("tipo_detectado") or "").strip()
+            if tipo_leido and tipo_leido not in {"__SPARTA_SECRET_REDACTED__", "desconocido"}:
+                msg_banco = (
+                    f"{label} ({filename}): formato bancario con cuenta o CLABE detectado; "
+                    "se acepta para validacion bancaria."
+                )
+                out["mensaje"] = msg_banco
+                out.setdefault("observaciones", []).append(msg_banco)
+            out["tipo_detectado"] = "__SPARTA_SECRET_REDACTED__"
+            rechazado = False
+            if valido is False:
+                valido = True
+            if revision_manual is True:
+                revision_manual = False
         if rechazado is True:
             out["estado"] = "no_coincide"
-            add_comp("Regla documental", f"{label} rechazado por lectura rapida", key, out["mensaje"], "Regla", "Documento valido", False, "critico", out["mensaje"] or f"{label} no cumple la regla documental.")
+            msg_rechazo = out["mensaje"] or f"{label} no cumple la regla documental."
+            if filename and filename not in msg_rechazo:
+                msg_rechazo = f"{label} ({filename}): {msg_rechazo}"
+            out["mensaje"] = msg_rechazo
+            out.setdefault("observaciones", []).append(msg_rechazo)
+            add_comp("Regla documental", f"{label} rechazado por lectura rapida", key, msg_rechazo, "Regla", "Documento valido", False, "critico", msg_rechazo)
         elif valido is False or revision_manual is True:
             out["estado"] = "requiere_revision"
             msg = out["mensaje"] or f"{label} requiere revision manual por lectura automatica."
+            if filename and filename not in msg:
+                msg = f"{label} ({filename}): {msg}"
+            out["mensaje"] = msg
             add_comp("Regla documental", f"{label} requiere revision", key, msg, "Regla", "Lectura automatica suficiente", False, "aviso", msg)
 
         expected_types_by_key = {
@@ -1776,13 +1817,13 @@ def _resultado_v2_reglas_expediente(
             expected_label = label
             if key == "solicitud_interna" and detected_type == "cv":
                 msg_tipo = (
-                    "El archivo cargado en Solicitud interna parece ser CV o solicitud de trabajo. "
+                    f"El archivo {filename} cargado en Solicitud interna parece ser CV o solicitud de trabajo. "
                     "Debe subirse en la seccion CV o solicitud de trabajo, y en Solicitud interna "
                     "debe cargarse el formato interno de MaxiKash."
                 )
             else:
                 msg_tipo = (
-                    f"El archivo cargado en {expected_label} parece ser {detected_label}. "
+                    f"El archivo {filename} cargado en {expected_label} parece ser {detected_label}. "
                     "Debe subirse en la seccion correcta antes de continuar."
                 )
             out["estado"] = "no_coincide"

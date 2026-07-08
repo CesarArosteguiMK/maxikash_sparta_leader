@@ -480,6 +480,7 @@ def user_document_name(doc_type: Optional[str]) -> str:
         "pasaporte_mexicano": "pasaporte mexicano",
         "pasaporte_extranjero": "pasaporte extranjero",
         "acta_nacimiento": "acta de nacimiento",
+        "solicitud_interna": "solicitud interna",
         "solicitud___SPARTA_SECRET_REDACTED__": "solicitud interna",
         "cv": "CV",
         "comprobante_domicilio": "comprobante de domicilio",
@@ -503,6 +504,18 @@ def _field_text(fields: Dict[str, Any], *keys: str) -> str:
         elif value:
             parts.append(str(value))
     return " ".join(parts)
+
+
+def _field_digits(fields: Dict[str, Any], *keys: str) -> str:
+    return re.sub(r"\D+", "", _field_text(fields, *keys))
+
+
+def ___SPARTA_SECRET_REDACTED___tiene_soporte_bancario(fields: Dict[str, Any]) -> bool:
+    bank = _field_text(fields, "banco", "banco_detectado", "institucion_bancaria")
+    account_digits = _field_digits(fields, "clabe", "numero_cuenta", "cuenta")
+    if not bank or is_digital_bank(bank):
+        return False
+    return len(account_digits) >= 6
 
 
 def _bool_from_field(value: Any) -> Optional[bool]:
@@ -1089,8 +1102,8 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
             data["tipo_documento"] = "curp"
             doc_type = "curp"
 
-    if expected_doc_type == "__SPARTA_SECRET_REDACTED__" and doc_type == "desconocido":
-        if fields.get("banco") and (fields.get("clabe") or fields.get("numero_cuenta")) and not is_digital_bank(fields.get("banco")):
+    if expected_doc_type == "__SPARTA_SECRET_REDACTED__":
+        if ___SPARTA_SECRET_REDACTED___tiene_soporte_bancario(fields) and doc_type not in compatible_document_types("__SPARTA_SECRET_REDACTED__"):
             data["tipo_documento"] = "__SPARTA_SECRET_REDACTED__"
             doc_type = "__SPARTA_SECRET_REDACTED__"
 
