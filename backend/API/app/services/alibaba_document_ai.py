@@ -610,7 +610,8 @@ def render_identificacion_assistida(file_bytes: bytes, filename: str, dpi: int) 
     """Create a few rotated/cropped views for INE-style IDs.
 
     Some INE scans arrive sideways. The regular render is still sent, but these
-    assisted views give the visual model a clean look at the name/CURP block.
+    assisted views give the visual model a clean look at the name/CURP/vigencia
+    blocks without relying only on the full-page image.
     """
     ext = (filename.rsplit(".", 1)[-1] if "." in filename else "").lower()
     images: List[Image.Image] = []
@@ -636,6 +637,19 @@ def render_identificacion_assistida(file_bytes: bytes, filename: str, dpi: int) 
 
     source = images[0]
     variants: List[RenderedPage] = []
+    variants.append(RenderedPage(_jpeg_bytes_from_image(_enhance_document_crop(source), max_side=1900)))
+
+    # Common single-page scans place front and back on one sheet. Keep a clean
+    # crop of the front and a tight crop around the INE vigencia zone.
+    for box in (
+        (0.06, 0.08, 0.86, 0.46),
+        (0.53, 0.28, 0.82, 0.47),
+        (0.06, 0.46, 0.86, 0.78),
+    ):
+        crop = _safe_crop_ratio(source, box)
+        if crop is not None:
+            variants.append(RenderedPage(_jpeg_bytes_from_image(_enhance_document_crop(crop), max_side=1800)))
+
     for rotation in (90, -90):
         rotated = source.rotate(rotation, expand=True)
         enhanced = _enhance_document_crop(rotated)
@@ -648,7 +662,40 @@ def render_identificacion_assistida(file_bytes: bytes, filename: str, dpi: int) 
                 variants.append(RenderedPage(_jpeg_bytes_from_image(_enhance_document_crop(crop), max_side=1600)))
                 break
 
-    return variants[:4]
+    return variants[:7]
+
+
+def render_solicitud_assistida(file_bytes: bytes, filename: str, dpi: int) -> List[RenderedPage]:
+    """Create enhanced views for handwritten MaxiKash internal applications."""
+    ext = (filename.rsplit(".", 1)[-1] if "." in filename else "").lower()
+    images: List[Image.Image] = []
+    render_dpi = max(180, min(230, int(dpi or 180) + 35))
+    try:
+        if ext == "pdf":
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            matrix = fitz.Matrix(render_dpi / 72, render_dpi / 72)
+            for idx in range(min(int(doc.page_count or 0), 2)):
+                pix = doc[idx].get_pixmap(matrix=matrix, alpha=False)
+                images.append(Image.frombytes("RGB", [pix.width, pix.height], pix.samples))
+            doc.close()
+        else:
+            with Image.open(io.BytesIO(file_bytes)) as img:
+                images.append(img.convert("RGB"))
+    except Exception:
+        return []
+
+    variants: List[RenderedPage] = []
+    for img in images:
+        variants.append(RenderedPage(_jpeg_bytes_from_image(_enhance_document_crop(img), max_side=1900)))
+        for box in (
+            (0.00, 0.00, 1.00, 0.58),
+            (0.00, 0.22, 1.00, 0.82),
+            (0.10, 0.46, 0.92, 0.96),
+        ):
+            crop = _safe_crop_ratio(img, box)
+            if crop is not None:
+                variants.append(RenderedPage(_jpeg_bytes_from_image(_enhance_document_crop(crop), max_side=1800)))
+    return variants[:6]
 
 
 def render_input(file_bytes: bytes, filename: str, max_pages: int, dpi: int) -> tuple[List[RenderedPage], int]:
@@ -1124,8 +1171,14 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
         and doc_type not in {"pasaporte_mexicano", "pasaporte_extranjero"}
     ):
         fr = data.get("frente_reverso") or {}
-        if not fr.get("frente_detectado") or not fr.get("reverso_detectado"):
-            warnings.append("No se detecto frente y reverso completos")
+        frente_detectado = bool(fr.get("frente_detectado"))
+        reverso_detectado = bool(fr.get("reverso_detectado"))
+        if not frente_detectado and not reverso_detectado:
+            warnings.append("No se detecto frente ni reverso en la identificacion")
+        elif not frente_detectado:
+            warnings.append("No se detecto frente en la identificacion")
+        elif not reverso_detectado:
+            warnings.append("No se detecto reverso en la identificacion")
 
     if doc_type in compatible_document_types("identificacion_oficial"):
         if not fields.get("nombre_completo"):
@@ -1304,6 +1357,8 @@ class AlibabaDocumentAI:
         pages, page_count = render_input(file_bytes, filename, self.max_pages, self.dpi)
         if expected_doc_type == "identificacion_oficial":
             pages = pages + render_identificacion_assistida(file_bytes, filename, self.dpi)
+        elif expected_doc_type in {"solicitud___SPARTA_SECRET_REDACTED__", "solicitud_interna"}:
+            pages = pages + render_solicitud_assistida(file_bytes, filename, self.dpi)
         prompt = quick_prompt_for(expected_doc_type, nombre_candidato)
         extracted, usage, actual_model, fallback_used = self._call(pages, prompt)
         extracted["paginas_analizadas"] = extracted.get("paginas_analizadas") or len(pages)

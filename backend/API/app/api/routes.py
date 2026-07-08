@@ -5250,7 +5250,13 @@ async def validar_expediente(
             # no volver a mandar los 10 PDF a IA: eso puede pasar el timeout de
             # PHP en expedientes pesados. Solo rescatamos documentos sin lectura
             # util, normalmente expedientes viejos o migrados.
-            force_quick_refresh = set()
+            force_quick_refresh = {
+                str(doc.get("key") or "")
+                for doc in docs_v2
+                if doc.get("bytes")
+                and summary_is_usable(doc.get("summary"))
+                and _v2_summary_needs_pdf_text_rescue(doc)
+            }
             docs_needing_quick = [] if solo_lecturas_guardadas else [
                 doc for doc in docs_v2
                 if (
