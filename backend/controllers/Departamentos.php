@@ -805,6 +805,48 @@ class Departamentos extends Controller
           return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         }
 
+        const DEPARTAMENTO_DEFAULT_IMAGE = 'https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/lady-with-laptop-light.png';
+
+        function normalizarTextoVisualDepartamento(value) {
+          return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+        }
+
+        function getDepartamentoVisualConfig(nombre) {
+          const texto = normalizarTextoVisualDepartamento(nombre);
+          const reglas = [
+            { keys: ['sistema', 'tecnologia', 'desarrollo', 'soporte', 'admin sistemas'], icon: 'fa fa-server', theme: 'tech' },
+            { keys: ['auditoria'], icon: 'fa fa-shield-alt', theme: 'audit' },
+            { keys: ['call center', 'contact center', 'atencion'], icon: 'fa fa-headset', theme: 'support' },
+            { keys: ['data', 'inteligencia', 'analitica', 'negocio'], icon: 'fa fa-chart-line', theme: 'data' },
+            { keys: ['despacho', 'juridico', 'legal'], icon: 'fa fa-balance-scale', theme: 'legal' },
+            { keys: ['direccion'], icon: 'fa fa-compass', theme: 'ops' },
+            { keys: ['cobranza', 'cartera', 'credito', 'creditos'], icon: 'fa fa-hand-holding-usd', theme: 'money' },
+            { keys: ['estrategia', 'marketing', 'digital'], icon: 'fa fa-bullhorn', theme: 'digital' },
+            { keys: ['mercantil'], icon: 'fa fa-store', theme: 'ops' },
+            { keys: ['motos', 'adjudicadas'], icon: 'fa fa-motorcycle', theme: 'ops' },
+            { keys: ['producto'], icon: 'fa fa-box-open', theme: 'data' },
+            { keys: ['riesgo'], icon: 'fa fa-exclamation-triangle', theme: 'risk' },
+            { keys: ['mesa de control', 'control'], icon: 'fa fa-tasks', theme: 'audit' },
+            { keys: ['campo', 'operacion', 'operaciones'], icon: 'fa fa-users-cog', theme: 'support' },
+          ];
+
+          const match = reglas.find(regla => regla.keys.some(key => texto.includes(key)));
+          return match || { icon: 'fa fa-building', theme: 'tech' };
+        }
+
+        function renderDepartamentoVisual(nombre, imgUrl) {
+          const image = String(imgUrl || '').trim();
+          if (image && image !== DEPARTAMENTO_DEFAULT_IMAGE) {
+            return `<img src="${escapeHtml(image)}" class="img-fluid dept-visual-img" width="120" alt="${escapeHtml(nombre)}">`;
+          }
+
+          const config = getDepartamentoVisualConfig(nombre);
+          return `<div class="dept-visual dept-visual-${config.theme}" title="${escapeHtml(nombre)}"><i class="${config.icon}" aria-hidden="true"></i></div>`;
+        }
+
         function actualizarBotonAccionOrganizacion() {
           const btn = document.getElementById('btnAccionOrganizacion') || document.querySelector('button[onclick="abrirModalNuevoDepartamento()"]');
           if (!btn) return;
@@ -871,7 +913,7 @@ class Departamentos extends Controller
                       </button>
                     </div>
                     <div class="col-sm-4 d-flex align-items-center justify-content-center p-1">
-                      <img src="${imgUrl}" class="img-fluid" width="120" alt="${escapeHtml(dir.nombre)}">
+                      ${renderDepartamentoVisual(dir.nombre, imgUrl)}
                     </div>
                   </div>
                 </div>
@@ -914,7 +956,7 @@ class Departamentos extends Controller
                       </button>
                     </div>
                     <div class="col-sm-4 d-flex align-items-center justify-content-center p-1">
-                      <img src="https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/lady-with-laptop-light.png" class="img-fluid" width="120" alt="${escapeHtml(depOrg.nombre)}">
+                      ${renderDepartamentoVisual(depOrg.nombre, '')}
                     </div>
                   </div>
                 </div>
@@ -967,7 +1009,7 @@ class Departamentos extends Controller
           const departamentosActivos = depOrg.areas.filter(d => Number(d.activo) === 1);
           departamentosActivos.forEach(d => {
             const nombreSafe = escapeJs(d.departamento_nombre || '');
-            const imagen = d.img_url || 'https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/lady-with-laptop-light.png';
+            const visualDepartamento = renderDepartamentoVisual(d.departamento_nombre || '', d.img_url || '');
             cardsHTML += `
               <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
                 <div class="card h-100 rounded-3 dept-card">
@@ -983,7 +1025,7 @@ class Departamentos extends Controller
                       </button>
                     </div>
                     <div class="col-sm-4 d-flex align-items-center justify-content-center p-1">
-                      <img src="${imagen}" class="img-fluid" width="120" alt="${escapeHtml(d.departamento_nombre)}">
+                      ${visualDepartamento}
                     </div>
                   </div>
                 </div>

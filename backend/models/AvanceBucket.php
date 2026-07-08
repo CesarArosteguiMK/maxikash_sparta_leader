@@ -44,14 +44,16 @@ final class AvanceBucket
         $bucketCierreSql = self::bucketCierreAjustadoSql($columnaCorte);
 
         $rows = $db->queryAll("
-            SELECT bucket_inicio, bucket_cierre, COUNT(*) AS creditos
+            SELECT bucket_inicio, bucket_cierre, COUNT(DISTINCT id_credito) AS creditos
             FROM (
                 SELECT {$bucketInicioSql} AS bucket_inicio,
-                       {$bucketCierreSql} AS bucket_cierre
+                       {$bucketCierreSql} AS bucket_cierre,
+                       Id_credito AS id_credito
                 FROM tbl_segundometro_semana
             ) x
             WHERE bucket_inicio IS NOT NULL
               AND bucket_cierre IS NOT NULL
+              AND id_credito IS NOT NULL
             GROUP BY bucket_inicio, bucket_cierre
         ");
 
@@ -81,15 +83,17 @@ final class AvanceBucket
         $bucketCierreSql = self::bucketCierreAjustadoDaxHistoricoSql();
 
         $rows = $db->queryAll("
-            SELECT bucket_inicio, bucket_cierre, COUNT(*) AS creditos
+            SELECT bucket_inicio, bucket_cierre, COUNT(DISTINCT id_credito) AS creditos
             FROM (
                 SELECT {$bucketInicioSql} AS bucket_inicio,
-                       {$bucketCierreSql} AS bucket_cierre
+                       {$bucketCierreSql} AS bucket_cierre,
+                       Id_credito AS id_credito
                 FROM tbl_segundometro_histo
                 WHERE SEMANA = :semana
             ) x
             WHERE bucket_inicio IS NOT NULL
               AND bucket_cierre IS NOT NULL
+              AND id_credito IS NOT NULL
             GROUP BY bucket_inicio, bucket_cierre
         ", ['semana' => $semanaNormalizada]);
 

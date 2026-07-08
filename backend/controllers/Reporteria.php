@@ -1542,11 +1542,14 @@ class Reporteria extends Controller
      */
     public function avanceBucket($vistaRuta = null)
     {
-        self::set('titulo', 'Avance Bucket');
         $payload = null;
         $error = null;
         $vista = strtolower(trim((string) ($vistaRuta ?? ($_GET['vista'] ?? ''))));
         $mostrarAvance = in_array($vista, ['avance', 'historico', 'estresado'], true);
+        $tituloPagina = $vista === 'historico'
+            ? 'Historico Bucket'
+            : ($vista === 'estresado' ? 'Bucket estresado' : 'Avance Bucket');
+        self::set('titulo', $tituloPagina);
 
         if ($vistaRuta === null && isset($_GET['vista']) && $mostrarAvance) {
             header('Location: /analitica/avanceBucket/' . $vista, true, 302);

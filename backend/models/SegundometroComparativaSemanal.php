@@ -204,7 +204,7 @@ final class SegundometroComparativaSemanal
             if (!preg_match('/^Dias_mora_[A-Za-z]+_[0-9]{2}_[0-9]{2}$/', $col)) {
                 throw new \InvalidArgumentException('Columna no permitida');
             }
-            $parts[] = 'COALESCE(SUM(CASE WHEN `' . $col . '` BETWEEN 1 AND 7 THEN 1 ELSE 0 END), 0) AS k' . $i;
+            $parts[] = 'COALESCE(COUNT(DISTINCT CASE WHEN `' . $col . '` BETWEEN 1 AND 7 THEN Id_credito ELSE NULL END), 0) AS k' . $i;
         }
         $sql = 'SELECT ' . implode(', ', $parts) . ' FROM `tbl_segundometro_histo` WHERE SEMANA = :sem';
         $row = $db->queryOne($sql, ['sem' => $semana]);
@@ -230,7 +230,7 @@ final class SegundometroComparativaSemanal
             if (!preg_match('/^Dias_mora_[A-Za-z]+_[0-9]{2}_[0-9]{2}$/', $col)) {
                 throw new \InvalidArgumentException('Columna no permitida');
             }
-            $parts[] = 'COALESCE(SUM(CASE WHEN `' . $col . '` BETWEEN 1 AND 7 THEN 1 ELSE 0 END), 0) AS k' . $i;
+            $parts[] = 'COALESCE(COUNT(DISTINCT CASE WHEN `' . $col . '` BETWEEN 1 AND 7 THEN Id_credito ELSE NULL END), 0) AS k' . $i;
         }
         $sql = 'SELECT ' . implode(', ', $parts) . ' FROM `tbl_segundometro_semana`';
         $row = $db->queryOne($sql, null);

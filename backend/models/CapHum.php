@@ -2212,22 +2212,87 @@ class CapHum extends Model
                     $ph[] = ':' . $key;
                     $params[$key] = $id;
                 }
+                $hoyCdmx = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d');
+                $params['hoy_cdmx'] = $hoyCdmx;
                 $rowsAus = $db->queryAll("
-                    SELECT a.id_persona, ra.nombre AS razon_nombre, a.fecha_inicio, a.fecha_fin
+                    SELECT
+                        a.id,
+                        a.id_persona,
+                        a.id_razon,
+                        ra.nombre AS razon_nombre,
+                        a.fecha_inicio,
+                        a.fecha_fin,
+                        COALESCE(a.descripcion, '') AS descripcion
                     FROM __SPARTA_SECRET_REDACTED__.ausencia a
                     INNER JOIN __SPARTA_SECRET_REDACTED__.razon_ausencia ra ON ra.id = a.id_razon
                     INNER JOIN (
                         SELECT id_persona, MAX(id) AS max_id
                         FROM __SPARTA_SECRET_REDACTED__.ausencia
                         WHERE activo = 1
-                          AND DATE(fecha_inicio) <= CURDATE()
-                          AND DATE(fecha_fin) >= CURDATE()
+                          AND DATE(fecha_inicio) <= :hoy_cdmx
+                          AND DATE(fecha_fin) >= :hoy_cdmx
                           AND id_persona IN (" . implode(',', $ph) . ")
                         GROUP BY id_persona
                     ) latest ON latest.id_persona = a.id_persona AND latest.max_id = a.id
                 ", $params);
                 foreach ($rowsAus as $row) {
                     $ausencias[(int)$row['id_persona']] = $row;
+                }
+
+                if (!empty($ausencias)) {
+                    $docParams = [];
+                    $docPh = [];
+                    $i = 0;
+                    foreach (array_keys($ausencias) as $idPersonaAus) {
+                        $key = 'doc_id_' . $i++;
+                        $docPh[] = ':' . $key;
+                        $docParams[$key] = (int)$idPersonaAus;
+                    }
+
+                    $docs = $db->queryAll("
+                        SELECT
+                            cdp.id,
+                            cdp.id_persona,
+                            cdp.archivo,
+                            cdp.id_documento,
+                            COALESCE(d.nombre, 'Documento de ausencia') AS documento_nombre,
+                            DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
+                        FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                        LEFT JOIN __SPARTA_SECRET_REDACTED__.documento d ON d.id = cdp.id_documento
+                        WHERE cdp.id_persona IN (" . implode(',', $docPh) . ")
+                          AND cdp.id_documento IN (34, 35, 36)
+                        ORDER BY cdp.fecha_carga DESC, cdp.id DESC
+                    ", $docParams);
+
+                    $documentosPorPersona = [];
+                    foreach ($docs as $doc) {
+                        $idPersonaDoc = (int)($doc['id_persona'] ?? 0);
+                        if ($idPersonaDoc <= 0) {
+                            continue;
+                        }
+                        $documentosPorPersona[$idPersonaDoc][] = $doc;
+                    }
+
+                    foreach ($ausencias as $idPersonaAus => &$ausenciaRow) {
+                        $motivo = strtoupper((string)($ausenciaRow['razon_nombre'] ?? ''));
+                        $idsDocumentoEsperados = [];
+                        if (strpos($motivo, 'INCAPACIDAD') !== false) {
+                            $idsDocumentoEsperados[] = 34;
+                        } elseif (strpos($motivo, 'PERMISO') !== false) {
+                            $idsDocumentoEsperados[] = 35;
+                        } elseif (strpos($motivo, 'FALTA') !== false) {
+                            $idsDocumentoEsperados[] = 36;
+                        }
+
+                        $docsPersona = $documentosPorPersona[$idPersonaAus] ?? [];
+                        if (!empty($idsDocumentoEsperados)) {
+                            $docsPersona = array_values(array_filter($docsPersona, static function ($doc) use ($idsDocumentoEsperados) {
+                                return in_array((int)($doc['id_documento'] ?? 0), $idsDocumentoEsperados, true);
+                            }));
+                        }
+                        $ausenciaRow['documentos'] = $docsPersona;
+                    }
+                    unset($ausenciaRow);
                 }
             }
 
@@ -6393,6 +6458,7 @@ class CapHum extends Model
                     a.id_pais,
                     COALESCE(a.id_empresa, dir.id_empresa, 1) AS id_empresa,
                     COALESCE(emp.nombre_comercial, 'MaxiKash') AS nombre_empresa,
+                    COALESCE(emp.razon_social, '') AS razon_social_empresa,
                     COALESCE(pa.nombre, 'Sin país') AS nombre_pais
                  FROM departamento_organizacional a
                  LEFT JOIN asigna_direcciones ad
@@ -6408,6 +6474,7 @@ class CapHum extends Model
                 "SELECT DISTINCT
                     COALESCE(a.id_empresa, dir.id_empresa, 1) AS id,
                     COALESCE(emp.nombre_comercial, 'MaxiKash') AS nombre,
+                    COALESCE(emp.razon_social, '') AS razon_social,
                     a.id_pais
                  FROM departamento_organizacional a
                  LEFT JOIN asigna_direcciones ad
@@ -7011,6 +7078,22 @@ class CapHum extends Model
             $puestos = $db->queryAll($queryPuestos, [
                 'departamento' => $departamento
             ]);
+
+            if (!$puestos) {
+                $queryPuestos = <<<SQL
+                SELECT
+                    p.id,
+                    p.nombre,
+                    p.nivel
+                FROM puesto p
+                WHERE p.activo = 1
+                  AND p.departamento_id = :departamento
+                SQL;
+
+                $puestos = $db->queryAll($queryPuestos, [
+                    'departamento' => $departamento
+                ]);
+            }
 
             if (!$puestos) {
                 return self::resultado(true, 'No hay puestos activos en este departamento.', []);

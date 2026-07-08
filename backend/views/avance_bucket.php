@@ -12,7 +12,7 @@ $mostrarAvanceBucket = in_array($vistaAvanceBucket, ['avance', 'historico', 'est
 $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
 $esEstresadoAvanceBucket = $vistaAvanceBucket === 'estresado';
 $tituloVistaAvanceBucket = $esHistoricoAvanceBucket
-    ? 'Historico Avance Bucket'
+    ? 'Historico Bucket'
     : ($esEstresadoAvanceBucket ? 'Bucket estresado' : 'Avance Bucket');
 ?>
 <div class="avance-bucket <?= $mostrarAvanceBucket ? 'container-fluid py-3 px-2 px-md-3' : 'ab-landing-root'; ?>">
@@ -71,7 +71,7 @@ $tituloVistaAvanceBucket = $esHistoricoAvanceBucket
                                     <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                         <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                             <div class="card-title">
-                                                <h5 class="text-primary mb-2">Historico Avance Bucket</h5>
+                                                <h5 class="text-primary mb-2">Historico Bucket</h5>
                                                 <p class="text-body w-sm-80 app-academy-xl-100">Revisa el avance por bucket con la misma logica del tablero actual, usando las ultimas 6 semanas del historico.</p>
                                             </div>
                                             <div class="mb-0 mt-3">

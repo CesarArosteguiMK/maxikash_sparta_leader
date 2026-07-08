@@ -173,13 +173,21 @@ final class ComparativoCierreSemanal
 
         $sql = "
             SELECT x.bucket_ajustado AS bucket,
-                   COUNT(*) AS creditos,
+                   COUNT(DISTINCT x.id_credito) AS creditos,
                    COALESCE(SUM(x.saldo_capital), 0) AS saldo_capital
             FROM (
-                SELECT {$bucketSql} AS bucket_ajustado,
-                       {$saldoSql} AS saldo_capital
-                FROM `{$tabla}`
-                {$where}
+                SELECT raw.id_credito,
+                       raw.bucket_ajustado,
+                       MAX(raw.saldo_capital) AS saldo_capital
+                FROM (
+                    SELECT Id_credito AS id_credito,
+                           {$bucketSql} AS bucket_ajustado,
+                           {$saldoSql} AS saldo_capital
+                    FROM `{$tabla}`
+                    {$where}
+                ) raw
+                WHERE raw.id_credito IS NOT NULL
+                GROUP BY raw.id_credito, raw.bucket_ajustado
             ) x
             WHERE x.bucket_ajustado IN (
                 'a) Current',

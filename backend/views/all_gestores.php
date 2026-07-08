@@ -717,6 +717,36 @@
       transition: transform .15s ease, box-shadow .15s ease;
     }
 
+    .gestion-cobranza-avatar {
+      width: 64px;
+      height: 64px;
+      min-width: 64px;
+      border-radius: 50%;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 1.35rem;
+      letter-spacing: 0;
+      border: 2px solid #fff;
+      box-shadow: 0 8px 22px rgba(30, 41, 59, 0.18);
+      background: linear-gradient(135deg, #24324d 0%, #0d6efd 100%);
+      flex: 0 0 64px;
+    }
+
+    .gestion-cobranza-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    body > .select2-container.select2-container--open {
+      z-index: 100090;
+    }
+
     #modalGestionFotoUsuario .modal-dialog {
       max-width: min(34rem, calc(100vw - 2rem));
       margin: 1.75rem auto;
@@ -5229,7 +5259,7 @@ window.catalogoCompletoDeptosBackend = <?= json_encode(($catalogoCompletoDeptos[
     $idsDepartamentosCobranzaEditarUsuario = [];
     foreach (($catalogoCompletoDeptos['datos'] ?? []) as $rowDeptoCobranza) {
         $areaDeptoCobranza = strtolower(trim((string)($rowDeptoCobranza['departamento_organizacional_nombre'] ?? '')));
-        if (!in_array($areaDeptoCobranza, ['cobranza', 'cobranza corporativo'], true)) {
+        if (!in_array($areaDeptoCobranza, ['cobranza', 'cobranza campo', 'cobranza corporativo'], true)) {
             continue;
         }
         if (isset($rowDeptoCobranza['activo']) && (int)$rowDeptoCobranza['activo'] !== 1) {
@@ -5571,8 +5601,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 <button
                   type="button"
                   class="btn btn-primary add-new btn-action-size"
-                  data-bs-toggle="offcanvas"
-                  data-bs-target="#offcanvasAddUser"
+                  onclick="abrirAgregarCobranza()"
                 >
                     <i class="fa fa-user-plus icon-sm me-sm-2"></i>
                     <span class="d-inline-block">Agregar Usuario</span>
@@ -6491,7 +6520,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <div class="mb-5"></div>
 
                         <!-- Botones de Acción -->
-                        <div class="row g-3">
+                        <div class="row row-cols-1 row-cols-md-3 g-3">
                             <div class="col-12 d-flex gap-2 justify-content-end">
                                 <button
                                     type="button"
@@ -6972,7 +7001,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
          MODAL - CARGAR DOCUMENTO BAJA
     ======================== -->
     <div class="modal fade" id="modalCargarDocumentoBaja" tabindex="-1" aria-labelledby="modalCargarDocLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalCargarDocLabel">Cargar Documento</h5>
@@ -7372,15 +7401,25 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     </div>
 
     <!-- =======================
-        OFFCANVAS - EDITAR
+        MODAL - EDITAR COBRANZA
    ======================== -->
-    <div class="offcanvas offcanvas-end" id="offcanvasEditUser">
-        <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title" id="offcanvasEditUserTitle">Editar Usuario</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-        </div>
+    <div class="modal fade" id="offcanvasEditUser" tabindex="-1" aria-labelledby="offcanvasEditUserTitle" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header border-bottom bg-white p-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <span id="edit_cobranza_avatar" class="gestion-cobranza-avatar">
+                            --
+                        </span>
+                        <div>
+                            <h5 class="modal-title fw-bold mb-1" id="offcanvasEditUserTitle">Editar cobranza</h5>
+                            <div id="edit_cobranza_subtitle" class="text-muted">Usuario de cobranza</div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
 
-        <div class="offcanvas-body p-6">
+                <div class="modal-body p-4 bg-light">
             <form id="editNewUserForm" onsubmit="return false">
 
                 <div class="mb-2" style="display: none">
@@ -7388,7 +7427,15 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <input type="text" id="edit_id" class="form-control phone-mask" disabled>
                 </div>
 
-                <div class="mb-2">
+                <div class="card border rounded-3 shadow-sm mb-3">
+                    <div class="card-header bg-white d-flex align-items-center justify-content-between">
+                        <h6 class="mb-0 fw-bold"><i class="fa fa-id-card me-2 text-primary"></i>Identificaci&oacute;n</h6>
+                        <span class="badge text-bg-light border">Cobranza</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row row-cols-1 row-cols-md-3 g-3">
+
+                <div class="mb-2" id="edit_num_empleado_wrap">
                     <label class="form-label">Número de Empleado *</label>
                     <input type="text" id="edit_num_empleado" class="form-control phone-mask" disabled>
                 </div>
@@ -7414,9 +7461,20 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 </div>
 
                 <div class="mb-2">
-                    <label class="form-label">CURP (opcional)</label>
+                    <label class="form-label" id="edit_curp_label">CURP (opcional)</label>
                     <input type="text" id="edit_curp" class="form-control" maxlength="18" placeholder="18 caracteres" autocomplete="off" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase().replace(/[^A-ZÃ‘0-9]/g, '')" onblur="this.value = this.value.trim()">
                 </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border rounded-3 shadow-sm mb-3">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0 fw-bold"><i class="fa fa-address-book me-2 text-primary"></i>Contacto</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row row-cols-1 row-cols-md-3 g-3">
 
                 <div class="mb-2">
                     <label class="form-label">Teléfono *</label>
@@ -7426,6 +7484,18 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 <div class="mb-2">
                     <label class="form-label">Correo (opcional)</label>
                     <input type="email" id="edit_correo" class="form-control" maxlength="160" placeholder="correo@dominio.com" autocomplete="off" oninput="this.value = this.value.trim().toLowerCase()">
+                </div>
+
+                <div class="mb-2" id="div_edit_pais">
+                    <label class="form-label">Pa&iacute;s *</label>
+                    <select id="edit_id_pais" class="form-select js-select-buscador">
+                        <option value="">Seleccione un pa&iacute;s</option>
+                        <?php foreach (($paisesActivos ?? []) as $pais): ?>
+                            <option value="<?= htmlspecialchars($pais['id']) ?>" data-iso="<?= htmlspecialchars($pais['codigo_iso']) ?>">
+                                <?= htmlspecialchars($pais['nombre']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
                 <div class="mb-2" id="div_edit_estado" style="display:none;">
@@ -7458,20 +7528,33 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     <label class="form-label">Calle</label>
     <input type="text" id="edit_domicilio_calle_texto" class="form-control" maxlength="180">
 </div>
-<div class="row mb-2" id="div_edit_num_extint" style="display:none;">
-    <div class="col-md-6">
+<div class="col-md-4 mb-2" id="div_edit_num_extint" style="display:none;">
+    <div class="row g-2">
+    <div class="col-6">
         <label class="form-label">No. exterior *</label>
         <input type="text" id="edit_domicilio_num_exterior" class="form-control" maxlength="32">
     </div>
-    <div class="col-md-6">
+    <div class="col-6">
         <label class="form-label">No. interior (opcional)</label>
         <input type="text" id="edit_domicilio_num_interior" class="form-control" maxlength="32">
     </div>
+    </div>
 </div>
-<div class="mb-2" id="div_edit_cp" style="display:none;">
+<div class="col-md-4 mb-2" id="div_edit_cp" style="display:none;">
     <label class="form-label">Código postal</label>
     <input type="text" id="edit_codigo_postal" class="form-control" maxlength="10" readonly>
 </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-primary rounded-3 shadow-sm mb-3">
+                    <div class="card-header bg-primary-subtle d-flex align-items-center justify-content-between">
+                        <h6 class="mb-0 fw-bold text-primary"><i class="fa fa-layer-group me-2"></i>Puestos asignados</h6>
+                        <span id="edit_cobranza_puestos_count" class="badge text-bg-light border">0</span>
+                    </div>
+                    <div class="card-body bg-white">
 
                 <!-- Alerta informativa de múltiples puestos -->
                 <div class="alert alert-info d-none mb-3" id="edit_alerta_multiples_puestos" style="background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); border: none; color: white;">
@@ -7486,12 +7569,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
                 <!-- Contenedor de puestos múltiples - MEJORADO CON GESTIÃ“N COMPLETA -->
                 <div class="mb-3 d-none" id="edit_contenedor_multiples_puestos">
-                    <label class="form-label fw-semibold">
+                    <label class="form-label fw-semibold text-primary">
                         <i class="fa fa-layer-group me-1"></i>Gestión de Puestos Asignados
                     </label>
 
                     <!-- Lista de puestos con opciones de gestión -->
-                    <div id="edit_lista_puestos" class="border rounded p-3 mb-2" style="background: #f8f9fa; max-height: 400px; overflow-y: auto;">
+                    <div id="edit_lista_puestos" class="border border-primary-subtle rounded p-2 mb-2 bg-primary-subtle" style="max-height: 170px; overflow-y: auto;">
                         <!-- Los puestos se agregarán dinámicamente aquí con este formato:
                         <div class="puesto-item" data-puesto-id="X">
                             <input type="radio" name="puesto_principal" />
@@ -7571,25 +7654,36 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     </div>
                 </div>
 
+                <div class="row row-cols-1 row-cols-lg-3 g-3 align-items-end">
+
+                <div class="mb-2">
+                    <label class="form-label">&Aacute;rea *</label>
+                    <select id="edit_area_id" class="form-select js-select-buscador" disabled>
+                        <option value="">Seleccione un &aacute;rea</option>
+                    </select>
+                </div>
+
                 <div class="mb-2">
                     <label class="form-label">Departamento <span id="edit_label_principal" class="badge bg-primary" style="display: none;">Principal</span></label>
-                    <select id="edit_departamento_id" class="form-select js-select-buscador">
+                    <select id="edit_departamento_id" class="form-select js-select-buscador" disabled>
                         <option value="">Seleccione un departamento</option>
                     </select>
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Puesto <span id="edit_label_puesto_principal" class="badge bg-primary" style="display: none;">Principal</span></label>
-                    <select id="edit_id_puesto" class="form-select js-select-buscador">
+                    <select id="edit_id_puesto" class="form-select js-select-buscador" disabled>
                         <option value="">Seleccione un puesto</option>
                     </select>
                 </div>
 
-                <div class="mb-6">
+                <div class="mb-2">
                     <label class="form-label">Jefe *</label>
-                    <select id="edit_id_jefe" class="form-select js-select-buscador">
+                    <select id="edit_id_jefe" class="form-select js-select-buscador" disabled>
                         <option value="">Seleccione un jefe</option>
                     </select>
+                </div>
+
                 </div>
 
                 <div class="mb-3">
@@ -7613,19 +7707,44 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     </select>
                 </div>
 
-                <div class="mb-2">
+                    </div>
+                </div>
+
+                <div class="card border rounded-3 shadow-sm mb-3">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0 fw-bold"><i class="fa fa-key me-2 text-primary"></i>Acceso</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+
+                <div class="col-md-6">
                     <label class="form-label">Usuario *</label>
                     <input type="text" id="edit_usuario" class="form-control" readonly oninput="this.value = this.value.replace(/[^A-Za-zÁÃ‰ÍÃ“ÃšáéíóúÃ‘ñ\s]/g, '').toUpperCase()" style="text-transform: uppercase;">
                 </div>
 
-                <div class="mb-7" id="edit_row_contrasena">
+                <div class="col-md-6" id="edit_row_contrasena">
                     <label class="form-label">Contraseña *</label>
                     <input type="text" id="edit_contrasena" class="form-control">
                 </div>
 
-                <button type="button" id="edit_btn_guardar" class="btn btn-primary me-3" onclick="UpdateGestor()" > Guardar </button>
-                <button type="button" class="btn btn-label-danger" data-bs-dismiss="offcanvas" > Cancelar </button>
+                <div class="col-md-6 d-none" id="edit_fecha_ingreso_wrap">
+                    <label class="form-label">Fecha de ingreso <span class="text-danger">*</span></label>
+                    <input type="text" id="edit_fecha_ingreso" class="form-control" placeholder="YYYY-MM-DD" autocomplete="off" readonly>
+                </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-3 pt-3 mt-3">
+                    <button type="button" class="btn btn-outline-danger px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" id="edit_btn_guardar" class="btn btn-dark px-4" onclick="UpdateGestor()">
+                        <i class="fa fa-save me-1"></i>Guardar cambios
+                    </button>
+                </div>
             </form>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -11133,6 +11252,30 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     return normalizarDepartamentoEtiqueta(nombreDepartamento) === 'despachos cobranza';
   }
 
+  function usuarioPerteneceDireccionCobranzaGestion(usuario) {
+    const direcciones = [];
+    const respaldos = [];
+    const agregar = (destino, ...valores) => {
+      valores.forEach(valor => {
+        const limpio = String(valor || '').trim();
+        if (limpio) destino.push(limpio);
+      });
+    };
+
+    agregar(direcciones, usuario?.nombre_direccion, usuario?.direccion_nombre, usuario?.direccion_organizacional, usuario?.direccion);
+    agregar(respaldos, usuario?.departamento_organizacional_nombre, usuario?.nombre_area, usuario?.area_nombre, usuario?.nombre_departamento);
+
+    if (Array.isArray(usuario?.puestos)) {
+      usuario.puestos.forEach(puesto => {
+        agregar(direcciones, puesto?.nombre_direccion, puesto?.direccion_nombre, puesto?.direccion_organizacional, puesto?.direccion);
+        agregar(respaldos, puesto?.departamento_organizacional_nombre, puesto?.nombre_area, puesto?.area_nombre, puesto?.nombre_departamento);
+      });
+    }
+
+    const base = direcciones.length ? direcciones : respaldos;
+    return base.some(valor => normalizarDepartamentoEtiqueta(valor).includes('cobranza'));
+  }
+
   function esUsuarioExternoGestion(usuario) {
     return ['1', 'true', 'si', 'sí'].includes(String(usuario?.es_externo || '').trim().toLowerCase());
   }
@@ -11306,10 +11449,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         acciones: (() => {
           const puedeEditar = !!window.puedeEditarTodos;
           const miUsuarioId = Number(window.miUsuarioId || 0);
-          const mostrarEditar = puedeEditar;
+          const perteneceDireccionCobranza = usuarioPerteneceDireccionCobranzaGestion(p);
+          const mostrarEditar = puedeEditar && perteneceDireccionCobranza;
           const mostrarVisualizar = !puedeEditar || miUsuarioId === 1;
           const puedePermisos = window.puedeGestionarPermisos;
           const puedeEditarRrhh = !!window.puedeEditarUsuarioRrhh;
+          const mostrarEditarRrhh = puedeEditarRrhh && !perteneceDireccionCobranza;
           const puedeActualizarInfo = !!window.puedeActualizarInfo;
           const puedeCargarDocumento = !!window.puedeCargarDocumentoGestion;
           const puedeRegistrarAusencia = !!window.puedeRegistrarAusenciaGestion;
@@ -11318,7 +11463,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
          <div class="d-flex flex-column align-items-start gap-1" style="min-width: fit-content;">
            <div class="d-flex flex-wrap gap-1">
               ${mostrarEditar
-                ? `<button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar usuario con ' + p.puestos.length + ' puestos asignados' : 'Editar usuario'}">
+                ? `<button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar cobranza con ' + p.puestos.length + ' puestos asignados' : 'Editar cobranza'}">
                   ${tienePuestos ? '<span class="indicator-multiples-puestos" title="' + p.puestos.length + ' puestos">' + p.puestos.length + '</span>' : ''}
                   <i class="fa fa-edit"></i>
               </button>`
@@ -11346,7 +11491,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                  <i class="fa fa-lock" style="color: #007bff;"></i>
              </button>` : ''}
            </div>
-              ${puedeEditarRrhh ? `<button class="btn btn-sm btn-info text-white d-inline-flex align-items-center justify-content-center gap-1 px-3" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH.">
+              ${mostrarEditarRrhh ? `<button class="btn btn-sm btn-info text-white d-inline-flex align-items-center justify-content-center gap-1 px-3" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH.">
                   <i class="fa fa-user-pen"></i><span>Editar RR.HH.</span>
               </button>` : ''}
          </div>`;
@@ -12736,6 +12881,25 @@ document.addEventListener('DOMContentLoaded', function () {
     // ===================================
     // EVENTO LISTENER PARA EDITAR USUARIO
     // ===================================
+    $('#edit_id_pais').on('change', function () {
+        var idPais = this.value;
+        resetCascadaEdit();
+        actualizarLabels(idPais, 'edit');
+
+        if (typeof window.cargarAreasCobranzaCombo === 'function') {
+            window.cargarAreasCobranzaCombo(idPais, '');
+        }
+
+        if (!idPais) return;
+
+        document.getElementById('div_edit_estado').style.display = '';
+        document.getElementById('edit_id_div_nivel1').disabled = true;
+        cargarEstados(idPais, 'edit_id_div_nivel1', function () {
+            document.getElementById('div_edit_estado').style.display = '';
+            document.getElementById('edit_id_div_nivel1').disabled = false;
+        });
+    });
+
     $('#edit_id_div_nivel1').on('change', function () {
         var idEstado = this.value;
 
@@ -12799,6 +12963,31 @@ function resetCascadaAdd() {
     }
 }
 
+function resetCascadaEdit() {
+    const selEstado = document.getElementById('edit_id_div_nivel1');
+    const selMun    = document.getElementById('edit_id_div_nivel2');
+
+    if (selEstado) {
+        selEstado.innerHTML = '<option value="">Seleccione...</option>';
+        selEstado.disabled = true;
+    }
+    if (selMun) {
+        selMun.innerHTML = '<option value="">Seleccione...</option>';
+        selMun.disabled = true;
+    }
+
+    const divEstado = document.getElementById('div_edit_estado');
+    const divMun = document.getElementById('div_edit_municipio');
+    if (divEstado) divEstado.style.display = 'none';
+    if (divMun) divMun.style.display = 'none';
+    resetDomicilioNivel3EnAdelante('edit');
+
+    if (window.refreshSelectBuscador) {
+        if (selEstado) window.refreshSelectBuscador('edit_id_div_nivel1');
+        if (selMun) window.refreshSelectBuscador('edit_id_div_nivel2');
+    }
+}
+
 function ocultarBloquesDomicilio(prefix) {
     ['colonia', 'calle', 'calle_texto', 'num_extint', 'cp'].forEach(function (k) {
         const el = document.getElementById('div_' + prefix + '_' + k);
@@ -12816,6 +13005,9 @@ function ocultarBloquesDomicilio(prefix) {
         if (selectId.indexOf('add_') === 0) return '#offcanvasAddUser';
         if (selectId.indexOf('rrhh_') === 0) return '#modalAgregarUsuarioRrhh';
         if (selectId === 'bajaSustitutoId') return '#modalBajas';
+        if (document.getElementById('offcanvasEditUser')?.contains(document.getElementById(selectId))) {
+            return null;
+        }
         if (selectId === 'gestionEmpresaSelect' || selectId === 'UserDireccion' || selectId === 'UserArea' || selectId === 'UserRole' || selectId === 'UserPlan' || selectId === 'FilterMultiplePuestos') {
             return null;
         }
@@ -12885,12 +13077,12 @@ function ocultarBloquesDomicilio(prefix) {
             });
         }
         if (editOc) {
-            editOc.addEventListener('shown.bs.offcanvas', function () {
+            editOc.addEventListener('shown.bs.modal', function () {
                 if (typeof window.refrescarSelectsBuscadorOffcanvas === 'function') {
                     window.refrescarSelectsBuscadorOffcanvas('offcanvasEditUser');
                 }
             });
-            editOc.addEventListener('hidden.bs.offcanvas', function () {
+            editOc.addEventListener('hidden.bs.modal', function () {
                 if (typeof window.destruirSelectsBuscadorOffcanvas === 'function') {
                     window.destruirSelectsBuscadorOffcanvas(this);
                 }
@@ -13224,10 +13416,18 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     codigoPostal = (codigoPostal || '').toString().trim();
 
     if (!idPais) {
+        const paisSelectVacio = document.getElementById('edit_id_pais');
+        if (paisSelectVacio) paisSelectVacio.value = '';
         document.getElementById('div_edit_estado').style.display    = 'none';
         document.getElementById('div_edit_municipio').style.display = 'none';
         resetDomicilioNivel3EnAdelante('edit');
         return;
+    }
+
+    const paisSelect = document.getElementById('edit_id_pais');
+    if (paisSelect) {
+        paisSelect.value = String(idPais);
+        if (window.refreshSelectBuscador) window.refreshSelectBuscador('edit_id_pais');
     }
 
     actualizarLabels(idPais, 'edit');
