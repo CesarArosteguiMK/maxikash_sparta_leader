@@ -16693,6 +16693,10 @@ class CapHum extends Controller
             'datos_referencia_v2' => $resultadoApi['datos_referencia_v2'] ?? null,
             'coincidencias_v2' => $resultadoApi['coincidencias_v2'] ?? null,
             'recomendaciones' => $resultadoApi['recomendaciones'] ?? null,
+            'api_pendiente' => $resultadoApi['api_pendiente'] ?? null,
+            'error_api' => $resultadoApi['error_api'] ?? null,
+            'datos_extraidos' => $resultadoApi['datos_extraidos'] ?? null,
+            'diagnostico_motor_v2' => $resultadoApi['diagnostico_motor_v2'] ?? null,
             'nombre_candidato_registro' => $resultadoApi['nombre_candidato_registro'] ?? null,
         ];
     }

@@ -491,6 +491,7 @@ def _respuesta_v2_error_recuperable(
     nombre_candidato_registro: Optional[str],
     exc: Exception,
     elapsed_ms: int = 0,
+    fase: str = "cruce_v2",
 ) -> Dict[str, Any]:
     """Respuesta estable cuando el cruce V2 falla internamente.
 
@@ -498,18 +499,33 @@ def _respuesta_v2_error_recuperable(
     expediente puede mostrarse como pendiente/revisable sin perder documentos.
     """
     docs: Dict[str, Any] = {}
+    total_docs = 0
+    docs_con_lectura = 0
+    docs_sin_lectura: List[str] = []
+    docs_con_pdf: List[str] = []
+    exc_tipo = type(exc).__name__
+    exc_msg = str(exc).strip() or exc_tipo
+    if len(exc_msg) > 500:
+        exc_msg = exc_msg[:497].rstrip() + "..."
     alertas: List[str] = [
-        "La IA documental no pudo completar el cruce automatico en este intento. Reintente la evaluacion.",
+        "La IA documental no pudo completar el cruce automatico en este intento.",
     ]
     for doc in documents:
         key = str(doc.get("key") or "").strip()
         if not key:
             continue
+        total_docs += 1
         label = str(doc.get("label") or key).strip()
         filename = str(doc.get("filename") or f"{key}.pdf").strip()
         summary = doc.get("summary")
         previo = summary.get("validacion_previa") if isinstance(summary, dict) and isinstance(summary.get("validacion_previa"), dict) else {}
         usable = summary_is_usable(summary)
+        if usable:
+            docs_con_lectura += 1
+        else:
+            docs_sin_lectura.append(label)
+        if doc.get("bytes"):
+            docs_con_pdf.append(label)
         docs[key] = {
             "estado": "coincide" if usable else "requiere_revision",
             "tipo_detectado": previo.get("tipo_documento_detectado") or previo.get("tipo_documento"),
@@ -527,6 +543,16 @@ def _respuesta_v2_error_recuperable(
         if not usable:
             alertas.append(f"{label}: sin lectura suficiente para completar el cruce.")
 
+    docs_sin_lectura_txt = ", ".join(docs_sin_lectura) if docs_sin_lectura else "ninguno"
+    docs_con_pdf_txt = ", ".join(docs_con_pdf) if docs_con_pdf else "ninguno"
+    diagnostico_tecnico = (
+        f"Fase: {fase}. Error: {exc_tipo}: {exc_msg}. "
+        f"Lecturas utiles: {docs_con_lectura}/{total_docs}. "
+        f"Sin lectura util: {docs_sin_lectura_txt}. "
+        f"PDFs disponibles para rescate: {docs_con_pdf_txt}."
+    )
+    alertas.append(diagnostico_tecnico)
+
     return {
         "todo_coincide": False,
         "foto_rechazada": False,
@@ -536,7 +562,7 @@ def _respuesta_v2_error_recuperable(
         "checks_totales": 0,
         "checks_fallas": 0,
         "alertas": alertas,
-        "recomendaciones": ["Revise logs de la API y reintente la evaluacion cuando el servicio este estable."],
+        "recomendaciones": ["Revise el detalle tecnico del cruce V2 y reintente la evaluacion cuando el servicio este estable."],
         "identificacion_frente_score": None,
         "identificacion_reverso_score": None,
         "comparaciones": {},
@@ -552,9 +578,25 @@ def _respuesta_v2_error_recuperable(
         "documentos_procesados": {k: True for k in docs.keys()},
         "datos_extraidos": {
             "motor_v2_error": {
+                "fase": fase,
                 "tipo": type(exc).__name__,
                 "mensaje": str(exc),
+                "documentos_total": total_docs,
+                "documentos_con_lectura_util": docs_con_lectura,
+                "documentos_sin_lectura_util": docs_sin_lectura,
+                "documentos_con_pdf_rescate": docs_con_pdf,
             }
+        },
+        "api_pendiente": True,
+        "error_api": diagnostico_tecnico,
+        "diagnostico_motor_v2": {
+            "fase": fase,
+            "tipo_error": exc_tipo,
+            "mensaje_error": exc_msg,
+            "documentos_total": total_docs,
+            "documentos_con_lectura_util": docs_con_lectura,
+            "documentos_sin_lectura_util": docs_sin_lectura,
+            "documentos_con_pdf_rescate": docs_con_pdf,
         },
         "tiempo_proceso_ms": int(elapsed_ms or 0),
         "tiempos_fase_ms": {"v2_error_recuperable_ms": int(elapsed_ms or 0)},
@@ -5236,7 +5278,13 @@ async def validar_expediente(
                     return _respuesta_alibaba_expediente(resultado_reglas, nombre_candidato_registro)
                 except Exception as exc:
                     logger.exception(f"validar-expediente V2 rules fallo: {exc}")
-                    return _respuesta_v2_error_recuperable(docs_v2, nombre_candidato_registro, exc, prefill_ms)
+                    return _respuesta_v2_error_recuperable(
+                        docs_v2,
+                        nombre_candidato_registro,
+                        exc,
+                        prefill_ms,
+                        fase="cruce_reglas_local",
+                    )
 
             timeout_v2 = int(getattr(settings, "doc_ai_crosscheck_timeout_seconds", 90) or 90) + 5
             try:
@@ -5252,7 +5300,13 @@ async def validar_expediente(
                     return _respuesta_alibaba_expediente(resultado_reglas, nombre_candidato_registro)
                 except Exception as fallback_exc:
                     logger.exception(f"validar-expediente V2 fallback rules fallo: {fallback_exc}")
-                    return _respuesta_v2_error_recuperable(docs_v2, nombre_candidato_registro, fallback_exc, timeout_v2 * 1000)
+                    return _respuesta_v2_error_recuperable(
+                        docs_v2,
+                        nombre_candidato_registro,
+                        fallback_exc,
+                        timeout_v2 * 1000,
+                        fase="fallback_reglas_tras_fallo_alibaba",
+                    )
 
     if identificacion_pdf_bytes and len(identificacion_pdf_bytes) >= 100:
         t_pdf = time.time()
