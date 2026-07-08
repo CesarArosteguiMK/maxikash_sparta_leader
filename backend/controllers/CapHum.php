@@ -14313,8 +14313,11 @@ class CapHum extends Controller
                         marcarIngresoProgramadoLocal(idCandidato, fechaIngreso, res.datos || null);
                         var fallas = (res.datos && Array.isArray(res.datos.correos_jefes_fallidos)) ? res.datos.correos_jefes_fallidos : [];
                         if (fallas.length) {
-                            var nombres = fallas.map(function(f) { return (f.tipo || "Jefe") + ": " + (f.nombre || f.correo || "Sin destinatario"); }).join(", ");
-                            alert("Fecha guardada, pero no se pudo notificar a: " + nombres + ".");
+                            var nombres = fallas.map(function(f) {
+                                var motivo = f.motivo ? " - " + f.motivo : "";
+                                return (f.tipo || "Jefe") + ": " + (f.nombre || f.correo || "Sin destinatario") + motivo;
+                            }).join(", ");
+                            alert("Fecha guardada. La notificación principal fue enviada, pero quedaron destinatarios internos sin notificar: " + nombres + ".");
                             return;
                         }
                         alert(res.mensaje || "Notificaciones enviadas. Ahora confirma la firma del contrato.");
@@ -14345,7 +14348,7 @@ class CapHum extends Controller
                             var motivo = f.motivo ? " (" + f.motivo + ")" : "";
                             return (f.tipo || "Jefe") + ": " + nombre + motivo;
                         }).join("; ");
-                        detalle += " No se pudo notificar a: " + nombresFallas + ".";
+                        detalle += " Advertencia: la notificación principal fue enviada, pero quedaron destinatarios internos sin notificar: " + nombresFallas + ".";
                     }
                     if (!fallasJefes.length && res.datos && res.datos.correo_jefe_intentado && !res.datos.correo_jefe_enviado) {
                         detalle += " Revisa el correo del jefe; no se pudo enviar esa notificación.";
@@ -18545,7 +18548,12 @@ class CapHum extends Controller
         $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
         if ($enviado) {
             $nombreJefe = trim($c['nombre_jefe'] ?? '') ?: 'Jefe directo';
-            $correoJefeInfo = $this->resolverCorreoInstitucionalJefe($nombreJefe, trim($c['correo_jefe'] ?? ''));
+            $correoJefeInfo = $this->resolverCorreoPersonaIngreso(
+                (int) ($c['id_posible_jefe'] ?? 0),
+                $nombreJefe,
+                trim($c['correo_jefe'] ?? ''),
+                true
+            );
             $correoJefe = $correoJefeInfo['email'];
             $puesto = trim($c['nombre_puesto'] ?? '');
             $departamento = trim($c['nombre_departamento'] ?? '');
@@ -18565,7 +18573,7 @@ class CapHum extends Controller
                     'tipo' => 'Jefe directo',
                     'nombre' => $nombreJefe,
                     'correo' => '',
-                    'motivo' => 'No se encontro correo valido.',
+                    'motivo' => 'No tiene correos registrados; no se envió la notificación al jefe directo.',
                 ];
             }
             $esGestorCobranza = $this->candidatoEsGestorCobranzaIngreso($c);
@@ -18577,7 +18585,7 @@ class CapHum extends Controller
                         'tipo' => 'Jefe divisional',
                         'nombre' => (string) ($gerente['nombre'] ?? 'Jefe divisional'),
                         'correo' => '',
-                        'motivo' => 'No se encontro correo valido.',
+                        'motivo' => 'No tiene correos registrados; no se envió la notificación.',
                     ];
                     continue;
                 }
@@ -20559,23 +20567,6 @@ class CapHum extends Controller
     private function validarDestinatariosIngresoRequeridos(array $candidato): array
     {
         $fallos = [];
-        $idJefeDirecto = (int) ($candidato['id_posible_jefe'] ?? 0);
-        $nombreJefe = trim((string) ($candidato['nombre_jefe'] ?? ''));
-        $correoJefeActual = trim((string) ($candidato['correo_jefe'] ?? ''));
-        if ($idJefeDirecto > 0 || $nombreJefe !== '' || $correoJefeActual !== '') {
-            $nombreMostrar = $nombreJefe !== '' ? $nombreJefe : 'Jefe directo';
-            $correoJefeInfo = $this->resolverCorreoInstitucionalJefe($nombreMostrar, $correoJefeActual);
-            $correoJefe = strtolower(trim((string) ($correoJefeInfo['email'] ?? '')));
-            if ($correoJefe === '' || !filter_var($correoJefe, FILTER_VALIDATE_EMAIL)) {
-                $fallos[] = [
-                    'tipo' => 'Jefe directo',
-                    'nombre' => $nombreMostrar,
-                    'correo' => '',
-                    'motivo' => 'No se encontro correo institucional valido para el jefe directo.',
-                ];
-            }
-        }
-
         if ($this->candidatoEsGestorCobranzaIngreso($candidato)) {
             $jefesDivisionales = $this->obtenerJefesDivisionalesSeleccionadosParaIngreso($candidato);
             if (empty($jefesDivisionales)) {
@@ -20793,7 +20784,7 @@ class CapHum extends Controller
             return null;
         }
         $nombre = trim((string) ($row['nombre'] ?? ''));
-        $correoInfo = $this->resolverCorreoInstitucionalJefe($nombre, trim((string) ($row['correo'] ?? '')), true);
+        $correoInfo = $this->resolverCorreoPersonaIngreso((int) ($row['id'] ?? 0), $nombre, trim((string) ($row['correo'] ?? '')), true);
         return [
             'id' => (int) ($row['id'] ?? 0),
             'nombre' => $nombre !== '' ? $nombre : 'Jefe divisional',
@@ -20870,7 +20861,7 @@ class CapHum extends Controller
                 continue;
             }
             $nombre = trim((string) ($row['nombre'] ?? ''));
-            $correoInfo = $this->resolverCorreoInstitucionalJefe($nombre, '', false);
+            $correoInfo = $this->resolverCorreoPersonaIngreso((int) ($row['id'] ?? 0), $nombre, trim((string) ($row['correo'] ?? '')), true);
             $correo = strtolower(trim((string) ($correoInfo['email'] ?? '')));
             $key = $correo !== '' ? $correo : ('persona_' . (int) ($row['id'] ?? 0));
             $destinatarios[$key] = [
@@ -21035,6 +21026,75 @@ class CapHum extends Controller
         $correoActual = strtolower(trim((string) $correoActual));
         if ($permitirCorreoActual && $correoActual !== '' && filter_var($correoActual, FILTER_VALIDATE_EMAIL)) {
             return ['email' => $correoActual, 'fuente' => 'persona_correo'];
+        }
+
+        return ['email' => '', 'fuente' => 'no_encontrado'];
+    }
+
+    private function resolverCorreoPersonaIngreso(int $idPersona, string $nombrePersona = '', string $correoActual = '', bool $permitirCorreoActual = true): array
+    {
+        $nombre = trim($nombrePersona);
+        $correoPrincipal = strtolower(trim($correoActual));
+        $correosAdicionales = [];
+
+        if ($idPersona > 0) {
+            try {
+                $db = new \Core\Database();
+                $persona = $db->queryOne(
+                    "SELECT TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre,
+                            correo
+                       FROM __SPARTA_SECRET_REDACTED__.persona
+                      WHERE id = :id
+                      LIMIT 1",
+                    ['id' => $idPersona]
+                );
+                if (!empty($persona)) {
+                    if ($nombre === '') {
+                        $nombre = trim((string) ($persona['nombre'] ?? ''));
+                    }
+                    $correoPersona = strtolower(trim((string) ($persona['correo'] ?? '')));
+                    if ($correoPersona !== '') {
+                        $correoPrincipal = $correoPersona;
+                    }
+                }
+
+                $correosAdicionales = $db->queryAll(
+                    "SELECT correo, tipo, estatus
+                       FROM __SPARTA_SECRET_REDACTED__.correos_persona
+                      WHERE id_persona = :id
+                        AND COALESCE(estatus, 'Activo') <> 'Inactivo'
+                      ORDER BY
+                        CASE
+                          WHEN LOWER(COALESCE(tipo, '')) LIKE '%institucional%' THEN 0
+                          WHEN LOWER(COALESCE(tipo, '')) LIKE '%personal%' THEN 1
+                          ELSE 2
+                        END,
+                        id ASC",
+                    ['id' => $idPersona]
+                );
+            } catch (\Throwable $e) {
+                error_log('CapHum::resolverCorreoPersonaIngreso -> ' . $e->getMessage());
+            }
+        }
+
+        $correoInfo = $this->resolverCorreoInstitucionalJefe($nombre, $correoPrincipal, $permitirCorreoActual);
+        $correo = strtolower(trim((string) ($correoInfo['email'] ?? '')));
+        if ($correo !== '' && filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+            return $correoInfo;
+        }
+
+        if ($permitirCorreoActual) {
+            foreach ($correosAdicionales as $row) {
+                $correoExtra = strtolower(trim((string) ($row['correo'] ?? '')));
+                if ($correoExtra === '' || !filter_var($correoExtra, FILTER_VALIDATE_EMAIL)) {
+                    continue;
+                }
+                $tipo = strtolower(trim((string) ($row['tipo'] ?? '')));
+                return [
+                    'email' => $correoExtra,
+                    'fuente' => strpos($tipo, 'institucional') !== false ? 'correos_persona_institucional' : 'correos_persona_personal',
+                ];
+            }
         }
 
         return ['email' => '', 'fuente' => 'no_encontrado'];
@@ -21232,6 +21292,21 @@ class CapHum extends Controller
             case 'acta_nacimiento':
                 return !$this->lecturaIaTieneValor($validacion, ['nombre', 'nombre_completo']);
             case 'identificacion_oficial':
+                $textoIdentificacion = strtolower(trim(implode(' ', [
+                    (string) ($validacion['mensaje'] ?? ''),
+                    (string) ($validacion['motivo_rechazo'] ?? ''),
+                    (string) ($validacion['fecha_vencimiento'] ?? ''),
+                    json_encode($validacion['alertas'] ?? [], JSON_UNESCAPED_UNICODE) ?: '',
+                    json_encode($validacion['observaciones'] ?? [], JSON_UNESCAPED_UNICODE) ?: '',
+                ])));
+                if (
+                    !empty($validacion['rechazado'])
+                    || strpos($textoIdentificacion, 'vencida') !== false
+                    || strpos($textoIdentificacion, 'vencido') !== false
+                    || strpos($textoIdentificacion, 'fecha_vencimiento') !== false
+                ) {
+                    return true;
+                }
                 return !$this->lecturaIaTieneValor($validacion, ['nombre', 'nombre_completo', 'curp', 'clave_elector', 'numero_documento']);
             case 'solicitud_interna':
                 return !$this->lecturaIaTieneValor($validacion, ['tipo_documento_detectado', 'nombre', 'nombre_completo', 'curp', 'rfc', 'nss']);

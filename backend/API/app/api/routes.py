@@ -486,6 +486,85 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
     }
 
 
+def _respuesta_v2_error_recuperable(
+    documents: List[Dict[str, Any]],
+    nombre_candidato_registro: Optional[str],
+    exc: Exception,
+    elapsed_ms: int = 0,
+) -> Dict[str, Any]:
+    """Respuesta estable cuando el cruce V2 falla internamente.
+
+    Evita que FastAPI regrese HTTP 500 al modal; el error queda en logs y el
+    expediente puede mostrarse como pendiente/revisable sin perder documentos.
+    """
+    docs: Dict[str, Any] = {}
+    alertas: List[str] = [
+        "La IA documental no pudo completar el cruce automatico en este intento. Reintente la evaluacion.",
+    ]
+    for doc in documents:
+        key = str(doc.get("key") or "").strip()
+        if not key:
+            continue
+        label = str(doc.get("label") or key).strip()
+        filename = str(doc.get("filename") or f"{key}.pdf").strip()
+        summary = doc.get("summary")
+        previo = summary.get("validacion_previa") if isinstance(summary, dict) and isinstance(summary.get("validacion_previa"), dict) else {}
+        usable = summary_is_usable(summary)
+        docs[key] = {
+            "estado": "coincide" if usable else "requiere_revision",
+            "tipo_detectado": previo.get("tipo_documento_detectado") or previo.get("tipo_documento"),
+            "archivo": filename,
+            "paginas_pdf": _v2_pdf_page_count(doc, summary),
+            "nombre": _v2_first_value(previo, ["nombre", "nombre_completo", "nombre_propietario", "titular_cuenta"]),
+            "curp": _v2_first_value(previo, ["curp", "curp_extraido", "curp_lectura_ia"]),
+            "rfc": None if key == "comprobante_domicilio" else _v2_first_value(previo, ["rfc"]),
+            "nss": _v2_first_value(previo, ["nss", "nss_extraido", "nss_lectura_ia"]),
+            "mensaje": _v2_first_value(previo, ["mensaje", "motivo_rechazo"]) or (
+                "Lectura previa disponible." if usable else "Sin lectura suficiente para completar el cruce."
+            ),
+            "observaciones": list(previo.get("alertas") or previo.get("notas") or previo.get("observaciones") or []),
+        }
+        if not usable:
+            alertas.append(f"{label}: sin lectura suficiente para completar el cruce.")
+
+    return {
+        "todo_coincide": False,
+        "foto_rechazada": False,
+        "curp_definitivo": None,
+        "curp_fuente": "motor_v2_alibaba",
+        "checks_ok": 0,
+        "checks_totales": 0,
+        "checks_fallas": 0,
+        "alertas": alertas,
+        "recomendaciones": ["Revise logs de la API y reintente la evaluacion cuando el servicio este estable."],
+        "identificacion_frente_score": None,
+        "identificacion_reverso_score": None,
+        "comparaciones": {},
+        "comparaciones_v2": [],
+        "documentos_analizados_v2": docs,
+        "datos_referencia_v2": {"nombre_registro": nombre_candidato_registro or None},
+        "coincidencias_v2": {"total": 0, "ok": 0, "fallas": 0},
+        "resumen_ia": "El cruce documental no pudo completarse por un error interno recuperable.",
+        "dictamen_ia": "requiere_revision",
+        "nombre_ocr": nombre_candidato_registro,
+        "anio_nacimiento": None,
+        "tipo_documento": "expediente_v2",
+        "documentos_procesados": {k: True for k in docs.keys()},
+        "datos_extraidos": {
+            "motor_v2_error": {
+                "tipo": type(exc).__name__,
+                "mensaje": str(exc),
+            }
+        },
+        "tiempo_proceso_ms": int(elapsed_ms or 0),
+        "tiempos_fase_ms": {"v2_error_recuperable_ms": int(elapsed_ms or 0)},
+        "modo_verificacion": "v2_alibaba_crosscheck_error_recuperable",
+        "motor_ia": "alibaba",
+        "modelo_ia": "Motor V2",
+        "nombre_candidato_registro": nombre_candidato_registro,
+    }
+
+
 def _v2_first_value(data: Dict[str, Any], keys: List[str]) -> Optional[str]:
     for key in keys:
         value = data.get(key)
@@ -1057,14 +1136,30 @@ def _v2_structured_summary_from_pdf(doc: Dict[str, Any]) -> Optional[Dict[str, A
 
 
 def _v2_summary_needs_pdf_text_rescue(doc: Dict[str, Any]) -> bool:
-    key = str(doc.get("key") or "").strip()
+    key = str(doc.get("key") or doc.get("tipo") or doc.get("documento") or "").strip()
     summary = doc.get("summary")
     previo = summary.get("validacion_previa") if isinstance(summary, dict) and isinstance(summary.get("validacion_previa"), dict) else {}
+    if not previo and isinstance(doc.get("validacion"), dict):
+        previo = doc.get("validacion") or {}
+    if not previo and isinstance(doc.get("datos"), dict):
+        previo = doc.get("datos") or {}
     if key == "solicitud_interna":
         detected = str(previo.get("tipo_documento_detectado") or previo.get("tipo_documento") or "").strip()
         return detected not in {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"}
     if key == "identificacion_oficial":
         detected = str(previo.get("tipo_documento_detectado") or previo.get("tipo_documento") or "").strip()
+        texto_identificacion = " ".join([
+            str(previo.get("mensaje") or ""),
+            str(previo.get("motivo_rechazo") or ""),
+            json.dumps(previo.get("alertas") or [], ensure_ascii=False),
+            json.dumps(previo.get("observaciones") or [], ensure_ascii=False),
+        ]).lower()
+        if (
+            _v2_bool(previo.get("rechazado")) is True
+            or "vencida" in texto_identificacion
+            or "vencido" in texto_identificacion
+        ):
+            return True
         return detected not in {"identificacion_oficial", "ine", "residencia_permanente", "residencia_temporal", "pasaporte_mexicano", "pasaporte_extranjero"}
     if key == "curp":
         return not _v2_clean_curp(_v2_first_value(previo, ["curp", "curp_extraido", "curp_lectura_ia"]))
@@ -5130,14 +5225,18 @@ async def validar_expediente(
 
             crosscheck_mode = str(getattr(settings, "doc_ai_crosscheck_mode", "rules") or "rules").strip().lower()
             if crosscheck_mode in {"rules", "local", "rapido", "fast"}:
-                resultado_reglas = _resultado_v2_reglas_expediente(docs_v2, nombre_candidato_registro)
-                resultado_reglas["tiempos_fase_ms"] = {
-                    "prefill_pdf_text_motor_v1_count": pdf_text_prefill_count,
-                    "prefill_lecturas_rapidas_ms": prefill_ms,
-                    "cruce_reglas_ms": int(resultado_reglas.get("elapsed_ms") or 0),
-                    "total_endpoint_ms": prefill_ms + int(resultado_reglas.get("elapsed_ms") or 0),
-                }
-                return _respuesta_alibaba_expediente(resultado_reglas, nombre_candidato_registro)
+                try:
+                    resultado_reglas = _resultado_v2_reglas_expediente(docs_v2, nombre_candidato_registro)
+                    resultado_reglas["tiempos_fase_ms"] = {
+                        "prefill_pdf_text_motor_v1_count": pdf_text_prefill_count,
+                        "prefill_lecturas_rapidas_ms": prefill_ms,
+                        "cruce_reglas_ms": int(resultado_reglas.get("elapsed_ms") or 0),
+                        "total_endpoint_ms": prefill_ms + int(resultado_reglas.get("elapsed_ms") or 0),
+                    }
+                    return _respuesta_alibaba_expediente(resultado_reglas, nombre_candidato_registro)
+                except Exception as exc:
+                    logger.exception(f"validar-expediente V2 rules fallo: {exc}")
+                    return _respuesta_v2_error_recuperable(docs_v2, nombre_candidato_registro, exc, prefill_ms)
 
             timeout_v2 = int(getattr(settings, "doc_ai_crosscheck_timeout_seconds", 90) or 90) + 5
             try:
@@ -5148,8 +5247,12 @@ async def validar_expediente(
                 return _respuesta_alibaba_expediente(resultado_alibaba, nombre_candidato_registro)
             except Exception as exc:
                 logger.exception(f"Alibaba crosscheck fallo: {exc}")
-                resultado_reglas = _resultado_v2_reglas_expediente(docs_v2, nombre_candidato_registro, motivo="fallback_timeout")
-                return _respuesta_alibaba_expediente(resultado_reglas, nombre_candidato_registro)
+                try:
+                    resultado_reglas = _resultado_v2_reglas_expediente(docs_v2, nombre_candidato_registro, motivo="fallback_timeout")
+                    return _respuesta_alibaba_expediente(resultado_reglas, nombre_candidato_registro)
+                except Exception as fallback_exc:
+                    logger.exception(f"validar-expediente V2 fallback rules fallo: {fallback_exc}")
+                    return _respuesta_v2_error_recuperable(docs_v2, nombre_candidato_registro, fallback_exc, timeout_v2 * 1000)
 
     if identificacion_pdf_bytes and len(identificacion_pdf_bytes) >= 100:
         t_pdf = time.time()

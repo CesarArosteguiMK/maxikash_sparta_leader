@@ -1027,13 +1027,40 @@ def _fecha_fin_vigencia_identificacion(value: Any) -> Optional[date]:
     return parse_date(text)
 
 
+def _fecha_fin_rango_vigencia_identificacion(value: Any) -> Optional[date]:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    years = [int(y) for y in re.findall(r"\b(19\d{2}|20\d{2})\b", text)]
+    if len(years) < 2:
+        return None
+    return datetime(max(years), 12, 31).date()
+
+
 def _normalizar_vigencia_identificacion(data: Dict[str, Any], fields: Dict[str, Any]) -> Optional[date]:
+    # En INE la vigencia suele venir como rango, por ejemplo "2025 - 2035".
+    # Si el modelo puso por error 2025-12-31 en fecha_vencimiento, el rango
+    # completo debe tener prioridad y corregir al anio final: 2035-12-31.
+    candidatos_rango: List[Any] = [
+        fields.get("vigencia"),
+        fields.get("fecha_vencimiento"),
+        fields.get("fecha_expedicion"),
+        fields.get("fecha_emision"),
+    ]
+    observations = data.get("observaciones")
+    if isinstance(observations, list):
+        candidatos_rango.extend(observations)
+    for value in candidatos_rango:
+        exp = _fecha_fin_rango_vigencia_identificacion(value)
+        if exp:
+            fields["fecha_vencimiento"] = exp.isoformat()
+            return exp
+
     for value in (fields.get("fecha_vencimiento"), fields.get("vigencia")):
         exp = _fecha_fin_vigencia_identificacion(value)
         if exp:
             fields["fecha_vencimiento"] = exp.isoformat()
             return exp
-    observations = data.get("observaciones")
     if isinstance(observations, list):
         for obs in observations:
             exp = _fecha_fin_vigencia_identificacion(obs)
