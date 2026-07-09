@@ -73,7 +73,7 @@ DOCUMENT_ALIASES = {
         "pasaporte_mexicano",
         "pasaporte_extranjero",
     },
-    "cv": {"cv", "solicitud___SPARTA_SECRET_REDACTED__"},
+    "cv": {"cv"},
     "infonavit_fonacot": {"infonavit_fonacot", "carta_no_adeudo"},
 }
 
@@ -168,17 +168,20 @@ Reglas de lectura:
 22. En CURP, si dudas entre O/0 o I/1 en las ultimas posiciones, devuelve el
     valor solo si mantiene formato oficial de 18 caracteres. Si la duda queda
     sin resolver, pon curp=null y explica la duda; no inventes el valor.
-23. Para solicitud___SPARTA_SECRET_REDACTED__ escaneada o manuscrita, reconoce el formato por el
-    titulo "SOLICITUD DE EMPLEO MAXIKASH", el logo MaxiKash y las secciones
-    "DATOS PERSONALES", "DOCUMENTACION", "CONTACTOS DE EMERGENCIA" o similares.
-    Clasificala como solicitud___SPARTA_SECRET_REDACTED__ aunque algunos campos manuscritos no se
-    puedan leer completos.
+23. Para solicitud___SPARTA_SECRET_REDACTED__ escaneada o manuscrita, reconoce el formato por un
+    titulo o logo de empresa especifica, por ejemplo "SOLICITUD DE EMPLEO
+    MAXIKASH", "SOLICITUD DE EMPLEO FURIAMOTOS", logo MaxiKash, logo FuriaMotos,
+    nombre de empleador o secciones como "DATOS PERSONALES", "DOCUMENTACION" y
+    "CONTACTOS DE EMERGENCIA". Clasificala como solicitud___SPARTA_SECRET_REDACTED__ aunque algunos
+    campos manuscritos no se puedan leer completos.
 24. En solicitud___SPARTA_SECRET_REDACTED__, la CURP puede estar escrita en cuadros separados bajo
     "Clave Unica del Registro de Poblacion". Lee los caracteres de izquierda a
     derecha y reconstruye 18 caracteres solo si hay suficiente evidencia visual.
-25. Una solicitud de empleo generica, de papeleria o de otra marca, sin logo
-    MaxiKash ni titulo "SOLICITUD DE EMPLEO MAXIKASH", NO es solicitud interna;
-    para el campo CV o solicitud de trabajo clasificala como cv.
+25. Una solicitud de empleo generica o de papeleria, sin logo, marca ni nombre
+    de una empresa especifica, NO es solicitud interna; para el campo CV o
+    solicitud de trabajo clasificala como cv. Si muestra marca de una empresa
+    especifica como MaxiKash, Furia Motos/FuriaMOTOS u otro empleador,
+    clasificala como solicitud___SPARTA_SECRET_REDACTED__.
 
 Estructura exacta:
 {
@@ -292,10 +295,16 @@ Objetivo:
    confiable. Si dos valores validos de CURP o NSS difieren, marcala como
    diferencia critica.
 10. Distingue siempre entre:
-   - solicitud___SPARTA_SECRET_REDACTED__ o solicitud_interna: formato interno de MaxiKash.
-   - cv: CV personal o solicitud de trabajo general.
-   Si una solicitud de trabajo general esta cargada en solicitud_interna,
+   - solicitud___SPARTA_SECRET_REDACTED__ o solicitud_interna: formato interno o solicitud de empleo
+     de una empresa especifica, como MaxiKash, Furia Motos/FuriaMOTOS u otro
+     empleador.
+   - cv: CV personal o solicitud de trabajo generica, sin marca ni empresa
+     especifica.
+   Si una solicitud de trabajo generica esta cargada en solicitud_interna,
    reportala como tipo incorrecto y recomienda moverla a CV o solicitud de trabajo.
+   Si una solicitud de empleo con marca de empresa esta cargada en CV o solicitud
+   de trabajo, reportala como tipo incorrecto y recomienda moverla a Solicitud
+   interna.
 11. Si recibes una lectura previa marcada como motor_v1, pdf_text u OCR local,
     usala como respaldo confiable cuando el documento visual coincide con el
     tipo esperado. No vuelvas a dejar "lectura pendiente" para ese documento
@@ -987,10 +996,12 @@ def quick_prompt_for(expected_doc_type: Optional[str], nombre_candidato: Optiona
     elif expected_doc_type == "cv":
         extra = (
             "\n\nInstruccion especial para CV o solicitud de trabajo: este campo acepta un CV "
-            "personal o una solicitud de empleo general. Si el documento dice 'Solicitud de "
-            "Empleo' pero no muestra logo MaxiKash ni el titulo 'SOLICITUD DE EMPLEO MAXIKASH', "
-            "clasificalo como cv, no como solicitud___SPARTA_SECRET_REDACTED__. Extrae nombre_completo y datos "
-            "visibles del candidato cuando se puedan leer."
+            "personal o una solicitud de empleo generica sin marca de empresa. Si el documento "
+            "dice 'Solicitud de Empleo' y muestra logo, marca o nombre de una empresa especifica "
+            "como MaxiKash, Furia Motos/FuriaMOTOS u otro empleador, no lo clasifiques como cv; "
+            "clasificalo como solicitud___SPARTA_SECRET_REDACTED__ para indicar que pertenece a Solicitud interna. "
+            "Solo una solicitud generica, sin empresa especifica, debe clasificarse como cv. "
+            "Extrae nombre_completo y datos visibles del candidato cuando se puedan leer."
         )
     elif expected_doc_type == "nss":
         extra = (

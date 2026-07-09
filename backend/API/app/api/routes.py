@@ -52,6 +52,7 @@ except ImportError:
 router = APIRouter()
 settings = get_settings()
 API_BUILD = "doc-precheck-2026-07-06-v2-consensus-reasoning"
+DOC_AI_QUICK_CACHE_VERSION = "2026-07-09-company-application-routing"
 
 api_key_header = APIKeyHeader(name=settings.api_key_header, auto_error=False)
 
@@ -117,7 +118,7 @@ def _doc_ai_quick_cache_key(
     nombre_candidato: Optional[str],
 ) -> str:
     payload = {
-        "version": 2,
+        "version": DOC_AI_QUICK_CACHE_VERSION,
         "sha256": hashlib.sha256(file_bytes).hexdigest(),
         "expected_doc_type": str(expected_doc_type or "").strip(),
         "model": str(model or "").strip(),
@@ -2001,7 +2002,7 @@ def _resultado_v2_reglas_expediente(
 
         expected_types_by_key = {
             "solicitud_interna": {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"},
-            "cv": {"cv", "solicitud___SPARTA_SECRET_REDACTED__"},
+            "cv": {"cv"},
             "acta_nacimiento": {"acta_nacimiento"},
             "curp": {"curp"},
             "identificacion_oficial": {
@@ -2332,7 +2333,7 @@ def _ai_es_doc(res: Dict[str, Any], expected: str) -> bool:
         "solicitud_interna": {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"},
         "solicitud___SPARTA_SECRET_REDACTED__": {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"},
         "identificacion_oficial": {"identificacion_oficial", "ine", "residencia_permanente", "residencia_temporal", "pasaporte_mexicano", "pasaporte_extranjero"},
-        "cv": {"cv", "solicitud___SPARTA_SECRET_REDACTED__"},
+        "cv": {"cv"},
         "infonavit_fonacot": {"infonavit_fonacot", "carta_no_adeudo"},
     }
     return doc_type in aliases.get(expected, {expected})
@@ -3208,9 +3209,18 @@ def _extraer_solicitud_interna_pdf_rapido(pdf_bytes: bytes) -> Dict[str, Any]:
     texto_norm = _normalizar_ascii_precheck(texto)
     resultado["texto"] = texto_norm
     resultado["modo"] = modo
+    marca_empresa = any(
+        marca in texto_norm
+        for marca in ("MAXIKASH", "FURIAMOTOS", "FURIA MOTOS")
+    )
     parece_solicitud = (
         "SOLICITUD DE EMPLEO MAXIKASH" in texto_norm
-        or ("SOLICITUD" in texto_norm and "MAXIKASH" in texto_norm and "DATOS PERSONALES" in texto_norm)
+        or "SOLICITUD DE EMPLEO FURIAMOTOS" in texto_norm
+        or (
+            "SOLICITUD" in texto_norm
+            and marca_empresa
+            and "DATOS PERSONALES" in texto_norm
+        )
     )
     if not parece_solicitud:
         return resultado
