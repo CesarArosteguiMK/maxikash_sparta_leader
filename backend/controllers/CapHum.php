@@ -14933,9 +14933,14 @@ class CapHum extends Controller
         $soloValidacionFinalCandidatos = self::esSoloValidadorFinalCandidatos();
         $script = '<script>window.miUsuarioId = ' . json_encode($miUsuarioId) . '; window.candidatosPermisos = ' . json_encode($permisosCandidatos) . '; window.candidatosSoloValidacionFinal = ' . json_encode($soloValidacionFinalCandidatos) . ';</script>' . "\n" . $script;
 
-        $departamento = CapHumDAO::getTodosDepartamentosGestion();
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeGestionarCandidatos = in_array(42, $modulos);
+        // Esta vista solo lee la sesión. Liberar el candado evita que otras pestañas
+        // (notificaciones, gestión o bajas) retrasen la navegación del usuario.
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        $departamento = CapHumDAO::getTodosDepartamentosGestion();
 
         self::set("titulo", "Selección de Personal");
         self::set("script", $script);
@@ -14945,7 +14950,6 @@ class CapHum extends Controller
         self::set("miUsuarioId", $miUsuarioId);
         self::set("permisosCandidatos", $permisosCandidatos);
         self::set("candidatosSoloValidacionFinal", $soloValidacionFinalCandidatos);
-        self::set("listaJefes", CapHumDAO::getListaPersonasParaJefe());
         self::render("candidatos");
     }
 

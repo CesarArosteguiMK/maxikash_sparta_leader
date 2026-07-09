@@ -823,7 +823,9 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
         for (var i = 0; i < controles.length; i++) {
             var control = controles[i];
             if (!control || control.disabled || !control.required) continue;
-            if (!control.checkValidity()) return false;
+            // Solo se consulta el estado: checkValidity() emite "invalid" y puede
+            // disparar de nuevo el renderizado de pasos durante la carga inicial.
+            if (!control.validity.valid) return false;
         }
         return controles.some(function(control) {
             return control && !control.disabled && control.required;
