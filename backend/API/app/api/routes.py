@@ -1829,7 +1829,7 @@ def _resultado_v2_reglas_expediente(
 
         expected_types_by_key = {
             "solicitud_interna": {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"},
-            "cv": {"cv"},
+            "cv": {"cv", "solicitud___SPARTA_SECRET_REDACTED__"},
             "acta_nacimiento": {"acta_nacimiento"},
             "curp": {"curp"},
             "identificacion_oficial": {

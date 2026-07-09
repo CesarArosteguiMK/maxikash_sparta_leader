@@ -176,6 +176,9 @@ Reglas de lectura:
 24. En solicitud___SPARTA_SECRET_REDACTED__, la CURP puede estar escrita en cuadros separados bajo
     "Clave Unica del Registro de Poblacion". Lee los caracteres de izquierda a
     derecha y reconstruye 18 caracteres solo si hay suficiente evidencia visual.
+25. Una solicitud de empleo generica, de papeleria o de otra marca, sin logo
+    MaxiKash ni titulo "SOLICITUD DE EMPLEO MAXIKASH", NO es solicitud interna;
+    para el campo CV o solicitud de trabajo clasificala como cv.
 
 Estructura exacta:
 {
@@ -977,6 +980,14 @@ def quick_prompt_for(expected_doc_type: Optional[str], nombre_candidato: Optiona
             "de Contribuyentes' y NSS desde 'Numero de seguridad social'. Si el nombre "
             "manuscrito coincide visualmente con el nombre registrado, devuelve el nombre "
             "normalizado como aparece en el registro."
+        )
+    elif expected_doc_type == "cv":
+        extra = (
+            "\n\nInstruccion especial para CV o solicitud de trabajo: este campo acepta un CV "
+            "personal o una solicitud de empleo general. Si el documento dice 'Solicitud de "
+            "Empleo' pero no muestra logo MaxiKash ni el titulo 'SOLICITUD DE EMPLEO MAXIKASH', "
+            "clasificalo como cv, no como solicitud___SPARTA_SECRET_REDACTED__. Extrae nombre_completo y datos "
+            "visibles del candidato cuando se puedan leer."
         )
     elif expected_doc_type == "nss":
         extra = (
