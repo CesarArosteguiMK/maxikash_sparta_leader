@@ -4706,6 +4706,485 @@ class CapHum extends Model
         }
     }
 
+    public static function importarDatosRrhhPorCurp(array $filas, int $idUsuario, bool $aplicar = false): array
+    {
+        $texto = static function ($valor, int $max = 255): ?string {
+            $valor = trim((string)($valor ?? ''));
+            if ($valor === '') {
+                return null;
+            }
+            $invalidos = ['N/A', 'NA', 'S/N', 'SN', 'SIN DATO', 'SIN DATOS', 'PENDIENTE', 'PEND'];
+            if (in_array(strtoupper($valor), $invalidos, true)) {
+                return null;
+            }
+            return function_exists('mb_substr') ? mb_substr($valor, 0, $max) : substr($valor, 0, $max);
+        };
+        $codigoContpac = static function ($valor) use ($texto): ?string {
+            $valor = $texto($valor, 40);
+            if ($valor === null) {
+                return null;
+            }
+            $valor = preg_replace('/\.0$/', '', $valor);
+            if (preg_match('/^\d+$/', $valor)) {
+                $valor = ltrim($valor, '0');
+                return $valor === '' ? '0' : $valor;
+            }
+            return $valor;
+        };
+        $curpLimpia = static function ($valor): string {
+            return strtoupper(preg_replace('/\s+/', '', (string)($valor ?? '')));
+        };
+        $upperSinEspacios = static function ($valor, int $max = 30) use ($texto): ?string {
+            $valor = $texto($valor, $max);
+            return $valor === null ? null : strtoupper(preg_replace('/\s+/', '', $valor));
+        };
+        $numero = static function ($valor, int $max = 30) use ($texto): ?string {
+            $valor = $texto($valor, $max);
+            if ($valor === null) {
+                return null;
+            }
+            $solo = preg_replace('/[^0-9]+/', '', $valor);
+            return $solo !== '' ? substr($solo, 0, $max) : $valor;
+        };
+        $decimal = static function ($valor): ?float {
+            $valor = trim(str_replace([',', '$', ' '], ['', '', ''], (string)($valor ?? '')));
+            return $valor !== '' && is_numeric($valor) ? (float)$valor : null;
+        };
+        $fecha = static function ($valor) use ($texto): ?string {
+            if ($valor instanceof \DateTimeInterface) {
+                return $valor->format('Y-m-d');
+            }
+            $valorTexto = $texto($valor, 40);
+            if ($valorTexto === null) {
+                return null;
+            }
+            if (is_numeric($valorTexto) && class_exists('\PhpOffice\PhpSpreadsheet\Shared\Date')) {
+                try {
+                    return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$valorTexto)->format('Y-m-d');
+                } catch (\Throwable $e) {
+                    return $valorTexto;
+                }
+            }
+            if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/', $valorTexto, $m)) {
+                $anio = (int)$m[3];
+                $anio += $anio >= 30 ? 1900 : 2000;
+                if (checkdate((int)$m[2], (int)$m[1], $anio)) {
+                    return sprintf('%04d-%02d-%02d', $anio, (int)$m[2], (int)$m[1]);
+                }
+            }
+            foreach (['!d/m/Y', '!d-m-Y', '!Y-m-d', '!d/m/y', '!d-m-y'] as $formato) {
+                $dt = \DateTime::createFromFormat($formato, $valorTexto);
+                if ($dt instanceof \DateTimeInterface) {
+                    $errores = \DateTime::getLastErrors();
+                    if (empty($errores['warning_count']) && empty($errores['error_count'])) {
+                        return $dt->format('Y-m-d');
+                    }
+                }
+            }
+            $ts = strtotime($valorTexto);
+            return $ts ? date('Y-m-d', $ts) : $valorTexto;
+        };
+        $registrarCambio = static function (array &$resumen, array $persona, string $tabla, string $campo, $antes, $despues): void {
+            $antesTexto = $antes === null ? '' : (string)$antes;
+            $desTexto = $despues === null ? '' : (string)$despues;
+            if ($antesTexto === $desTexto || $desTexto === '') {
+                return;
+            }
+            $resumen['campos'][$campo] = (int)($resumen['campos'][$campo] ?? 0) + 1;
+            if (count($resumen['cambios_preview']) < 120) {
+                $resumen['cambios_preview'][] = [
+                    'persona_id' => (int)($persona['id'] ?? 0),
+                    'persona' => (string)($persona['nombre'] ?? ''),
+                    'curp' => (string)($persona['curp'] ?? ''),
+                    'tabla' => $tabla,
+                    'campo' => $campo,
+                    'antes' => $antesTexto,
+                    'despues' => $desTexto,
+                ];
+            }
+        };
+
+        try {
+            $db = new Database();
+            $resumen = [
+                'total' => 0,
+                'encontrados' => 0,
+                'actualizables' => 0,
+                'actualizados' => 0,
+                'sin_cambios' => 0,
+                'omitidos' => 0,
+                'campos' => [],
+                'cambios_preview' => [],
+                'errores' => [],
+            ];
+
+            $curpsSolicitadas = [];
+            foreach ($filas as $filaCurp) {
+                $curpTmp = $curpLimpia($filaCurp['curp'] ?? '');
+                if ($curpTmp !== '') {
+                    $curpsSolicitadas[$curpTmp] = true;
+                }
+            }
+            $curpsSolicitadas = array_keys($curpsSolicitadas);
+            $personasPorCurp = [];
+            $curpsDuplicadasDb = [];
+            $rrhhPorPersona = [];
+            $cuentasPorPersona = [];
+
+            foreach (array_chunk($curpsSolicitadas, 500) as $chunkIdx => $chunkCurps) {
+                $params = [];
+                $placeholders = [];
+                foreach ($chunkCurps as $idx => $curpBuscar) {
+                    $key = 'curp_' . $chunkIdx . '_' . $idx;
+                    $params[$key] = $curpBuscar;
+                    $placeholders[] = ':' . $key;
+                }
+                if (!$placeholders) {
+                    continue;
+                }
+                $personas = $db->queryAll("
+                    SELECT
+                        id,
+                        curp,
+                        codigo_contpac,
+                        rfc,
+                        correo,
+                        telefono_uno,
+                        codigo_postal,
+                        domicilio_calle_texto,
+                        TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre
+                    FROM __SPARTA_SECRET_REDACTED__.persona
+                    WHERE UPPER(REPLACE(TRIM(curp), ' ', '')) IN (" . implode(',', $placeholders) . ")
+                ", $params) ?: [];
+                foreach ($personas as $personaEncontrada) {
+                    $curpDb = $curpLimpia($personaEncontrada['curp'] ?? '');
+                    if ($curpDb === '') {
+                        continue;
+                    }
+                    if (isset($personasPorCurp[$curpDb])) {
+                        $curpsDuplicadasDb[$curpDb] = true;
+                    }
+                    $personasPorCurp[$curpDb][] = $personaEncontrada;
+                }
+            }
+
+            $idsPersonaEncontrados = [];
+            foreach ($personasPorCurp as $listaPersonas) {
+                foreach ($listaPersonas as $personaEncontrada) {
+                    $idTmp = (int)($personaEncontrada['id'] ?? 0);
+                    if ($idTmp > 0) {
+                        $idsPersonaEncontrados[$idTmp] = true;
+                    }
+                }
+            }
+            $idsPersonaEncontrados = array_keys($idsPersonaEncontrados);
+
+            foreach (array_chunk($idsPersonaEncontrados, 500) as $chunkIdx => $chunkIds) {
+                $params = [];
+                $placeholders = [];
+                foreach ($chunkIds as $idx => $idTmp) {
+                    $key = 'id_' . $chunkIdx . '_' . $idx;
+                    $params[$key] = (int)$idTmp;
+                    $placeholders[] = ':' . $key;
+                }
+                if (!$placeholders) {
+                    continue;
+                }
+                $rrhhFilas = $db->queryAll("
+                    SELECT *
+                    FROM __SPARTA_SECRET_REDACTED__.persona_datos_rrhh
+                    WHERE id_persona IN (" . implode(',', $placeholders) . ")
+                ", $params) ?: [];
+                foreach ($rrhhFilas as $rrhhFila) {
+                    $rrhhPorPersona[(int)$rrhhFila['id_persona']] = $rrhhFila;
+                }
+
+                $cuentasFilas = $db->queryAll("
+                    SELECT pcb.id, pcb.id_persona, pcb.clabe, pcb.numero_cuenta, pcb.nombre_banco
+                    FROM __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria pcb
+                    INNER JOIN (
+                        SELECT id_persona, MAX(id) AS id
+                        FROM __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria
+                        WHERE COALESCE(estatus, 'Activo') = 'Activo'
+                          AND id_persona IN (" . implode(',', $placeholders) . ")
+                        GROUP BY id_persona
+                    ) ult ON ult.id = pcb.id
+                ", $params) ?: [];
+                foreach ($cuentasFilas as $cuentaFila) {
+                    $cuentasPorPersona[(int)$cuentaFila['id_persona']] = $cuentaFila;
+                }
+            }
+
+            if ($aplicar) {
+                $db->beginTransaction();
+            }
+
+            foreach ($filas as $fila) {
+                $resumen['total']++;
+                $numeroFila = (int)($fila['fila'] ?? 0);
+                $hoja = trim((string)($fila['hoja'] ?? ''));
+                $curp = $curpLimpia($fila['curp'] ?? '');
+                if ($curp === '') {
+                    $resumen['omitidos']++;
+                    $resumen['errores'][] = ['fila' => $numeroFila, 'hoja' => $hoja, 'curp' => '', 'motivo' => 'CURP vacia.'];
+                    continue;
+                }
+
+                $personas = $personasPorCurp[$curp] ?? [];
+
+                if (count($personas) === 0) {
+                    $resumen['omitidos']++;
+                    $resumen['errores'][] = ['fila' => $numeroFila, 'hoja' => $hoja, 'curp' => $curp, 'motivo' => 'No se encontro colaborador con esa CURP.'];
+                    continue;
+                }
+                if (count($personas) > 1 || isset($curpsDuplicadasDb[$curp])) {
+                    $resumen['omitidos']++;
+                    $resumen['errores'][] = ['fila' => $numeroFila, 'hoja' => $hoja, 'curp' => $curp, 'motivo' => 'CURP repetida en mas de un colaborador.'];
+                    continue;
+                }
+
+                $persona = $personas[0];
+                $idPersona = (int)$persona['id'];
+                $resumen['encontrados']++;
+
+                $personaDatos = is_array($fila['persona'] ?? null) ? $fila['persona'] : [];
+                $rrhhDatos = is_array($fila['rrhh'] ?? null) ? $fila['rrhh'] : [];
+                $bancoDatos = is_array($fila['cuenta_bancaria'] ?? null) ? $fila['cuenta_bancaria'] : [];
+
+                $personaUpdates = [
+                    'codigo_contpac' => $codigoContpac($personaDatos['codigo_contpac'] ?? null),
+                    'rfc' => $upperSinEspacios($personaDatos['rfc'] ?? null, 20),
+                    'correo' => $texto($personaDatos['correo'] ?? null, 160),
+                    'telefono_uno' => $numero($personaDatos['telefono_uno'] ?? null, 30),
+                    'codigo_postal' => $numero($personaDatos['codigo_postal'] ?? null, 12),
+                    'domicilio_calle_texto' => $texto($personaDatos['domicilio_calle_texto'] ?? null, 500),
+                ];
+                $personaUpdates = array_filter($personaUpdates, static fn($v) => $v !== null && $v !== '');
+
+                $rrhhActual = $rrhhPorPersona[$idPersona] ?? [];
+
+                $rrhhUpdates = [
+                    'registro_patronal' => $texto($rrhhDatos['registro_patronal'] ?? null, 120),
+                    'codigo_contpaq' => $codigoContpac($rrhhDatos['codigo_contpaq'] ?? $personaUpdates['codigo_contpac'] ?? null),
+                    'fecha_imss_alta' => $fecha($rrhhDatos['fecha_imss_alta'] ?? null),
+                    'puesto_texto' => $texto($rrhhDatos['puesto_texto'] ?? null, 180),
+                    'departamento_texto' => $texto($rrhhDatos['departamento_texto'] ?? null, 180),
+                    'area_texto' => $texto($rrhhDatos['area_texto'] ?? null, 180),
+                    'direccion_organizacional' => $texto($rrhhDatos['direccion_organizacional'] ?? null, 180),
+                    'ubicacion_laboral' => $texto($rrhhDatos['ubicacion_laboral'] ?? null, 180),
+                    'municipio_laboral' => $texto($rrhhDatos['municipio_laboral'] ?? null, 180),
+                    'jefe_directo_texto' => $texto($rrhhDatos['jefe_directo_texto'] ?? null, 220),
+                    'sueldo_neto' => $decimal($rrhhDatos['sueldo_neto'] ?? null),
+                    'sueldo_quincenal' => $decimal($rrhhDatos['sueldo_quincenal'] ?? null),
+                    'sueldo_bruto' => $decimal($rrhhDatos['sueldo_bruto'] ?? null),
+                    'salario_diario' => $decimal($rrhhDatos['salario_diario'] ?? null),
+                    'sbc' => $decimal($rrhhDatos['sbc'] ?? null),
+                    'rfc' => $upperSinEspacios($rrhhDatos['rfc'] ?? $personaUpdates['rfc'] ?? null, 20),
+                    'nss' => $numero($rrhhDatos['nss'] ?? null, 20),
+                    'entidad_federativa_rfc' => $texto($rrhhDatos['entidad_federativa_rfc'] ?? null, 120),
+                    'anio' => $numero($rrhhDatos['anio'] ?? null, 4),
+                    'mes' => $numero($rrhhDatos['mes'] ?? null, 2),
+                    'dia' => $numero($rrhhDatos['dia'] ?? null, 2),
+                    'fecha_nacimiento' => $fecha($rrhhDatos['fecha_nacimiento'] ?? null),
+                    'sexo' => $texto($rrhhDatos['sexo'] ?? null, 20),
+                    'tipo_sangre' => $texto($rrhhDatos['tipo_sangre'] ?? null, 20),
+                    'alergias' => $texto($rrhhDatos['alergias'] ?? null, 5000),
+                    'enfermedades_cronicas' => $texto($rrhhDatos['enfermedades_cronicas'] ?? null, 5000),
+                    'enfermedades_hereditarias' => $texto($rrhhDatos['enfermedades_hereditarias'] ?? null, 5000),
+                    'medicamentos_actuales' => $texto($rrhhDatos['medicamentos_actuales'] ?? null, 5000),
+                    'discapacidad_condicion' => $texto($rrhhDatos['discapacidad_condicion'] ?? null, 5000),
+                    'observaciones_medicas' => $texto($rrhhDatos['observaciones_medicas'] ?? null, 5000),
+                    'observaciones' => $texto($rrhhDatos['observaciones'] ?? null, 5000),
+                ];
+                $rrhhUpdates = array_filter($rrhhUpdates, static fn($v) => $v !== null && $v !== '');
+
+                $cuentaActual = $cuentasPorPersona[$idPersona] ?? [];
+                $cuentaUpdates = [
+                    'clabe' => $numero($bancoDatos['clabe'] ?? null, 30),
+                    'numero_cuenta' => $numero($bancoDatos['numero_cuenta'] ?? null, 40),
+                    'nombre_banco' => $texto($bancoDatos['nombre_banco'] ?? null, 120),
+                ];
+                $cuentaUpdates = array_filter($cuentaUpdates, static fn($v) => $v !== null && $v !== '');
+
+                $hayCambios = false;
+                foreach ($personaUpdates as $campo => $valor) {
+                    if ((string)($persona[$campo] ?? '') !== (string)$valor) {
+                        $hayCambios = true;
+                        $registrarCambio($resumen, $persona, 'persona', $campo, $persona[$campo] ?? '', $valor);
+                    }
+                }
+                foreach ($rrhhUpdates as $campo => $valor) {
+                    if ((string)($rrhhActual[$campo] ?? '') !== (string)$valor) {
+                        $hayCambios = true;
+                        $registrarCambio($resumen, $persona, 'persona_datos_rrhh', $campo, $rrhhActual[$campo] ?? '', $valor);
+                    }
+                }
+                foreach ($cuentaUpdates as $campo => $valor) {
+                    if ((string)($cuentaActual[$campo] ?? '') !== (string)$valor) {
+                        $hayCambios = true;
+                        $registrarCambio($resumen, $persona, 'persona_cuenta_bancaria', $campo, $cuentaActual[$campo] ?? '', $valor);
+                    }
+                }
+
+                if (!$hayCambios) {
+                    $resumen['sin_cambios']++;
+                    continue;
+                }
+                $resumen['actualizables']++;
+
+                if (!$aplicar) {
+                    continue;
+                }
+
+                if ($personaUpdates) {
+                    $sets = [];
+                    $params = ['id_persona' => $idPersona];
+                    foreach ($personaUpdates as $campo => $valor) {
+                        if ((string)($persona[$campo] ?? '') === (string)$valor) {
+                            continue;
+                        }
+                        $sets[] = "{$campo} = :p_{$campo}";
+                        $params["p_{$campo}"] = $valor;
+                    }
+                    if ($sets) {
+                        $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.persona SET " . implode(', ', $sets) . " WHERE id = :id_persona", $params);
+                    }
+                }
+
+                if ($rrhhUpdates) {
+                    $columnas = ['id_persona'];
+                    $valores = [':id_persona'];
+                    $updates = [];
+                    $params = ['id_persona' => $idPersona];
+                    foreach ($rrhhUpdates as $campo => $valor) {
+                        $columnas[] = $campo;
+                        $valores[] = ":r_{$campo}";
+                        $updates[] = "{$campo} = VALUES({$campo})";
+                        $params["r_{$campo}"] = $valor;
+                    }
+                    $db->CRUD("
+                        INSERT INTO __SPARTA_SECRET_REDACTED__.persona_datos_rrhh
+                            (" . implode(', ', $columnas) . ")
+                        VALUES
+                            (" . implode(', ', $valores) . ")
+                        ON DUPLICATE KEY UPDATE " . implode(', ', $updates) . "
+                    ", $params);
+                }
+
+                if ($cuentaUpdates) {
+                    if (!empty($cuentaActual['id'])) {
+                        $sets = [];
+                        $params = ['id' => (int)$cuentaActual['id']];
+                        foreach ($cuentaUpdates as $campo => $valor) {
+                            if ((string)($cuentaActual[$campo] ?? '') === (string)$valor) {
+                                continue;
+                            }
+                            $sets[] = "{$campo} = :b_{$campo}";
+                            $params["b_{$campo}"] = $valor;
+                        }
+                        if ($sets) {
+                            $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria SET " . implode(', ', $sets) . " WHERE id = :id", $params);
+                        }
+                    } else {
+                        $db->CRUD("
+                            INSERT INTO __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria
+                                (id_persona, clabe, numero_cuenta, nombre_banco, estatus)
+                            VALUES
+                                (:id_persona, :clabe, :numero_cuenta, :nombre_banco, 'Activo')
+                        ", [
+                            'id_persona' => $idPersona,
+                            'clabe' => $cuentaUpdates['clabe'] ?? null,
+                            'numero_cuenta' => $cuentaUpdates['numero_cuenta'] ?? null,
+                            'nombre_banco' => $cuentaUpdates['nombre_banco'] ?? null,
+                        ]);
+                    }
+                }
+
+                if (!empty($personaUpdates['telefono_uno'])) {
+                    $existeTel = $db->queryOne("
+                        SELECT 1 AS ok
+                        FROM __SPARTA_SECRET_REDACTED__.telefonos_persona
+                        WHERE id_persona = :id_persona AND numero = :numero
+                        LIMIT 1
+                    ", ['id_persona' => $idPersona, 'numero' => $personaUpdates['telefono_uno']]);
+                    if (!$existeTel) {
+                        $db->CRUD("
+                            INSERT INTO __SPARTA_SECRET_REDACTED__.telefonos_persona (id_persona, numero, tipo, estatus)
+                            VALUES (:id_persona, :numero, 'Personal', 'Activo')
+                        ", ['id_persona' => $idPersona, 'numero' => $personaUpdates['telefono_uno']]);
+                    }
+                }
+
+                if (!empty($personaUpdates['correo']) && filter_var($personaUpdates['correo'], FILTER_VALIDATE_EMAIL)) {
+                    $existeCorreo = $db->queryOne("
+                        SELECT 1 AS ok
+                        FROM __SPARTA_SECRET_REDACTED__.correos_persona
+                        WHERE id_persona = :id_persona AND correo = :correo
+                        LIMIT 1
+                    ", ['id_persona' => $idPersona, 'correo' => $personaUpdates['correo']]);
+                    if (!$existeCorreo) {
+                        $db->CRUD("
+                            INSERT INTO __SPARTA_SECRET_REDACTED__.correos_persona (id_persona, correo, tipo, estatus)
+                            VALUES (:id_persona, :correo, 'Personal', 'Activo')
+                        ", ['id_persona' => $idPersona, 'correo' => $personaUpdates['correo']]);
+                    }
+                }
+
+                if (!empty($personaUpdates['domicilio_calle_texto'])) {
+                    $existeDomicilio = $db->queryOne("
+                        SELECT 1 AS ok
+                        FROM __SPARTA_SECRET_REDACTED__.domicilio_persona
+                        WHERE id_persona = :id_persona AND domicilio_texto = :domicilio
+                        LIMIT 1
+                    ", ['id_persona' => $idPersona, 'domicilio' => $personaUpdates['domicilio_calle_texto']]);
+                    if (!$existeDomicilio) {
+                        $db->CRUD("
+                            INSERT INTO __SPARTA_SECRET_REDACTED__.domicilio_persona (id_persona, domicilio_texto, codigo_postal, tipo, estatus)
+                            VALUES (:id_persona, :domicilio, :codigo_postal, 'Particular', 'Activo')
+                        ", [
+                            'id_persona' => $idPersona,
+                            'domicilio' => $personaUpdates['domicilio_calle_texto'],
+                            'codigo_postal' => $personaUpdates['codigo_postal'] ?? null,
+                        ]);
+                    }
+                }
+
+                self::registrarAuditoriaInternaRrhh([
+                    'id_usuario' => $idUsuario,
+                    'entidad_tipo' => 'persona',
+                    'entidad_id' => $idPersona,
+                    'entidad_nombre' => (string)($persona['nombre'] ?? ''),
+                    'accion' => 'importar_datos_curp_rrhh',
+                    'resumen' => 'Datos RR.HH. actualizados por carga masiva con CURP.',
+                    'detalle' => [
+                        'fila' => $numeroFila,
+                        'hoja' => $hoja,
+                        'campos_persona' => array_keys($personaUpdates),
+                        'campos_rrhh' => array_keys($rrhhUpdates),
+                        'campos_banco' => array_keys($cuentaUpdates),
+                    ],
+                ]);
+
+                $resumen['actualizados']++;
+            }
+
+            if ($aplicar) {
+                $db->commit();
+            }
+
+            return self::resultado(
+                true,
+                $aplicar ? 'Importacion de datos RR.HH. aplicada.' : 'Previsualizacion de datos RR.HH. lista.',
+                $resumen
+            );
+        } catch (\Throwable $e) {
+            if (isset($db) && $db instanceof Database && $db->inTransaction()) {
+                $db->rollback();
+            }
+            return self::resultado(false, 'No se pudo importar el Excel de datos RR.HH.', null, $e->getMessage());
+        }
+    }
+
     public static function importarCambiosEstructuraPorExternalId(array $filas, int $idUsuario, bool $aplicar = false): array
     {
         try {

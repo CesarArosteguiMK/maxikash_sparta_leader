@@ -9333,6 +9333,7 @@ class CapHum extends Controller
         self::refrescarModulosSesionUnaVez();
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeDescargarPlantillaGestion = in_array(self::MODULO_GESTION_PLANTILLA, $modulos);
+        $puedeImportarEstructuraGestion = in_array(self::MODULO_GESTION_ACTUALIZAR_ESTRUCTURA, $modulos);
         $puedeAgregarUsuarioGestion = in_array(self::MODULO_GESTION_AGREGAR_USUARIO, $modulos);
         $puedeEditarUsuarioGestion = in_array(self::MODULO_GESTION_EDITAR_USUARIO, $modulos);
         $puedeCargarDocumentoGestion = in_array(self::MODULO_GESTION_CARGAR_DOCUMENTO, $modulos);
@@ -9359,6 +9360,7 @@ class CapHum extends Controller
         self::set("puedeEditarTodos", $puedeEditarTodos);
         self::set("puedeGestionarPermisos", $puedeGestionarPermisos);
         self::set("puedeDescargarPlantillaGestion", $puedeDescargarPlantillaGestion);
+        self::set("puedeImportarEstructuraGestion", $puedeImportarEstructuraGestion);
         self::set("puedeAgregarUsuarioGestion", $puedeAgregarUsuarioGestion);
         self::set("puedeEditarUsuarioGestion", $puedeEditarUsuarioGestion);
         self::set("puedeCargarDocumentoGestion", $puedeCargarDocumentoGestion);
@@ -26802,6 +26804,57 @@ class CapHum extends Controller
         }
     }
 
+    public function analizarImportacionDatosRrhhCurp()
+    {
+        $this->procesarImportacionDatosRrhhCurp(false);
+    }
+
+    public function importarDatosRrhhCurp()
+    {
+        $this->procesarImportacionDatosRrhhCurp(true);
+    }
+
+    private function procesarImportacionDatosRrhhCurp(bool $aplicar): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para importar datos RR.HH.']);
+            return;
+        }
+
+        $archivo = $_FILES['archivo'] ?? null;
+        if (empty($archivo) || !empty($archivo['error'])) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona un archivo Excel o CSV valido.']);
+            return;
+        }
+
+        $nombre = (string)($archivo['name'] ?? '');
+        $tmp = (string)($archivo['tmp_name'] ?? '');
+        $extension = strtolower(pathinfo($nombre, PATHINFO_EXTENSION));
+        if (!is_uploaded_file($tmp) || !in_array($extension, ['xlsx', 'xls', 'csv'], true)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El archivo debe ser .xlsx, .xls o .csv.']);
+            return;
+        }
+
+        try {
+            $filas = $this->leerFilasDatosRrhhCurp($tmp, $extension);
+            if (empty($filas)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se encontraron filas con CURP para importar.']);
+                return;
+            }
+
+            $resultado = CapHumDAO::importarDatosRrhhPorCurp($filas, self::usuarioSesionId(), $aplicar);
+            self::respuestaJSON($resultado);
+        } catch (\Throwable $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No se pudo leer el archivo de datos RR.HH.',
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
     public function importarCambioEstructuraGestion()
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -26932,6 +26985,179 @@ class CapHum extends Controller
             ];
         }
 
+        return $filas;
+    }
+
+    private function leerFilasDatosRrhhCurp(string $ruta, string $extension): array
+    {
+        if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+            $autoload = dirname(__DIR__, 2) . '/vendor/autoload.php';
+            if (is_file($autoload)) {
+                require_once $autoload;
+            }
+        }
+        if ($extension !== 'csv' && !class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+            throw new \RuntimeException('PhpSpreadsheet no esta disponible.');
+        }
+
+        $normalizarHeader = static function ($valor): string {
+            $texto = strtolower(trim((string)$valor));
+            $texto = strtr($texto, [
+                'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n',
+                'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u', 'Ñ' => 'n',
+                'Ã¡' => 'a', 'Ã©' => 'e', 'Ã­' => 'i', 'Ã³' => 'o', 'Ãº' => 'u', 'Ã±' => 'n',
+                'Ã' => 'a', 'Ã‰' => 'e', 'Ã' => 'i', 'Ã“' => 'o', 'Ãš' => 'u', 'Ã‘' => 'n',
+            ]);
+            return trim((string)preg_replace('/[^a-z0-9]+/', '_', $texto), '_');
+        };
+        $valorCelda = static function ($valor): string {
+            if ($valor instanceof \DateTimeInterface) {
+                return $valor->format('Y-m-d');
+            }
+            return trim((string)($valor ?? ''));
+        };
+        $fechaCelda = static function ($valor) use ($valorCelda): string {
+            if ($valor instanceof \DateTimeInterface) {
+                return $valor->format('Y-m-d');
+            }
+            if (is_numeric($valor) && class_exists('\PhpOffice\PhpSpreadsheet\Shared\Date')) {
+                try {
+                    return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$valor)->format('Y-m-d');
+                } catch (\Throwable $e) {
+                    return $valorCelda($valor);
+                }
+            }
+            $texto = $valorCelda($valor);
+            if ($texto === '') {
+                return '';
+            }
+            $ts = strtotime($texto);
+            return $ts ? date('Y-m-d', $ts) : $texto;
+        };
+        $buscarIndice = static function (array $headers, array $alias) {
+            foreach ($alias as $nombre) {
+                $idx = array_search($nombre, $headers, true);
+                if ($idx !== false) {
+                    return $idx;
+                }
+            }
+            return false;
+        };
+        $obtener = static function (array $row, array $headers, array $alias) use ($buscarIndice, $valorCelda) {
+            $idx = $buscarIndice($headers, $alias);
+            return $idx === false ? '' : $valorCelda($row[$idx] ?? '');
+        };
+        $obtenerFecha = static function (array $row, array $headers, array $alias) use ($buscarIndice, $fechaCelda) {
+            $idx = $buscarIndice($headers, $alias);
+            return $idx === false ? '' : $fechaCelda($row[$idx] ?? '');
+        };
+        $procesarMatriz = function (array $matriz, string $hoja) use ($normalizarHeader, $obtener, $obtenerFecha): array {
+            $headerIndex = null;
+            $headers = [];
+            $limite = min(30, count($matriz));
+            for ($i = 0; $i < $limite; $i++) {
+                $headersCandidatos = array_map($normalizarHeader, $matriz[$i] ?? []);
+                if (in_array('curp', $headersCandidatos, true)) {
+                    $headerIndex = $i;
+                    $headers = $headersCandidatos;
+                    break;
+                }
+            }
+            if ($headerIndex === null) {
+                return [];
+            }
+
+            $filas = [];
+            for ($i = $headerIndex + 1; $i < count($matriz); $i++) {
+                $row = $matriz[$i] ?? [];
+                $curp = $obtener($row, $headers, ['curp']);
+                $nombre = $obtener($row, $headers, ['nombre_apellidos', 'apellidos_nombre', 'nombre_completo']);
+                if (trim($curp) === '' && trim($nombre) === '') {
+                    continue;
+                }
+
+                $codigo = $obtener($row, $headers, ['codigo_contpac', 'codigo_contpaq', 'codigo_conta', 'codigo_contable']);
+                $rfc = $obtener($row, $headers, ['rfc']);
+                $telefono = $obtener($row, $headers, ['no_telefonico', 'telefono', 'telefono_personal', 'numero_telefonico']);
+                $correo = $obtener($row, $headers, ['correo_electronico', 'correo', 'email']);
+                $cp = $obtener($row, $headers, ['cp', 'codigo_postal']);
+                $domicilio = $obtener($row, $headers, ['domicilio_particular', 'domicilio']);
+                $banco = $obtener($row, $headers, ['nombre_de_banco', 'banco']);
+
+                $filas[] = [
+                    'fila' => $i + 1,
+                    'hoja' => $hoja,
+                    'curp' => $curp,
+                    'persona' => [
+                        'codigo_contpac' => $codigo,
+                        'rfc' => $rfc,
+                        'correo' => $correo,
+                        'telefono_uno' => $telefono,
+                        'codigo_postal' => $cp,
+                        'domicilio_calle_texto' => $domicilio,
+                    ],
+                    'rrhh' => [
+                        'registro_patronal' => $obtener($row, $headers, ['registro_patronal']),
+                        'codigo_contpaq' => $codigo,
+                        'fecha_imss_alta' => $obtenerFecha($row, $headers, ['fecha_imss_alta', 'fecha_alta_imss']),
+                        'puesto_texto' => $obtener($row, $headers, ['puesto']),
+                        'departamento_texto' => $obtener($row, $headers, ['departamento']),
+                        'area_texto' => $obtener($row, $headers, ['area']),
+                        'direccion_organizacional' => $obtener($row, $headers, ['direccion_organizacional', 'direccion']),
+                        'ubicacion_laboral' => $obtener($row, $headers, ['ubicacion_laboral']),
+                        'municipio_laboral' => $obtener($row, $headers, ['municipio']),
+                        'jefe_directo_texto' => $obtener($row, $headers, ['jefe_directo', 'jefe']),
+                        'sueldo_neto' => $obtener($row, $headers, ['sueldo_neto']),
+                        'sueldo_quincenal' => $obtener($row, $headers, ['sueldo_quincenal']),
+                        'sueldo_bruto' => $obtener($row, $headers, ['sueldo_bruto']),
+                        'salario_diario' => $obtener($row, $headers, ['salario_diario']),
+                        'sbc' => $obtener($row, $headers, ['sbc']),
+                        'rfc' => $rfc,
+                        'nss' => $obtener($row, $headers, ['nss', 'numero_seguridad_social', 'no_seguridad_social']),
+                        'entidad_federativa_rfc' => $obtener($row, $headers, ['entidad_federativa_rfc', 'entidad_federativa']),
+                        'anio' => $obtener($row, $headers, ['ano', 'anio']),
+                        'mes' => $obtener($row, $headers, ['mes']),
+                        'dia' => $obtener($row, $headers, ['dia']),
+                        'fecha_nacimiento' => $obtenerFecha($row, $headers, ['fecha_de_nacimiento', 'fecha_nacimiento']),
+                        'sexo' => $obtener($row, $headers, ['sexo']),
+                        'tipo_sangre' => $obtener($row, $headers, ['tipo_sangre']),
+                        'alergias' => $obtener($row, $headers, ['alergias']),
+                        'enfermedades_cronicas' => $obtener($row, $headers, ['enfermedades_cronicas']),
+                        'enfermedades_hereditarias' => $obtener($row, $headers, ['enfermedades_hereditarias']),
+                        'medicamentos_actuales' => $obtener($row, $headers, ['medicamentos_actuales']),
+                        'discapacidad_condicion' => $obtener($row, $headers, ['discapacidad_condicion', 'discapacidad']),
+                        'observaciones_medicas' => $obtener($row, $headers, ['observaciones_medicas']),
+                        'observaciones' => $obtener($row, $headers, ['observaciones']),
+                    ],
+                    'cuenta_bancaria' => [
+                        'nombre_banco' => $banco,
+                        'numero_cuenta' => $obtener($row, $headers, ['no_cuenta', 'numero_cuenta', 'cuenta']),
+                        'clabe' => $obtener($row, $headers, ['clabe_interbancaria', 'clabe']),
+                    ],
+                ];
+            }
+            return $filas;
+        };
+
+        if ($extension === 'csv') {
+            $matriz = [];
+            $handle = fopen($ruta, 'r');
+            if (!$handle) {
+                return [];
+            }
+            while (($row = fgetcsv($handle, 0, ',')) !== false) {
+                $matriz[] = $row;
+            }
+            fclose($handle);
+            return $procesarMatriz($matriz, 'CSV');
+        }
+
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
+        $filas = [];
+        foreach ($spreadsheet->getWorksheetIterator() as $sheet) {
+            $matriz = $sheet->toArray(null, false, true, false);
+            $filas = array_merge($filas, $procesarMatriz($matriz, $sheet->getTitle()));
+        }
         return $filas;
     }
 

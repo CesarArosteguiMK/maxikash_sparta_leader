@@ -204,6 +204,9 @@
             <button type="button" class="btn btn-outline-success" id="btnImportarSueldosRrhh">
                 <i class="fa-solid fa-file-excel me-1"></i>Importar sueldos
             </button>
+            <button type="button" class="btn btn-outline-success" id="btnImportarDatosRrhh">
+                <i class="fa-solid fa-address-card me-1"></i>Importar datos
+            </button>
             <button type="button" class="btn btn-success" id="btnImportarDocsRrhh">
                 <i class="fa-solid fa-file-import me-1"></i>Importar documentos
             </button>
@@ -341,6 +344,48 @@
                 </div>
                 <div class="small text-muted mb-2" id="docsRrhhSueldosArchivo">No se ha seleccionado archivo.</div>
                 <div id="docsRrhhSueldosResultado"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="docsRrhhDatosModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-1">
+                        <i class="fa-solid fa-address-card me-2"></i>Importar datos por CURP
+                    </h5>
+                    <div class="text-muted small">Busca colaboradores por CURP y actualiza solo los campos con valor en el Excel.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="file" class="d-none" id="docsRrhhDatosInput" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv">
+                <div class="border rounded-3 p-3 bg-light mb-3">
+                    <div class="fw-semibold mb-1">Datos que puede actualizar</div>
+                    <div class="small text-muted">
+                        Codigo CONTPAC, RFC, NSS, telefono, correo, domicilio, codigo postal, puesto, departamento, area,
+                        jefe directo, datos IMSS, fechas, sueldo visible de ficha, banco, cuenta y CLABE. Las celdas vacias se omiten.
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                    <button type="button" class="btn btn-outline-primary" id="btnDocsRrhhDatosElegir">
+                        <i class="fa-solid fa-folder-open me-1"></i>Elegir Excel
+                    </button>
+                    <button type="button" class="btn btn-outline-success" id="btnDocsRrhhDatosAnalizar" disabled>
+                        <i class="fa-solid fa-magnifying-glass-chart me-1"></i>Previsualizar
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnDocsRrhhDatosAplicar" disabled>
+                        <i class="fa-solid fa-cloud-arrow-up me-1"></i>Aplicar cambios
+                    </button>
+                </div>
+                <div class="small text-muted mb-2" id="docsRrhhDatosArchivo">No se ha seleccionado archivo.</div>
+                <div id="docsRrhhDatosResultado"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -532,6 +577,8 @@
     let importPreparandoArchivosDesde = 0;
     let importPersonaObjetivo = null;
     let sueldosArchivo = null;
+    let datosArchivo = null;
+    let datosPrevisualizados = null;
     const IMPORT_MAX_FILES_PER_REQUEST = 10;
     const IMPORT_MAX_BYTES_PER_REQUEST = 30 * 1024 * 1024;
     const IMPORT_MAX_ZIP_BYTES_PER_REQUEST = 30 * 1024 * 1024;
@@ -587,7 +634,15 @@
         sueldosBtnElegir: document.getElementById('btnDocsRrhhSueldosElegir'),
         sueldosBtnSubir: document.getElementById('btnDocsRrhhSueldosSubir'),
         sueldosArchivo: document.getElementById('docsRrhhSueldosArchivo'),
-        sueldosResultado: document.getElementById('docsRrhhSueldosResultado')
+        sueldosResultado: document.getElementById('docsRrhhSueldosResultado'),
+        importarDatos: document.getElementById('btnImportarDatosRrhh'),
+        datosModal: document.getElementById('docsRrhhDatosModal'),
+        datosInput: document.getElementById('docsRrhhDatosInput'),
+        datosBtnElegir: document.getElementById('btnDocsRrhhDatosElegir'),
+        datosBtnAnalizar: document.getElementById('btnDocsRrhhDatosAnalizar'),
+        datosBtnAplicar: document.getElementById('btnDocsRrhhDatosAplicar'),
+        datosArchivo: document.getElementById('docsRrhhDatosArchivo'),
+        datosResultado: document.getElementById('docsRrhhDatosResultado')
     };
 
     function escapeHtml(value) {
@@ -673,6 +728,145 @@
             if (els.sueldosBtnSubir) {
                 els.sueldosBtnSubir.disabled = !sueldosArchivo;
                 els.sueldosBtnSubir.innerHTML = htmlOriginal;
+            }
+        }
+    }
+
+    function abrirImportarDatos() {
+        datosArchivo = null;
+        datosPrevisualizados = null;
+        if (els.datosInput) els.datosInput.value = '';
+        if (els.datosArchivo) els.datosArchivo.textContent = 'No se ha seleccionado archivo.';
+        if (els.datosResultado) els.datosResultado.innerHTML = '';
+        if (els.datosBtnAnalizar) els.datosBtnAnalizar.disabled = true;
+        if (els.datosBtnAplicar) els.datosBtnAplicar.disabled = true;
+        bootstrap.Modal.getOrCreateInstance(els.datosModal).show();
+    }
+
+    function renderResultadoDatos(datos, aplicado = false) {
+        if (!els.datosResultado) return;
+        const errores = Array.isArray(datos?.errores) ? datos.errores : [];
+        const cambios = Array.isArray(datos?.cambios_preview) ? datos.cambios_preview : [];
+        const campos = datos?.campos && typeof datos.campos === 'object' ? datos.campos : {};
+        const camposHtml = Object.entries(campos).length
+            ? `<div class="mt-3">
+                <div class="fw-semibold mb-2">Campos detectados</div>
+                <div class="d-flex flex-wrap gap-2">
+                  ${Object.entries(campos).map(([campo, total]) => `<span class="badge bg-label-primary">${escapeHtml(campo)}: ${escapeHtml(total)}</span>`).join('')}
+                </div>
+              </div>`
+            : '';
+        const cambiosHtml = cambios.length
+            ? `<div class="mt-3">
+                <div class="fw-semibold mb-2">Cambios a revisar</div>
+                <div class="table-responsive" style="max-height: 300px;">
+                  <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>Colaborador</th><th>Campo</th><th>Antes</th><th>Despues</th></tr></thead>
+                    <tbody>${cambios.map(c => `
+                      <tr>
+                        <td>
+                          <div class="fw-semibold">${escapeHtml(c.persona || '')}</div>
+                          <div class="small text-muted">${escapeHtml(c.curp || '')}</div>
+                        </td>
+                        <td>${escapeHtml(c.campo || '')}</td>
+                        <td class="text-muted">${escapeHtml(c.antes || '')}</td>
+                        <td>${escapeHtml(c.despues || '')}</td>
+                      </tr>`).join('')}</tbody>
+                  </table>
+                </div>
+                ${Number(datos?.actualizables || 0) > cambios.length ? `<div class="small text-muted mt-2">Se muestran ${escapeHtml(cambios.length)} cambios de una muestra. El resumen contiene el total por campo.</div>` : ''}
+              </div>`
+            : '';
+        const erroresHtml = errores.length
+            ? `<div class="mt-3">
+                <div class="fw-semibold mb-2">Filas omitidas</div>
+                <div class="table-responsive" style="max-height: 240px;">
+                  <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>Hoja</th><th>Fila</th><th>CURP</th><th>Motivo</th></tr></thead>
+                    <tbody>${errores.slice(0, 70).map(e => `
+                      <tr>
+                        <td>${escapeHtml(e.hoja || '')}</td>
+                        <td>${escapeHtml(e.fila || '')}</td>
+                        <td>${escapeHtml(e.curp || '')}</td>
+                        <td>${escapeHtml(e.motivo || '')}</td>
+                      </tr>`).join('')}</tbody>
+                  </table>
+                </div>
+                ${errores.length > 70 ? `<div class="small text-muted mt-2">Se muestran 70 de ${escapeHtml(errores.length)} filas omitidas.</div>` : ''}
+              </div>`
+            : '';
+
+        els.datosResultado.innerHTML = `
+            <div class="alert ${aplicado ? 'alert-success' : 'alert-info'} py-2">
+                ${aplicado ? 'Cambios aplicados correctamente.' : 'Previsualizacion lista. Revisa el resumen antes de aplicar.'}
+            </div>
+            <div class="row g-2">
+              <div class="col-6 col-md-2"><div class="border rounded-3 p-2"><div class="small text-muted">Filas</div><div class="h5 mb-0">${escapeHtml(datos?.total || 0)}</div></div></div>
+              <div class="col-6 col-md-2"><div class="border rounded-3 p-2"><div class="small text-muted">Encontrados</div><div class="h5 text-primary mb-0">${escapeHtml(datos?.encontrados || 0)}</div></div></div>
+              <div class="col-6 col-md-2"><div class="border rounded-3 p-2"><div class="small text-muted">Con cambios</div><div class="h5 text-success mb-0">${escapeHtml(datos?.actualizables || datos?.actualizados || 0)}</div></div></div>
+              <div class="col-6 col-md-2"><div class="border rounded-3 p-2"><div class="small text-muted">Aplicados</div><div class="h5 text-success mb-0">${escapeHtml(datos?.actualizados || 0)}</div></div></div>
+              <div class="col-6 col-md-2"><div class="border rounded-3 p-2"><div class="small text-muted">Sin cambios</div><div class="h5 mb-0">${escapeHtml(datos?.sin_cambios || 0)}</div></div></div>
+              <div class="col-6 col-md-2"><div class="border rounded-3 p-2"><div class="small text-muted">Omitidos</div><div class="h5 text-warning mb-0">${escapeHtml(datos?.omitidos || 0)}</div></div></div>
+            </div>
+            ${camposHtml}
+            ${cambiosHtml}
+            ${erroresHtml}
+        `;
+    }
+
+    async function enviarDatosRrhh(aplicar = false) {
+        if (!datosArchivo) {
+            Swal.fire('Importar datos', 'Selecciona un archivo Excel o CSV.', 'warning');
+            return;
+        }
+        if (aplicar) {
+            const confirm = await Swal.fire({
+                title: 'Aplicar cambios',
+                text: 'Se actualizaran los datos encontrados por CURP. Las celdas vacias no se tocaran.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Aplicar',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true
+            });
+            if (!confirm.isConfirmed) return;
+        }
+
+        const fd = new FormData();
+        fd.append('archivo', datosArchivo, datosArchivo.name);
+        const btn = aplicar ? els.datosBtnAplicar : els.datosBtnAnalizar;
+        const htmlOriginal = btn?.innerHTML || '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>${aplicar ? 'Aplicando...' : 'Analizando...'}`;
+        }
+        try {
+            const res = await fetch(aplicar ? '/CapHum/importarDatosRrhhCurp' : '/CapHum/analizarImportacionDatosRrhhCurp', {
+                method: 'POST',
+                body: fd
+            });
+            const data = await res.json();
+            if (!data.success) {
+                throw new Error(data.mensaje || data.error || 'No se pudo procesar el archivo.');
+            }
+            datosPrevisualizados = data.datos || {};
+            renderResultadoDatos(datosPrevisualizados, aplicar);
+            if (els.datosBtnAplicar) {
+                els.datosBtnAplicar.disabled = aplicar || Number(datosPrevisualizados.actualizables || 0) <= 0;
+            }
+            if (aplicar) {
+                await cargarResumen();
+                Swal.fire('Importar datos', data.mensaje || 'Datos actualizados.', 'success');
+            }
+        } catch (error) {
+            Swal.fire('Importar datos', error.message || 'No se pudo importar el archivo.', 'error');
+        } finally {
+            if (btn) {
+                btn.innerHTML = htmlOriginal;
+                btn.disabled = aplicar ? true : !datosArchivo;
+            }
+            if (els.datosBtnAplicar && !aplicar) {
+                els.datosBtnAplicar.disabled = !datosPrevisualizados || Number(datosPrevisualizados.actualizables || 0) <= 0;
             }
         }
     }
@@ -1822,6 +2016,28 @@
         if (els.sueldosBtnSubir) els.sueldosBtnSubir.disabled = !sueldosArchivo;
     });
     els.sueldosBtnSubir?.addEventListener('click', subirSueldosExcel);
+    els.importarDatos?.addEventListener('click', abrirImportarDatos);
+    els.datosBtnElegir?.addEventListener('click', function () {
+        els.datosInput?.click();
+    });
+    els.datosInput?.addEventListener('change', function () {
+        datosArchivo = this.files && this.files.length ? this.files[0] : null;
+        datosPrevisualizados = null;
+        if (els.datosArchivo) {
+            els.datosArchivo.textContent = datosArchivo
+                ? `${datosArchivo.name} (${Math.ceil((datosArchivo.size || 0) / 1024)} KB)`
+                : 'No se ha seleccionado archivo.';
+        }
+        if (els.datosResultado) els.datosResultado.innerHTML = '';
+        if (els.datosBtnAnalizar) els.datosBtnAnalizar.disabled = !datosArchivo;
+        if (els.datosBtnAplicar) els.datosBtnAplicar.disabled = true;
+    });
+    els.datosBtnAnalizar?.addEventListener('click', function () {
+        enviarDatosRrhh(false);
+    });
+    els.datosBtnAplicar?.addEventListener('click', function () {
+        enviarDatosRrhh(true);
+    });
     els.body.addEventListener('click', function (event) {
         const detalleBtn = event.target.closest('[data-docs-detalle]');
         if (detalleBtn) {
