@@ -1239,6 +1239,116 @@ def _v2_humanizar_mensaje_identificacion(mensaje: Any) -> str:
     return texto
 
 
+def _v2_label_documento_usuario(doc_key: str) -> str:
+    labels = {
+        "solicitud_interna": "solicitud interna",
+        "cv": "CV o solicitud de trabajo",
+        "acta_nacimiento": "acta de nacimiento",
+        "curp": "CURP",
+        "identificacion_oficial": "identificación oficial",
+        "comprobante_domicilio": "comprobante de domicilio",
+        "constancia_fiscal": "constancia fiscal",
+        "nss": "documento de NSS",
+        "hoja_retencion": "hoja de retención FONACOT/INFONAVIT",
+        "__SPARTA_SECRET_REDACTED__": "estado de cuenta",
+    }
+    return labels.get(str(doc_key or "").strip(), user_document_name(str(doc_key or "").strip()) or "documento")
+
+
+def _v2_humanizar_tipo_documento(texto_tipo: Any) -> str:
+    tipo = str(texto_tipo or "").strip()
+    norm = normalize_text(tipo)
+    mapping = {
+        "SOLICITUD_MAXIKASH": "solicitud interna",
+        "SOLICITUD_INTERNA": "solicitud interna",
+        "SOLICITUD INTERNA": "solicitud interna",
+        "CV": "CV o solicitud de trabajo",
+        "ACTA_NACIMIENTO": "acta de nacimiento",
+        "ACTA DE NACIMIENTO": "acta de nacimiento",
+        "IDENTIFICACION_OFICIAL": "identificación oficial",
+        "IDENTIFICACION OFICIAL": "identificación oficial",
+        "COMPROBANTE_DOMICILIO": "comprobante de domicilio",
+        "COMPROBANTE DE DOMICILIO": "comprobante de domicilio",
+        "CONSTANCIA_FISCAL": "constancia fiscal",
+        "CONSTANCIA FISCAL": "constancia fiscal",
+        "NSS": "documento de NSS",
+        "INFONAVIT_FONACOT": "hoja de retención FONACOT/INFONAVIT",
+        "HOJA DE RETENCION FONACOT O INFONAVIT": "hoja de retención FONACOT/INFONAVIT",
+        "CARTA_NO_ADEUDO": "carta de no adeudo",
+        "ESTADO_CUENTA": "estado de cuenta",
+        "ESTADO DE CUENTA": "estado de cuenta",
+        "CURP": "CURP",
+        "INE": "INE",
+    }
+    if norm in mapping:
+        return mapping[norm]
+    return tipo.replace("_", " ").strip().lower() or "otro documento"
+
+
+def _v2_iniciar_frase(texto: str) -> str:
+    texto = str(texto or "").strip()
+    return texto[:1].upper() + texto[1:] if texto else texto
+
+
+def _v2_label_con_articulo(label: str) -> str:
+    label = str(label or "").strip()
+    if not label:
+        return "el documento"
+    low = label.lower()
+    if low.startswith(("el ", "la ", "los ", "las ")):
+        return label
+    if label.upper() == "CURP":
+        return "la CURP"
+    if low in {"solicitud interna", "identificación oficial", "constancia fiscal", "hoja de retención fonacot/infonavit", "carta de no adeudo"}:
+        return "la " + label
+    if low.startswith("cv"):
+        return "el " + label
+    return "el " + label
+
+
+def _v2_pulir_texto_usuario(texto: Any) -> str:
+    t = str(texto or "")
+    replacements = {
+        "automaticamente": "automáticamente",
+        "automatica": "automática",
+        "Automaticamente": "Automáticamente",
+        "Automatica": "Automática",
+        "revision": "revisión",
+        "Revision": "Revisión",
+        "validacion": "validación",
+        "Validacion": "Validación",
+        "identificacion": "identificación",
+        "Identificacion": "Identificación",
+        "seccion": "sección",
+        "Seccion": "Sección",
+        "paginas": "páginas",
+        "Paginas": "Páginas",
+        "leido": "leído",
+        "leida": "leída",
+        "Leido": "Leído",
+        "Leida": "Leída",
+        "informacion": "información",
+        "Informacion": "Información",
+        "critico": "crítico",
+        "critica": "crítica",
+        "criticos": "críticos",
+        "criticas": "críticas",
+        "util": "útil",
+        "Util": "Útil",
+        "tecnico": "técnico",
+        "Tecnico": "Técnico",
+        "ultimo": "último",
+        "Ultimo": "Último",
+        "mas": "más",
+        "quedo": "quedó",
+        "tardo": "tardó",
+        "supero": "superó",
+    }
+    for old, new in replacements.items():
+        t = re.sub(rf"\b{re.escape(old)}\b", new, t)
+    return t
+
+
 def _v2_doc_bool(doc: Dict[str, Any], key: str) -> Optional[bool]:
     value = doc.get(key)
     if isinstance(value, bool):
@@ -1297,6 +1407,34 @@ def _v2_humanizar_observacion(mensaje: Any, doc_key: str = "", doc: Optional[Dic
         return ""
     doc = doc or {}
     norm = normalize_text(texto)
+    label_doc = _v2_label_documento_usuario(doc_key)
+    if not doc_key:
+        match_label = re.match(r"^\s*([^(:]+?)(?:\s*\([^)]+\))?\s*:", texto)
+        if match_label:
+            posible_label = _v2_humanizar_tipo_documento(match_label.group(1))
+            if posible_label and posible_label != "otro documento":
+                label_doc = posible_label
+    texto_sin_prefijo = re.sub(r"^\s*No se puede cargar este documento:\s*", "", texto, flags=re.IGNORECASE).strip()
+
+    match_tipo_esperado = re.search(
+        r"este archivo parece\s+(.+?),\s*pero se esperaba\s+(.+?)(?:\.|$)",
+        texto_sin_prefijo,
+        flags=re.IGNORECASE,
+    )
+    if match_tipo_esperado:
+        detectado = _v2_humanizar_tipo_documento(match_tipo_esperado.group(1))
+        esperado = _v2_humanizar_tipo_documento(match_tipo_esperado.group(2))
+        if doc_key:
+            esperado = label_doc
+        return (
+            f"El documento subido como {esperado} no corresponde al documento requerido; "
+            f"la lectura automática indica que se parece a {detectado}. Por favor revise "
+            "el archivo y cárguelo en la sección correcta."
+        )
+
+    if norm.startswith("NO SE PUEDE CARGAR ESTE DOCUMENTO") and texto_sin_prefijo:
+        texto = texto_sin_prefijo
+        norm = normalize_text(texto)
 
     if doc_key == "identificacion_oficial" or "IDENTIFICACION OFICIAL" in norm or "INE" in norm:
         lados = _v2_mensaje_identificacion_lados(doc, texto)
@@ -1338,25 +1476,75 @@ def _v2_humanizar_observacion(mensaje: Any, doc_key: str = "", doc: Optional[Dic
             "revíselo y, si corresponde, cárguelo en la sección correcta."
         )
 
-    if "NO SE PUDO OBTENER LECTURA AUTOMATICA" in norm or "NO SE PUDO LEER AUTOMATICAMENTE" in norm:
-        etiqueta = {
-            "solicitud_interna": "la solicitud interna",
-            "cv": "el CV o solicitud de trabajo",
-            "acta_nacimiento": "el acta de nacimiento",
-            "curp": "la CURP",
-            "identificacion_oficial": "la identificación oficial",
-            "comprobante_domicilio": "el comprobante de domicilio",
-            "constancia_fiscal": "la constancia fiscal",
-            "nss": "el documento de NSS",
-            "hoja_retencion": "la hoja de retención FONACOT/INFONAVIT",
-            "__SPARTA_SECRET_REDACTED__": "el estado de cuenta",
-        }.get(doc_key, "el documento")
+    if "CURP DESCARTADA POR LECTURA NO VALIDA" in norm:
         return (
-            f"No se pudo leer automáticamente {etiqueta}. Por favor revise la calidad "
+            "La CURP detectada en el documento no tiene un formato válido, por lo que "
+            "se dejó fuera de la comparación automática. Revise manualmente ese dato."
+        )
+
+    if "NSS DESCARTADO POR LECTURA NO VALIDA" in norm:
+        return (
+            "El número de seguridad social detectado no tiene un formato válido, por lo "
+            "que se dejó fuera de la comparación automática. Revise manualmente ese dato."
+        )
+
+    if "NOMBRE NORMALIZADO POR CONSENSO DOCUMENTAL" in norm:
+        match = re.search(r"lectura IA:\s*(.+?)(?:\.|$)", texto, flags=re.IGNORECASE)
+        leido = match.group(1).strip() if match else ""
+        return (
+            "El nombre fue ajustado con apoyo del resto de los documentos del expediente."
+            + (f" Lectura original: {leido}." if leido else "")
+        )
+
+    if "CURP NORMALIZADA POR CONSENSO DOCUMENTAL" in norm:
+        match = re.search(r"lectura IA:\s*([^;.\s]+)", texto, flags=re.IGNORECASE)
+        leido = match.group(1).strip() if match else ""
+        return (
+            "La CURP fue ajustada con apoyo del resto de los documentos del expediente."
+            + (f" Lectura original: {leido}." if leido else "")
+        )
+
+    if "RFC NORMALIZADO CONTRA REFERENCIA DOCUMENTAL" in norm:
+        match = re.search(r"lectura IA:\s*([^;.\s]+)", texto, flags=re.IGNORECASE)
+        leido = match.group(1).strip() if match else ""
+        return (
+            "El RFC fue ajustado con apoyo del resto de los documentos del expediente."
+            + (f" Lectura original: {leido}." if leido else "")
+        )
+
+    if "ESTADO AJUSTADO POR NORMALIZACION" in norm:
+        return (
+            "La lectura fue normalizada con apoyo del resto del expediente y no queda "
+            "una diferencia crítica vigente para este documento."
+        )
+
+    if "FORMATO BANCARIO CON CUENTA" in norm or "SE ACEPTA PARA VALIDACION BANCARIA" in norm:
+        return (
+            "Se detectó información bancaria suficiente, como banco, cuenta o CLABE; "
+            "el documento se acepta para la revisión de estado de cuenta."
+        )
+
+    if "NO SE PUDO OBTENER LECTURA AUTOMATICA" in norm or "NO SE PUDO LEER AUTOMATICAMENTE" in norm:
+        return (
+            f"No se pudo leer automáticamente {_v2_label_con_articulo(label_doc)}. Por favor revise la calidad "
             "del archivo o vuelva a intentar la reevaluación."
         )
 
-    return texto
+    if "NO APORTO" in norm or "SIN APORTE SUFICIENTE" in norm:
+        detalle = texto
+        detalle = re.sub(r"^.*?requiere revision:\s*", "", detalle, flags=re.IGNORECASE).strip()
+        detalle = detalle.replace("no aporto", "no se pudo confirmar")
+        detalle = detalle.replace("No aporto", "No se pudo confirmar")
+        detalle = _v2_pulir_texto_usuario(detalle)
+        return (
+            f"{_v2_iniciar_frase(label_doc)} requiere revisión: {detalle}. "
+            "Revise manualmente la legibilidad del archivo."
+        ).replace("..", ".")
+
+    if norm.endswith("LISTO") or norm.endswith("LISTO.") or " LISTO" in norm:
+        return f"{_v2_iniciar_frase(label_doc)} leído correctamente."
+
+    return _v2_pulir_texto_usuario(texto)
 
 
 def _v2_humanizar_observaciones_finales(
