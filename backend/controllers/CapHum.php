@@ -13130,8 +13130,8 @@ class CapHum extends Controller
                             var bodyTxt = String(body || "");
                             var pareceHtml = r.redirected || /<(html|body|!doctype)/i.test(bodyTxt);
                             var msgJson = pareceHtml
-                                ? "No se pudo cargar la documentaci&oacute;n porque la sesi&oacute;n o los permisos no devolvieron JSON. Recargue la p&aacute;gina e intente de nuevo."
-                                : "No se pudo cargar la lista de documentos por una respuesta inv&aacute;lida del servidor.";
+                                ? "No se pudo cargar la documentación porque la sesión o los permisos no devolvieron JSON. Recargue la página e intente de nuevo."
+                                : "No se pudo cargar la lista de documentos por una respuesta inválida del servidor.";
                             setDocModalApiTraceUsuario(msgJson, "err");
                             var errJson = new Error(msgJson);
                             errJson.name = "DocListInvalidJson";
@@ -21453,12 +21453,12 @@ class CapHum extends Controller
     private function agregarArchivosRescatePayloadLigero(array &$payload, array $rutas, array $lecturasDecoded): void
     {
         $prioridad = [
+            ['key' => 'identificacion_oficial', 'campo' => 'identificacion_pdf', 'ruta' => 'identificacion_pdf'],
+            ['key' => 'solicitud_interna', 'campo' => 'solicitud_interna', 'ruta' => 'solicitud_interna'],
             ['key' => 'curp', 'campo' => 'documento_curp', 'ruta' => 'curp'],
             ['key' => 'nss', 'campo' => 'documento_nss', 'ruta' => 'nss'],
             ['key' => 'constancia_fiscal', 'campo' => 'constancia_fiscal', 'ruta' => 'constancia_fiscal'],
             ['key' => 'acta_nacimiento', 'campo' => 'acta_nacimiento', 'ruta' => 'acta_nacimiento'],
-            ['key' => 'identificacion_oficial', 'campo' => 'identificacion_pdf', 'ruta' => 'identificacion_pdf'],
-            ['key' => 'solicitud_interna', 'campo' => 'solicitud_interna', 'ruta' => 'solicitud_interna'],
         ];
         $maxArchivos = 4;
         $maxBytesArchivo = 3 * 1024 * 1024;
@@ -21683,7 +21683,9 @@ class CapHum extends Controller
             'fecha_nacimiento',
             'fecha_emision',
             'fecha_expedicion',
+            'fecha_vencimiento',
             'fecha_documento',
+            'vigencia',
             'domicilio',
             'direccion',
             'banco_detectado',
@@ -21755,6 +21757,7 @@ class CapHum extends Controller
             'nombre', 'nombre_completo', 'curp', 'curp_extraido', 'curp_lectura_ia',
             'rfc', 'nss', 'nss_extraido', 'nss_lectura_ia',
             'fecha_nacimiento', 'fecha_emision', 'fecha_expedicion',
+            'fecha_vencimiento', 'vigencia',
             'paginas', 'paginas_pdf', 'paginas_analizadas',
         ] as $key) {
             $tieneValor = array_key_exists($key, $validacion)

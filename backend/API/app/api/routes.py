@@ -1108,6 +1108,7 @@ def _v2_structured_summary_from_pdf(doc: Dict[str, Any]) -> Optional[Dict[str, A
                 "curp": _v2_clean_curp((data or {}).get("curp")),
                 "clave_elector": (data or {}).get("clave_elector"),
                 "domicilio": (data or {}).get("domicilio"),
+                "fecha_vencimiento": (data or {}).get("fecha_vencimiento"),
             }
         elif key == "nss":
             data = extraer_datos_nss_pdf(file_bytes)
@@ -1213,6 +1214,23 @@ def _v2_summary_needs_pdf_text_rescue(doc: Dict[str, Any]) -> bool:
     if key == "acta_nacimiento":
         return not _v2_first_value(previo, ["nombre", "nombre_completo"])
     return False
+
+
+def _v2_humanizar_mensaje_identificacion(mensaje: Any) -> str:
+    texto = str(mensaje or "").strip()
+    if not texto:
+        return texto
+    texto_simple = _normalizar_ascii_precheck(texto).lower()
+    if "identificacion" in texto_simple and "vencid" in texto_simple:
+        fecha_match = re.search(r"\b(?:20\d{2}-\d{2}-\d{2}|\d{2}/\d{2}/20\d{2})\b", texto)
+        fecha = fecha_match.group(0) if fecha_match else ""
+        if fecha:
+            return f"Vencida desde {fecha}. Solicite una identificación vigente."
+        return "Vencida. Solicite una identificación vigente."
+    prefijo = "No se puede cargar este documento:"
+    if texto.startswith(prefijo):
+        texto = texto[len(prefijo):].strip()
+    return texto
 
 
 def _v2_doc_has_any_value(doc: Dict[str, Any], keys: List[str]) -> bool:
@@ -1720,6 +1738,7 @@ def _resultado_v2_reglas_expediente(
             "evidencia_insuficiente": _v2_bool(previo.get("evidencia_insuficiente")),
             "clave_elector": _v2_first_value(previo, ["clave_elector"]),
             "numero_documento": _v2_first_value(previo, ["numero_documento", "numero_identificacion", "folio"]),
+            "fecha_vencimiento": _v2_first_value(previo, ["fecha_vencimiento", "vigencia"]),
             "mensaje": None,
             "observaciones": [],
         }
@@ -1775,9 +1794,26 @@ def _resultado_v2_reglas_expediente(
                 valido = True
             if revision_manual is True:
                 revision_manual = False
+        if (
+            key == "identificacion_oficial"
+            and rechazado is True
+            and bool(doc.get("_needs_quick_refresh"))
+            and not bool(doc.get("_quick_prefill_refreshed"))
+            and bool(doc.get("bytes"))
+        ):
+            rechazado = False
+            revision_manual = True
+            msg_revision = (
+                f"{label} ({filename}): no se pudo confirmar la vigencia con una lectura actual. "
+                "Reintente la reevaluación o revise la identificación."
+            )
+            out["mensaje"] = msg_revision
+            out.setdefault("observaciones", []).append(msg_revision)
         if rechazado is True:
             out["estado"] = "no_coincide"
             msg_rechazo = out["mensaje"] or f"{label} no cumple la regla documental."
+            if key == "identificacion_oficial":
+                msg_rechazo = _v2_humanizar_mensaje_identificacion(msg_rechazo)
             if filename and filename not in msg_rechazo:
                 msg_rechazo = f"{label} ({filename}): {msg_rechazo}"
             out["mensaje"] = msg_rechazo
@@ -3023,6 +3059,23 @@ def _extraer_solicitud_interna_pdf_rapido(pdf_bytes: bytes) -> Dict[str, Any]:
     return resultado
 
 
+def _buscar_vencimiento_ine_precheck(texto_norm: str) -> Optional[str]:
+    texto = _normalizar_ascii_precheck(texto_norm)
+    m_rango = re.search(r"VIGENCIA\s+(20\d{2})\s*[-A/]\s*(20\d{2})", texto)
+    if m_rango:
+        anio = max(int(m_rango.group(1)), int(m_rango.group(2)))
+        return f"{anio:04d}-12-31"
+
+    # En el reverso de INE la MRZ suele traer fecha de vencimiento como YYMMDD
+    # antes de MEX, por ejemplo H3512311MEX = 2035-12-31.
+    for match in re.finditer(r"[A-Z](\d{2})(\d{2})(\d{2})\d?MEX", texto):
+        yy, mm, dd = (int(match.group(i)) for i in (1, 2, 3))
+        if 1 <= mm <= 12 and 1 <= dd <= 31:
+            year = 2000 + yy if yy < 80 else 1900 + yy
+            return f"{year:04d}-{mm:02d}-{dd:02d}"
+    return None
+
+
 def _extraer_identificacion_oficial_pdf_rapido(pdf_bytes: bytes) -> Dict[str, Any]:
     resultado = {
         "tipo_documento_detectado": None,
@@ -3033,6 +3086,7 @@ def _extraer_identificacion_oficial_pdf_rapido(pdf_bytes: bytes) -> Dict[str, An
         "curp": None,
         "clave_elector": None,
         "domicilio": None,
+        "fecha_vencimiento": None,
         "texto": "",
         "modo": "sin_texto",
     }
@@ -3093,6 +3147,7 @@ def _extraer_identificacion_oficial_pdf_rapido(pdf_bytes: bytes) -> Dict[str, An
     resultado["revision_manual"] = False
     resultado["mensaje"] = "INE identificada por OCR local."
     resultado["curp"] = _buscar_curp_precheck(texto_norm)
+    resultado["fecha_vencimiento"] = _buscar_vencimiento_ine_precheck(texto_norm)
 
     m_clave = re.search(r"CLAVE\s+DE\s+ELECTOR\s+([A-Z0-9]{12,22})", texto_norm)
     if m_clave:
@@ -5246,10 +5301,9 @@ async def validar_expediente(
                 "__SPARTA_SECRET_REDACTED__": "__SPARTA_SECRET_REDACTED__",
             }
             # En el flujo real la carga rapida ya deja una lectura V2 guardada
-            # por documento. La validacion cruzada debe comparar esas lecturas,
-            # no volver a mandar los 10 PDF a IA: eso puede pasar el timeout de
-            # PHP en expedientes pesados. Solo rescatamos documentos sin lectura
-            # util, normalmente expedientes viejos o migrados.
+            # por documento. La validacion cruzada compara esas lecturas y solo
+            # relee los PDFs que PHP envio como rescate por lectura insuficiente
+            # o por una observacion critica como vigencia de identificacion.
             force_quick_refresh = {
                 str(doc.get("key") or "")
                 for doc in docs_v2
@@ -5257,7 +5311,10 @@ async def validar_expediente(
                 and summary_is_usable(doc.get("summary"))
                 and _v2_summary_needs_pdf_text_rescue(doc)
             }
-            docs_needing_quick = [] if solo_lecturas_guardadas else [
+            for doc in docs_v2:
+                if str(doc.get("key") or "") in force_quick_refresh:
+                    doc["_needs_quick_refresh"] = True
+            docs_needing_quick = [
                 doc for doc in docs_v2
                 if (
                     str(doc.get("key") or "") in force_quick_refresh
@@ -5301,7 +5358,9 @@ async def validar_expediente(
                                         str(doc.get("filename") or f"{key}.pdf"),
                                         result,
                                     )
+                                    doc["_quick_prefill_refreshed"] = True
                             except Exception as exc:
+                                doc["_quick_prefill_error"] = str(exc)
                                 logger.warning(f"No se pudo preleer {key} para crosscheck V2: {exc}")
 
                     await asyncio.gather(*(_prefill_summary(doc) for doc in docs_needing_quick))
