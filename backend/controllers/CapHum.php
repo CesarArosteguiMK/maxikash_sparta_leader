@@ -21686,6 +21686,9 @@ class CapHum extends Controller
             'fecha_vencimiento',
             'fecha_documento',
             'vigencia',
+            'frente_reverso',
+            'frente_detectado',
+            'reverso_detectado',
             'domicilio',
             'direccion',
             'banco_detectado',
@@ -21758,6 +21761,7 @@ class CapHum extends Controller
             'rfc', 'nss', 'nss_extraido', 'nss_lectura_ia',
             'fecha_nacimiento', 'fecha_emision', 'fecha_expedicion',
             'fecha_vencimiento', 'vigencia',
+            'frente_reverso', 'frente_detectado', 'reverso_detectado',
             'paginas', 'paginas_pdf', 'paginas_analizadas',
         ] as $key) {
             $tieneValor = array_key_exists($key, $validacion)

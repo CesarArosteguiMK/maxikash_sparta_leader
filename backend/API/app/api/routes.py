@@ -426,6 +426,11 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
     if dictamen == "requiere_revision" and checks_totales > 0 and checks_fallas == 0 and not alertas:
         dictamen = "aprobado"
 
+    alertas = _v2_humanizar_observaciones_finales(docs, alertas, comps)
+    analysis["alertas"] = alertas
+    analysis["documentos"] = docs
+    analysis["comparaciones"] = comps
+
     if dictamen == "aprobado" and checks_fallas == 0 and not alertas:
         analysis["resumen_final"] = (
             "La informacion recibida es consistente entre los documentos revisados, "
@@ -1233,6 +1238,170 @@ def _v2_humanizar_mensaje_identificacion(mensaje: Any) -> str:
     return texto
 
 
+def _v2_doc_bool(doc: Dict[str, Any], key: str) -> Optional[bool]:
+    value = doc.get(key)
+    if isinstance(value, bool):
+        return value
+    nested = doc.get("frente_reverso")
+    if isinstance(nested, dict) and isinstance(nested.get(key), bool):
+        return nested.get(key)
+    return None
+
+
+def _v2_mensaje_identificacion_lados(doc: Dict[str, Any], mensaje: Any = "") -> Optional[str]:
+    texto = normalize_text(str(mensaje or " ") + " " + " ".join(str(x) for x in (doc.get("observaciones") or [])))
+    frente = _v2_doc_bool(doc, "frente_detectado")
+    reverso = _v2_doc_bool(doc, "reverso_detectado")
+    if frente is None and reverso is None and not (
+        "NO SE DETECTO" in texto
+        and ("FRENTE" in texto or "REVERSO" in texto)
+    ):
+        return None
+
+    if frente is None and reverso is None:
+        tiene_datos_frente = bool(doc.get("nombre") or doc.get("curp") or doc.get("clave_elector"))
+        if tiene_datos_frente or "INE DETECTADO" in texto:
+            frente = True
+            reverso = False
+
+    if frente is True and reverso is False:
+        return (
+            "En la identificación oficial se detectó el frente de la INE, "
+            "pero no se detectó el reverso. Por favor revise que el archivo "
+            "incluya ambas caras de la identificación."
+        )
+    if frente is False and reverso is True:
+        return (
+            "En la identificación oficial se detectó el reverso de la INE, "
+            "pero no se detectó el frente. Por favor revise que el archivo "
+            "incluya ambas caras de la identificación."
+        )
+    if frente is False and reverso is False:
+        return (
+            "En la identificación oficial no se detectaron con claridad el frente ni "
+            "el reverso. Por favor revise la calidad del archivo o vuelva a cargar "
+            "la identificación completa."
+        )
+    if "NO SE DETECTO FRENTE Y REVERSO COMPLETOS" in texto:
+        return (
+            "En la identificación oficial no se detectaron ambas caras completas. "
+            "Por favor revise que el archivo incluya frente y reverso."
+        )
+    return None
+
+
+def _v2_humanizar_observacion(mensaje: Any, doc_key: str = "", doc: Optional[Dict[str, Any]] = None) -> str:
+    texto = str(mensaje or "").strip()
+    if not texto:
+        return ""
+    doc = doc or {}
+    norm = normalize_text(texto)
+
+    if doc_key == "identificacion_oficial" or "IDENTIFICACION OFICIAL" in norm or "INE" in norm:
+        lados = _v2_mensaje_identificacion_lados(doc, texto)
+        if lados:
+            return lados
+        human_id = _v2_humanizar_mensaje_identificacion(texto)
+        if human_id != texto:
+            return "Identificación oficial: " + human_id
+
+    if "SOLICITUD INTERNA" in norm and "RFC" in norm and "NO COINCIDE" in norm:
+        return (
+            "En la solicitud interna, el RFC leído no coincide con la constancia fiscal "
+            "o la CURP. La identidad del expediente sí se sostiene con los documentos "
+            "oficiales; por favor revise manualmente la solicitud, ya que la diferencia "
+            "puede deberse a la calidad de la imagen o a la lectura automática."
+        )
+
+    if "SOLICITUD INTERNA" in norm and "IDENTIFICADOR" in norm and ("DIFIERE" in norm or "NO COINCIDE" in norm):
+        return (
+            "En la solicitud interna se detectó un identificador que no coincide con el "
+            "resto del expediente. El nombre y otros datos de identidad coinciden; por "
+            "favor revise manualmente el dato leído en ese documento."
+        )
+
+    if "CARGADO EN" in norm and "PARECE SER" in norm and "SECCION CORRECTA" in norm:
+        match_tipo = re.search(r"cargado en\s+(.+?)\s+parece ser\s+(.+?)(?:\.|$)", texto, flags=re.IGNORECASE)
+        if match_tipo:
+            seccion = match_tipo.group(1).strip()
+            detectado = match_tipo.group(2).strip()
+            return (
+                f"El documento subido en la sección de {seccion} no coincide con el "
+                f"documento requerido; la lectura automática indica que se asemeja a "
+                f"{detectado}. Por favor revíselo y, si corresponde, cárguelo en la "
+                "sección correcta."
+            )
+        return (
+            "El documento subido no coincide con la sección seleccionada. La lectura "
+            "automática detectó que se asemeja a otro tipo de documento; por favor "
+            "revíselo y, si corresponde, cárguelo en la sección correcta."
+        )
+
+    if "NO SE PUDO OBTENER LECTURA AUTOMATICA" in norm or "NO SE PUDO LEER AUTOMATICAMENTE" in norm:
+        etiqueta = {
+            "solicitud_interna": "la solicitud interna",
+            "cv": "el CV o solicitud de trabajo",
+            "acta_nacimiento": "el acta de nacimiento",
+            "curp": "la CURP",
+            "identificacion_oficial": "la identificación oficial",
+            "comprobante_domicilio": "el comprobante de domicilio",
+            "constancia_fiscal": "la constancia fiscal",
+            "nss": "el documento de NSS",
+            "hoja_retencion": "la hoja de retención FONACOT/INFONAVIT",
+            "__SPARTA_SECRET_REDACTED__": "el estado de cuenta",
+        }.get(doc_key, "el documento")
+        return (
+            f"No se pudo leer automáticamente {etiqueta}. Por favor revise la calidad "
+            "del archivo o vuelva a intentar la reevaluación."
+        )
+
+    return texto
+
+
+def _v2_humanizar_observaciones_finales(
+    docs: Dict[str, Any],
+    alertas: List[str],
+    comps: List[Dict[str, Any]],
+) -> List[str]:
+    human_alertas: List[str] = []
+    tiene_solicitud_rfc = any(
+        "SOLICITUD INTERNA" in normalize_text(a) and "RFC" in normalize_text(a)
+        for a in alertas
+    )
+    for alerta in alertas:
+        human = _v2_humanizar_observacion(alerta)
+        if (
+            tiene_solicitud_rfc
+            and "solicitud interna se detectó un identificador" in human.lower()
+        ):
+            continue
+        if human and human not in human_alertas:
+            human_alertas.append(human)
+
+    for doc_key, doc in docs.items():
+        if not isinstance(doc, dict):
+            continue
+        mensaje_original = doc.get("mensaje")
+        mensaje_humano = _v2_humanizar_observacion(mensaje_original, str(doc_key), doc)
+        if mensaje_original is not None or mensaje_humano:
+            doc["mensaje"] = mensaje_humano
+        observaciones = doc.get("observaciones")
+        if isinstance(observaciones, list):
+            nuevas: List[str] = []
+            for obs in observaciones:
+                human = _v2_humanizar_observacion(obs, str(doc_key), doc)
+                if human and human not in nuevas:
+                    nuevas.append(human)
+            doc["observaciones"] = nuevas
+
+    for comp in comps:
+        if not isinstance(comp, dict):
+            continue
+        comp["mensaje"] = _v2_humanizar_observacion(comp.get("mensaje"))
+
+    return human_alertas
+
+
 def _v2_doc_has_any_value(doc: Dict[str, Any], keys: List[str]) -> bool:
     for key in keys:
         value = doc.get(key)
@@ -1739,6 +1908,9 @@ def _resultado_v2_reglas_expediente(
             "clave_elector": _v2_first_value(previo, ["clave_elector"]),
             "numero_documento": _v2_first_value(previo, ["numero_documento", "numero_identificacion", "folio"]),
             "fecha_vencimiento": _v2_first_value(previo, ["fecha_vencimiento", "vigencia"]),
+            "frente_reverso": previo.get("frente_reverso") if isinstance(previo.get("frente_reverso"), dict) else None,
+            "frente_detectado": _v2_bool(previo.get("frente_detectado")),
+            "reverso_detectado": _v2_bool(previo.get("reverso_detectado")),
             "mensaje": None,
             "observaciones": [],
         }
@@ -2321,6 +2493,9 @@ def _respuesta_alibaba_identificacion(res: Dict[str, Any]) -> Dict[str, Any]:
         "nombre": campos.get("nombre_completo"),
         "curp": campos.get("curp"),
         "fecha_vencimiento": campos.get("fecha_vencimiento"),
+        "frente_reverso": fr,
+        "frente_detectado": fr.get("frente_detectado"),
+        "reverso_detectado": fr.get("reverso_detectado"),
         **_ai_metadata(res),
     }
 
