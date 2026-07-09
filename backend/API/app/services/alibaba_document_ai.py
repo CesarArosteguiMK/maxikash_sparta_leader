@@ -73,7 +73,7 @@ DOCUMENT_ALIASES = {
         "pasaporte_mexicano",
         "pasaporte_extranjero",
     },
-    "cv": {"cv", "solicitud___SPARTA_SECRET_REDACTED__"},
+    "cv": {"cv"},
     "infonavit_fonacot": {"infonavit_fonacot", "carta_no_adeudo"},
 }
 
@@ -168,14 +168,20 @@ Reglas de lectura:
 22. En CURP, si dudas entre O/0 o I/1 en las ultimas posiciones, devuelve el
     valor solo si mantiene formato oficial de 18 caracteres. Si la duda queda
     sin resolver, pon curp=null y explica la duda; no inventes el valor.
-23. Para solicitud___SPARTA_SECRET_REDACTED__ escaneada o manuscrita, reconoce el formato por el
-    titulo "SOLICITUD DE EMPLEO MAXIKASH", el logo MaxiKash y las secciones
-    "DATOS PERSONALES", "DOCUMENTACION", "CONTACTOS DE EMERGENCIA" o similares.
-    Clasificala como solicitud___SPARTA_SECRET_REDACTED__ aunque algunos campos manuscritos no se
-    puedan leer completos.
+23. Para solicitud___SPARTA_SECRET_REDACTED__ escaneada o manuscrita, reconoce el formato por un
+    titulo o logo de empresa especifica, por ejemplo "SOLICITUD DE EMPLEO
+    MAXIKASH", "SOLICITUD DE EMPLEO FURIAMOTOS", logo MaxiKash, logo FuriaMotos,
+    nombre de empleador o secciones como "DATOS PERSONALES", "DOCUMENTACION" y
+    "CONTACTOS DE EMERGENCIA". Clasificala como solicitud___SPARTA_SECRET_REDACTED__ aunque algunos
+    campos manuscritos no se puedan leer completos.
 24. En solicitud___SPARTA_SECRET_REDACTED__, la CURP puede estar escrita en cuadros separados bajo
     "Clave Unica del Registro de Poblacion". Lee los caracteres de izquierda a
     derecha y reconstruye 18 caracteres solo si hay suficiente evidencia visual.
+25. Una solicitud de empleo generica o de papeleria, sin logo, marca ni nombre
+    de una empresa especifica, NO es solicitud interna; para el campo CV o
+    solicitud de trabajo clasificala como cv. Si muestra marca de una empresa
+    especifica como MaxiKash, Furia Motos/FuriaMOTOS u otro empleador,
+    clasificala como solicitud___SPARTA_SECRET_REDACTED__.
 
 Estructura exacta:
 {
@@ -289,10 +295,16 @@ Objetivo:
    confiable. Si dos valores validos de CURP o NSS difieren, marcala como
    diferencia critica.
 10. Distingue siempre entre:
-   - solicitud___SPARTA_SECRET_REDACTED__ o solicitud_interna: formato interno de MaxiKash.
-   - cv: CV personal o solicitud de trabajo general.
-   Si una solicitud de trabajo general esta cargada en solicitud_interna,
+   - solicitud___SPARTA_SECRET_REDACTED__ o solicitud_interna: formato interno o solicitud de empleo
+     de una empresa especifica, como MaxiKash, Furia Motos/FuriaMOTOS u otro
+     empleador.
+   - cv: CV personal o solicitud de trabajo generica, sin marca ni empresa
+     especifica.
+   Si una solicitud de trabajo generica esta cargada en solicitud_interna,
    reportala como tipo incorrecto y recomienda moverla a CV o solicitud de trabajo.
+   Si una solicitud de empleo con marca de empresa esta cargada en CV o solicitud
+   de trabajo, reportala como tipo incorrecto y recomienda moverla a Solicitud
+   interna.
 11. Si recibes una lectura previa marcada como motor_v1, pdf_text u OCR local,
     usala como respaldo confiable cuando el documento visual coincide con el
     tipo esperado. No vuelvas a dejar "lectura pendiente" para ese documento
@@ -480,6 +492,7 @@ def user_document_name(doc_type: Optional[str]) -> str:
         "pasaporte_mexicano": "pasaporte mexicano",
         "pasaporte_extranjero": "pasaporte extranjero",
         "acta_nacimiento": "acta de nacimiento",
+        "solicitud_interna": "solicitud interna",
         "solicitud___SPARTA_SECRET_REDACTED__": "solicitud interna",
         "cv": "CV",
         "comprobante_domicilio": "comprobante de domicilio",
@@ -503,6 +516,18 @@ def _field_text(fields: Dict[str, Any], *keys: str) -> str:
         elif value:
             parts.append(str(value))
     return " ".join(parts)
+
+
+def _field_digits(fields: Dict[str, Any], *keys: str) -> str:
+    return re.sub(r"\D+", "", _field_text(fields, *keys))
+
+
+def ___SPARTA_SECRET_REDACTED___tiene_soporte_bancario(fields: Dict[str, Any]) -> bool:
+    bank = _field_text(fields, "banco", "banco_detectado", "institucion_bancaria")
+    account_digits = _field_digits(fields, "clabe", "numero_cuenta", "cuenta")
+    if not bank or is_digital_bank(bank):
+        return False
+    return len(account_digits) >= 6
 
 
 def _bool_from_field(value: Any) -> Optional[bool]:
@@ -597,7 +622,8 @@ def render_identificacion_assistida(file_bytes: bytes, filename: str, dpi: int) 
     """Create a few rotated/cropped views for INE-style IDs.
 
     Some INE scans arrive sideways. The regular render is still sent, but these
-    assisted views give the visual model a clean look at the name/CURP block.
+    assisted views give the visual model a clean look at the name/CURP/vigencia
+    blocks without relying only on the full-page image.
     """
     ext = (filename.rsplit(".", 1)[-1] if "." in filename else "").lower()
     images: List[Image.Image] = []
@@ -623,6 +649,19 @@ def render_identificacion_assistida(file_bytes: bytes, filename: str, dpi: int) 
 
     source = images[0]
     variants: List[RenderedPage] = []
+    variants.append(RenderedPage(_jpeg_bytes_from_image(_enhance_document_crop(source), max_side=1900)))
+
+    # Common single-page scans place front and back on one sheet. Keep a clean
+    # crop of the front and a tight crop around the INE vigencia zone.
+    for box in (
+        (0.06, 0.08, 0.86, 0.46),
+        (0.53, 0.28, 0.82, 0.47),
+        (0.06, 0.46, 0.86, 0.78),
+    ):
+        crop = _safe_crop_ratio(source, box)
+        if crop is not None:
+            variants.append(RenderedPage(_jpeg_bytes_from_image(_enhance_document_crop(crop), max_side=1800)))
+
     for rotation in (90, -90):
         rotated = source.rotate(rotation, expand=True)
         enhanced = _enhance_document_crop(rotated)
@@ -635,7 +674,40 @@ def render_identificacion_assistida(file_bytes: bytes, filename: str, dpi: int) 
                 variants.append(RenderedPage(_jpeg_bytes_from_image(_enhance_document_crop(crop), max_side=1600)))
                 break
 
-    return variants[:4]
+    return variants[:7]
+
+
+def render_solicitud_assistida(file_bytes: bytes, filename: str, dpi: int) -> List[RenderedPage]:
+    """Create enhanced views for handwritten MaxiKash internal applications."""
+    ext = (filename.rsplit(".", 1)[-1] if "." in filename else "").lower()
+    images: List[Image.Image] = []
+    render_dpi = max(180, min(230, int(dpi or 180) + 35))
+    try:
+        if ext == "pdf":
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            matrix = fitz.Matrix(render_dpi / 72, render_dpi / 72)
+            for idx in range(min(int(doc.page_count or 0), 2)):
+                pix = doc[idx].get_pixmap(matrix=matrix, alpha=False)
+                images.append(Image.frombytes("RGB", [pix.width, pix.height], pix.samples))
+            doc.close()
+        else:
+            with Image.open(io.BytesIO(file_bytes)) as img:
+                images.append(img.convert("RGB"))
+    except Exception:
+        return []
+
+    variants: List[RenderedPage] = []
+    for img in images:
+        variants.append(RenderedPage(_jpeg_bytes_from_image(_enhance_document_crop(img), max_side=1900)))
+        for box in (
+            (0.00, 0.00, 1.00, 0.58),
+            (0.00, 0.22, 1.00, 0.82),
+            (0.10, 0.46, 0.92, 0.96),
+        ):
+            crop = _safe_crop_ratio(img, box)
+            if crop is not None:
+                variants.append(RenderedPage(_jpeg_bytes_from_image(_enhance_document_crop(crop), max_side=1800)))
+    return variants[:6]
 
 
 def render_input(file_bytes: bytes, filename: str, max_pages: int, dpi: int) -> tuple[List[RenderedPage], int]:
@@ -765,6 +837,9 @@ def quick_result_to_summary(key: str, label: str, filename: str, result: Dict[st
         "fecha_nacimiento": fields.get("fecha_nacimiento"),
         "fecha_emision": fields.get("fecha_emision") or fields.get("fecha_expedicion"),
         "fecha_vencimiento": fields.get("fecha_vencimiento"),
+        "frente_reverso": extraction.get("frente_reverso"),
+        "frente_detectado": (extraction.get("frente_reverso") or {}).get("frente_detectado") if isinstance(extraction.get("frente_reverso"), dict) else None,
+        "reverso_detectado": (extraction.get("frente_reverso") or {}).get("reverso_detectado") if isinstance(extraction.get("frente_reverso"), dict) else None,
         "direccion": fields.get("domicilio"),
         "domicilio": fields.get("domicilio"),
         "banco_detectado": fields.get("banco"),
@@ -917,6 +992,16 @@ def quick_prompt_for(expected_doc_type: Optional[str], nombre_candidato: Optiona
             "de Contribuyentes' y NSS desde 'Numero de seguridad social'. Si el nombre "
             "manuscrito coincide visualmente con el nombre registrado, devuelve el nombre "
             "normalizado como aparece en el registro."
+        )
+    elif expected_doc_type == "cv":
+        extra = (
+            "\n\nInstruccion especial para CV o solicitud de trabajo: este campo acepta un CV "
+            "personal o una solicitud de empleo generica sin marca de empresa. Si el documento "
+            "dice 'Solicitud de Empleo' y muestra logo, marca o nombre de una empresa especifica "
+            "como MaxiKash, Furia Motos/FuriaMOTOS u otro empleador, no lo clasifiques como cv; "
+            "clasificalo como solicitud___SPARTA_SECRET_REDACTED__ para indicar que pertenece a Solicitud interna. "
+            "Solo una solicitud generica, sin empresa especifica, debe clasificarse como cv. "
+            "Extrae nombre_completo y datos visibles del candidato cuando se puedan leer."
         )
     elif expected_doc_type == "nss":
         extra = (
@@ -1074,9 +1159,14 @@ def _join_user_messages(messages: List[str]) -> str:
     return "; ".join(str(msg).strip().rstrip(".") for msg in messages if str(msg).strip())
 
 
+def _format_user_date(value: date) -> str:
+    return value.strftime("%d/%m/%Y")
+
+
 def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[str]) -> Dict[str, Any]:
     errors: List[str] = []
     warnings: List[str] = []
+    expired_identification_message: Optional[str] = None
     _limpiar_identificadores_extraidos(data)
     doc_type = data.get("tipo_documento") or "desconocido"
     fields = data.get("campos") or {}
@@ -1089,8 +1179,8 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
             data["tipo_documento"] = "curp"
             doc_type = "curp"
 
-    if expected_doc_type == "__SPARTA_SECRET_REDACTED__" and doc_type == "desconocido":
-        if fields.get("banco") and (fields.get("clabe") or fields.get("numero_cuenta")) and not is_digital_bank(fields.get("banco")):
+    if expected_doc_type == "__SPARTA_SECRET_REDACTED__":
+        if ___SPARTA_SECRET_REDACTED___tiene_soporte_bancario(fields) and doc_type not in compatible_document_types("__SPARTA_SECRET_REDACTED__"):
             data["tipo_documento"] = "__SPARTA_SECRET_REDACTED__"
             doc_type = "__SPARTA_SECRET_REDACTED__"
 
@@ -1111,15 +1201,25 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
         and doc_type not in {"pasaporte_mexicano", "pasaporte_extranjero"}
     ):
         fr = data.get("frente_reverso") or {}
-        if not fr.get("frente_detectado") or not fr.get("reverso_detectado"):
-            warnings.append("No se detecto frente y reverso completos")
+        frente_detectado = bool(fr.get("frente_detectado"))
+        reverso_detectado = bool(fr.get("reverso_detectado"))
+        if not frente_detectado and not reverso_detectado:
+            warnings.append("No se detectaron el frente ni el reverso de la identificación")
+        elif not frente_detectado:
+            warnings.append("No se detectó el frente de la identificación")
+        elif not reverso_detectado:
+            warnings.append("No se detectó el reverso de la identificación")
 
     if doc_type in compatible_document_types("identificacion_oficial"):
         if not fields.get("nombre_completo"):
             errors.append("No se pudo leer el nombre completo")
         exp = _normalizar_vigencia_identificacion(data, fields)
         if exp and exp < today_cdmx():
-            errors.append(f"Identificación oficial vencida desde {exp.isoformat()}. Solicite una identificación vigente.")
+            expired_identification_message = (
+                f"La identificación oficial venció el {_format_user_date(exp)}. "
+                "Solicite una identificación vigente."
+            )
+            errors.append(expired_identification_message)
 
     if doc_type == "comprobante_domicilio":
         if not fields.get("domicilio"):
@@ -1195,7 +1295,10 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
             warnings.append("No se pudo confirmar automaticamente la firma de la carta")
 
     if errors:
-        message = "No se puede cargar este documento: " + _join_user_messages(errors) + "."
+        if expired_identification_message and len(errors) == 1:
+            message = expired_identification_message
+        else:
+            message = "No se puede cargar este documento: " + _join_user_messages(errors) + "."
     elif warnings:
         message = f"{user_document_name(doc_type)} detectado. Revisa: " + _join_user_messages(warnings) + "."
     else:
@@ -1291,6 +1394,8 @@ class AlibabaDocumentAI:
         pages, page_count = render_input(file_bytes, filename, self.max_pages, self.dpi)
         if expected_doc_type == "identificacion_oficial":
             pages = pages + render_identificacion_assistida(file_bytes, filename, self.dpi)
+        elif expected_doc_type in {"solicitud___SPARTA_SECRET_REDACTED__", "solicitud_interna"}:
+            pages = pages + render_solicitud_assistida(file_bytes, filename, self.dpi)
         prompt = quick_prompt_for(expected_doc_type, nombre_candidato)
         extracted, usage, actual_model, fallback_used = self._call(pages, prompt)
         extracted["paginas_analizadas"] = extracted.get("paginas_analizadas") or len(pages)

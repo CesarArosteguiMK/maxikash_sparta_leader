@@ -39,6 +39,7 @@ from app.services.alibaba_document_ai import (
     summary_is_usable,
     normalize_text,
     is_digital_bank,
+    user_document_name,
 )
 from app.core.config import get_settings
 
@@ -51,6 +52,7 @@ except ImportError:
 router = APIRouter()
 settings = get_settings()
 API_BUILD = "doc-precheck-2026-07-06-v2-consensus-reasoning"
+DOC_AI_QUICK_CACHE_VERSION = "2026-07-09-company-application-routing"
 
 api_key_header = APIKeyHeader(name=settings.api_key_header, auto_error=False)
 
@@ -116,7 +118,7 @@ def _doc_ai_quick_cache_key(
     nombre_candidato: Optional[str],
 ) -> str:
     payload = {
-        "version": 2,
+        "version": DOC_AI_QUICK_CACHE_VERSION,
         "sha256": hashlib.sha256(file_bytes).hexdigest(),
         "expected_doc_type": str(expected_doc_type or "").strip(),
         "model": str(model or "").strip(),
@@ -424,6 +426,11 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
         dictamen = "requiere_revision" if hay_falla_final or alertas else "aprobado"
     if dictamen == "requiere_revision" and checks_totales > 0 and checks_fallas == 0 and not alertas:
         dictamen = "aprobado"
+
+    alertas = _v2_humanizar_observaciones_finales(docs, alertas, comps)
+    analysis["alertas"] = alertas
+    analysis["documentos"] = docs
+    analysis["comparaciones"] = comps
 
     if dictamen == "aprobado" and checks_fallas == 0 and not alertas:
         analysis["resumen_final"] = (
@@ -1107,6 +1114,7 @@ def _v2_structured_summary_from_pdf(doc: Dict[str, Any]) -> Optional[Dict[str, A
                 "curp": _v2_clean_curp((data or {}).get("curp")),
                 "clave_elector": (data or {}).get("clave_elector"),
                 "domicilio": (data or {}).get("domicilio"),
+                "fecha_vencimiento": (data or {}).get("fecha_vencimiento"),
             }
         elif key == "nss":
             data = extraer_datos_nss_pdf(file_bytes)
@@ -1214,6 +1222,375 @@ def _v2_summary_needs_pdf_text_rescue(doc: Dict[str, Any]) -> bool:
     return False
 
 
+def _v2_humanizar_mensaje_identificacion(mensaje: Any) -> str:
+    texto = str(mensaje or "").strip()
+    if not texto:
+        return texto
+    texto_simple = _normalizar_ascii_precheck(texto).lower()
+    if "identificacion" in texto_simple and "vencid" in texto_simple:
+        fecha_match = re.search(r"\b(?:20\d{2}-\d{2}-\d{2}|\d{2}/\d{2}/20\d{2})\b", texto)
+        fecha = fecha_match.group(0) if fecha_match else ""
+        if fecha:
+            return f"Vencida desde {fecha}. Solicite una identificación vigente."
+        return "Vencida. Solicite una identificación vigente."
+    prefijo = "No se puede cargar este documento:"
+    if texto.startswith(prefijo):
+        texto = texto[len(prefijo):].strip()
+    return texto
+
+
+def _v2_label_documento_usuario(doc_key: str) -> str:
+    labels = {
+        "solicitud_interna": "solicitud interna",
+        "cv": "CV o solicitud de trabajo",
+        "acta_nacimiento": "acta de nacimiento",
+        "curp": "CURP",
+        "identificacion_oficial": "identificación oficial",
+        "comprobante_domicilio": "comprobante de domicilio",
+        "constancia_fiscal": "constancia fiscal",
+        "nss": "documento de NSS",
+        "hoja_retencion": "hoja de retención FONACOT/INFONAVIT",
+        "__SPARTA_SECRET_REDACTED__": "estado de cuenta",
+    }
+    return labels.get(str(doc_key or "").strip(), user_document_name(str(doc_key or "").strip()) or "documento")
+
+
+def _v2_humanizar_tipo_documento(texto_tipo: Any) -> str:
+    tipo = str(texto_tipo or "").strip()
+    norm = normalize_text(tipo)
+    mapping = {
+        "SOLICITUD_MAXIKASH": "solicitud interna",
+        "SOLICITUD_INTERNA": "solicitud interna",
+        "SOLICITUD INTERNA": "solicitud interna",
+        "CV": "CV o solicitud de trabajo",
+        "ACTA_NACIMIENTO": "acta de nacimiento",
+        "ACTA DE NACIMIENTO": "acta de nacimiento",
+        "IDENTIFICACION_OFICIAL": "identificación oficial",
+        "IDENTIFICACION OFICIAL": "identificación oficial",
+        "COMPROBANTE_DOMICILIO": "comprobante de domicilio",
+        "COMPROBANTE DE DOMICILIO": "comprobante de domicilio",
+        "CONSTANCIA_FISCAL": "constancia fiscal",
+        "CONSTANCIA FISCAL": "constancia fiscal",
+        "NSS": "documento de NSS",
+        "INFONAVIT_FONACOT": "hoja de retención FONACOT/INFONAVIT",
+        "HOJA DE RETENCION FONACOT O INFONAVIT": "hoja de retención FONACOT/INFONAVIT",
+        "CARTA_NO_ADEUDO": "carta de no adeudo",
+        "ESTADO_CUENTA": "estado de cuenta",
+        "ESTADO DE CUENTA": "estado de cuenta",
+        "CURP": "CURP",
+        "INE": "INE",
+    }
+    if norm in mapping:
+        return mapping[norm]
+    return tipo.replace("_", " ").strip().lower() or "otro documento"
+
+
+def _v2_iniciar_frase(texto: str) -> str:
+    texto = str(texto or "").strip()
+    return texto[:1].upper() + texto[1:] if texto else texto
+
+
+def _v2_label_con_articulo(label: str) -> str:
+    label = str(label or "").strip()
+    if not label:
+        return "el documento"
+    low = label.lower()
+    if low.startswith(("el ", "la ", "los ", "las ")):
+        return label
+    if label.upper() == "CURP":
+        return "la CURP"
+    if low in {"solicitud interna", "identificación oficial", "constancia fiscal", "hoja de retención fonacot/infonavit", "carta de no adeudo"}:
+        return "la " + label
+    if low.startswith("cv"):
+        return "el " + label
+    return "el " + label
+
+
+def _v2_pulir_texto_usuario(texto: Any) -> str:
+    t = str(texto or "")
+    replacements = {
+        "automaticamente": "automáticamente",
+        "automatica": "automática",
+        "Automaticamente": "Automáticamente",
+        "Automatica": "Automática",
+        "revision": "revisión",
+        "Revision": "Revisión",
+        "validacion": "validación",
+        "Validacion": "Validación",
+        "identificacion": "identificación",
+        "Identificacion": "Identificación",
+        "seccion": "sección",
+        "Seccion": "Sección",
+        "paginas": "páginas",
+        "Paginas": "Páginas",
+        "leido": "leído",
+        "leida": "leída",
+        "Leido": "Leído",
+        "Leida": "Leída",
+        "informacion": "información",
+        "Informacion": "Información",
+        "critico": "crítico",
+        "critica": "crítica",
+        "criticos": "críticos",
+        "criticas": "críticas",
+        "util": "útil",
+        "Util": "Útil",
+        "tecnico": "técnico",
+        "Tecnico": "Técnico",
+        "ultimo": "último",
+        "Ultimo": "Último",
+        "mas": "más",
+        "quedo": "quedó",
+        "tardo": "tardó",
+        "supero": "superó",
+    }
+    for old, new in replacements.items():
+        t = re.sub(rf"\b{re.escape(old)}\b", new, t)
+    return t
+
+
+def _v2_doc_bool(doc: Dict[str, Any], key: str) -> Optional[bool]:
+    value = doc.get(key)
+    if isinstance(value, bool):
+        return value
+    nested = doc.get("frente_reverso")
+    if isinstance(nested, dict) and isinstance(nested.get(key), bool):
+        return nested.get(key)
+    return None
+
+
+def _v2_mensaje_identificacion_lados(doc: Dict[str, Any], mensaje: Any = "") -> Optional[str]:
+    texto = normalize_text(str(mensaje or " ") + " " + " ".join(str(x) for x in (doc.get("observaciones") or [])))
+    frente = _v2_doc_bool(doc, "frente_detectado")
+    reverso = _v2_doc_bool(doc, "reverso_detectado")
+    if frente is None and reverso is None and not (
+        "NO SE DETECTO" in texto
+        and ("FRENTE" in texto or "REVERSO" in texto)
+    ):
+        return None
+
+    if frente is None and reverso is None:
+        tiene_datos_frente = bool(doc.get("nombre") or doc.get("curp") or doc.get("clave_elector"))
+        if tiene_datos_frente or "INE DETECTADO" in texto:
+            frente = True
+            reverso = False
+
+    if frente is True and reverso is False:
+        return (
+            "En la identificación oficial se detectó el frente de la INE, "
+            "pero no se detectó el reverso. Por favor revise que el archivo "
+            "incluya ambas caras de la identificación."
+        )
+    if frente is False and reverso is True:
+        return (
+            "En la identificación oficial se detectó el reverso de la INE, "
+            "pero no se detectó el frente. Por favor revise que el archivo "
+            "incluya ambas caras de la identificación."
+        )
+    if frente is False and reverso is False:
+        return (
+            "En la identificación oficial no se detectaron con claridad el frente ni "
+            "el reverso. Por favor revise la calidad del archivo o vuelva a cargar "
+            "la identificación completa."
+        )
+    if "NO SE DETECTO FRENTE Y REVERSO COMPLETOS" in texto:
+        return (
+            "En la identificación oficial no se detectaron ambas caras completas. "
+            "Por favor revise que el archivo incluya frente y reverso."
+        )
+    return None
+
+
+def _v2_humanizar_observacion(mensaje: Any, doc_key: str = "", doc: Optional[Dict[str, Any]] = None) -> str:
+    texto = str(mensaje or "").strip()
+    if not texto:
+        return ""
+    doc = doc or {}
+    norm = normalize_text(texto)
+    label_doc = _v2_label_documento_usuario(doc_key)
+    if not doc_key:
+        match_label = re.match(r"^\s*([^(:]+?)(?:\s*\([^)]+\))?\s*:", texto)
+        if match_label:
+            posible_label = _v2_humanizar_tipo_documento(match_label.group(1))
+            if posible_label and posible_label != "otro documento":
+                label_doc = posible_label
+    texto_sin_prefijo = re.sub(r"^\s*No se puede cargar este documento:\s*", "", texto, flags=re.IGNORECASE).strip()
+
+    match_tipo_esperado = re.search(
+        r"este archivo parece\s+(.+?),\s*pero se esperaba\s+(.+?)(?:\.|$)",
+        texto_sin_prefijo,
+        flags=re.IGNORECASE,
+    )
+    if match_tipo_esperado:
+        detectado = _v2_humanizar_tipo_documento(match_tipo_esperado.group(1))
+        esperado = _v2_humanizar_tipo_documento(match_tipo_esperado.group(2))
+        if doc_key:
+            esperado = label_doc
+        return (
+            f"El documento subido como {esperado} no corresponde al documento requerido; "
+            f"la lectura automática indica que se parece a {detectado}. Por favor revise "
+            "el archivo y cárguelo en la sección correcta."
+        )
+
+    if norm.startswith("NO SE PUEDE CARGAR ESTE DOCUMENTO") and texto_sin_prefijo:
+        texto = texto_sin_prefijo
+        norm = normalize_text(texto)
+
+    if doc_key == "identificacion_oficial" or "IDENTIFICACION OFICIAL" in norm or "INE" in norm:
+        lados = _v2_mensaje_identificacion_lados(doc, texto)
+        if lados:
+            return lados
+        human_id = _v2_humanizar_mensaje_identificacion(texto)
+        if human_id != texto:
+            return "Identificación oficial: " + human_id
+
+    if "SOLICITUD INTERNA" in norm and "RFC" in norm and "NO COINCIDE" in norm:
+        return (
+            "En la solicitud interna, el RFC leído no coincide con la constancia fiscal "
+            "o la CURP. La identidad del expediente sí se sostiene con los documentos "
+            "oficiales; por favor revise manualmente la solicitud, ya que la diferencia "
+            "puede deberse a la calidad de la imagen o a la lectura automática."
+        )
+
+    if "SOLICITUD INTERNA" in norm and "IDENTIFICADOR" in norm and ("DIFIERE" in norm or "NO COINCIDE" in norm):
+        return (
+            "En la solicitud interna se detectó un identificador que no coincide con el "
+            "resto del expediente. El nombre y otros datos de identidad coinciden; por "
+            "favor revise manualmente el dato leído en ese documento."
+        )
+
+    if "CARGADO EN" in norm and "PARECE SER" in norm and "SECCION CORRECTA" in norm:
+        match_tipo = re.search(r"cargado en\s+(.+?)\s+parece ser\s+(.+?)(?:\.|$)", texto, flags=re.IGNORECASE)
+        if match_tipo:
+            seccion = match_tipo.group(1).strip()
+            detectado = match_tipo.group(2).strip()
+            return (
+                f"El documento subido en la sección de {seccion} no coincide con el "
+                f"documento requerido; la lectura automática indica que se asemeja a "
+                f"{detectado}. Por favor revíselo y, si corresponde, cárguelo en la "
+                "sección correcta."
+            )
+        return (
+            "El documento subido no coincide con la sección seleccionada. La lectura "
+            "automática detectó que se asemeja a otro tipo de documento; por favor "
+            "revíselo y, si corresponde, cárguelo en la sección correcta."
+        )
+
+    if "CURP DESCARTADA POR LECTURA NO VALIDA" in norm:
+        return (
+            "La CURP detectada en el documento no tiene un formato válido, por lo que "
+            "se dejó fuera de la comparación automática. Revise manualmente ese dato."
+        )
+
+    if "NSS DESCARTADO POR LECTURA NO VALIDA" in norm:
+        return (
+            "El número de seguridad social detectado no tiene un formato válido, por lo "
+            "que se dejó fuera de la comparación automática. Revise manualmente ese dato."
+        )
+
+    if "NOMBRE NORMALIZADO POR CONSENSO DOCUMENTAL" in norm:
+        match = re.search(r"lectura IA:\s*(.+?)(?:\.|$)", texto, flags=re.IGNORECASE)
+        leido = match.group(1).strip() if match else ""
+        return (
+            "El nombre fue ajustado con apoyo del resto de los documentos del expediente."
+            + (f" Lectura original: {leido}." if leido else "")
+        )
+
+    if "CURP NORMALIZADA POR CONSENSO DOCUMENTAL" in norm:
+        match = re.search(r"lectura IA:\s*([^;.\s]+)", texto, flags=re.IGNORECASE)
+        leido = match.group(1).strip() if match else ""
+        return (
+            "La CURP fue ajustada con apoyo del resto de los documentos del expediente."
+            + (f" Lectura original: {leido}." if leido else "")
+        )
+
+    if "RFC NORMALIZADO CONTRA REFERENCIA DOCUMENTAL" in norm:
+        match = re.search(r"lectura IA:\s*([^;.\s]+)", texto, flags=re.IGNORECASE)
+        leido = match.group(1).strip() if match else ""
+        return (
+            "El RFC fue ajustado con apoyo del resto de los documentos del expediente."
+            + (f" Lectura original: {leido}." if leido else "")
+        )
+
+    if "ESTADO AJUSTADO POR NORMALIZACION" in norm:
+        return (
+            "La lectura fue normalizada con apoyo del resto del expediente y no queda "
+            "una diferencia crítica vigente para este documento."
+        )
+
+    if "FORMATO BANCARIO CON CUENTA" in norm or "SE ACEPTA PARA VALIDACION BANCARIA" in norm:
+        return (
+            "Se detectó información bancaria suficiente, como banco, cuenta o CLABE; "
+            "el documento se acepta para la revisión de estado de cuenta."
+        )
+
+    if "NO SE PUDO OBTENER LECTURA AUTOMATICA" in norm or "NO SE PUDO LEER AUTOMATICAMENTE" in norm:
+        return (
+            f"No se pudo leer automáticamente {_v2_label_con_articulo(label_doc)}. Por favor revise la calidad "
+            "del archivo o vuelva a intentar la reevaluación."
+        )
+
+    if "NO APORTO" in norm or "SIN APORTE SUFICIENTE" in norm:
+        detalle = texto
+        detalle = re.sub(r"^.*?requiere revision:\s*", "", detalle, flags=re.IGNORECASE).strip()
+        detalle = detalle.replace("no aporto", "no se pudo confirmar")
+        detalle = detalle.replace("No aporto", "No se pudo confirmar")
+        detalle = _v2_pulir_texto_usuario(detalle)
+        return (
+            f"{_v2_iniciar_frase(label_doc)} requiere revisión: {detalle}. "
+            "Revise manualmente la legibilidad del archivo."
+        ).replace("..", ".")
+
+    if norm.endswith("LISTO") or norm.endswith("LISTO.") or " LISTO" in norm:
+        return f"{_v2_iniciar_frase(label_doc)} leído correctamente."
+
+    return _v2_pulir_texto_usuario(texto)
+
+
+def _v2_humanizar_observaciones_finales(
+    docs: Dict[str, Any],
+    alertas: List[str],
+    comps: List[Dict[str, Any]],
+) -> List[str]:
+    human_alertas: List[str] = []
+    tiene_solicitud_rfc = any(
+        "SOLICITUD INTERNA" in normalize_text(a) and "RFC" in normalize_text(a)
+        for a in alertas
+    )
+    for alerta in alertas:
+        human = _v2_humanizar_observacion(alerta)
+        if (
+            tiene_solicitud_rfc
+            and "solicitud interna se detectó un identificador" in human.lower()
+        ):
+            continue
+        if human and human not in human_alertas:
+            human_alertas.append(human)
+
+    for doc_key, doc in docs.items():
+        if not isinstance(doc, dict):
+            continue
+        mensaje_original = doc.get("mensaje")
+        mensaje_humano = _v2_humanizar_observacion(mensaje_original, str(doc_key), doc)
+        if mensaje_original is not None or mensaje_humano:
+            doc["mensaje"] = mensaje_humano
+        observaciones = doc.get("observaciones")
+        if isinstance(observaciones, list):
+            nuevas: List[str] = []
+            for obs in observaciones:
+                human = _v2_humanizar_observacion(obs, str(doc_key), doc)
+                if human and human not in nuevas:
+                    nuevas.append(human)
+            doc["observaciones"] = nuevas
+
+    for comp in comps:
+        if not isinstance(comp, dict):
+            continue
+        comp["mensaje"] = _v2_humanizar_observacion(comp.get("mensaje"))
+
+    return human_alertas
+
+
 def _v2_doc_has_any_value(doc: Dict[str, Any], keys: List[str]) -> bool:
     for key in keys:
         value = doc.get(key)
@@ -1222,6 +1599,23 @@ def _v2_doc_has_any_value(doc: Dict[str, Any], keys: List[str]) -> bool:
         if value is not None and str(value).strip():
             return True
     return False
+
+
+def _v2_doc_digits(doc: Dict[str, Any], keys: List[str]) -> str:
+    values: List[str] = []
+    for key in keys:
+        value = doc.get(key)
+        if value is not None:
+            values.append(str(value))
+    return re.sub(r"\D+", "", " ".join(values))
+
+
+def _v2___SPARTA_SECRET_REDACTED___tiene_soporte_bancario(doc: Dict[str, Any]) -> bool:
+    bank = str(doc.get("banco") or "").strip()
+    account_digits = _v2_doc_digits(doc, ["clabe", "numero_cuenta"])
+    if not bank or is_digital_bank(bank):
+        return False
+    return len(account_digits) >= 6
 
 
 def _v2_int_or_none(value: Any) -> Optional[int]:
@@ -1702,15 +2096,19 @@ def _resultado_v2_reglas_expediente(
             "evidencia_insuficiente": _v2_bool(previo.get("evidencia_insuficiente")),
             "clave_elector": _v2_first_value(previo, ["clave_elector"]),
             "numero_documento": _v2_first_value(previo, ["numero_documento", "numero_identificacion", "folio"]),
+            "fecha_vencimiento": _v2_first_value(previo, ["fecha_vencimiento", "vigencia"]),
+            "frente_reverso": previo.get("frente_reverso") if isinstance(previo.get("frente_reverso"), dict) else None,
+            "frente_detectado": _v2_bool(previo.get("frente_detectado")),
+            "reverso_detectado": _v2_bool(previo.get("reverso_detectado")),
             "mensaje": None,
             "observaciones": [],
         }
 
         if not summary_is_usable(summary):
             out["estado"] = "requiere_revision"
-            out["mensaje"] = "No se pudo obtener lectura automatica de este documento en el ultimo intento."
+            out["mensaje"] = f"{label} ({filename}): no se pudo obtener lectura automatica en el ultimo intento."
             docs_out[key] = out
-            alertas.append(f"{label}: no se pudo leer automaticamente en el ultimo intento.")
+            alertas.append(f"{label} ({filename}): no se pudo leer automaticamente en el ultimo intento.")
             continue
 
         out["nombre"] = _v2_first_value(previo, ["nombre", "nombre_completo", "nombre_propietario", "nombre_titular", "titular_cuenta"])
@@ -1742,12 +2140,52 @@ def _resultado_v2_reglas_expediente(
         rechazado = _v2_bool(previo.get("rechazado"))
         valido = _v2_bool(previo.get("valido"))
         revision_manual = _v2_bool(previo.get("revision_manual"))
+        if key == "__SPARTA_SECRET_REDACTED__" and _v2___SPARTA_SECRET_REDACTED___tiene_soporte_bancario(out):
+            tipo_leido = str(out.get("tipo_detectado") or "").strip()
+            if tipo_leido and tipo_leido not in {"__SPARTA_SECRET_REDACTED__", "desconocido"}:
+                msg_banco = (
+                    f"{label} ({filename}): formato bancario con cuenta o CLABE detectado; "
+                    "se acepta para validacion bancaria."
+                )
+                out["mensaje"] = msg_banco
+                out.setdefault("observaciones", []).append(msg_banco)
+            out["tipo_detectado"] = "__SPARTA_SECRET_REDACTED__"
+            rechazado = False
+            if valido is False:
+                valido = True
+            if revision_manual is True:
+                revision_manual = False
+        if (
+            key == "identificacion_oficial"
+            and rechazado is True
+            and bool(doc.get("_needs_quick_refresh"))
+            and not bool(doc.get("_quick_prefill_refreshed"))
+            and bool(doc.get("bytes"))
+        ):
+            rechazado = False
+            revision_manual = True
+            msg_revision = (
+                f"{label} ({filename}): no se pudo confirmar la vigencia con una lectura actual. "
+                "Reintente la reevaluación o revise la identificación."
+            )
+            out["mensaje"] = msg_revision
+            out.setdefault("observaciones", []).append(msg_revision)
         if rechazado is True:
             out["estado"] = "no_coincide"
-            add_comp("Regla documental", f"{label} rechazado por lectura rapida", key, out["mensaje"], "Regla", "Documento valido", False, "critico", out["mensaje"] or f"{label} no cumple la regla documental.")
+            msg_rechazo = out["mensaje"] or f"{label} no cumple la regla documental."
+            if key == "identificacion_oficial":
+                msg_rechazo = _v2_humanizar_mensaje_identificacion(msg_rechazo)
+            if filename and filename not in msg_rechazo:
+                msg_rechazo = f"{label} ({filename}): {msg_rechazo}"
+            out["mensaje"] = msg_rechazo
+            out.setdefault("observaciones", []).append(msg_rechazo)
+            add_comp("Regla documental", f"{label} rechazado por lectura rapida", key, msg_rechazo, "Regla", "Documento valido", False, "critico", msg_rechazo)
         elif valido is False or revision_manual is True:
             out["estado"] = "requiere_revision"
             msg = out["mensaje"] or f"{label} requiere revision manual por lectura automatica."
+            if filename and filename not in msg:
+                msg = f"{label} ({filename}): {msg}"
+            out["mensaje"] = msg
             add_comp("Regla documental", f"{label} requiere revision", key, msg, "Regla", "Lectura automatica suficiente", False, "aviso", msg)
 
         expected_types_by_key = {
@@ -1776,13 +2214,13 @@ def _resultado_v2_reglas_expediente(
             expected_label = label
             if key == "solicitud_interna" and detected_type == "cv":
                 msg_tipo = (
-                    "El archivo cargado en Solicitud interna parece ser CV o solicitud de trabajo. "
+                    f"El archivo {filename} cargado en Solicitud interna parece ser CV o solicitud de trabajo. "
                     "Debe subirse en la seccion CV o solicitud de trabajo, y en Solicitud interna "
                     "debe cargarse el formato interno de MaxiKash."
                 )
             else:
                 msg_tipo = (
-                    f"El archivo cargado en {expected_label} parece ser {detected_label}. "
+                    f"El archivo {filename} cargado en {expected_label} parece ser {detected_label}. "
                     "Debe subirse en la seccion correcta antes de continuar."
                 )
             out["estado"] = "no_coincide"
@@ -2083,7 +2521,7 @@ def _ai_es_doc(res: Dict[str, Any], expected: str) -> bool:
         "solicitud_interna": {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"},
         "solicitud___SPARTA_SECRET_REDACTED__": {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"},
         "identificacion_oficial": {"identificacion_oficial", "ine", "residencia_permanente", "residencia_temporal", "pasaporte_mexicano", "pasaporte_extranjero"},
-        "cv": {"cv", "solicitud___SPARTA_SECRET_REDACTED__"},
+        "cv": {"cv"},
         "infonavit_fonacot": {"infonavit_fonacot", "carta_no_adeudo"},
     }
     return doc_type in aliases.get(expected, {expected})
@@ -2244,6 +2682,9 @@ def _respuesta_alibaba_identificacion(res: Dict[str, Any]) -> Dict[str, Any]:
         "nombre": campos.get("nombre_completo"),
         "curp": campos.get("curp"),
         "fecha_vencimiento": campos.get("fecha_vencimiento"),
+        "frente_reverso": fr,
+        "frente_detectado": fr.get("frente_detectado"),
+        "reverso_detectado": fr.get("reverso_detectado"),
         **_ai_metadata(res),
     }
 
@@ -2956,9 +3397,18 @@ def _extraer_solicitud_interna_pdf_rapido(pdf_bytes: bytes) -> Dict[str, Any]:
     texto_norm = _normalizar_ascii_precheck(texto)
     resultado["texto"] = texto_norm
     resultado["modo"] = modo
+    marca_empresa = any(
+        marca in texto_norm
+        for marca in ("MAXIKASH", "FURIAMOTOS", "FURIA MOTOS")
+    )
     parece_solicitud = (
         "SOLICITUD DE EMPLEO MAXIKASH" in texto_norm
-        or ("SOLICITUD" in texto_norm and "MAXIKASH" in texto_norm and "DATOS PERSONALES" in texto_norm)
+        or "SOLICITUD DE EMPLEO FURIAMOTOS" in texto_norm
+        or (
+            "SOLICITUD" in texto_norm
+            and marca_empresa
+            and "DATOS PERSONALES" in texto_norm
+        )
     )
     if not parece_solicitud:
         return resultado
@@ -2982,6 +3432,23 @@ def _extraer_solicitud_interna_pdf_rapido(pdf_bytes: bytes) -> Dict[str, Any]:
     return resultado
 
 
+def _buscar_vencimiento_ine_precheck(texto_norm: str) -> Optional[str]:
+    texto = _normalizar_ascii_precheck(texto_norm)
+    m_rango = re.search(r"VIGENCIA\s+(20\d{2})\s*[-A/]\s*(20\d{2})", texto)
+    if m_rango:
+        anio = max(int(m_rango.group(1)), int(m_rango.group(2)))
+        return f"{anio:04d}-12-31"
+
+    # En el reverso de INE la MRZ suele traer fecha de vencimiento como YYMMDD
+    # antes de MEX, por ejemplo H3512311MEX = 2035-12-31.
+    for match in re.finditer(r"[A-Z](\d{2})(\d{2})(\d{2})\d?MEX", texto):
+        yy, mm, dd = (int(match.group(i)) for i in (1, 2, 3))
+        if 1 <= mm <= 12 and 1 <= dd <= 31:
+            year = 2000 + yy if yy < 80 else 1900 + yy
+            return f"{year:04d}-{mm:02d}-{dd:02d}"
+    return None
+
+
 def _extraer_identificacion_oficial_pdf_rapido(pdf_bytes: bytes) -> Dict[str, Any]:
     resultado = {
         "tipo_documento_detectado": None,
@@ -2992,6 +3459,7 @@ def _extraer_identificacion_oficial_pdf_rapido(pdf_bytes: bytes) -> Dict[str, An
         "curp": None,
         "clave_elector": None,
         "domicilio": None,
+        "fecha_vencimiento": None,
         "texto": "",
         "modo": "sin_texto",
     }
@@ -3052,6 +3520,7 @@ def _extraer_identificacion_oficial_pdf_rapido(pdf_bytes: bytes) -> Dict[str, An
     resultado["revision_manual"] = False
     resultado["mensaje"] = "INE identificada por OCR local."
     resultado["curp"] = _buscar_curp_precheck(texto_norm)
+    resultado["fecha_vencimiento"] = _buscar_vencimiento_ine_precheck(texto_norm)
 
     m_clave = re.search(r"CLAVE\s+DE\s+ELECTOR\s+([A-Z0-9]{12,22})", texto_norm)
     if m_clave:
@@ -5205,12 +5674,20 @@ async def validar_expediente(
                 "__SPARTA_SECRET_REDACTED__": "__SPARTA_SECRET_REDACTED__",
             }
             # En el flujo real la carga rapida ya deja una lectura V2 guardada
-            # por documento. La validacion cruzada debe comparar esas lecturas,
-            # no volver a mandar los 10 PDF a IA: eso puede pasar el timeout de
-            # PHP en expedientes pesados. Solo rescatamos documentos sin lectura
-            # util, normalmente expedientes viejos o migrados.
-            force_quick_refresh = set()
-            docs_needing_quick = [] if solo_lecturas_guardadas else [
+            # por documento. La validacion cruzada compara esas lecturas y solo
+            # relee los PDFs que PHP envio como rescate por lectura insuficiente
+            # o por una observacion critica como vigencia de identificacion.
+            force_quick_refresh = {
+                str(doc.get("key") or "")
+                for doc in docs_v2
+                if doc.get("bytes")
+                and summary_is_usable(doc.get("summary"))
+                and _v2_summary_needs_pdf_text_rescue(doc)
+            }
+            for doc in docs_v2:
+                if str(doc.get("key") or "") in force_quick_refresh:
+                    doc["_needs_quick_refresh"] = True
+            docs_needing_quick = [
                 doc for doc in docs_v2
                 if (
                     str(doc.get("key") or "") in force_quick_refresh
@@ -5254,7 +5731,9 @@ async def validar_expediente(
                                         str(doc.get("filename") or f"{key}.pdf"),
                                         result,
                                     )
+                                    doc["_quick_prefill_refreshed"] = True
                             except Exception as exc:
+                                doc["_quick_prefill_error"] = str(exc)
                                 logger.warning(f"No se pudo preleer {key} para crosscheck V2: {exc}")
 
                     await asyncio.gather(*(_prefill_summary(doc) for doc in docs_needing_quick))

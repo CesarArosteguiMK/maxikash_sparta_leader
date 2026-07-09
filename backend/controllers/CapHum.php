@@ -40,6 +40,7 @@ class CapHum extends Controller
     private const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
     private const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
     private const MODULO_AUDITORIA_RRHH = 154;
+    private const MODULO_GESTION_ACTUALIZAR_ESTRUCTURA = 191;
     private const MODULOS_DOCUMENTO_RRHH = [
         8 => 155,
         9 => 156,
@@ -1454,6 +1455,9 @@ class CapHum extends Controller
                                     </button>`
                                         : ''
                                     }
+                                    ${mostrarEditarRrhh ? `<button class="btn btn-sm text-white" style="background-color: #7c3aed; border-color: #7c3aed;" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH." aria-label="Editar RR.HH.">
+                                        <i class="fa fa-user-pen"></i>
+                                    </button>` : ''}
                                     ${mostrarVisualizar
                                         ? `<button class="btn btn-sm btn-outline-secondary" onclick="visualizar(${p.id})" title="Visualizar">
                                         <i class="fa fa-eye"></i>
@@ -1480,9 +1484,6 @@ class CapHum extends Controller
                                         <i class="fa fa-lock" style="color: #007bff;"></i>
                                     </button>` : ''}
                                     </div>
-                                    ${mostrarEditarRrhh ? `<button class="btn btn-sm btn-info text-white d-inline-flex align-items-center justify-content-center gap-1 px-3" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH.">
-                                        <i class="fa fa-user-pen"></i><span>Editar RR.HH.</span>
-                                    </button>` : ''}
                                 </div>`;
                             })()
                         };
@@ -2565,18 +2566,118 @@ class CapHum extends Controller
 
             let currentPersonaId = null;
             let perfilAbortController = null;
+            let perfilPuestosAbortController = null;
             let perfilModalLazyRender = null;
+
+            function setPerfilPuestosLoading() {
+                const loadingHtml = '<div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Cargando accesos a puestos...</div>';
+                const puestosForm = document.getElementById('modal-edit-perfil-puestos-form');
+                const paisesList = document.getElementById('perfilPuestosPaisList');
+                if (puestosForm) puestosForm.innerHTML = loadingHtml;
+                if (paisesList) paisesList.innerHTML = '<div class="text-muted small px-2 py-3">Cargando...</div>';
+            }
+
+            function setPerfilPuestosError(mensaje) {
+                const msg = String(mensaje || 'No se pudieron cargar los accesos a puestos.');
+                const safe = msg.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+                const puestosForm = document.getElementById('modal-edit-perfil-puestos-form');
+                const paisesList = document.getElementById('perfilPuestosPaisList');
+                if (puestosForm) {
+                    puestosForm.innerHTML = '<div class="alert alert-warning mb-0"><i class="fa fa-triangle-exclamation me-2"></i>' + safe + '</div>';
+                }
+                if (paisesList) paisesList.innerHTML = '';
+            }
+
+            function isPerfilTabActive(tabId) {
+                return document.querySelector('#modalEditPerfil .tab-pane.active')?.id === tabId;
+            }
+
+            function cargarPerfilPuestosDiferido(options = {}) {
+                if (!perfilModalLazyRender || perfilModalLazyRender.puestosCargando || perfilModalLazyRender.puestosRenderizados) return;
+                const mostrarLoading = options.mostrarLoading !== false || isPerfilTabActive('tabPuestos');
+                if (!currentPersonaId) {
+                    setPerfilPuestosError('No se encontro el usuario seleccionado.');
+                    return;
+                }
+
+                perfilModalLazyRender.puestosCargando = true;
+                if (mostrarLoading) {
+                    setPerfilPuestosLoading();
+                }
+
+                if (perfilPuestosAbortController) {
+                    perfilPuestosAbortController.abort();
+                }
+                perfilPuestosAbortController = new AbortController();
+                const signal = perfilPuestosAbortController.signal;
+
+                fetch('/CapHum/getPermisosJerarquicosPerfil', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ idPersona: parseInt(currentPersonaId, 10) }),
+                    signal: signal
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (signal.aborted || !perfilModalLazyRender) return;
+                    perfilModalLazyRender.puestosCargando = false;
+                    if (!data.success) {
+                        setPerfilPuestosError(data.mensaje || 'No se pudieron cargar los accesos a puestos.');
+                        return;
+                    }
+                    perfilModalLazyRender.permisosJerarquia = data.datos || null;
+                    renderPuestos(perfilModalLazyRender.puestos || [], perfilModalLazyRender.permisosJerarquia || null);
+                    perfilModalLazyRender.puestosRenderizados = true;
+                })
+                .catch(err => {
+                    if (err.name === 'AbortError') return;
+                    console.error('cargarPerfilPuestosDiferido:', err);
+                    if (perfilModalLazyRender) perfilModalLazyRender.puestosCargando = false;
+                    if (mostrarLoading || isPerfilTabActive('tabPuestos')) {
+                        setPerfilPuestosError('No se pudieron cargar los accesos a puestos. Revisa la conexion o intenta nuevamente.');
+                    }
+                });
+            }
 
             function renderPerfilTabDiferida(tabId) {
                 if (!perfilModalLazyRender) return;
                 if (tabId === 'tabPuestos' && !perfilModalLazyRender.puestosRenderizados) {
-                    renderPuestos(perfilModalLazyRender.puestos || [], perfilModalLazyRender.permisosJerarquia || null);
-                    perfilModalLazyRender.puestosRenderizados = true;
+                    if (perfilModalLazyRender.puestosCargando) {
+                        setPerfilPuestosLoading();
+                        return;
+                    }
+                    if (perfilModalLazyRender.permisosJerarquiaDiferida && !perfilModalLazyRender.permisosJerarquia) {
+                        cargarPerfilPuestosDiferido();
+                    } else {
+                        renderPuestos(perfilModalLazyRender.puestos || [], perfilModalLazyRender.permisosJerarquia || null);
+                        perfilModalLazyRender.puestosRenderizados = true;
+                    }
                 }
                 if (tabId === 'tabPermisosEspeciales' && !perfilModalLazyRender.permisosRenderizados) {
                     renderPermisosEspeciales(perfilModalLazyRender.permisosEspeciales || []);
                     perfilModalLazyRender.permisosRenderizados = true;
                 }
+            }
+
+            function precargarPerfilTabsDiferidas() {
+                const runAfterPaint = window.requestAnimationFrame || function(cb) { return setTimeout(cb, 0); };
+                const runIdle = window.requestIdleCallback || function(cb) { return setTimeout(cb, 250); };
+                runAfterPaint(function() {
+                    if (!perfilModalLazyRender || Number(currentPersonaId || 0) <= 0) return;
+                    if (!perfilModalLazyRender.permisosRenderizados) {
+                        renderPermisosEspeciales(perfilModalLazyRender.permisosEspeciales || []);
+                        perfilModalLazyRender.permisosRenderizados = true;
+                    }
+                    runIdle(function() {
+                        if (!perfilModalLazyRender || Number(currentPersonaId || 0) <= 0) return;
+                        if (perfilModalLazyRender.permisosJerarquiaDiferida && !perfilModalLazyRender.puestosRenderizados) {
+                            cargarPerfilPuestosDiferido({ mostrarLoading: false });
+                        }
+                    });
+                });
             }
 
             document.getElementById('tabPuestos-tab')?.addEventListener('shown.bs.tab', function () {
@@ -2629,6 +2730,10 @@ class CapHum extends Controller
 
                 if (perfilAbortController) {
                     perfilAbortController.abort();
+                }
+                if (perfilPuestosAbortController) {
+                    perfilPuestosAbortController.abort();
+                    perfilPuestosAbortController = null;
                 }
                 perfilAbortController = new AbortController();
                 const signal = perfilAbortController.signal;
@@ -2759,12 +2864,15 @@ class CapHum extends Controller
                     perfilModalLazyRender = {
                         puestos: puestos,
                         permisosJerarquia: permisosJerarquia,
+                        permisosJerarquiaDiferida: Boolean(data.datos.permisos_jerarquia_diferida),
+                        puestosCargando: false,
                         permisosEspeciales: perfilesPermisosEspeciales,
                         puestosRenderizados: false,
                         permisosRenderizados: false
                     };
                     renderModulos(perfilesModulosSistema);
                     renderPerfilTabDiferida(document.querySelector('#modalEditPerfil .tab-pane.active')?.id || 'tabModulos');
+                    precargarPerfilTabsDiferidas();
                     actualizarEstadoForceLogoutPanel(persona);
 
                     // Abrir modal en lugar de offcanvas
@@ -4874,6 +4982,14 @@ class CapHum extends Controller
                         && !descripcionModulo.includes('motos adjudicadas');
                 }).map(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
+                    if (idMod === 191) {
+                        return Object.assign({}, mod, {
+                            menu_grupo: 'Capital Humano',
+                            menu_grupo_icono: 'fa-solid fa-users',
+                            menu_grupo_orden: 11,
+                            menu_item_orden: idMod
+                        });
+                    }
                     if (idMod === 152 || idMod === 153) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Capital Humano',
@@ -4930,7 +5046,20 @@ class CapHum extends Controller
 
             function renderModulos(perfiles) {
                 const container = document.getElementById('modal-edit-perfil-modulos-form') || document.getElementById('modulos-form');
-                renderAgrupadoPorMenuGrupo(perfiles, container, {
+                const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).map(mod => {
+                    const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
+                    const nombreModulo = String(mod.modulo_nombre ?? mod.nombre ?? '').trim().toLowerCase();
+                    if (idMod === 188 || nombreModulo === 'reporteria motos') {
+                        return Object.assign({}, mod, {
+                            menu_grupo: 'Motos Adjudicadas',
+                            menu_grupo_icono: 'fa-solid fa-motorcycle',
+                            menu_grupo_orden: 7,
+                            menu_item_orden: idMod
+                        });
+                    }
+                    return mod;
+                });
+                renderAgrupadoPorMenuGrupo(perfilesNormalizados, container, {
                     masterIdPrefix: 'modal-perfil-modulo-master-',
                     iconosMap: iconosModulosSistemaPerfil,
                     emptyHtml: '<div class="text-muted small text-center py-4">No hay módulos disponibles</div>',
@@ -9204,6 +9333,7 @@ class CapHum extends Controller
         self::refrescarModulosSesionUnaVez();
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeDescargarPlantillaGestion = in_array(self::MODULO_GESTION_PLANTILLA, $modulos);
+        $puedeImportarEstructuraGestion = in_array(self::MODULO_GESTION_ACTUALIZAR_ESTRUCTURA, $modulos);
         $puedeAgregarUsuarioGestion = in_array(self::MODULO_GESTION_AGREGAR_USUARIO, $modulos);
         $puedeEditarUsuarioGestion = in_array(self::MODULO_GESTION_EDITAR_USUARIO, $modulos);
         $puedeCargarDocumentoGestion = in_array(self::MODULO_GESTION_CARGAR_DOCUMENTO, $modulos);
@@ -9230,6 +9360,7 @@ class CapHum extends Controller
         self::set("puedeEditarTodos", $puedeEditarTodos);
         self::set("puedeGestionarPermisos", $puedeGestionarPermisos);
         self::set("puedeDescargarPlantillaGestion", $puedeDescargarPlantillaGestion);
+        self::set("puedeImportarEstructuraGestion", $puedeImportarEstructuraGestion);
         self::set("puedeAgregarUsuarioGestion", $puedeAgregarUsuarioGestion);
         self::set("puedeEditarUsuarioGestion", $puedeEditarUsuarioGestion);
         self::set("puedeCargarDocumentoGestion", $puedeCargarDocumentoGestion);
@@ -10695,7 +10826,7 @@ class CapHum extends Controller
                     CANDIDATO_CREADO: "Inicio del candidato",
                     CORREO_DOCUMENTOS_ENVIADO: "Envio de documentos",
                     EXPEDIENTE_COMPLETO: "Carga documental completa",
-                    DOCUMENTOS_VALIDADOS: "Validacion documental",
+                    DOCUMENTOS_VALIDADOS: "Validación documental",
                     ENVIADO_VALIDACION_FINAL: "Envio a validacion final",
                     FECHA_INGRESO_NOTIFICADA: "Programacion de ingreso",
                     INGRESO_PROGRAMADO: "Ingreso programado",
@@ -11407,11 +11538,11 @@ class CapHum extends Controller
                 if (procesoVencido) {
                     verificacionEnProceso = false;
                     v.api_pendiente = true;
-                    v.error_api = v.error_api || "El analisis documental tardo mas de lo esperado. El expediente quedo pendiente para reintento.";
+                    v.error_api = v.error_api || "El análisis documental tardó más de lo esperado. El expediente quedó pendiente para reintento.";
                 }
                 var alertas = Array.isArray(v.alertas) && v.alertas.length ? v.alertas.filter(function(a) { return !esAvisoCurpOcrResuelto(a) && !esNotaCalidadIgnorable(a) && !alertaCurpResueltaMotorV2(a, v); }) : [];
                 if (procesoVencido) {
-                    alertas.unshift("El cruce automatico supero el tiempo esperado. Reintente el analisis documental; no se marcara como revision manual por este motivo.");
+                    alertas.unshift("El cruce automático superó el tiempo esperado. Reintente el análisis documental; no se marcará como revisión manual por este motivo.");
                 }
                 var confianzaNum = null;
                 if (scoreFrente != null && scoreReverso != null) { confianzaNum = Math.round((scoreFrente + scoreReverso) / 2); }
@@ -11450,17 +11581,17 @@ class CapHum extends Controller
                     if (docsCount === 0 && comps.length === 0) {
                         var pendienteActivoV2 = verificacionEnProceso && !procesoVencido;
                         var errApiV2 = (v.error_api != null && String(v.error_api).trim() !== "") ? String(v.error_api).trim() : "";
-                        var tituloV2 = pendienteActivoV2 ? "Verificacion en proceso" : "Analisis pendiente";
+                        var tituloV2 = pendienteActivoV2 ? "Verificación en proceso" : "Análisis pendiente";
                         var textoV2 = pendienteActivoV2
-                            ? "La IA documental esta revisando el expediente. La documentacion se actualizara automaticamente cuando termine."
-                            : "El ultimo intento de analisis documental no pudo completar el cruce. Los documentos siguen cargados; reevalue cuando el servicio este disponible.";
-                        var htmlPendV2 = "<div class=\"card border shadow-none h-100 doc-v2-card\"><div class=\"card-header py-2 bg-light d-flex align-items-center justify-content-between gap-2\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de analisis documental</strong><span class=\"d-flex align-items-center gap-1\"><span class=\"badge bg-primary\">IA documental</span>" + btnHeaderRevalidar + "</span></div><div class=\"card-body py-2 small overflow-auto\">";
+                            ? "La IA documental está revisando el expediente. La documentación se actualizará automáticamente cuando termine."
+                            : "El último intento de análisis documental no pudo completar el cruce. Los documentos siguen cargados; reevalúe cuando el servicio esté disponible.";
+                        var htmlPendV2 = "<div class=\"card border shadow-none h-100 doc-v2-card\"><div class=\"card-header py-2 bg-light d-flex align-items-center justify-content-between gap-2\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de análisis documental</strong><span class=\"d-flex align-items-center gap-1\"><span class=\"badge bg-primary\">IA documental</span>" + btnHeaderRevalidar + "</span></div><div class=\"card-body py-2 small overflow-auto\">";
                         htmlPendV2 += "<div class=\"d-flex flex-wrap gap-2 align-items-center mb-2\"><span class=\"badge " + (pendienteActivoV2 ? "bg-info text-dark" : "bg-warning text-dark") + "\">" + tituloV2 + "</span><span class=\"badge bg-light text-dark border\">Sin lectura final</span></div>";
                         htmlPendV2 += "<div class=\"alert " + (pendienteActivoV2 ? "alert-info" : "alert-warning") + " py-2 px-2 mb-2\" role=\"status\"><strong>Dictamen IA pendiente.</strong><br>" + escHtmlComparaciones(textoV2);
                         htmlPendV2 += "</div>";
                         if (errApiV2) {
-                            candidatosDocConsola("error", "Analisis documental pendiente - detalle tecnico", errApiV2);
-                            htmlPendV2 += "<details class=\"small mb-2\"><summary class=\"fw-semibold text-muted\">Detalle tecnico</summary><div class=\"border rounded p-2 mt-1 bg-light text-break\">" + escHtmlComparaciones(errApiV2) + "</div></details>";
+                            candidatosDocConsola("error", "Análisis documental pendiente - detalle técnico", errApiV2);
+                            htmlPendV2 += "<details class=\"small mb-2\"><summary class=\"fw-semibold text-muted\">Detalle del intento</summary><div class=\"border rounded p-2 mt-1 bg-light text-break\">" + escHtmlComparaciones(errApiV2) + "</div></details>";
                         }
                         if (!pendienteActivoV2) {
                             htmlPendV2 += "<div class=\"d-grid gap-2\"><button type=\"button\" class=\"btn btn-primary py-2 btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Reevaluar expediente\"><i class=\"fa fa-sync-alt me-1\"></i>Reevaluar expediente</button></div>";
@@ -11472,26 +11603,26 @@ class CapHum extends Controller
                     var dictamen = String(v.dictamen_ia || (todoCoincide ? "aprobado" : "requiere_revision")).toLowerCase();
                     var dictamenBadge = dictamen === "aprobado"
                         ? "<span class=\"badge bg-success\">Expediente consistente</span>"
-                        : (dictamen === "rechazado" ? "<span class=\"badge bg-danger\">No coincide</span>" : "<span class=\"badge bg-warning text-dark\">Requiere revision</span>");
+                        : (dictamen === "rechazado" ? "<span class=\"badge bg-danger\">No coincide</span>" : "<span class=\"badge bg-warning text-dark\">Requiere revisión</span>");
                     var resumen = String(v.resumen_ia || "");
                     if (!resumen) {
                         resumen = todoCoincide
-                            ? "La informacion recibida es consistente entre los documentos revisados, cumple con las reglas documentales establecidas y corresponde al candidato registrado."
-                            : "El expediente requiere revision documental antes del dictamen final. Revise las alertas y comparaciones marcadas por la IA documental.";
+                            ? "La información recibida es consistente entre los documentos revisados, cumple con las reglas documentales establecidas y corresponde al candidato registrado."
+                            : "El expediente requiere revisión documental antes del dictamen final. Revise las alertas y comparaciones marcadas por la IA documental.";
                     }
-                    var htmlV2 = "<div class=\"card border shadow-none h-100 doc-v2-card\"><div class=\"card-header py-2 bg-light d-flex align-items-center justify-content-between gap-2\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de analisis documental</strong><span class=\"d-flex align-items-center gap-1\"><span class=\"badge bg-primary\">IA documental</span>" + btnHeaderRevalidar + "</span></div><div class=\"card-body py-2 small overflow-auto\">";
-                    htmlV2 += "<div class=\"d-flex flex-wrap gap-2 align-items-center mb-2\">" + dictamenBadge + "<span class=\"badge bg-light text-dark border\">" + docsCount + " documentos leidos</span>";
-                    if (checksOk != null && checksTotales != null && checksTotales > 0) htmlV2 += "<span class=\"badge bg-light text-dark border\">" + checksOk + "/" + checksTotales + " checks</span>";
+                    var htmlV2 = "<div class=\"card border shadow-none h-100 doc-v2-card\"><div class=\"card-header py-2 bg-light d-flex align-items-center justify-content-between gap-2\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de análisis documental</strong><span class=\"d-flex align-items-center gap-1\"><span class=\"badge bg-primary\">IA documental</span>" + btnHeaderRevalidar + "</span></div><div class=\"card-body py-2 small overflow-auto\">";
+                    htmlV2 += "<div class=\"d-flex flex-wrap gap-2 align-items-center mb-2\">" + dictamenBadge + "<span class=\"badge bg-light text-dark border\">" + docsCount + " documentos leídos</span>";
+                    if (checksOk != null && checksTotales != null && checksTotales > 0) htmlV2 += "<span class=\"badge bg-light text-dark border\">" + checksOk + "/" + checksTotales + " revisiones</span>";
                     if (typeof avisosV2 !== "undefined" && avisosV2 > 0) htmlV2 += "<span class=\"badge bg-warning text-dark\">" + avisosV2 + " avisos</span>";
                     htmlV2 += "</div>";
                     htmlV2 += "<div class=\"alert " + (todoCoincide ? "alert-success" : (dictamen === "rechazado" ? "alert-danger" : "alert-warning")) + " py-2 px-2 mb-2\" role=\"status\"><strong>Dictamen IA.</strong><br>" + escHtmlComparaciones(resumen) + "</div>";
                     htmlV2 += "<div class=\"row g-2 mb-2 align-items-center\">";
                     htmlV2 += "<div class=\"col-6\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
                     htmlV2 += "<div class=\"col-6\"><span class=\"text-muted d-block\">Coincidencias</span><strong class=\"" + (todoCoincide ? "text-success" : "text-warning") + "\">" + (checksOk != null && checksTotales != null ? checksOk + "/" + checksTotales : "Pendiente") + "</strong></div>";
-                    htmlV2 += "<div class=\"col-12\"><span class=\"text-muted d-block\">Comparacion global</span><strong class=\"" + (todoCoincide ? "text-success" : "text-danger") + "\">" + (todoCoincide ? "Los 10 documentos coinciden" : "Revisar observaciones del expediente") + "</strong></div>";
+                    htmlV2 += "<div class=\"col-12\"><span class=\"text-muted d-block\">Comparación global</span><strong class=\"" + (todoCoincide ? "text-success" : "text-danger") + "\">" + (todoCoincide ? "Los 10 documentos coinciden" : "Revisar observaciones del expediente") + "</strong></div>";
                     htmlV2 += "</div>";
                     if ((docsCount || comps.length) && !expedienteVerifApiInconsistente(v) && hayComparacionesEvaluables(v)) {
-                        htmlV2 += "<div class=\"d-grid mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-abrir-analisis-cruzado-v2\"><i class=\"fa fa-external-link-alt me-1\"></i>Ver analisis cruzado</button></div>";
+                        htmlV2 += "<div class=\"d-grid mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-abrir-analisis-cruzado-v2\"><i class=\"fa fa-external-link-alt me-1\"></i>Ver análisis cruzado</button></div>";
                     }
                     if (alertas.length || (Array.isArray(v.recomendaciones) && v.recomendaciones.length)) {
                         htmlV2 += "<div class=\"mt-2 pt-2 border-top\"><span class=\"text-muted d-block mb-1\"><strong>Observaciones</strong></span><ul class=\"mb-0 ps-3\">";
@@ -11531,7 +11662,7 @@ class CapHum extends Controller
                     respuestaVaciaApi = false;
                 }
                 if (verificacionEnProceso) {
-                    html += "<div class=\"alert alert-info py-2 px-2 mb-2 small\" role=\"status\"><strong>Verificaci&oacute;n en proceso.</strong><br><span class=\"text-muted\">No hay dictamen autom&aacute;tico todav&iacute;a. Si tarda demasiado, podr&aacute;s reintentar el analisis documental.</span></div>";
+                    html += "<div class=\"alert alert-info py-2 px-2 mb-2 small\" role=\"status\"><strong>Verificaci&oacute;n en proceso.</strong><br><span class=\"text-muted\">No hay dictamen autom&aacute;tico todav&iacute;a. Si tarda demasiado, podr&aacute;s reintentar el an&aacute;lisis documental.</span></div>";
                     errApi = "";
                     respuestaVaciaApi = false;
                 /*
@@ -11542,17 +11673,17 @@ class CapHum extends Controller
                     html += "";
                 */
                 } else if (errApi) {
-                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>Analisis pendiente.</strong><br><span class=\"text-muted\">" + escHtmlComparaciones(errApi) + "</span></div>";
+                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>An&aacute;lisis pendiente.</strong><br><span class=\"text-muted\">" + escHtmlComparaciones(errApi) + "</span></div>";
                 } else if (respuestaVaciaApi) {
                     candidatosDocConsola("warn", "verificación API - respuesta vacía / sin datos útiles (objeto)", v);
-                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>No hubo resultado util de la verificacion automatica.</strong><br><span class=\"text-muted\">Intente reevaluar el expediente mas tarde.</span></div>";
+                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>No hubo resultado útil de la verificación automática.</strong><br><span class=\"text-muted\">Intente reevaluar el expediente más tarde.</span></div>";
                 }
                 if (errApi || respuestaVaciaApi) {
                     html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-primary py-2 btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Reevaluar expediente\"><i class=\"fa fa-sync-alt me-1\"></i>Reevaluar expediente</button></div>";
                 }
                 html += "<div class=\"row g-2 mb-2 align-items-center\">";
                 html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
-                html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Checks</span><strong>" + (checksOk != null && checksTotales != null ? checksOk + "/" + checksTotales : "&mdash;") + "</strong></div>";
+                html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Revisiones</span><strong>" + (checksOk != null && checksTotales != null ? checksOk + "/" + checksTotales : "&mdash;") + "</strong></div>";
                 html += "<div class=\"col-12\"><span class=\"text-muted d-block\">Coinciden</span><strong class=\"" + (todoCoincide ? "text-success" : (v.todo_coincide === false ? "text-danger" : "text-secondary")) + "\">" + (v.todo_coincide === true ? "S&iacute;" : (v.todo_coincide === false ? "No" : (verificacionEnProceso ? "En proceso" : "&mdash;"))) + "</strong></div>";
                 html += "</div>";
                 if (alertas.length) {
@@ -11591,25 +11722,119 @@ class CapHum extends Controller
                 return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
             }
 
+            function pulirTextoDocumental(t) {
+                return String(t || "")
+                    .replace(/\bAnalisis\b/g, "Análisis")
+                    .replace(/\banalisis\b/g, "análisis")
+                    .replace(/\bVerificacion\b/g, "Verificación")
+                    .replace(/\bverificacion\b/g, "verificación")
+                    .replace(/\bValidacion\b/g, "Validación")
+                    .replace(/\bvalidacion\b/g, "validación")
+                    .replace(/\bRevision\b/g, "Revisión")
+                    .replace(/\brevision\b/g, "revisión")
+                    .replace(/\bautomaticamente\b/g, "automáticamente")
+                    .replace(/\bautomatica\b/g, "automática")
+                    .replace(/\bAutomaticamente\b/g, "Automáticamente")
+                    .replace(/\bAutomatica\b/g, "Automática")
+                    .replace(/\bleido\b/g, "leído")
+                    .replace(/\bleida\b/g, "leída")
+                    .replace(/\bLeido\b/g, "Leído")
+                    .replace(/\bLeida\b/g, "Leída")
+                    .replace(/\bIdentificacion\b/g, "Identificación")
+                    .replace(/\bidentificacion\b/g, "identificación")
+                    .replace(/\bseccion\b/g, "sección")
+                    .replace(/\bSeccion\b/g, "Sección")
+                    .replace(/\bRegimen\b/g, "Régimen")
+                    .replace(/\bregimen\b/g, "régimen")
+                    .replace(/\bfisico\b/g, "físico")
+                    .replace(/\bFisico\b/g, "Físico")
+                    .replace(/\bmaximo\b/g, "máximo")
+                    .replace(/\bMaximo\b/g, "Máximo")
+                    .replace(/\bsi solos\b/g, "sí solos")
+                    .replace(/\bpor si solos\b/g, "por sí solos")
+                    .replace(/\bobservacion\b/g, "observación")
+                    .replace(/\bObservacion\b/g, "Observación")
+                    .replace(/\binformacion\b/g, "información")
+                    .replace(/\bInformacion\b/g, "Información")
+                    .replace(/\bcritico\b/g, "crítico")
+                    .replace(/\bcritica\b/g, "crítica")
+                    .replace(/\bcriticos\b/g, "críticos")
+                    .replace(/\bcriticas\b/g, "críticas")
+                    .replace(/\butil\b/g, "útil")
+                    .replace(/\bUtil\b/g, "Útil")
+                    .replace(/\btecnico\b/g, "técnico")
+                    .replace(/\bTecnico\b/g, "Técnico")
+                    .replace(/\bultimo\b/g, "último")
+                    .replace(/\bUltimo\b/g, "Último")
+                    .replace(/\bmas\b/g, "más")
+                    .replace(/\bquedo\b/g, "quedó")
+                    .replace(/\btardo\b/g, "tardó")
+                    .replace(/\bsupero\b/g, "superó");
+            }
+
+            function textoTipoDocumentoUsuario(t) {
+                var k = claveDocModalGlobal(t);
+                if (k === "SOLICITUD_MAXIKASH" || k === "SOLICITUD INTERNA") return "solicitud interna";
+                if (k === "CV" || k === "CV O SOLICITUD" || k === "CV O SOLICITUD DE TRABAJO") return "CV o solicitud de trabajo";
+                if (k === "ACTA_NACIMIENTO" || k === "ACTA DE NACIMIENTO") return "acta de nacimiento";
+                if (k === "IDENTIFICACION_OFICIAL" || k === "IDENTIFICACION OFICIAL" || k === "INE") return "identificación oficial";
+                if (k === "COMPROBANTE_DOMICILIO" || k === "COMPROBANTE DE DOMICILIO") return "comprobante de domicilio";
+                if (k === "CONSTANCIA_FISCAL" || k === "CONSTANCIA FISCAL") return "constancia fiscal";
+                if (k === "ESTADO_CUENTA" || k === "ESTADO DE CUENTA") return "estado de cuenta";
+                if (k === "INFONAVIT_FONACOT" || k === "RETENCION FONACOT/INFONAVIT" || k === "HOJA_RETENCION") return "hoja de retención FONACOT/INFONAVIT";
+                if (k === "CARTA_NO_ADEUDO") return "carta de no adeudo";
+                if (k === "NSS") return "documento de NSS";
+                if (k === "CURP") return "CURP";
+                return pulirTextoDocumental(String(t || "").replace(/_/g, " ").trim().toLowerCase() || "otro documento");
+            }
+
             function textoUsuarioAnalisisDocumental(s) {
                 var t = normalizarTextoDocModalGlobal(s);
                 var k = claveDocModalGlobal(t);
                 if (!t) return "";
+                var sinPrefijo = t.replace(/^\s*No se puede cargar este documento:\s*/i, "").trim();
+                var tipoEsperado = sinPrefijo.match(/este archivo parece\s+(.+?),\s*pero se esperaba\s+(.+?)(?:\.|$)/i);
+                if (tipoEsperado) {
+                    return "El documento subido como " + textoTipoDocumentoUsuario(tipoEsperado[2]) +
+                        " no corresponde al documento requerido; la lectura automática indica que se parece a " +
+                        textoTipoDocumentoUsuario(tipoEsperado[1]) + ". Por favor revise el archivo y cárguelo en la sección correcta.";
+                }
+                var tipoCargado = t.match(/El archivo\s+(.+?)\s+cargado en\s+(.+?)\s+parece ser\s+(.+?)(?:\.|$)/i);
+                if (tipoCargado) {
+                    return "El documento subido en la sección de " + pulirTextoDocumental(tipoCargado[2]) +
+                        " no coincide con el documento requerido; la lectura automática indica que se asemeja a " +
+                        textoTipoDocumentoUsuario(tipoCargado[3]) + ". Por favor revíselo y, si corresponde, cárguelo en la sección correcta.";
+                }
+                if (k.indexOf("INE DETECTADO") !== -1 && k.indexOf("NO SE DETECTO FRENTE Y REVERSO COMPLETOS") !== -1) {
+                    return "En la identificación oficial se detectó información del frente, pero no se detectó el reverso. Por favor revise que el archivo incluya ambas caras de la identificación.";
+                }
+                if (k.indexOf("NO SE DETECTO REVERSO") !== -1 && k.indexOf("IDENTIFIC") !== -1) {
+                    return "En la identificación oficial se detectó el frente, pero no se detectó el reverso. Por favor revise que el archivo incluya ambas caras de la identificación.";
+                }
+                if (k.indexOf("NO SE DETECTO FRENTE") !== -1 && k.indexOf("IDENTIFIC") !== -1) {
+                    return "En la identificación oficial se detectó el reverso, pero no se detectó el frente. Por favor revise que el archivo incluya ambas caras de la identificación.";
+                }
+                if (k.indexOf("CURP DESCARTADA POR LECTURA NO VALIDA") !== -1) {
+                    return "La CURP detectada no tiene un formato válido, por lo que se dejó fuera de la comparación automática. Revise manualmente ese dato.";
+                }
+                if (k.indexOf("NSS DESCARTADO POR LECTURA NO VALIDA") !== -1) {
+                    return "El número de seguridad social detectado no tiene un formato válido, por lo que se dejó fuera de la comparación automática. Revise manualmente ese dato.";
+                }
                 if (k.indexOf("LECTURA V2 PENDIENTE") !== -1 || k.indexOf("LECTURA AUTOMATICA PENDIENTE") !== -1) {
-                    return t.replace(/lectura V2 pendiente/ig, "no se pudo leer automaticamente")
-                        .replace(/lectura automatica pendiente/ig, "no se pudo leer automaticamente")
-                        .replace(/Motor V2/ig, "analisis documental");
+                    return pulirTextoDocumental(t.replace(/lectura V2 pendiente/ig, "no se pudo leer automáticamente")
+                        .replace(/lectura automatica pendiente/ig, "no se pudo leer automáticamente")
+                        .replace(/Motor V2/ig, "análisis documental"));
                 }
                 if (k.indexOf("MOTOR V2 NO CUENTA CON LECTURA SUFICIENTE") !== -1) {
-                    return "El expediente requiere revision documental: uno o mas documentos no pudieron leerse automaticamente.";
+                    return "El expediente requiere revisión documental: uno o más documentos no pudieron leerse automáticamente.";
                 }
                 if (k.indexOf("MOTOR V2 DETECTO CONTENIDO TIPO") !== -1 && k.indexOf("MOTOR V1 ENCONTRO ACTA") !== -1) {
-                    return "Documento mezclado detectado: se encontro el acta dentro del PDF.";
+                    return "Documento mezclado detectado: se encontró el acta dentro del PDF.";
                 }
                 if (k.indexOf("RESPUESTA ORIGINAL MOTOR V2") !== -1) {
-                    return "La primera lectura automatica no fue suficiente; se uso una lectura de respaldo.";
+                    return "La primera lectura automática no fue suficiente; se usó una lectura de respaldo.";
                 }
-                return t.replace(/Motor V2/ig, "analisis documental").replace(/Motor V1/ig, "lectura de respaldo");
+                return pulirTextoDocumental(t.replace(/Motor V2/ig, "análisis documental").replace(/Motor V1/ig, "lectura de respaldo"));
             }
 
             function esVerificacionMotorV2(v) {
@@ -11647,11 +11872,11 @@ class CapHum extends Controller
                     cv: "CV o solicitud",
                     acta_nacimiento: "Acta de nacimiento",
                     curp: "CURP",
-                    identificacion_oficial: "Identificacion oficial",
+                    identificacion_oficial: "Identificación oficial",
                     comprobante_domicilio: "Comprobante de domicilio",
                     constancia_fiscal: "Constancia fiscal",
                     nss: "NSS",
-                    hoja_retencion: "Retencion FONACOT/INFONAVIT",
+                    hoja_retencion: "Retención FONACOT/INFONAVIT",
                     __SPARTA_SECRET_REDACTED__: "Estado de cuenta"
                 };
                 return labels[k] || k || "Documento";
@@ -11704,7 +11929,7 @@ class CapHum extends Controller
                 if (est === "ok") return "Coincide";
                 if (est === "bad") return "No coincide";
                 if (est === "warn") return "Revisar";
-                return "Leido";
+                return "Leído";
             }
 
             function esNotaCalidadIgnorable(s) {
@@ -11801,19 +12026,19 @@ class CapHum extends Controller
                     filas.push([label, String(value)]);
                 }
                 add("Resultado", etiquetaEstadoDocV2(k, estado));
-                add("Nombre leido", valorCampoDocV2(doc, ["nombre", "nombre_completo", "titular_cuenta"]));
+                add("Nombre leído", valorCampoDocV2(doc, ["nombre", "nombre_completo", "titular_cuenta"]));
                 add("CURP", valorCampoDocV2(doc, ["curp"]));
                 var curpIa = valorCampoDocV2(doc, ["curp_lectura_ia"]);
-                if (curpIa && curpIa !== valorCampoDocV2(doc, ["curp"])) add("CURP leida por IA", curpIa);
+                if (curpIa && curpIa !== valorCampoDocV2(doc, ["curp"])) add("CURP leída por IA", curpIa);
                 add("RFC", valorCampoDocV2(doc, ["rfc"]));
                 add("NSS", valorCampoDocV2(doc, ["nss"]));
                 add("Fecha nacimiento", valorCampoDocV2(doc, ["fecha_nacimiento"]));
-                add("Fecha emision", valorCampoDocV2(doc, ["fecha_emision", "emision"]));
-                add("Antiguedad", valorCampoDocV2(doc, ["meses_antiguedad", "antiguedad_meses"]));
-                add("Regimen", valorCampoDocV2(doc, ["regimen", "regimen_fiscal"]));
+                add("Fecha emisión", valorCampoDocV2(doc, ["fecha_emision", "emision"]));
+                add("Antigüedad", valorCampoDocV2(doc, ["meses_antiguedad", "antiguedad_meses"]));
+                add("Régimen", valorCampoDocV2(doc, ["regimen", "regimen_fiscal"]));
                 add("Banco", valorCampoDocV2(doc, ["banco"]));
                 add("CLABE", valorCampoDocV2(doc, ["clabe", "cuenta_clabe"]));
-                add("Paginas", valorCampoDocV2(doc, ["paginas", "numero_paginas"]));
+                add("Páginas", valorCampoDocV2(doc, ["paginas", "numero_paginas"]));
                 add("Mensaje", valorCampoDocV2(doc, ["mensaje", "motivo", "detalle"]));
                 var obs = Array.isArray(doc.observaciones) ? filtrarNotasCalidadVisibles(doc.observaciones).slice(0, 3) : [];
                 if (obs.length) add("Observaciones", obs.join(" | "));
@@ -11865,7 +12090,7 @@ class CapHum extends Controller
                 window.__analisisCruzadoCandidatoHtml = String(html || "");
                 var body = document.getElementById("modalAnalisisCruzadoCandidatoBody");
                 if (body) {
-                    body.innerHTML = window.__analisisCruzadoCandidatoHtml || "<div class=\"alert alert-info mb-0\">No hay analisis cruzado disponible para este expediente.</div>";
+                    body.innerHTML = window.__analisisCruzadoCandidatoHtml || "<div class=\"alert alert-info mb-0\">No hay análisis cruzado disponible para este expediente.</div>";
                 }
             }
 
@@ -11880,12 +12105,64 @@ class CapHum extends Controller
                     nombre.textContent = nombreTexto ? "Candidato: " + nombreTexto : "";
                 }
                 if (body && !String(window.__analisisCruzadoCandidatoHtml || "").trim()) {
-                    body.innerHTML = "<div class=\"alert alert-info mb-0\">No hay analisis cruzado disponible para este expediente.</div>";
+                    body.innerHTML = "<div class=\"alert alert-info mb-0\">No hay análisis cruzado disponible para este expediente.</div>";
                 }
                 if (window.bootstrap && window.bootstrap.Modal) {
                     var inst = window.bootstrap.Modal.getInstance(modal) || new window.bootstrap.Modal(modal);
                     inst.show();
                 }
+            }
+
+            function textoCategoriaComparacionV2(categoria) {
+                var k = claveDocModalGlobal(categoria);
+                if (k === "APORTE DOCUMENTAL") return "Aporte del documento";
+                if (k === "REGLA DOCUMENTAL") return "Regla documental";
+                if (k === "TIPO DE DOCUMENTO") return "Ubicación del archivo";
+                if (k === "NOMBRE") return "Nombre del candidato";
+                if (k === "BANCO") return "Banco";
+                if (k === "CURP" || k === "RFC" || k === "NSS") return k;
+                return pulirTextoDocumental(String(categoria || "Comparación").replace(/_/g, " "));
+            }
+
+            function textoEtiquetaComparacionV2(etiqueta) {
+                var raw = String(etiqueta || "").replace(/_/g, " ").trim();
+                var k = claveDocModalGlobal(raw);
+                if (k.indexOf("APORTA DATO PROPIO") !== -1) return "Documento con información suficiente";
+                if (k.indexOf("EN SECCION CORRECTA") !== -1) return "Documento en la sección correcta";
+                if (k.indexOf("RECHAZADO POR LECTURA RAPIDA") !== -1) return "Documento con regla incumplida";
+                if (k.indexOf("REQUIERE REVISION") !== -1) return "Documento con revisión pendiente";
+                if (k.indexOf("NOMBRE REGISTRO VS") !== -1) return "Nombre registrado contra documento";
+                if (k.indexOf("CONTRA REFERENCIA DOCUMENTAL") !== -1) return "Dato contra referencia del expediente";
+                if (k.indexOf("ENTRE DOCUMENTOS") !== -1) return "Dato entre documentos";
+                if (k.indexOf("MINIMO") !== -1) return "Cantidad mínima de hojas";
+                if (k.indexOf("CON 2 HOJAS") !== -1) return "Documento completo";
+                if (k.indexOf("REGIMEN DE SUELDOS") !== -1) return "Régimen fiscal requerido";
+                if (k.indexOf("BANCO FISICO") !== -1) return "Banco aceptado";
+                return pulirTextoDocumental(raw || "Comparación");
+            }
+
+            function actorComparacionV2(actor) {
+                var raw = String(actor || "").trim();
+                var k = claveDocModalGlobal(raw);
+                if (!raw) return "Documento";
+                if (k === "REGLA") return "Criterio";
+                if (k === "REGISTRO") return "Registro del candidato";
+                if (k === "CURP PRINCIPAL") return "CURP de referencia";
+                if (k === "CAMPO ESPERADO") return "Sección esperada";
+                return etiquetaDocV2(raw);
+            }
+
+            function valorComparacionV2(valor) {
+                var raw = String(valor === null || valor === undefined ? "" : valor).trim();
+                var k = claveDocModalGlobal(raw);
+                if (!raw) return "Sin dato";
+                if (k === "DATO LEIDO") return "Información leída";
+                if (k === "APORTE REQUERIDO") return "Información mínima requerida";
+                if (k === "SIN APORTE SUFICIENTE") return "Sin información suficiente";
+                if (k === "DOCUMENTO VALIDO") return "Documento válido";
+                if (k === "LECTURA AUTOMATICA SUFICIENTE") return "Lectura suficiente";
+                if (k === "BANCO FISICO") return "Banco físico";
+                return pulirTextoDocumental(raw);
             }
 
             function renderComparacionesDocFullWidth(bloqueComp, v) {
@@ -11935,26 +12212,26 @@ class CapHum extends Controller
                         if (esAviso) avisos++;
                         var cls = esAviso ? "border-warning bg-warning-subtle" : (coincide ? "border-success bg-success-subtle" : (sev === "critico" || sev === "critica" ? "border-danger bg-danger-subtle" : "border-warning bg-warning-subtle"));
                         var icon = esAviso ? "fa-exclamation-triangle text-warning" : (coincide ? "fa-check-circle text-success" : (sev === "critico" || sev === "critica" ? "fa-times-circle text-danger" : "fa-exclamation-triangle text-warning"));
-                        var estadoComp = esAviso ? "<span class=\"badge bg-warning text-dark ms-2\">Aviso</span>" : (coincide ? "<span class=\"badge bg-success ms-2\">Coincide</span>" : "<span class=\"badge bg-danger ms-2\">Falla</span>");
-                        var detalle = compatCurp ? "CURP base consistente entre documentos; la variacion detectada esta en caracteres finales susceptibles a lectura OCR/IA." : (c.mensaje || c.etiqueta || "");
+                        var estadoComp = esAviso ? "<span class=\"badge bg-warning text-dark ms-2\">Aviso</span>" : (coincide ? "<span class=\"badge bg-success ms-2\">Coincide</span>" : "<span class=\"badge bg-danger ms-2\">No coincide</span>");
+                        var detalle = compatCurp ? "La CURP parece pertenecer a la misma persona; la variación está en caracteres que suelen confundirse en la lectura automática." : textoUsuarioAnalisisDocumental(c.mensaje || c.etiqueta || "");
                         var valores = [];
-                        if (c.documento_a || c.valor_a) valores.push((c.documento_a ? etiquetaDocV2(c.documento_a) : "Documento A") + ": " + (c.valor_a || "sin dato"));
-                        if (c.documento_b || c.valor_b) valores.push((c.documento_b ? etiquetaDocV2(c.documento_b) : "Documento B") + ": " + (c.valor_b || "sin dato"));
-                        compHtml.push("<div class=\"col-12 col-lg-6\"><div class=\"border rounded p-2 h-100 " + cls + "\"><div class=\"d-flex gap-2\"><i class=\"fa " + icon + " mt-1\"></i><div class=\"w-100\"><div class=\"d-flex flex-wrap align-items-start justify-content-between gap-1\"><div class=\"fw-semibold\">" + escHtmlComparaciones(c.categoria || "Comparacion") + " · " + escHtmlComparaciones(c.etiqueta || "") + "</div>" + estadoComp + "</div>" + (detalle ? "<div class=\"small\">" + escHtmlComparaciones(detalle) + "</div>" : "") + (valores.length ? "<div class=\"small text-muted mt-1\">" + escHtmlComparaciones(valores.join(" | ")) + "</div>" : "") + "</div></div></div></div>");
+                        if (c.documento_a || c.valor_a) valores.push((c.documento_a ? actorComparacionV2(c.documento_a) : "Documento A") + ": " + valorComparacionV2(c.valor_a));
+                        if (c.documento_b || c.valor_b) valores.push((c.documento_b ? actorComparacionV2(c.documento_b) : "Documento B") + ": " + valorComparacionV2(c.valor_b));
+                        compHtml.push("<div class=\"col-12 col-lg-6\"><div class=\"border rounded p-2 h-100 " + cls + "\"><div class=\"d-flex gap-2\"><i class=\"fa " + icon + " mt-1\"></i><div class=\"w-100\"><div class=\"d-flex flex-wrap align-items-start justify-content-between gap-1\"><div class=\"fw-semibold\">" + escHtmlComparaciones(textoCategoriaComparacionV2(c.categoria || "Comparación")) + " · " + escHtmlComparaciones(textoEtiquetaComparacionV2(c.etiqueta || "")) + "</div>" + estadoComp + "</div>" + (detalle ? "<div class=\"small\">" + escHtmlComparaciones(detalle) + "</div>" : "") + (valores.length ? "<div class=\"small text-muted mt-1\">" + escHtmlComparaciones(valores.join(" · ")) + "</div>" : "") + "</div></div></div></div>");
                     });
 
                     var resumen = String(v.resumen_ia || "");
                     var htmlV2 = "<div class=\"card border shadow-none doc-v2-full\"><div class=\"card-body py-2 small\">";
-                    htmlV2 += "<div class=\"d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2\"><div><span class=\"fw-semibold small\">Analisis cruzado del expediente</span><div class=\"text-muted\">La IA documental reviso identidad, vigencia, reglas documentales y consistencia entre archivos.</div></div><span><span class=\"badge bg-success me-1\">" + ok + "/" + total + " coinciden</span>" + (fallas ? "<span class=\"badge bg-danger me-1\">" + fallas + " fallas</span>" : "") + (avisos ? "<span class=\"badge bg-warning text-dark\">" + avisos + " avisos</span>" : "") + "</span></div>";
+                    htmlV2 += "<div class=\"d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2\"><div><span class=\"fw-semibold small\">Análisis cruzado del expediente</span><div class=\"text-muted\">La IA documental revisó los documentos, la identidad, la vigencia y la consistencia de los datos principales.</div></div><span><span class=\"badge bg-success me-1\">" + ok + "/" + total + " coinciden</span>" + (fallas ? "<span class=\"badge bg-danger me-1\">" + fallas + " diferencia" + (fallas === 1 ? "" : "s") + "</span>" : "") + (avisos ? "<span class=\"badge bg-warning text-dark\">" + avisos + " aviso" + (avisos === 1 ? "" : "s") + "</span>" : "") + "</span></div>";
                     if (avisos) {
-                        htmlV2 += "<div class=\"alert alert-warning py-2 px-2 mb-2\"><strong>Avisos:</strong> se muestran en amarillo. No bloquean por si solos; indican lecturas aceptadas con observacion, por ejemplo variaciones menores de CURP por OCR/IA.</div>";
+                        htmlV2 += "<div class=\"alert alert-warning py-2 px-2 mb-2\"><strong>Avisos:</strong> se muestran en amarillo. No bloquean por sí solos; señalan datos que conviene revisar, por ejemplo una lectura automática con variación menor.</div>";
                     }
                     if (resumen) {
                         htmlV2 += "<div class=\"alert " + (v.todo_coincide === true ? "alert-success" : "alert-warning") + " py-2 px-2 mb-2\"><strong>Resultado final:</strong> " + escHtmlComparaciones(resumen) + "</div>";
                     }
                     htmlV2 += "<div class=\"row g-2 mb-2\">" + (docsHtml.length ? docsHtml.join("") : "<div class=\"col-12 text-muted\">No hay detalle por documento guardado.</div>") + "</div>";
                     if (compHtml.length) {
-                        htmlV2 += "<div class=\"border-top pt-2 mt-2\"><div class=\"fw-semibold mb-2\">Comparaciones leidas por la IA</div><div class=\"row g-2\">" + compHtml.join("") + "</div></div>";
+                        htmlV2 += "<div class=\"border-top pt-2 mt-2\"><div class=\"fw-semibold mb-2\">Revisión cruzada de datos</div><div class=\"row g-2\">" + compHtml.join("") + "</div></div>";
                     }
                     htmlV2 += "</div></div>";
                     guardarAnalisisCruzadoCandidatoHtml(htmlV2);
@@ -12999,8 +13276,8 @@ class CapHum extends Controller
                             var bodyTxt = String(body || "");
                             var pareceHtml = r.redirected || /<(html|body|!doctype)/i.test(bodyTxt);
                             var msgJson = pareceHtml
-                                ? "No se pudo cargar la documentaci&oacute;n porque la sesi&oacute;n o los permisos no devolvieron JSON. Recargue la p&aacute;gina e intente de nuevo."
-                                : "No se pudo cargar la lista de documentos por una respuesta inv&aacute;lida del servidor.";
+                                ? "No se pudo cargar la documentación porque la sesión o los permisos no devolvieron JSON. Recargue la página e intente de nuevo."
+                                : "No se pudo cargar la lista de documentos por una respuesta inválida del servidor.";
                             setDocModalApiTraceUsuario(msgJson, "err");
                             var errJson = new Error(msgJson);
                             errJson.name = "DocListInvalidJson";
@@ -17033,8 +17310,8 @@ class CapHum extends Controller
         if (!empty($payload['metricas']['expediente_completo']) && $this->docVerifProcesoEnCursoVencido($verificacion, 180)) {
             $this->guardarVerificacionExpedienteErrorMotorV2(
                 (int) $id_candidato,
-                'El analisis documental tardo mas de lo esperado. Los documentos siguen cargados; pulse Reevaluar para intentarlo de nuevo.',
-                ['No se marco revision manual por este motivo.']
+                'El análisis documental tardó más de lo esperado. Los documentos siguen cargados; pulse Reevaluar para intentarlo de nuevo.',
+                ['No se marcó revisión manual por este motivo.']
             );
             $verificacion = CandidatosDAO::getVerificacionExpediente($id_candidato);
             if (is_array($verificacion)) {
@@ -17061,8 +17338,8 @@ class CapHum extends Controller
             } else {
                 $resCola = $this->encolarVerificacionDocumentalCandidato($id_candidato, [], true, $verificacion === null ? 'modal_auto_sin_dictamen' : 'modal_auto_reintento');
                 if (empty($resCola['success'])) {
-                    $errorCola = (string) ($resCola['error'] ?? $resCola['mensaje'] ?? 'No se pudo encolar la verificacion documental.');
-                    $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, $errorCola, ['No se pudo iniciar el cruce automatico documental.']);
+                    $errorCola = (string) ($resCola['error'] ?? $resCola['mensaje'] ?? 'No se pudo encolar la verificación documental.');
+                    $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, $errorCola, ['No se pudo iniciar el cruce automático documental.']);
                     $verificacion = CandidatosDAO::getVerificacionExpediente($id_candidato);
                     $payload['verificacion_expediente'] = is_array($verificacion) ? $verificacion : null;
                 } else {
@@ -17072,7 +17349,7 @@ class CapHum extends Controller
                         'foto_rechazada' => false,
                         'checks_ok' => 0,
                         'checks_totales' => 0,
-                        'alertas' => ['Validacion documental en proceso. El expediente ya esta completo y se esta ejecutando el cruce automatico.'],
+                        'alertas' => ['Validación documental en proceso. El expediente ya está completo y se está ejecutando el cruce automático.'],
                         'identificacion_frente_score' => null,
                         'identificacion_reverso_score' => null,
                         'comparaciones' => null,
@@ -17316,7 +17593,7 @@ class CapHum extends Controller
             }
             return $respuestaJob;
         } catch (\Throwable $e) {
-            $this->guardarVerificacionExpedienteErrorMotorV2($idCandidato, $e->getMessage(), ['No se pudo procesar el analisis documental.']);
+            $this->guardarVerificacionExpedienteErrorMotorV2($idCandidato, $e->getMessage(), ['No se pudo procesar el análisis documental.']);
             CandidatosDAO::finalizarJobVerificacionDocumental($idJob, false, $e->getMessage());
             return ['procesado' => true, 'ok' => false, 'id_job' => $idJob, 'id_candidato' => $idCandidato, 'error' => $e->getMessage()];
         }
@@ -17573,7 +17850,7 @@ class CapHum extends Controller
             return;
         }
         if (!empty($resultadoApi['error'])) {
-            $alertasErr = ['La verificacion automatica no finalizo por un fallo tecnico de la API. No se considera revision manual; reintente cuando el servicio este disponible.'];
+            $alertasErr = ['La verificación automática no finalizó por un fallo técnico de la API. No se considera revisión manual; reintente cuando el servicio esté disponible.'];
             if ($soloIdentificacion) {
                 array_unshift($alertasErr, 'Modo "solo identificación" activo: el fallo puede no reproducirse al verificar con todos los PDFs.');
             }
@@ -17595,7 +17872,7 @@ class CapHum extends Controller
                 'error_api' => $resultadoApi['error'],
             ];
             CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadError));
-            $mensajeUsuario = 'La verificacion automatica no pudo completarse por un fallo tecnico. Reintente el analisis documental cuando el servicio este disponible.';
+            $mensajeUsuario = 'La verificación automática no pudo completarse por un fallo técnico. Reintente el análisis documental cuando el servicio esté disponible.';
             echo json_encode(self::respuesta(true, $mensajeUsuario, ['verificacion_expediente' => $payloadError]));
             return;
         }
@@ -19874,7 +20151,7 @@ class CapHum extends Controller
         $resultado['revision_manual'] = true;
         $resultado['rechazado'] = false;
         $resultado['mensaje'] = 'NSS detectado. Capital Humano revisara el documento manualmente.';
-        $resultado['nota_backend'] = 'Tarjeta NSS aceptada temporalmente para revision manual; se conservan los datos leidos por la API.';
+        $resultado['nota_backend'] = 'Tarjeta NSS aceptada temporalmente para revisión manual; se conservan los datos leídos por la API.';
         return $resultado;
     }
 
@@ -19991,11 +20268,11 @@ class CapHum extends Controller
                     'mensaje' => null,
                     'verificacion' => is_array($resultado) ? array_merge($resultado, [
                         'revision_manual' => true,
-                        'nota_backend' => 'La constancia CURP no se confirmo en la segunda lectura rapida; se acepta para revision manual.',
+                        'nota_backend' => 'La constancia CURP no se confirmó en la segunda lectura rápida; se acepta para revisión manual.',
                     ]) : [
                         'valido' => false,
                         'revision_manual' => true,
-                        'nota_backend' => 'No se obtuvo respuesta de CURP; se acepta para revision manual.',
+                        'nota_backend' => 'No se obtuvo respuesta de CURP; se acepta para revisión manual.',
                     ],
                 ];
             }
@@ -20014,11 +20291,11 @@ class CapHum extends Controller
                 'mensaje' => null,
                 'verificacion' => is_array($resultado) ? array_merge($resultado, [
                     'revision_manual' => true,
-                    'nota_backend' => 'La identificacion oficial no se confirmo en la segunda lectura rapida; se acepta para revision manual.',
+                    'nota_backend' => 'La identificación oficial no se confirmó en la segunda lectura rápida; se acepta para revisión manual.',
                 ]) : [
                     'valido' => false,
                     'revision_manual' => true,
-                    'nota_backend' => 'No se obtuvo respuesta de precheck; se acepta para revision manual.',
+                    'nota_backend' => 'No se obtuvo respuesta de precheck; se acepta para revisión manual.',
                 ],
             ];
         }
@@ -21322,12 +21599,12 @@ class CapHum extends Controller
     private function agregarArchivosRescatePayloadLigero(array &$payload, array $rutas, array $lecturasDecoded): void
     {
         $prioridad = [
+            ['key' => 'identificacion_oficial', 'campo' => 'identificacion_pdf', 'ruta' => 'identificacion_pdf'],
+            ['key' => 'solicitud_interna', 'campo' => 'solicitud_interna', 'ruta' => 'solicitud_interna'],
             ['key' => 'curp', 'campo' => 'documento_curp', 'ruta' => 'curp'],
             ['key' => 'nss', 'campo' => 'documento_nss', 'ruta' => 'nss'],
             ['key' => 'constancia_fiscal', 'campo' => 'constancia_fiscal', 'ruta' => 'constancia_fiscal'],
             ['key' => 'acta_nacimiento', 'campo' => 'acta_nacimiento', 'ruta' => 'acta_nacimiento'],
-            ['key' => 'identificacion_oficial', 'campo' => 'identificacion_pdf', 'ruta' => 'identificacion_pdf'],
-            ['key' => 'solicitud_interna', 'campo' => 'solicitud_interna', 'ruta' => 'solicitud_interna'],
         ];
         $maxArchivos = 4;
         $maxBytesArchivo = 3 * 1024 * 1024;
@@ -21552,7 +21829,12 @@ class CapHum extends Controller
             'fecha_nacimiento',
             'fecha_emision',
             'fecha_expedicion',
+            'fecha_vencimiento',
             'fecha_documento',
+            'vigencia',
+            'frente_reverso',
+            'frente_detectado',
+            'reverso_detectado',
             'domicilio',
             'direccion',
             'banco_detectado',
@@ -21624,6 +21906,8 @@ class CapHum extends Controller
             'nombre', 'nombre_completo', 'curp', 'curp_extraido', 'curp_lectura_ia',
             'rfc', 'nss', 'nss_extraido', 'nss_lectura_ia',
             'fecha_nacimiento', 'fecha_emision', 'fecha_expedicion',
+            'fecha_vencimiento', 'vigencia',
+            'frente_reverso', 'frente_detectado', 'reverso_detectado',
             'paginas', 'paginas_pdf', 'paginas_analizadas',
         ] as $key) {
             $tieneValor = array_key_exists($key, $validacion)
@@ -23055,7 +23339,7 @@ class CapHum extends Controller
     private function guardarVerificacionExpedienteErrorMotorV2(int $idCandidato, string $error, array $alertasExtra = []): void
     {
         $alertas = array_values(array_filter(array_merge(
-            ['El analisis documental no pudo completar el cruce. Los documentos siguen cargados; reintente cuando el servicio este disponible.'],
+            ['El análisis documental no pudo completar el cruce. Los documentos siguen cargados; reintente cuando el servicio esté disponible.'],
             $alertasExtra
         ), function ($v) {
             return trim((string) $v) !== '';
@@ -23092,7 +23376,7 @@ class CapHum extends Controller
             $resDocs = CandidatosDAO::getDocumentosCandidato($id_candidato);
             if (!$resDocs['success'] || empty($resDocs['datos'])) {
                 error_log('CapHum::verificacionBackground: sin documentos para candidato ' . $id_candidato);
-                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, 'Sin documentos disponibles para ejecutar el analisis documental.');
+                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, 'Sin documentos disponibles para ejecutar el análisis documental.');
                 return false;
             }
             $tiposSubidosSet = array_fill_keys(array_map('intval', $tiposSubidos), true);
@@ -23289,7 +23573,7 @@ class CapHum extends Controller
             }
             if (!$rutasParaValidar['identificacion_pdf']) {
                 error_log('CapHum::verificacionBackground: falta identificación oficial (PDF) para candidato ' . $id_candidato);
-                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, 'Falta identificacion oficial PDF para ejecutar el analisis documental.');
+                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, 'Falta identificación oficial PDF para ejecutar el análisis documental.');
                 return false;
             }
             $soloIdentificacion = $this->docVerificacionIniSoloIdentificacion();
@@ -23320,7 +23604,7 @@ class CapHum extends Controller
                 return true;
             } else {
                 $err = is_array($resultadoApi) ? ($resultadoApi['error'] ?? 'desconocido') : 'null';
-            $alertasErr = ['El analisis documental no pudo completar el cruce. No se marca como revision manual; use reintentar cuando el servicio este disponible.'];
+                $alertasErr = ['El análisis documental no pudo completar el cruce. No se marca como revisión manual; use reintentar cuando el servicio esté disponible.'];
                 if ($soloIdentificacion) {
                     array_unshift($alertasErr, 'Modo "solo identificación" (config.ini): el fallo puede no reproducirse con expediente completo.');
                 }
@@ -23332,7 +23616,7 @@ class CapHum extends Controller
                 error_log('CapHum::verificacionBackground: error API para candidato ' . $id_candidato . ': ' . $err);
             }
         } catch (\Throwable $e) {
-            $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, $e->getMessage(), ['No se pudo ejecutar el analisis documental.']);
+            $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, $e->getMessage(), ['No se pudo ejecutar el análisis documental.']);
             error_log('CapHum::verificacionBackground: excepción candidato ' . $id_candidato . ': ' . $e->getMessage());
             return false;
         }
@@ -26089,6 +26373,7 @@ class CapHum extends Controller
             : ['datos' => []];
         self::set("departamento", $departamentosView);
         self::set("puedeDescargarPlantillaGestion", in_array(self::MODULO_GESTION_PLANTILLA, $modulos));
+        self::set("puedeImportarEstructuraGestion", in_array(self::MODULO_GESTION_ACTUALIZAR_ESTRUCTURA, $modulos));
         self::set("puedeAgregarUsuarioGestion", in_array(self::MODULO_GESTION_AGREGAR_USUARIO, $modulos));
         self::set("puedeEditarUsuarioGestion", in_array(self::MODULO_GESTION_EDITAR_USUARIO, $modulos));
         self::set("puedeCargarDocumentoGestion", in_array(self::MODULO_GESTION_CARGAR_DOCUMENTO, $modulos));
@@ -26670,6 +26955,363 @@ class CapHum extends Controller
         } catch (\Throwable $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo leer el archivo de sueldos.', 'error' => $e->getMessage()]);
         }
+    }
+
+    public function analizarImportacionDatosRrhhCurp()
+    {
+        $this->procesarImportacionDatosRrhhCurp(false);
+    }
+
+    public function importarDatosRrhhCurp()
+    {
+        $this->procesarImportacionDatosRrhhCurp(true);
+    }
+
+    private function procesarImportacionDatosRrhhCurp(bool $aplicar): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para importar datos RR.HH.']);
+            return;
+        }
+
+        $archivo = $_FILES['archivo'] ?? null;
+        if (empty($archivo) || !empty($archivo['error'])) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona un archivo Excel o CSV valido.']);
+            return;
+        }
+
+        $nombre = (string)($archivo['name'] ?? '');
+        $tmp = (string)($archivo['tmp_name'] ?? '');
+        $extension = strtolower(pathinfo($nombre, PATHINFO_EXTENSION));
+        if (!is_uploaded_file($tmp) || !in_array($extension, ['xlsx', 'xls', 'csv'], true)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El archivo debe ser .xlsx, .xls o .csv.']);
+            return;
+        }
+
+        try {
+            $filas = $this->leerFilasDatosRrhhCurp($tmp, $extension);
+            if (empty($filas)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se encontraron filas con CURP para importar.']);
+                return;
+            }
+
+            $resultado = CapHumDAO::importarDatosRrhhPorCurp($filas, self::usuarioSesionId(), $aplicar);
+            self::respuestaJSON($resultado);
+        } catch (\Throwable $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No se pudo leer el archivo de datos RR.HH.',
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    public function importarCambioEstructuraGestion()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!self::tieneModuloWeb(self::MODULO_GESTION_ACTUALIZAR_ESTRUCTURA)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para importar cambios de estructura.']);
+            return;
+        }
+
+        $archivo = $_FILES['archivo'] ?? null;
+        if (empty($archivo) || !empty($archivo['error'])) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona un archivo Excel o CSV valido.']);
+            return;
+        }
+
+        $nombre = (string)($archivo['name'] ?? '');
+        $tmp = (string)($archivo['tmp_name'] ?? '');
+        $extension = strtolower(pathinfo($nombre, PATHINFO_EXTENSION));
+        if (!is_uploaded_file($tmp) || !in_array($extension, ['xlsx', 'xls', 'csv'], true)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El archivo debe ser .xlsx, .xls o .csv.']);
+            return;
+        }
+
+        try {
+            $filas = $this->leerFilasCambioEstructuraGestion($tmp, $extension);
+            if (empty($filas)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se encontraron filas para actualizar estructura.']);
+                return;
+            }
+
+            $aplicar = !empty($_POST['aplicar']) && (string)$_POST['aplicar'] !== '0';
+            $resultado = CapHumDAO::importarCambiosEstructuraPorExternalId($filas, self::usuarioSesionId(), $aplicar);
+            self::respuestaJSON($resultado);
+        } catch (\Throwable $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No se pudo leer el archivo de cambio de estructura.',
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    private function leerFilasCambioEstructuraGestion(string $ruta, string $extension): array
+    {
+        $matriz = [];
+        if ($extension === 'csv') {
+            $handle = fopen($ruta, 'r');
+            if (!$handle) {
+                return [];
+            }
+            while (($row = fgetcsv($handle, 0, ',')) !== false) {
+                $matriz[] = $row;
+            }
+            fclose($handle);
+        } else {
+            if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+                $autoload = dirname(__DIR__, 2) . '/vendor/autoload.php';
+                if (is_file($autoload)) {
+                    require_once $autoload;
+                }
+            }
+            if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+                throw new \RuntimeException('PhpSpreadsheet no esta disponible.');
+            }
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
+            $matriz = $spreadsheet->getActiveSheet()->toArray(null, true, true, false);
+        }
+
+        if (count($matriz) < 2) {
+            return [];
+        }
+
+        $normalizarHeader = static function ($valor): string {
+            $texto = strtolower(trim((string)$valor));
+            $texto = strtr($texto, [
+                'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n',
+                'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u', 'Ñ' => 'n',
+            ]);
+            return trim((string)preg_replace('/[^a-z0-9]+/', '_', $texto), '_');
+        };
+
+        $headers = array_map($normalizarHeader, array_shift($matriz));
+        $buscarIndice = static function (array $alias) use ($headers) {
+            foreach ($alias as $header) {
+                $idx = array_search($header, $headers, true);
+                if ($idx !== false) {
+                    return $idx;
+                }
+            }
+            return false;
+        };
+
+        $idxExternal = $buscarIndice(['external_id', 'externalid', 'numero_empleado', 'no_empleado', 'num_empleado']);
+        $idxNombre = $buscarIndice(['nombre_completo', 'nombre']);
+        $idxPuesto = $buscarIndice(['puesto_legacy', 'puesto', 'nombre_puesto']);
+        $idxDepartamento = $buscarIndice(['departamento', 'nombre_departamento']);
+        $idxSupervisor = $buscarIndice(['supervisor', 'jefe_directo', 'jefe']);
+        $idxSubgerente = $buscarIndice(['subgerente']);
+        $idxGerente = $buscarIndice(['gerente']);
+
+        if ($idxExternal === false || $idxPuesto === false || $idxDepartamento === false) {
+            throw new \RuntimeException('El archivo debe tener las columnas external_id, puesto_legacy y departamento.');
+        }
+
+        $filas = [];
+        foreach ($matriz as $offset => $row) {
+            $externalId = trim((string)($row[$idxExternal] ?? ''));
+            $puesto = trim((string)($row[$idxPuesto] ?? ''));
+            $departamento = trim((string)($row[$idxDepartamento] ?? ''));
+            $nombreCompleto = $idxNombre !== false ? trim((string)($row[$idxNombre] ?? '')) : '';
+            $supervisor = $idxSupervisor !== false ? trim((string)($row[$idxSupervisor] ?? '')) : '';
+            $subgerente = $idxSubgerente !== false ? trim((string)($row[$idxSubgerente] ?? '')) : '';
+            $gerente = $idxGerente !== false ? trim((string)($row[$idxGerente] ?? '')) : '';
+
+            if ($externalId === '' && $puesto === '' && $departamento === '' && $nombreCompleto === '') {
+                continue;
+            }
+
+            $filas[] = [
+                'fila' => $offset + 2,
+                'external_id' => $externalId,
+                'nombre_completo' => $nombreCompleto,
+                'puesto_legacy' => $puesto,
+                'departamento' => $departamento,
+                'supervisor' => $supervisor,
+                'subgerente' => $subgerente,
+                'gerente' => $gerente,
+            ];
+        }
+
+        return $filas;
+    }
+
+    private function leerFilasDatosRrhhCurp(string $ruta, string $extension): array
+    {
+        if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+            $autoload = dirname(__DIR__, 2) . '/vendor/autoload.php';
+            if (is_file($autoload)) {
+                require_once $autoload;
+            }
+        }
+        if ($extension !== 'csv' && !class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+            throw new \RuntimeException('PhpSpreadsheet no esta disponible.');
+        }
+
+        $normalizarHeader = static function ($valor): string {
+            $texto = strtolower(trim((string)$valor));
+            $texto = strtr($texto, [
+                'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n',
+                'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u', 'Ñ' => 'n',
+                'Ã¡' => 'a', 'Ã©' => 'e', 'Ã­' => 'i', 'Ã³' => 'o', 'Ãº' => 'u', 'Ã±' => 'n',
+                'Ã' => 'a', 'Ã‰' => 'e', 'Ã' => 'i', 'Ã“' => 'o', 'Ãš' => 'u', 'Ã‘' => 'n',
+            ]);
+            return trim((string)preg_replace('/[^a-z0-9]+/', '_', $texto), '_');
+        };
+        $valorCelda = static function ($valor): string {
+            if ($valor instanceof \DateTimeInterface) {
+                return $valor->format('Y-m-d');
+            }
+            return trim((string)($valor ?? ''));
+        };
+        $fechaCelda = static function ($valor) use ($valorCelda): string {
+            if ($valor instanceof \DateTimeInterface) {
+                return $valor->format('Y-m-d');
+            }
+            if (is_numeric($valor) && class_exists('\PhpOffice\PhpSpreadsheet\Shared\Date')) {
+                try {
+                    return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$valor)->format('Y-m-d');
+                } catch (\Throwable $e) {
+                    return $valorCelda($valor);
+                }
+            }
+            $texto = $valorCelda($valor);
+            if ($texto === '') {
+                return '';
+            }
+            $ts = strtotime($texto);
+            return $ts ? date('Y-m-d', $ts) : $texto;
+        };
+        $buscarIndice = static function (array $headers, array $alias) {
+            foreach ($alias as $nombre) {
+                $idx = array_search($nombre, $headers, true);
+                if ($idx !== false) {
+                    return $idx;
+                }
+            }
+            return false;
+        };
+        $obtener = static function (array $row, array $headers, array $alias) use ($buscarIndice, $valorCelda) {
+            $idx = $buscarIndice($headers, $alias);
+            return $idx === false ? '' : $valorCelda($row[$idx] ?? '');
+        };
+        $obtenerFecha = static function (array $row, array $headers, array $alias) use ($buscarIndice, $fechaCelda) {
+            $idx = $buscarIndice($headers, $alias);
+            return $idx === false ? '' : $fechaCelda($row[$idx] ?? '');
+        };
+        $procesarMatriz = function (array $matriz, string $hoja) use ($normalizarHeader, $obtener, $obtenerFecha): array {
+            $headerIndex = null;
+            $headers = [];
+            $limite = min(30, count($matriz));
+            for ($i = 0; $i < $limite; $i++) {
+                $headersCandidatos = array_map($normalizarHeader, $matriz[$i] ?? []);
+                if (in_array('curp', $headersCandidatos, true)) {
+                    $headerIndex = $i;
+                    $headers = $headersCandidatos;
+                    break;
+                }
+            }
+            if ($headerIndex === null) {
+                return [];
+            }
+
+            $filas = [];
+            for ($i = $headerIndex + 1; $i < count($matriz); $i++) {
+                $row = $matriz[$i] ?? [];
+                $curp = $obtener($row, $headers, ['curp']);
+                $nombre = $obtener($row, $headers, ['nombre_apellidos', 'apellidos_nombre', 'nombre_completo']);
+                if (trim($curp) === '' && trim($nombre) === '') {
+                    continue;
+                }
+
+                $codigo = $obtener($row, $headers, ['codigo_contpac', 'codigo_contpaq', 'codigo_conta', 'codigo_contable']);
+                $rfc = $obtener($row, $headers, ['rfc']);
+                $telefono = $obtener($row, $headers, ['no_telefonico', 'telefono', 'telefono_personal', 'numero_telefonico']);
+                $correo = $obtener($row, $headers, ['correo_electronico', 'correo', 'email']);
+                $cp = $obtener($row, $headers, ['cp', 'codigo_postal']);
+                $domicilio = $obtener($row, $headers, ['domicilio_particular', 'domicilio']);
+                $banco = $obtener($row, $headers, ['nombre_de_banco', 'banco']);
+
+                $filas[] = [
+                    'fila' => $i + 1,
+                    'hoja' => $hoja,
+                    'curp' => $curp,
+                    'persona' => [
+                        'codigo_contpac' => $codigo,
+                        'rfc' => $rfc,
+                        'correo' => $correo,
+                        'telefono_uno' => $telefono,
+                        'codigo_postal' => $cp,
+                        'domicilio_calle_texto' => $domicilio,
+                    ],
+                    'rrhh' => [
+                        'registro_patronal' => $obtener($row, $headers, ['registro_patronal']),
+                        'codigo_contpaq' => $codigo,
+                        'fecha_imss_alta' => $obtenerFecha($row, $headers, ['fecha_imss_alta', 'fecha_alta_imss']),
+                        'puesto_texto' => $obtener($row, $headers, ['puesto']),
+                        'departamento_texto' => $obtener($row, $headers, ['departamento']),
+                        'area_texto' => $obtener($row, $headers, ['area']),
+                        'direccion_organizacional' => $obtener($row, $headers, ['direccion_organizacional', 'direccion']),
+                        'ubicacion_laboral' => $obtener($row, $headers, ['ubicacion_laboral']),
+                        'municipio_laboral' => $obtener($row, $headers, ['municipio']),
+                        'jefe_directo_texto' => $obtener($row, $headers, ['jefe_directo', 'jefe']),
+                        'sueldo_neto' => $obtener($row, $headers, ['sueldo_neto']),
+                        'sueldo_quincenal' => $obtener($row, $headers, ['sueldo_quincenal']),
+                        'sueldo_bruto' => $obtener($row, $headers, ['sueldo_bruto']),
+                        'salario_diario' => $obtener($row, $headers, ['salario_diario']),
+                        'sbc' => $obtener($row, $headers, ['sbc']),
+                        'rfc' => $rfc,
+                        'nss' => $obtener($row, $headers, ['nss', 'numero_seguridad_social', 'no_seguridad_social']),
+                        'entidad_federativa_rfc' => $obtener($row, $headers, ['entidad_federativa_rfc', 'entidad_federativa']),
+                        'anio' => $obtener($row, $headers, ['ano', 'anio']),
+                        'mes' => $obtener($row, $headers, ['mes']),
+                        'dia' => $obtener($row, $headers, ['dia']),
+                        'fecha_nacimiento' => $obtenerFecha($row, $headers, ['fecha_de_nacimiento', 'fecha_nacimiento']),
+                        'sexo' => $obtener($row, $headers, ['sexo']),
+                        'tipo_sangre' => $obtener($row, $headers, ['tipo_sangre']),
+                        'alergias' => $obtener($row, $headers, ['alergias']),
+                        'enfermedades_cronicas' => $obtener($row, $headers, ['enfermedades_cronicas']),
+                        'enfermedades_hereditarias' => $obtener($row, $headers, ['enfermedades_hereditarias']),
+                        'medicamentos_actuales' => $obtener($row, $headers, ['medicamentos_actuales']),
+                        'discapacidad_condicion' => $obtener($row, $headers, ['discapacidad_condicion', 'discapacidad']),
+                        'observaciones_medicas' => $obtener($row, $headers, ['observaciones_medicas']),
+                        'observaciones' => $obtener($row, $headers, ['observaciones']),
+                    ],
+                    'cuenta_bancaria' => [
+                        'nombre_banco' => $banco,
+                        'numero_cuenta' => $obtener($row, $headers, ['no_cuenta', 'numero_cuenta', 'cuenta']),
+                        'clabe' => $obtener($row, $headers, ['clabe_interbancaria', 'clabe']),
+                    ],
+                ];
+            }
+            return $filas;
+        };
+
+        if ($extension === 'csv') {
+            $matriz = [];
+            $handle = fopen($ruta, 'r');
+            if (!$handle) {
+                return [];
+            }
+            while (($row = fgetcsv($handle, 0, ',')) !== false) {
+                $matriz[] = $row;
+            }
+            fclose($handle);
+            return $procesarMatriz($matriz, 'CSV');
+        }
+
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
+        $filas = [];
+        foreach ($spreadsheet->getWorksheetIterator() as $sheet) {
+            $matriz = $sheet->toArray(null, false, true, false);
+            $filas = array_merge($filas, $procesarMatriz($matriz, $sheet->getTitle()));
+        }
+        return $filas;
     }
 
     private function leerFilasSueldosRrhh(string $ruta, string $extension): array
@@ -27286,6 +27928,30 @@ class CapHum extends Controller
         $detalles = CapHumDAO::getPersonaDetallePerfil($idPersona);
 
         self::respuestaJSON($detalles);
+    }
+
+    public function getPermisosJerarquicosPerfil()
+    {
+        if (!self::puedeGestionarPermisosEspeciales()) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No tienes permiso para consultar accesos a puestos del usuario.'
+            ]);
+            return;
+        }
+
+        $input = json_decode(file_get_contents("php://input"), true);
+        $idPersona = isset($input['idPersona']) ? (int) $input['idPersona'] : 0;
+
+        if ($idPersona <= 0) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'ID de persona no recibido'
+            ]);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::getPermisosJerarquicosPerfil($idPersona));
     }
 
     public function getDatosReasignacionBaja()

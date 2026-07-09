@@ -5242,6 +5242,7 @@ window.puedeGestionarPermisos = <?= json_encode(!empty($puedeGestionarPermisos ?
 window.puedeDescargarPlantillaGestion = <?= json_encode(!empty($puedeDescargarPlantillaGestion ?? false)) ?>;
 window.puedeAgregarUsuarioGestion = <?= json_encode(!empty($puedeAgregarUsuarioGestion ?? false)) ?>;
 window.puedeEditarUsuarioGestion = <?= json_encode(!empty($puedeEditarUsuarioGestion ?? false)) ?>;
+window.puedeImportarEstructuraGestion = <?= json_encode(!empty($puedeImportarEstructuraGestion ?? false)) ?>;
 window.puedeCargarDocumentoGestion = <?= json_encode(!empty($puedeCargarDocumentoGestion ?? false)) ?>;
 window.puedeRegistrarAusenciaGestion = <?= json_encode(!empty($puedeRegistrarAusenciaGestion ?? false)) ?>;
 window.puedeDarBajaGestion = <?= json_encode(!empty($puedeDarBajaGestion ?? false)) ?>;
@@ -5594,6 +5595,18 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 >
                     <i class="fa fa-download icon-sm me-sm-2"></i>
                     <span class="d-inline-block">Plantilla</span>
+                </button>
+                <?php endif; ?>
+
+                <?php if (!empty($puedeImportarEstructuraGestion ?? false)): ?>
+                <button
+                  type="button"
+                  class="btn btn-warning text-white btn-action-size"
+                  onclick="abrirCargaCambioEstructuraGestion()"
+                  title="Actualizar estructura por Excel"
+                >
+                    <i class="fa fa-sitemap icon-sm me-sm-2"></i>
+                    <span class="d-inline-block">Actualizar estructura</span>
                 </button>
                 <?php endif; ?>
 
@@ -9174,6 +9187,278 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     }
   }
 
+  function escapeCambioEstructuraHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function badgeCambioEstructura(estado) {
+    if (estado === 'error') return '<span class="badge bg-label-danger text-danger">Error</span>';
+    if (estado === 'cambio') return '<span class="badge bg-label-warning text-warning">Con cambios</span>';
+    return '<span class="badge bg-label-success text-success">Sin cambios</span>';
+  }
+
+  function ayudaCambioEstructuraPorMensaje(mensaje) {
+    const texto = String(mensaje || '').toLowerCase();
+    if (texto.includes('external_id vacio')) return 'Captura el external_id en esa fila.';
+    if (texto.includes('external_id repetido')) return 'Deja una sola fila por persona en el Excel.';
+    if (texto.includes('numero_empleado igual')) return 'Verifica que el external_id exista como numero_empleado en persona.';
+    if (texto.includes('mas de una persona con numero_empleado')) return 'Limpia el numero_empleado duplicado en la base antes de importar.';
+    if (texto.includes('puesto_legacy vacio')) return 'Captura el puesto_legacy.';
+    if (texto.includes('departamento vacio')) return 'Captura el departamento.';
+    if (texto.includes('no existe el puesto')) return 'Corrige el nombre del puesto o departamento segun el catalogo.';
+    if (texto.includes('mas de un registro del catalogo')) return 'Depura puestos/departamentos duplicados en catalogo.';
+    if (texto.includes('no se encontro') && texto.includes('activo')) return 'Corrige el nombre del jefe o confirma que esa persona este activa.';
+    if (texto.includes('coincide con mas de una persona activa')) return 'Usa un identificador unico del jefe o corrige duplicados de nombres.';
+    if (texto.includes('estatus baja')) return 'No se actualiza estructura de bajas; revisa el estatus de la persona.';
+    if (texto.includes('propio jefe')) return 'Cambia la cadena de mando; una persona no puede reportarse a si misma.';
+    if (texto.includes('no pueden ser la misma persona')) return 'Separa los niveles de supervisor, subgerente y gerente.';
+    if (texto.includes('ciclo')) return 'Revisa la jerarquia; la cadena de mando se esta cerrando sobre si misma.';
+    return 'Revisa y corrige esta fila antes de volver a importar.';
+  }
+
+  function panelErroresCambioEstructura(detalles) {
+    const errores = detalles.filter(item => item.estado === 'error');
+    if (!errores.length) return '';
+    const visibles = errores.slice(0, 10);
+    const items = visibles.map(item => {
+      const mensajes = Array.isArray(item.mensajes) ? item.mensajes : [];
+      const lista = mensajes.map(msg => `
+        <li>
+          <div class="fw-semibold">${escapeCambioEstructuraHtml(msg)}</div>
+          <small class="text-muted">${escapeCambioEstructuraHtml(ayudaCambioEstructuraPorMensaje(msg))}</small>
+        </li>
+      `).join('');
+      return `
+        <div class="border rounded p-2 mb-2 bg-white">
+          <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
+            <span class="badge bg-danger">Fila ${escapeCambioEstructuraHtml(item.fila || '')}</span>
+            <span class="fw-semibold">External ID: ${escapeCambioEstructuraHtml(item.external_id || 'Sin dato')}</span>
+            <span class="text-muted">${escapeCambioEstructuraHtml(item.nombre_excel || item.persona_nombre || '')}</span>
+          </div>
+          <ul class="mb-0 ps-3">${lista}</ul>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="alert alert-danger text-start">
+        <div class="fw-bold mb-2">
+          No se aplico ningun cambio porque el archivo tiene ${errores.length} fila(s) con errores.
+        </div>
+        <div class="small mb-2">
+          Corrige estos puntos en el Excel o en el catalogo/base de datos y vuelve a cargar el archivo.
+        </div>
+        ${items}
+        ${errores.length > visibles.length ? `<div class="small fw-semibold mt-2">Hay ${errores.length - visibles.length} error(es) adicional(es). Revisa la tabla inferior para verlos.</div>` : ''}
+      </div>
+    `;
+  }
+
+  function panelAvisosCambioEstructura(detalles) {
+    const avisos = detalles.filter(item =>
+      item.estado !== 'error' &&
+      Array.isArray(item.mensajes) &&
+      item.mensajes.some(msg => !String(msg || '').toLowerCase().includes('listo para actualizar') && !String(msg || '').toLowerCase().includes('sin cambios detectados'))
+    );
+    if (!avisos.length) return '';
+    const visibles = avisos.slice(0, 6).map(item => {
+      const mensajes = item.mensajes
+        .filter(msg => !String(msg || '').toLowerCase().includes('listo para actualizar') && !String(msg || '').toLowerCase().includes('sin cambios detectados'))
+        .join(' ');
+      return `
+        <li>
+          <strong>Fila ${escapeCambioEstructuraHtml(item.fila || '')}</strong>
+          (${escapeCambioEstructuraHtml(item.external_id || 'Sin external_id')}):
+          ${escapeCambioEstructuraHtml(mensajes)}
+        </li>
+      `;
+    }).join('');
+    return `
+      <div class="alert alert-warning py-2 text-start">
+        <div class="fw-bold mb-1">Avisos para revisar</div>
+        <ul class="mb-0 ps-3">${visibles}</ul>
+      </div>
+    `;
+  }
+
+  function resumenCambioEstructuraHtml(datos) {
+    const resumen = datos?.resumen || {};
+    const detalles = Array.isArray(datos?.detalles) ? datos.detalles : [];
+    const primeros = detalles.slice(0, 18);
+    const filas = primeros.map(item => {
+      const mensajes = Array.isArray(item.mensajes) ? item.mensajes.join(' ') : '';
+      return `
+        <tr>
+          <td class="text-nowrap">${escapeCambioEstructuraHtml(item.fila || '')}</td>
+          <td class="text-nowrap fw-semibold">${escapeCambioEstructuraHtml(item.external_id || '')}</td>
+          <td>
+            <div class="fw-semibold">${escapeCambioEstructuraHtml(item.persona_nombre || item.nombre_excel || 'Sin persona')}</div>
+            <small class="text-muted">${escapeCambioEstructuraHtml(item.nombre_excel || '')}</small>
+          </td>
+          <td>
+            <div><small class="text-muted">Actual:</small> ${escapeCambioEstructuraHtml(item.departamento_actual || '')} / ${escapeCambioEstructuraHtml(item.puesto_actual || '')}</div>
+            <div><small class="text-muted">Nuevo:</small> ${escapeCambioEstructuraHtml(item.departamento_nuevo || '')} / ${escapeCambioEstructuraHtml(item.puesto_nuevo || '')}</div>
+          </td>
+          <td>
+            <div><small class="text-muted">Actual:</small> ${escapeCambioEstructuraHtml(item.jefe_actual || '')}</div>
+            <div><small class="text-muted">Nuevo:</small> ${escapeCambioEstructuraHtml(item.jefe_nuevo || '')}</div>
+          </td>
+          <td>${badgeCambioEstructura(item.estado)}</td>
+          <td style="min-width: 220px;">${escapeCambioEstructuraHtml(mensajes)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    return `
+      <div class="text-start">
+        <div class="row g-2 mb-3">
+          <div class="col"><div class="border rounded p-2 text-center"><div class="fw-bold">${Number(resumen.total || 0)}</div><small>Total</small></div></div>
+          <div class="col"><div class="border rounded p-2 text-center"><div class="fw-bold text-success">${Number(resumen.encontrados || 0)}</div><small>Encontrados</small></div></div>
+          <div class="col"><div class="border rounded p-2 text-center"><div class="fw-bold text-warning">${Number(resumen.con_cambios || 0)}</div><small>Con cambios</small></div></div>
+          <div class="col"><div class="border rounded p-2 text-center"><div class="fw-bold text-danger">${Number(resumen.errores || 0)}</div><small>Errores</small></div></div>
+        </div>
+        <div class="alert alert-info py-2">
+          La llave de busqueda es <strong>external_id</strong> del Excel contra <strong>numero_empleado</strong> en persona.
+          No se modifica <strong>codigo_contpac</strong>.
+        </div>
+        ${panelErroresCambioEstructura(detalles)}
+        ${panelAvisosCambioEstructura(detalles)}
+        <div class="table-responsive" style="max-height: 420px;">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Fila</th>
+                <th>External ID</th>
+                <th>Persona</th>
+                <th>Estructura</th>
+                <th>Jefe</th>
+                <th>Estado</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody>${filas || '<tr><td colspan="7" class="text-center text-muted">Sin detalles para mostrar.</td></tr>'}</tbody>
+          </table>
+        </div>
+        ${detalles.length > primeros.length ? `<div class="small text-muted mt-2">Mostrando ${primeros.length} de ${detalles.length} filas.</div>` : ''}
+      </div>
+    `;
+  }
+
+  async function enviarCambioEstructuraGestion(file, aplicar = false) {
+    const formData = new FormData();
+    formData.append('archivo', file);
+    formData.append('aplicar', aplicar ? '1' : '0');
+    const response = await fetch('/CapHum/importarCambioEstructuraGestion', {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const data = await response.json().catch(() => null);
+    if (!data) throw new Error('La respuesta del servidor no es JSON valido.');
+    return data;
+  }
+
+  async function procesarArchivoCambioEstructuraGestion(file) {
+    if (!file) return;
+    Swal.fire({
+      title: 'Validando estructura...',
+      html: '<p class="mb-0">Revisando personas, puestos y jefes antes de aplicar.</p>',
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => Swal.showLoading()
+    });
+
+    try {
+      const prevalidacion = await enviarCambioEstructuraGestion(file, false);
+      if (!prevalidacion.success) {
+        Swal.fire({
+          icon: 'error',
+          title: 'No se pudo validar el archivo',
+          html: `
+            <div class="text-start">
+              <p class="mb-2">${escapeCambioEstructuraHtml(prevalidacion.mensaje || 'Revisa el archivo.')}</p>
+              ${prevalidacion.error ? `<div class="alert alert-danger py-2">${escapeCambioEstructuraHtml(prevalidacion.error)}</div>` : ''}
+              <div class="alert alert-info py-2 mb-0">
+                El archivo debe incluir al menos:
+                <strong>external_id</strong>, <strong>puesto_legacy</strong> y <strong>departamento</strong>.
+                Tambien puede incluir <strong>supervisor</strong>, <strong>subgerente</strong> y <strong>gerente</strong>.
+              </div>
+            </div>
+          `
+        });
+        return;
+      }
+
+      const resumen = prevalidacion.datos?.resumen || {};
+      const tieneErrores = Number(resumen.errores || 0) > 0;
+      const tieneCambios = Number(resumen.con_cambios || 0) > 0;
+      const confirmacion = await Swal.fire({
+        title: tieneErrores ? 'No se aplicaron cambios' : 'Previsualizacion lista',
+        html: resumenCambioEstructuraHtml(prevalidacion.datos),
+        icon: tieneErrores ? 'warning' : 'info',
+        width: '1100px',
+        showCancelButton: !tieneErrores && tieneCambios,
+        showConfirmButton: true,
+        confirmButtonText: tieneErrores ? 'Entendido' : (tieneCambios ? 'Aplicar cambios' : 'Cerrar'),
+        cancelButtonText: 'Cancelar',
+        customClass: { htmlContainer: 'text-start' }
+      });
+
+      if (tieneErrores || !tieneCambios || !confirmacion.isConfirmed) return;
+
+      Swal.fire({
+        title: 'Aplicando cambios...',
+        html: '<p class="mb-0">Actualizando puestos y cadena de jefes.</p>',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      const aplicado = await enviarCambioEstructuraGestion(file, true);
+      if (!aplicado.success) {
+        Swal.fire({
+          icon: 'error',
+          title: 'No se pudo aplicar',
+          html: `<div class="text-start">${escapeCambioEstructuraHtml(aplicado.mensaje || 'Ocurrio un error al aplicar.')}<br><small>${escapeCambioEstructuraHtml(aplicado.error || '')}</small></div>`
+        });
+        return;
+      }
+
+      Swal.fire({ icon: 'success', title: 'Estructura actualizada', text: aplicado.mensaje || 'Los cambios fueron aplicados correctamente.' });
+      if (typeof llenarFiltros === 'function') llenarFiltros();
+    } catch (error) {
+      Swal.fire({ icon: 'error', title: 'Error', text: error?.message || 'No se pudo procesar el archivo.' });
+    }
+  }
+
+  function abrirCargaCambioEstructuraGestion() {
+    if (!window.puedeImportarEstructuraGestion) {
+      Swal.fire({ icon: 'warning', title: 'Sin permiso', text: 'No tienes permiso para actualizar estructura.' });
+      return;
+    }
+
+    let input = document.getElementById('inputCambioEstructuraGestion');
+    if (!input) {
+      input = document.createElement('input');
+      input.type = 'file';
+      input.id = 'inputCambioEstructuraGestion';
+      input.accept = '.xlsx,.xls,.csv';
+      input.style.display = 'none';
+      input.addEventListener('change', () => {
+        const file = input.files && input.files[0] ? input.files[0] : null;
+        procesarArchivoCambioEstructuraGestion(file);
+      });
+      document.body.appendChild(input);
+    }
+    input.value = '';
+    input.click();
+  }
+
   function ocultarTooltip() {
     const tooltip = document.getElementById('kpiTooltip');
     if (tooltip) {
@@ -11469,6 +11754,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
               </button>`
                 : ''
               }
+              ${mostrarEditarRrhh ? `<button class="btn btn-sm text-white" style="background-color: #7c3aed; border-color: #7c3aed;" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH." aria-label="Editar RR.HH.">
+                  <i class="fa fa-user-pen"></i>
+              </button>` : ''}
               ${mostrarVisualizar
                 ? `<button class="btn btn-sm btn-outline-secondary" onclick="visualizar(${p.id})" title="Visualizar">
                   <i class="fa fa-eye"></i>
@@ -11491,9 +11779,6 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                  <i class="fa fa-lock" style="color: #007bff;"></i>
              </button>` : ''}
            </div>
-              ${mostrarEditarRrhh ? `<button class="btn btn-sm btn-info text-white d-inline-flex align-items-center justify-content-center gap-1 px-3" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH.">
-                  <i class="fa fa-user-pen"></i><span>Editar RR.HH.</span>
-              </button>` : ''}
          </div>`;
         })()
       };
