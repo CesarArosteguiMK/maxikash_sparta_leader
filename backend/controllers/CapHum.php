@@ -9556,6 +9556,7 @@ class CapHum extends Controller
             var candidatoEdicionOriginal = {};
             var candidatoPrecargandoDomicilio = false;
             var candidatosFiltrosLlenos = false;
+            var candidatosDataTableDisponible = false;
             var CANDIDATO_DIRECCION_COBRANZA_ID = 12;
             window.miUsuarioId = Number(window.miUsuarioId || 0);
 
@@ -9958,7 +9959,7 @@ class CapHum extends Controller
                             });
 
                             // Actualizar DataTable (usando $ como en Gestión)
-                            try {
+                            if (candidatosDataTableDisponible) try {
                                 var tabla = $('#tablaCandidatos').DataTable();
                                 if (tabla) {
                                     tabla.clear().rows.add(datos).draw();
@@ -9967,6 +9968,16 @@ class CapHum extends Controller
                                 }
                             } catch (error) {
                                 console.error('getCandidatos: Error al actualizar DataTable', error);
+                                candidatosDataTableDisponible = false;
+                            }
+                            if (!candidatosDataTableDisponible) {
+                                var tablaSimple = document.getElementById('tablaCandidatos');
+                                if (tablaSimple) {
+                                    var cuerpoSimple = tablaSimple.tBodies[0] || tablaSimple.appendChild(document.createElement('tbody'));
+                                    cuerpoSimple.innerHTML = datos.map(function(fila) {
+                                        return '<tr><td></td><td>' + fila.nombreContacto + '</td><td>' + fila.puestoDepto + '</td><td>' + fila.ubicacion + '</td><td>' + fila.estatus + '</td><td>' + fila.acciones + '</td></tr>';
+                                    }).join('');
+                                }
                             }
 
                             // Llenar filtros solo la primera vez
@@ -13780,11 +13791,14 @@ class CapHum extends Controller
 
             function editarCandidato(id) {
         candidatoEditId = id;
+        window.candidatoModalModo = "edit";
+        var modalCandidato = document.getElementById("offcanvasAddCandidato");
+        if (modalCandidato) modalCandidato.setAttribute("data-candidato-mode", "edit");
         candidatoEdicionOriginal = {};
         var titulo = document.getElementById("offcanvasCandidatoTitulo");
-        if (titulo) titulo.textContent = "Editar Candidato";
+        if (titulo) titulo.textContent = "Editar candidato";
         var btnSubmit = document.getElementById("btnSubmitCandidato");
-        if (btnSubmit) { btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar"; btnSubmit.className = "btn btn-success me-2"; }
+        if (btnSubmit) { btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar"; btnSubmit.className = "btn btn-success px-4 shadow-sm me-0"; }
         setRequiredOrganizacionCandidato(false);
         fetch("/caphum/getCandidato/" + id).then(function(r){ return r.json(); }).then(function(res){
             if (!res.success || !res.datos) { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se encontró el candidato." }); return; }
@@ -13870,8 +13884,8 @@ class CapHum extends Controller
         var el = document.getElementById("offcanvasAddCandidato");
         if (!el) return;
         if (el.parentNode !== document.body) document.body.appendChild(el);
-        if (typeof bootstrap !== "undefined" && bootstrap.Offcanvas) { var inst = bootstrap.Offcanvas.getOrCreateInstance(el); if (inst) inst.show(); }
-        else { el.classList.add("show"); el.setAttribute("aria-hidden", "false"); var back = document.createElement("div"); back.className = "offcanvas-backdrop fade show"; back.style.cssText = "position:fixed;top:0;left:0;z-index:1040;width:100vw;height:100vh;background:#000;opacity:0.5;"; back.setAttribute("data-bs-dismiss", "offcanvas"); document.body.appendChild(back); }
+        if (typeof bootstrap !== "undefined" && bootstrap.Modal) { var inst = bootstrap.Modal.getOrCreateInstance(el); if (inst) inst.show(); }
+        else { el.classList.add("show"); el.setAttribute("aria-hidden", "false"); el.style.display = "block"; document.body.classList.add("modal-open"); var back = document.createElement("div"); back.className = "modal-backdrop fade show"; document.body.appendChild(back); }
         }
 
             var candidatoReingresoTimer = null;
@@ -13936,22 +13950,34 @@ class CapHum extends Controller
         fetch("/caphum/buscarReingresoCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, credentials: "same-origin", body: JSON.stringify(data) })
             .then(function(r) { return r.json(); })
             .then(function(res) {
-                if (!res || !res.success || !res.datos) {
+                var coincidencias = [];
+                if (res && Array.isArray(res.datos)) {
+                    coincidencias = res.datos.filter(function(item) { return item && item.id; });
+                } else if (res && res.datos && res.datos.id) {
+                    coincidencias = [res.datos];
+                }
+                if (!res || !res.success || coincidencias.length === 0) {
                     resetReingresoCandidato();
                     return;
                 }
-                candidatoReingresoDetectado = res.datos;
+                candidatoReingresoDetectado = coincidencias[0];
                 var alert = document.getElementById("candidato_reingreso_alerta");
                 var txt = document.getElementById("candidato_reingreso_texto");
                 var chk = document.getElementById("candidato_marcar_reingreso");
                 var es = document.getElementById("candidato_es_reingreso");
                 var id = document.getElementById("candidato_id_persona_reingreso");
                 if (txt) {
-                    txt.textContent = [
-                        candidatoReingresoDetectado.nombre_completo || "Persona encontrada en bajas",
+                    var motivos = Array.isArray(candidatoReingresoDetectado.motivos_coincidencia)
+                        ? candidatoReingresoDetectado.motivos_coincidencia.join(", ")
+                        : "";
+                    var detalle = [
+                        candidatoReingresoDetectado.nombre_completo || "Persona en baja",
+                        candidatoReingresoDetectado.numero_empleado ? "empleado: " + candidatoReingresoDetectado.numero_empleado : "",
                         candidatoReingresoDetectado.fecha_baja ? "baja: " + candidatoReingresoDetectado.fecha_baja : "",
-                        candidatoReingresoDetectado.motivo_baja || ""
-                    ].filter(Boolean).join(" | ") + ". Confirma si este candidato corresponde a ese reingreso.";
+                        candidatoReingresoDetectado.motivo_baja ? "motivo: " + candidatoReingresoDetectado.motivo_baja : "",
+                        motivos ? "coincide por: " + motivos : ""
+                    ].filter(Boolean).join(" | ");
+                    txt.textContent = (coincidencias.length > 1 ? "Se encontraron " + coincidencias.length + " posibles bajas; se muestra la coincidencia mas cercana. " : "") + detalle + ". Confirma si este candidato corresponde a ese reingreso.";
                 }
                 if (alert) alert.classList.remove("d-none");
                 if (chk) chk.checked = true;
@@ -13980,15 +14006,16 @@ class CapHum extends Controller
             if (res.success) {
                 if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Candidato actualizado correctamente." });
                 candidatoEditId = null;
+                window.candidatoModalModo = "create";
                 candidatoEdicionOriginal = {};
-                document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato";
+                document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo candidato";
                 var btnSubmit = document.getElementById("btnSubmitCandidato");
-                if (btnSubmit) { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; }
+                if (btnSubmit) { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary px-4 shadow-sm me-0 d-none"; }
                 setRequiredOrganizacionCandidato(true);
                 form.reset();
                 var fpInput = document.getElementById("candidato_fecha_postulacion");
                 if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
-                var inst = bootstrap.Offcanvas.getInstance(document.getElementById("offcanvasAddCandidato"));
+                var inst = bootstrap.Modal.getInstance(document.getElementById("offcanvasAddCandidato"));
                 if (inst) inst.hide();
                 getCandidatos();
             } else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo actualizar." }); }
@@ -14025,7 +14052,10 @@ class CapHum extends Controller
             if (bloqueLink) bloqueLink.style.display = "none"; if (inputUrl) inputUrl.value = "";
             cargarLinkDocumentosCandidato(idCand);
             var offcanvas = document.getElementById("offcanvasAddCandidato");
-            if (offcanvas && typeof bootstrap !== "undefined") bootstrap.Offcanvas.getInstance(offcanvas).hide();
+            if (offcanvas && typeof bootstrap !== "undefined" && bootstrap.Modal) {
+                var modalCandidato = bootstrap.Modal.getInstance(offcanvas);
+                if (modalCandidato) modalCandidato.hide();
+            }
             var modalElResumen = document.getElementById("modalResumenPostulacion");
             if (modalElResumen) {
                 modalElResumen.dataset.idCandidato = String(idCand);
@@ -14142,6 +14172,7 @@ class CapHum extends Controller
 
 
         $(document).ready(function() {
+        try {
         configuraTabla("#tablaCandidatos", {
             registrosPorPagina: 10,
             columns: [
@@ -14153,6 +14184,11 @@ class CapHum extends Controller
                 { data: 'acciones', title: 'Acciones', orderable: false }
             ]
         });
+        candidatosDataTableDisponible = true;
+        } catch (errorTablaCandidatos) {
+            candidatosDataTableDisponible = false;
+            console.error('Seleccion de personal: DataTables no pudo iniciar; se usara la tabla basica.', errorTablaCandidatos);
+        }
         function abrirDocumentacionCandidatoDesdeNotificacion() {
             if (window.__notifCandidatoProcesada) return;
             var params = new URLSearchParams(window.location.search || "");
@@ -14664,8 +14700,24 @@ class CapHum extends Controller
         }
         var offcanvasEl = document.getElementById("offcanvasAddCandidato");
         if (offcanvasEl) {
-            offcanvasEl.addEventListener("show.bs.offcanvas", function() { var btnSubmit = document.getElementById("btnSubmitCandidato"); setRequiredOrganizacionCandidato(!candidatoEditId); if (!btnSubmit) return; if (candidatoEditId) { btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar"; btnSubmit.className = "btn btn-success me-2"; } else { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; } });
-            offcanvasEl.addEventListener("shown.bs.offcanvas", function() {
+            offcanvasEl.addEventListener("show.bs.modal", function() {
+                var btnSubmit = document.getElementById("btnSubmitCandidato");
+                var modoCandidato = candidatoEditId ? "edit" : "create";
+                window.candidatoModalModo = modoCandidato;
+                offcanvasEl.setAttribute("data-candidato-mode", modoCandidato);
+                setRequiredOrganizacionCandidato(!candidatoEditId);
+                if (btnSubmit) {
+                    if (candidatoEditId) {
+                        btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar";
+                        btnSubmit.className = "btn btn-success px-4 shadow-sm me-0 d-none";
+                    } else {
+                        btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar";
+                        btnSubmit.className = "btn btn-primary px-4 shadow-sm me-0 d-none";
+                    }
+                }
+                if (typeof window.candidatoWizardReset === "function") window.candidatoWizardReset();
+            });
+            offcanvasEl.addEventListener("shown.bs.modal", function() {
                 [
                     "candidato_id_pais",
                     "candidato_id_div_nivel1",
@@ -14695,11 +14747,13 @@ class CapHum extends Controller
                     else depto.dispatchEvent(new Event("change", { bubbles: true }));
                 }
             });
-            offcanvasEl.addEventListener("hidden.bs.offcanvas", function() {
+            offcanvasEl.addEventListener("hidden.bs.modal", function() {
                 var form = document.getElementById("formAgregarCandidato"); if (form) { form.reset(); candidatoEditId = null; candidatoEdicionOriginal = {}; candidatoPrecargandoDomicilio = false; }
+                window.candidatoModalModo = "create";
+                offcanvasEl.setAttribute("data-candidato-mode", "create");
                 resetReingresoCandidato();
-                var titulo = document.getElementById("offcanvasCandidatoTitulo"); if (titulo) titulo.textContent = "Nuevo Candidato";
-                var btnSubmit = document.getElementById("btnSubmitCandidato"); if (btnSubmit) { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; }
+                var titulo = document.getElementById("offcanvasCandidatoTitulo"); if (titulo) titulo.textContent = "Nuevo candidato";
+                var btnSubmit = document.getElementById("btnSubmitCandidato"); if (btnSubmit) { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary px-4 shadow-sm me-0 d-none"; }
                 setRequiredOrganizacionCandidato(true);
                 var fpInput = document.getElementById("candidato_fecha_postulacion"); if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
                 var divLegion = document.getElementById("div_candidato_legion"); var chkLegion = document.getElementById("candidato_asignar_legion"); var selLegion = document.getElementById("candidato_id_legion");
@@ -14708,6 +14762,7 @@ class CapHum extends Controller
                 if (selPuesto) selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>"; if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>";
                 resetCascadaOrganizacionCandidato();
                 resetCascadaDomicilioCandidato();
+                if (typeof window.candidatoWizardReset === "function") window.candidatoWizardReset();
             });
         }
         $(document).off("change.candForm", "#candidato_id_pais").on("change.candForm", "#candidato_id_pais", function() {
@@ -14861,7 +14916,7 @@ class CapHum extends Controller
                 .catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; selJefe.disabled = false; refreshSelectBuscadorCandidato("candidato_id_posible_jefe"); });
         });
         var btnAddCandidato = document.querySelector("[data-bs-target=\"#offcanvasAddCandidato\"]");
-        if (btnAddCandidato) btnAddCandidato.addEventListener("click", function() { candidatoEditId = null; candidatoEdicionOriginal = {}; resetReingresoCandidato(); setRequiredOrganizacionCandidato(true); document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato"; });
+        if (btnAddCandidato) btnAddCandidato.addEventListener("click", function() { candidatoEditId = null; window.candidatoModalModo = "create"; var modalCandidato = document.getElementById("offcanvasAddCandidato"); if (modalCandidato) modalCandidato.setAttribute("data-candidato-mode", "create"); candidatoEdicionOriginal = {}; resetReingresoCandidato(); setRequiredOrganizacionCandidato(true); document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo candidato"; if (typeof window.candidatoWizardReset === "function") window.candidatoWizardReset(); });
         initFlatpickrFechaPostulacion();
         initCopiarUrlDocumentos();
         });

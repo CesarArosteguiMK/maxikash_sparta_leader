@@ -18,7 +18,34 @@ foreach (($departamento['datos'] ?? []) as $d) {
 ?>
 <script>
 window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCatalogo, JSON_UNESCAPED_UNICODE) ?>;
+(function() {
+    function liberarPanelIndicadoresCandidatos() {
+        var panel = document.getElementById('panelIndicadoresCandidatos');
+        if (panel) {
+            panel.classList.remove('kpi-prepaint');
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', liberarPanelIndicadoresCandidatos, { once: true });
+    } else {
+        liberarPanelIndicadoresCandidatos();
+    }
+})();
 </script>
+<style id="candidatos-kpi-prepaint-css">
+/* Evita el flash inicial: el CSS principal de esta vista vive mas abajo en el archivo. */
+#panelIndicadoresCandidatos.kpi-prepaint {
+    visibility: hidden;
+    min-height: 112px;
+    overflow: hidden;
+}
+#panelIndicadoresCandidatos .donut-block {
+    display: none;
+}
+#panelIndicadoresCandidatos .donut-svg circle {
+    fill: none;
+}
+</style>
 <div class="content-wrapper">
 
     <div class="card">
@@ -66,7 +93,7 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
             </div>
         </div>
 
-        <div id="panelIndicadoresCandidatos" class="px-4 pt-3 pb-2">
+        <div id="panelIndicadoresCandidatos" class="px-4 pt-3 pb-2 kpi-prepaint">
             <div class="kpi-toolbar">
                 <button class="kpi-toggle-btn open" type="button" id="kpiToggleBtnCandidatos" onclick="kpiTogglePanelCandidatos()">
                     <span class="kpi-dot"></span>
@@ -229,7 +256,7 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                     <i class="fa fa-clock-rotate-left icon-sm me-sm-2"></i>
                     <span class="d-inline-block">Histórico</span>
                 </button>
-                <button type="button" class="btn btn-primary add-new btn-action-size" data-bs-toggle="offcanvas" data-bs-target="#offcanvasAddCandidato">
+                <button type="button" class="btn btn-primary add-new btn-action-size" data-bs-toggle="modal" data-bs-target="#offcanvasAddCandidato">
                     <i class="fa fa-user-plus icon-sm me-sm-2"></i>
                     <span class="d-inline-block">Agregar Candidato</span>
                 </button>
@@ -473,176 +500,497 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
     </div>
 </div>
 
-<!-- Offcanvas Agregar Candidato -->
-<div class="offcanvas offcanvas-end" id="offcanvasAddCandidato" tabindex="-1">
-    <div class="offcanvas-header border-bottom">
-        <h5 class="offcanvas-title" id="offcanvasCandidatoTitulo">Nuevo Candidato</h5>
+<!-- Modal Agregar Candidato -->
+<div class="modal fade" id="offcanvasAddCandidato" tabindex="-1" aria-labelledby="offcanvasCandidatoTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+    <div class="modal-header border-bottom py-3 px-4 bg-white">
+        <div class="d-flex align-items-center gap-3">
+            <span class="d-inline-flex align-items-center justify-content-center rounded-circle text-primary shadow-sm" style="width: 2.5rem; height: 2.5rem; background-color: #f1edff;" aria-hidden="true">
+                <i class="fa fa-user-plus fs-5"></i>
+            </span>
+            <div>
+                <h5 class="modal-title fw-bold mb-0" id="offcanvasCandidatoTitulo">Nuevo candidato</h5>
+                <div class="small text-muted fw-semibold">Captura y valida la información por secciones.</div>
+            </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
     </div>
-    <div class="offcanvas-body p-4">
-        <form id="formAgregarCandidato">
-            <div class="mb-2">
-                <label class="form-label">Nombre <span class="text-danger">*</span></label>
-                <input type="text" name="nombres" id="candidato_nombres" class="form-control" required maxlength="100" placeholder="Ej. Juan" style="text-transform: uppercase;" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()">
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Segundo nombre (opcional)</label>
-                <input type="text" name="segundo_nombre" id="candidato_segundo_nombre" class="form-control" maxlength="100" style="text-transform: uppercase;" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()">
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Apellido paterno <span class="text-danger">*</span></label>
-                <input type="text" name="apellidop" id="candidato_apellidop" class="form-control" required maxlength="100" style="text-transform: uppercase;" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()">
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Apellido materno <span class="text-danger">*</span></label>
-                <input type="text" name="apellidom" id="candidato_apellidom" class="form-control" required maxlength="100" style="text-transform: uppercase;" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()">
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Teléfono <span class="text-danger">*</span></label>
-                <input type="text" name="telefono" id="candidato_telefono" class="form-control" required maxlength="20" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Correo <span class="text-danger">*</span></label>
-                <input type="email" name="email" id="candidato_email" class="form-control" required maxlength="150">
-            </div>
+    <div class="row g-2 align-items-center border-bottom px-4 py-3 bg-white" aria-label="Progreso de captura">
+        <button type="button" class="col candidato-step-dot btn btn-link text-decoration-none p-0" data-step="1"><span class="d-inline-flex align-items-center justify-content-center gap-2"><span class="badge rounded-circle d-inline-flex align-items-center justify-content-center text-white p-0 shadow-sm" style="width: 1.85rem; height: 1.85rem; background-color: #6d5dfc;">1</span><small class="text-primary fw-semibold">Datos personales</small></span></button>
+        <button type="button" class="col candidato-step-dot btn btn-link text-decoration-none p-0" data-step="2"><span class="d-inline-flex align-items-center justify-content-center gap-2"><span class="badge rounded-circle d-inline-flex align-items-center justify-content-center text-primary border p-0" style="width: 1.85rem; height: 1.85rem; background-color: #f1edff; border-color: #d8d0ff !important;">2</span><small class="text-muted fw-semibold">Dirección</small></span></button>
+        <button type="button" class="col candidato-step-dot btn btn-link text-decoration-none p-0" data-step="3"><span class="d-inline-flex align-items-center justify-content-center gap-2"><span class="badge rounded-circle d-inline-flex align-items-center justify-content-center text-primary border p-0" style="width: 1.85rem; height: 1.85rem; background-color: #f1edff; border-color: #d8d0ff !important;">3</span><small class="text-muted fw-semibold">Información laboral</small></span></button>
+        <button type="button" class="col candidato-step-dot btn btn-link text-decoration-none p-0" data-step="4"><span class="d-inline-flex align-items-center justify-content-center gap-2"><span class="badge rounded-circle d-inline-flex align-items-center justify-content-center text-primary border p-0" style="width: 1.85rem; height: 1.85rem; background-color: #f1edff; border-color: #d8d0ff !important;">4</span><small class="text-muted fw-semibold">Acceso</small></span></button>
+    </div>
+    <form id="formAgregarCandidato">
+        <div class="modal-body p-0 candidato-wizard-body">
             <input type="hidden" name="es_reingreso" id="candidato_es_reingreso" value="0">
             <input type="hidden" name="id_persona_reingreso" id="candidato_id_persona_reingreso" value="">
-            <div class="alert alert-warning py-2 px-3 mb-2 d-none" id="candidato_reingreso_alerta">
-                <div class="d-flex gap-2 align-items-start">
-                    <i class="fa fa-rotate-left mt-1"></i>
-                    <div class="flex-grow-1">
-                        <div class="fw-semibold">Posible reingreso detectado</div>
-                        <div class="small" id="candidato_reingreso_texto">Esta persona existe en bajas.</div>
-                        <div class="form-check mt-2">
-                            <input class="form-check-input" type="checkbox" id="candidato_marcar_reingreso">
-                            <label class="form-check-label" for="candidato_marcar_reingreso">Marcar este candidato como reingreso</label>
+            <div class="row g-0">
+                <aside class="col-lg-3 d-none d-lg-flex align-items-center justify-content-center bg-white border-end p-4" aria-hidden="true">
+                    <div class="bg-white border-0 rounded-4 shadow-sm p-0 overflow-hidden">
+                        <svg width="220" height="220" viewBox="0 0 150 170" role="img" focusable="false">
+                            <defs>
+                                <linearGradient id="candDocBackGrad" x1="45" y1="25" x2="116" y2="136" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#d8d0ff"/>
+                                    <stop offset="1" stop-color="#f0ecff"/>
+                                </linearGradient>
+                                <linearGradient id="candMainDocGrad" x1="40" y1="25" x2="92" y2="130" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#ffffff"/>
+                                    <stop offset="1" stop-color="#fbfaff"/>
+                                </linearGradient>
+                                <linearGradient id="candPlusGrad" x1="90" y1="70" x2="127" y2="110" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#7a5cff"/>
+                                    <stop offset="1" stop-color="#5e44ee"/>
+                                </linearGradient>
+                                <filter id="candSoftShadow" x="-35%" y="-25%" width="170%" height="160%">
+                                    <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#7b61ff" flood-opacity=".22"/>
+                                </filter>
+                            </defs>
+                            <rect x="0" y="0" width="150" height="170" rx="18" fill="#f4f0ff"/>
+                            <g transform="translate(-14 -15) scale(1.25)">
+                                <rect x="58" y="30" width="58" height="92" rx="11" fill="url(#candDocBackGrad)" opacity=".74" transform="rotate(7 87 76)"/>
+                                <g filter="url(#candSoftShadow)">
+                                    <rect x="38" y="28" width="68" height="104" rx="13" fill="url(#candMainDocGrad)"/>
+                                    <rect x="56" y="18" width="32" height="18" rx="6" fill="#6d5dfc"/>
+                                    <circle cx="72" cy="55" r="8" fill="#6d5dfc"/>
+                                    <path d="M55 77c1.5-9 7.6-14.5 17-14.5S87.5 68 89 77H55z" fill="#6d5dfc"/>
+                                    <rect x="55" y="84" width="35" height="4.5" rx="2.25" fill="#d8d0ff"/>
+                                    <path d="M47 101.5l5.1 5.1 10.2-11.1" fill="none" stroke="#22c55e" stroke-width="3.1" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <rect x="69" y="100" width="24" height="5" rx="2.5" fill="#d8d0ff"/>
+                                    <path d="M47 120.5l5.1 5.1 10.2-11.1" fill="none" stroke="#22c55e" stroke-width="3.1" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <rect x="69" y="119" width="22" height="5" rx="2.5" fill="#d8d0ff"/>
+                                </g>
+                                <circle cx="106" cy="88" r="18.5" fill="url(#candPlusGrad)" filter="url(#candSoftShadow)"/>
+                                <path d="M106 79.8v16.4M97.8 88h16.4" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/>
+                            </g>
+                        </svg>
+                    </div>
+                </aside>
+                <div class="col-lg-9 p-4 bg-white">
+                <section class="candidato-step-panel active" data-step-panel="1">
+                    <div class="candidato-section-title d-flex align-items-start gap-3 mb-3 pb-3 border-bottom">
+                        <span class="d-inline-flex align-items-center justify-content-center rounded-circle p-2 border" style="background-color: #f1edff; color: #6d5dfc; border-color: #d8d0ff !important;"><i class="fa fa-id-card"></i></span>
+                        <div>
+                            <strong>Datos personales</strong>
+                            <small class="d-block text-muted">Información básica del candidato</small>
                         </div>
                     </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                            <input type="text" name="nombres" id="candidato_nombres" class="form-control" required maxlength="100" placeholder="Ej. Juan" style="text-transform: uppercase;" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Segundo nombre</label>
+                            <input type="text" name="segundo_nombre" id="candidato_segundo_nombre" class="form-control" maxlength="100" placeholder="Ej. Luis" style="text-transform: uppercase;" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Apellido paterno <span class="text-danger">*</span></label>
+                            <input type="text" name="apellidop" id="candidato_apellidop" class="form-control" required maxlength="100" placeholder="Ej. García" style="text-transform: uppercase;" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Apellido materno <span class="text-danger">*</span></label>
+                            <input type="text" name="apellidom" id="candidato_apellidom" class="form-control" required maxlength="100" placeholder="Ej. López" style="text-transform: uppercase;" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Teléfono <span class="text-danger">*</span></label>
+                            <input type="text" name="telefono" id="candidato_telefono" class="form-control" required maxlength="20" placeholder="5512345678" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Correo <span class="text-danger">*</span></label>
+                            <input type="email" name="email" id="candidato_email" class="form-control" required maxlength="150" placeholder="ejemplo@correo.com">
+                        </div>
+                    </div>
+                    <div class="alert alert-warning py-2 px-3 mt-3 mb-0 d-none" id="candidato_reingreso_alerta">
+                        <div class="d-flex gap-2 align-items-start">
+                            <i class="fa fa-rotate-left mt-1"></i>
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">Posible reingreso detectado</div>
+                                <div class="small" id="candidato_reingreso_texto">Esta persona existe en bajas.</div>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="candidato_marcar_reingreso">
+                                    <label class="form-check-label" for="candidato_marcar_reingreso">Marcar este candidato como reingreso</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <section class="candidato-step-panel d-none" data-step-panel="2">
+                    <div class="candidato-section-title d-flex align-items-start gap-3 mb-3 pb-3 border-bottom">
+                        <span class="d-inline-flex align-items-center justify-content-center rounded-circle p-2 border" style="background-color: #f1edff; color: #6d5dfc; border-color: #d8d0ff !important;"><i class="fa fa-map-marker"></i></span>
+                        <div>
+                            <strong>Dirección</strong>
+                            <small class="d-block text-muted">Ubicación y domicilio del candidato</small>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">País <span class="text-danger">*</span></label>
+                            <select name="id_pais" id="candidato_id_pais" class="form-select js-select-buscador" required>
+                                <option value="">Seleccione un país</option>
+                                <?php foreach ($paisesActivos as $p): ?>
+                                    <option value="<?= (int)($p['id'] ?? 0) ?>"><?= htmlspecialchars($p['nombre'] ?? '') ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6" id="div_candidato_estado" style="display:none;">
+                            <label class="form-label" id="label_candidato_estado">Estado</label>
+                            <select id="candidato_id_div_nivel1" name="id_div_nivel1" class="form-select js-select-buscador" disabled>
+                                <option value="">Seleccione un estado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6" id="div_candidato_municipio" style="display:none;">
+                            <label class="form-label" id="label_candidato_municipio">Alcaldía / Municipio</label>
+                            <select id="candidato_id_div_nivel2" name="id_div_nivel2" class="form-select js-select-buscador" disabled>
+                                <option value="">Seleccione una alcaldía / municipio</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6" id="div_candidato_colonia" style="display:none;">
+                            <label class="form-label">Colonia</label>
+                            <select id="candidato_id_div_nivel3" name="id_div_nivel3" class="form-select js-select-buscador" disabled>
+                                <option value="">Seleccione una colonia</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6" id="div_candidato_codigo_postal" style="display:none;">
+                            <label class="form-label">Código postal</label>
+                            <input type="text" name="codigo_postal" id="candidato_codigo_postal" class="form-control" maxlength="12" readonly>
+                        </div>
+                        <div class="col-md-6" id="div_candidato_calle_texto" style="display:none;">
+                            <label class="form-label">Calle</label>
+                            <input type="text" name="domicilio_calle_texto" id="candidato_domicilio_calle_texto" class="form-control" maxlength="180">
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-0" id="div_candidato_num_extint" style="display:none;">
+                        <div class="col-md-6">
+                            <label class="form-label">No. exterior</label>
+                            <input type="text" name="domicilio_num_exterior" id="candidato_domicilio_num_exterior" class="form-control" maxlength="32">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">No. interior</label>
+                            <input type="text" name="domicilio_num_interior" id="candidato_domicilio_num_interior" class="form-control" maxlength="32">
+                        </div>
+                    </div>
+                </section>
+                <section class="candidato-step-panel d-none" data-step-panel="3">
+                    <div class="candidato-section-title d-flex align-items-start gap-3 mb-3 pb-3 border-bottom">
+                        <span class="d-inline-flex align-items-center justify-content-center rounded-circle p-2 border" style="background-color: #f1edff; color: #6d5dfc; border-color: #d8d0ff !important;"><i class="fa fa-briefcase"></i></span>
+                        <div>
+                            <strong>Información laboral</strong>
+                            <small class="d-block text-muted">Empresa, estructura, jefe y fecha de postulación</small>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Empresa <span class="text-danger">*</span></label>
+                            <select name="id_empresa" id="candidato_id_empresa" class="form-select js-select-buscador" required>
+                                <option value="">Seleccione empresa</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Dirección <span class="text-danger">*</span></label>
+                            <select name="id_direccion" id="candidato_id_direccion" class="form-select js-select-buscador" required disabled>
+                                <option value="">Seleccione dirección</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Área <span class="text-danger">*</span></label>
+                            <select name="id_area" id="candidato_id_area" class="form-select js-select-buscador" required disabled>
+                                <option value="">Seleccione dirección primero</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Departamento <span class="text-danger">*</span></label>
+                            <select name="id_departamento" id="candidato_id_departamento" class="form-select js-select-buscador" required disabled>
+                                <option value="">Seleccione área primero</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Puesto solicitado <span class="text-danger">*</span></label>
+                            <select name="id_puesto" id="candidato_id_puesto" class="form-select js-select-buscador" required>
+                                <option value="">Seleccione puesto</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Posible jefe <span class="text-danger">*</span></label>
+                            <select name="id_posible_jefe" id="candidato_id_posible_jefe" class="form-select js-select-buscador" required>
+                                <option value="">Seleccione departamento y puesto primero</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 d-none" id="wrap_candidato_jefe_divisional">
+                            <label class="form-label">Jefe divisional <span class="text-danger">*</span></label>
+                            <select name="id_jefe_divisional" id="candidato_id_jefe_divisional" class="form-select js-select-buscador">
+                                <option value="">Seleccione jefe divisional</option>
+                            </select>
+                            <small class="text-muted">Aplica solo para candidatos de Cobranza con puesto de gestor.</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha de postulación <span class="text-danger">*</span></label>
+                            <div class="fecha-acta-wrapper fecha-postulacion-wrapper">
+                                <input type="text" name="fecha_postulacion" id="candidato_fecha_postulacion" class="form-control" placeholder="YYYY-MM-DD" required autocomplete="off" readonly>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="candidato_asignar_legion" onchange="toggleLegionCandidato()">
+                                <label class="form-check-label" for="candidato_asignar_legion">Asignar legión</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="div_candidato_legion" style="display:none;">
+                            <label class="form-label">Legión <span class="text-danger">*</span></label>
+                            <select name="id_legion" id="candidato_id_legion" class="form-select js-select-buscador">
+                                <option value="">Seleccione legión</option>
+                                <option value="1">Sabueso</option>
+                                <option value="2">Heraldo</option>
+                                <option value="3">Centinela</option>
+                                <option value="4">Senturiones</option>
+                                <option value="5">Espartano</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+                <section class="candidato-step-panel d-none" data-step-panel="4">
+                    <div class="candidato-section-title d-flex align-items-start gap-3 mb-3 pb-3 border-bottom">
+                        <span class="d-inline-flex align-items-center justify-content-center rounded-circle p-2 border" style="background-color: #f1edff; color: #6d5dfc; border-color: #d8d0ff !important;"><i class="fa fa-lock"></i></span>
+                        <div>
+                            <strong>Acceso</strong>
+                            <small class="d-block text-muted">Credenciales iniciales del candidato</small>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Usuario <span class="text-danger">*</span></label>
+                            <input type="text" name="usuario" id="candidato_usuario" class="form-control" required maxlength="50" placeholder="Ej. lazaro.mendez" oninput="this.value = this.value.replace(/[^A-Za-z0-9_.\-]/g, '');">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Contraseña <span class="text-danger">*</span></label>
+                            <input type="text" name="contrasena" id="candidato_contrasena" class="form-control" required maxlength="255">
+                        </div>
+                    </div>
+                </section>
+            </div>
+            </div>
+        </div>
+        <div class="modal-footer justify-content-between border-top bg-white px-4 py-3">
+                <button type="button" class="btn btn-outline-warning px-4" data-bs-dismiss="modal"><i class="bx bx-x me-1"></i> Cancelar</button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-warning px-4" id="btnCandidatoWizardAtras">Atrás</button>
+                    <button type="button" class="btn text-white px-4 shadow-sm" id="btnCandidatoWizardSiguiente" style="background-color: #6d5dfc; border-color: #6d5dfc;">Siguiente <i class="bx bx-right-arrow-alt ms-1"></i></button>
+                    <button type="submit" class="btn btn-primary px-4 shadow-sm me-0 d-none" id="btnSubmitCandidato"><i class="bx bx-save me-1"></i> Guardar</button>
                 </div>
             </div>
-            <div class="mb-2">
-                <label class="form-label">País <span class="text-danger">*</span></label>
-                <select name="id_pais" id="candidato_id_pais" class="form-select js-select-buscador" required>
-                    <option value="">Seleccione un país</option>
-                    <?php foreach ($paisesActivos as $p): ?>
-                        <option value="<?= (int)($p['id'] ?? 0) ?>"><?= htmlspecialchars($p['nombre'] ?? '') ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="mb-2" id="div_candidato_estado" style="display:none;">
-                <label class="form-label" id="label_candidato_estado">Estado</label>
-                <select id="candidato_id_div_nivel1" name="id_div_nivel1" class="form-select js-select-buscador" disabled>
-                    <option value="">Seleccione un estado</option>
-                </select>
-            </div>
-            <div class="mb-2" id="div_candidato_municipio" style="display:none;">
-                <label class="form-label" id="label_candidato_municipio">Alcaldía / Municipio</label>
-                <select id="candidato_id_div_nivel2" name="id_div_nivel2" class="form-select js-select-buscador" disabled>
-                    <option value="">Seleccione una alcaldía / municipio</option>
-                </select>
-            </div>
-            <div class="mb-2" id="div_candidato_colonia" style="display:none;">
-                <label class="form-label">Colonia</label>
-                <select id="candidato_id_div_nivel3" name="id_div_nivel3" class="form-select js-select-buscador" disabled>
-                    <option value="">Seleccione una colonia</option>
-                </select>
-            </div>
-            <div class="mb-2" id="div_candidato_codigo_postal" style="display:none;">
-                <label class="form-label">Codigo postal</label>
-                <input type="text" name="codigo_postal" id="candidato_codigo_postal" class="form-control" maxlength="12" readonly>
-            </div>
-            <div class="mb-2" id="div_candidato_calle_texto" style="display:none;">
-                <label class="form-label">Calle</label>
-                <input type="text" name="domicilio_calle_texto" id="candidato_domicilio_calle_texto" class="form-control" maxlength="180">
-            </div>
-            <div class="row mb-2" id="div_candidato_num_extint" style="display:none;">
-                <div class="col-md-6">
-                    <label class="form-label">No. exterior</label>
-                    <input type="text" name="domicilio_num_exterior" id="candidato_domicilio_num_exterior" class="form-control" maxlength="32">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">No. interior (opcional)</label>
-                    <input type="text" name="domicilio_num_interior" id="candidato_domicilio_num_interior" class="form-control" maxlength="32">
-                </div>
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Empresa <span class="text-danger">*</span></label>
-                <select name="id_empresa" id="candidato_id_empresa" class="form-select js-select-buscador" required>
-                    <option value="">Seleccione empresa</option>
-                </select>
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Dirección <span class="text-danger">*</span></label>
-                <select name="id_direccion" id="candidato_id_direccion" class="form-select js-select-buscador" required disabled>
-                    <option value="">Seleccione dirección</option>
-                </select>
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Área <span class="text-danger">*</span></label>
-                <select name="id_area" id="candidato_id_area" class="form-select js-select-buscador" required disabled>
-                    <option value="">Seleccione dirección primero</option>
-                </select>
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Departamento al que aplica <span class="text-danger">*</span></label>
-                <select name="id_departamento" id="candidato_id_departamento" class="form-select js-select-buscador" required disabled>
-                    <option value="">Seleccione área primero</option>
-                </select>
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Puesto solicitado <span class="text-danger">*</span></label>
-                <select name="id_puesto" id="candidato_id_puesto" class="form-select js-select-buscador" required>
-                    <option value="">Seleccione puesto</option>
-                </select>
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Posible jefe <span class="text-danger">*</span></label>
-                <select name="id_posible_jefe" id="candidato_id_posible_jefe" class="form-select js-select-buscador" required>
-                    <option value="">Seleccione departamento y puesto primero</option>
-                </select>
-            </div>
-            <div class="mb-2 d-none" id="wrap_candidato_jefe_divisional">
-                <label class="form-label">Jefe divisional <span class="text-danger">*</span></label>
-                <select name="id_jefe_divisional" id="candidato_id_jefe_divisional" class="form-select js-select-buscador">
-                    <option value="">Seleccione jefe divisional</option>
-                </select>
-                <small class="text-muted">Aplica solo para candidatos de Cobranza con puesto de gestor.</small>
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Fecha de postulación <span class="text-danger">*</span></label>
-                <div class="fecha-acta-wrapper fecha-postulacion-wrapper">
-                    <input type="text" name="fecha_postulacion" id="candidato_fecha_postulacion" class="form-control" placeholder="YYYY-MM-DD" required autocomplete="off" readonly>
-                </div>
-            </div>
-            <div class="mb-2">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="candidato_asignar_legion" onchange="toggleLegionCandidato()">
-                    <label class="form-check-label" for="candidato_asignar_legion">Asignar legión</label>
-                </div>
-            </div>
-            <div class="mb-2" id="div_candidato_legion" style="display:none;">
-                <label class="form-label">Legión <span class="text-danger">*</span></label>
-                <select name="id_legion" id="candidato_id_legion" class="form-select js-select-buscador">
-                    <option value="">Seleccione legión</option>
-                    <option value="1">Sabueso</option>
-                    <option value="2">Heraldo</option>
-                    <option value="3">Centinela</option>
-                    <option value="4">Senturiones</option>
-                    <option value="5">Espartano</option>
-                </select>
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Usuario <span class="text-danger">*</span></label>
-                <input type="text" name="usuario" id="candidato_usuario" class="form-control" required maxlength="50" placeholder="Ej. lazaro.mendez" oninput="this.value = this.value.replace(/[^A-Za-z0-9_.\-]/g, '');">
-            </div>
-            <div class="mb-4">
-                <label class="form-label">Contraseña <span class="text-danger">*</span></label>
-                <input type="text" name="contrasena" id="candidato_contrasena" class="form-control" required maxlength="255">
-            </div>
-            <button type="submit" class="btn btn-primary me-2" id="btnSubmitCandidato"><i class="bx bx-save me-1"></i> Guardar</button>
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="offcanvas"><i class="bx bx-x me-1"></i> Cancelar</button>
         </form>
+        </div>
     </div>
 </div>
+
+<script>
+(function() {
+    var pasoActualCandidato = 1;
+    var totalPasosCandidato = 4;
+
+    function panelPasoCandidato(paso) {
+        return document.querySelector('#offcanvasAddCandidato [data-step-panel="' + paso + '"]');
+    }
+
+    function esEdicionCandidato() {
+        var modal = document.getElementById('offcanvasAddCandidato');
+        if (modal && modal.getAttribute('data-candidato-mode') === 'edit') return true;
+        return typeof window.candidatoModalModo !== 'undefined' && window.candidatoModalModo === 'edit';
+    }
+
+    function actualizarBotonesWizardCandidato() {
+        var btnAtras = document.getElementById('btnCandidatoWizardAtras');
+        var btnSiguiente = document.getElementById('btnCandidatoWizardSiguiente');
+        var btnGuardar = document.getElementById('btnSubmitCandidato');
+        var editando = esEdicionCandidato();
+        if (btnAtras) {
+            btnAtras.disabled = !editando && pasoActualCandidato <= 1;
+            btnAtras.classList.toggle('d-none', editando);
+        }
+        if (btnSiguiente) {
+            btnSiguiente.classList.toggle('d-none', editando || pasoActualCandidato >= totalPasosCandidato);
+        }
+        if (btnGuardar) {
+            btnGuardar.classList.toggle('d-none', !editando && pasoActualCandidato < totalPasosCandidato);
+        }
+    }
+
+    function pasoCandidatoCompleto(paso) {
+        var panel = panelPasoCandidato(paso);
+        if (!panel) return false;
+        var controles = Array.prototype.slice.call(panel.querySelectorAll('input, select, textarea'));
+        for (var i = 0; i < controles.length; i++) {
+            var control = controles[i];
+            if (!control || control.disabled || !control.required) continue;
+            if (!control.checkValidity()) return false;
+        }
+        return controles.some(function(control) {
+            return control && !control.disabled && control.required;
+        });
+    }
+
+    function mostrarPasoCandidato(paso) {
+        paso = Math.max(1, Math.min(totalPasosCandidato, parseInt(paso, 10) || 1));
+        pasoActualCandidato = paso;
+        var modal = document.getElementById('offcanvasAddCandidato');
+        if (modal) modal.setAttribute('data-candidato-step', String(paso));
+        document.querySelectorAll('#offcanvasAddCandidato .candidato-step-panel').forEach(function(panel) {
+            var activo = parseInt(panel.getAttribute('data-step-panel'), 10) === paso;
+            panel.classList.toggle('active', activo);
+            panel.classList.toggle('d-none', !activo);
+        });
+        document.querySelectorAll('#offcanvasAddCandidato .candidato-step-dot').forEach(function(dot) {
+            var dotPaso = parseInt(dot.getAttribute('data-step'), 10);
+            var editando = esEdicionCandidato();
+            var completo = !editando && pasoCandidatoCompleto(dotPaso);
+            var alcanzado = editando ? dotPaso === paso : (dotPaso === paso || completo);
+            dot.classList.toggle('active', dotPaso === paso);
+            dot.classList.toggle('done', !editando && completo && dotPaso !== paso);
+            dot.classList.toggle('text-primary', alcanzado);
+            dot.classList.toggle('text-muted', !alcanzado);
+            var badge = dot.querySelector('.badge');
+            var label = dot.querySelector('small');
+            if (badge) {
+                badge.className = 'badge rounded-circle d-inline-flex align-items-center justify-content-center p-0 ' + (alcanzado ? 'text-white shadow-sm' : 'text-primary border');
+                badge.style.width = '1.85rem';
+                badge.style.height = '1.85rem';
+                badge.style.backgroundColor = alcanzado ? '#6d5dfc' : '#f1edff';
+                badge.style.borderColor = alcanzado ? '#6d5dfc' : '#d8d0ff';
+            }
+            if (label) {
+                label.className = 'fw-semibold ' + (alcanzado ? 'text-primary' : 'text-muted');
+            }
+        });
+        actualizarBotonesWizardCandidato();
+        var body = document.querySelector('#offcanvasAddCandidato .candidato-wizard-body');
+        if (body) body.scrollTop = 0;
+        setTimeout(function() {
+            [
+                'candidato_id_pais',
+                'candidato_id_div_nivel1',
+                'candidato_id_div_nivel2',
+                'candidato_id_div_nivel3',
+                'candidato_id_empresa',
+                'candidato_id_direccion',
+                'candidato_id_area',
+                'candidato_id_departamento',
+                'candidato_id_puesto',
+                'candidato_id_posible_jefe',
+                'candidato_id_jefe_divisional',
+                'candidato_id_legion'
+            ].forEach(function(id) {
+                if (typeof refreshSelectBuscadorCandidato === 'function') refreshSelectBuscadorCandidato(id);
+            });
+        }, 40);
+    }
+
+    function validarPasoCandidato(paso) {
+        var panel = panelPasoCandidato(paso);
+        if (!panel) return true;
+        var controles = Array.prototype.slice.call(panel.querySelectorAll('input, select, textarea'));
+        for (var i = 0; i < controles.length; i++) {
+            var control = controles[i];
+            if (!control || control.disabled || !control.required) continue;
+            if (!control.checkValidity()) {
+                mostrarPasoCandidato(paso);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Datos incompletos',
+                        text: 'Completa los campos obligatorios de esta sección para continuar.'
+                    });
+                } else {
+                    control.reportValidity();
+                }
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function validarPasosPreviosCandidato(destino) {
+        destino = Math.max(1, Math.min(totalPasosCandidato, parseInt(destino, 10) || 1));
+        for (var paso = 1; paso < destino; paso++) {
+            if (!validarPasoCandidato(paso)) return false;
+        }
+        return true;
+    }
+
+    function primerControlInvalidoCandidato() {
+        var form = document.getElementById('formAgregarCandidato');
+        if (!form) return null;
+        var controles = Array.prototype.slice.call(form.querySelectorAll('input, select, textarea'));
+        for (var i = 0; i < controles.length; i++) {
+            var control = controles[i];
+            if (!control || control.disabled || !control.required) continue;
+            if (!control.checkValidity()) return control;
+        }
+        return null;
+    }
+
+    window.candidatoWizardMostrarPaso = mostrarPasoCandidato;
+    window.candidatoWizardReset = function() { mostrarPasoCandidato(1); };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var modal = document.getElementById('offcanvasAddCandidato');
+        var form = document.getElementById('formAgregarCandidato');
+        var btnAtras = document.getElementById('btnCandidatoWizardAtras');
+        var btnSiguiente = document.getElementById('btnCandidatoWizardSiguiente');
+
+        if (btnAtras) {
+            btnAtras.addEventListener('click', function() {
+                mostrarPasoCandidato(pasoActualCandidato - 1);
+            });
+        }
+        if (btnSiguiente) {
+            btnSiguiente.addEventListener('click', function() {
+                if (!validarPasosPreviosCandidato(pasoActualCandidato + 1)) return;
+                mostrarPasoCandidato(pasoActualCandidato + 1);
+            });
+        }
+        document.querySelectorAll('#offcanvasAddCandidato .candidato-step-dot').forEach(function(dot) {
+            dot.addEventListener('click', function() {
+                var destino = parseInt(dot.getAttribute('data-step'), 10) || 1;
+                if (esEdicionCandidato()) {
+                    mostrarPasoCandidato(destino);
+                    return;
+                }
+                if (destino <= pasoActualCandidato || validarPasosPreviosCandidato(destino)) {
+                    mostrarPasoCandidato(destino);
+                }
+            });
+        });
+        if (modal) {
+            modal.addEventListener('show.bs.modal', function() { mostrarPasoCandidato(1); });
+            modal.addEventListener('invalid', function(ev) {
+                var panel = ev.target && ev.target.closest ? ev.target.closest('[data-step-panel]') : null;
+                if (panel) mostrarPasoCandidato(panel.getAttribute('data-step-panel'));
+            }, true);
+        }
+        if (form) {
+            form.addEventListener('submit', function(ev) {
+                var invalido = primerControlInvalidoCandidato();
+                if (!invalido) return;
+                ev.preventDefault();
+                ev.stopImmediatePropagation();
+                var panel = invalido.closest('[data-step-panel]');
+                if (panel) mostrarPasoCandidato(panel.getAttribute('data-step-panel'));
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Datos incompletos',
+                        text: 'Revisa el campo marcado antes de guardar el candidato.'
+                    });
+                } else {
+                    try { invalido.reportValidity(); } catch (e) {}
+                }
+            }, true);
+        }
+        mostrarPasoCandidato(1);
+    });
+})();
+</script>
 
 <!-- Modal Resumen y Enviar postulación -->
 <div class="modal fade" id="modalResumenPostulacion" tabindex="-1">
@@ -698,25 +1046,10 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
 <style>
 .btn-action-size { height: 36px; padding: 0.375rem 0.75rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.375rem; }
 #tablaCandidatos thead th { background-color: rgba(105, 108, 255, 0.1); font-weight: 600; }
-/* Offcanvas candidato siempre visible por encima del layout */
-#offcanvasAddCandidato.offcanvas {
-    z-index: 1095 !important;
-    top: 0 !important;
-    height: 100vh !important;
-}
-.offcanvas-backdrop { z-index: 1090 !important; }
-/* Scrim borroso detrás del modal (Documentación, Resumen postulación, etc.) */
+.swal2-container { z-index: 20000 !important; }
+/* Scrim borroso detras del modal (Documentacion, Resumen postulacion, etc.) */
 .modal-backdrop { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .modal-backdrop.show { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-/* Botón Guardar/Actualizar con color visible en modo claro y oscuro */
-#offcanvasAddCandidato #btnSubmitCandidato.btn-primary { background-color: #696cff !important; border-color: #696cff !important; color: #fff !important; }
-#offcanvasAddCandidato #btnSubmitCandidato.btn-primary:hover { background-color: #5f61e6 !important; border-color: #5f61e6 !important; color: #fff !important; }
-body.dark-mode #offcanvasAddCandidato #btnSubmitCandidato.btn-primary { background-color: #6366f1 !important; border-color: #6366f1 !important; color: #fff !important; }
-body.dark-mode #offcanvasAddCandidato #btnSubmitCandidato.btn-primary:hover { background-color: #818cf8 !important; border-color: #818cf8 !important; color: #fff !important; }
-#offcanvasAddCandidato #btnSubmitCandidato.btn-success { background-color: #71dd37 !important; border-color: #71dd37 !important; color: #fff !important; }
-#offcanvasAddCandidato #btnSubmitCandidato.btn-success:hover { background-color: #85e34b !important; border-color: #85e34b !important; color: #fff !important; }
-body.dark-mode #offcanvasAddCandidato #btnSubmitCandidato.btn-success { background-color: #22c55e !important; border-color: #22c55e !important; color: #fff !important; }
-body.dark-mode #offcanvasAddCandidato #btnSubmitCandidato.btn-success:hover { background-color: #4ade80 !important; border-color: #4ade80 !important; color: #fff !important; }
 
 /* Bloque enlace documentos: estilo tipo card oscuro (referencia URL component) */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
@@ -884,12 +1217,6 @@ body:not(.dark-mode) .link-documentos-status.is-expired { color: #b91c1c; }
     transform: translateX(-50%) translateY(0);
 }
 
-/* Cancelar: mantener estilo secundario visible en modo oscuro */
-body.dark-mode #offcanvasAddCandidato .btn-outline-secondary { border-color: rgba(148, 163, 184, 0.5) !important; color: #94a3b8 !important; }
-body.dark-mode #offcanvasAddCandidato .btn-outline-secondary:hover { background-color: rgba(71, 85, 105, 0.5) !important; border-color: #64748b !important; color: #e2e8f0 !important; }
-/* Botones del formulario candidato */
-#offcanvasAddCandidato #btnSubmitCandidato { min-width: 120px; font-weight: 600; }
-#offcanvasAddCandidato .btn-outline-secondary:hover { background-color: #6c757d; color: #fff; }
 .btn-action-size { height: 36px; padding: 0.375rem 0.75rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.375rem; }
 /* Panel de indicadores Candidatos — mismos estilos que Gestión (kpi-toolbar, kpi-cell, kpi-num, kpi-lbl) */
 #panelIndicadoresCandidatos .kpi-toolbar { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.65rem; flex-wrap:wrap; }
@@ -1111,18 +1438,6 @@ body.dark-mode #panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-stat-
 @media (max-width: 991px) {
     #panelIndicadoresCandidatos .kpi-row-new { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
-/* Modo oscuro - Offcanvas Nuevo Candidato */
-body.dark-mode #offcanvasAddCandidato { background: #1e293b; border-left: 1px solid rgba(148, 163, 184, 0.2); }
-body.dark-mode #offcanvasAddCandidato .offcanvas-header { border-bottom-color: rgba(148, 163, 184, 0.2); }
-body.dark-mode #offcanvasAddCandidato .offcanvas-title { color: #f1f5f9; }
-body.dark-mode #offcanvasAddCandidato .form-label { color: #cbd5e1; }
-body.dark-mode #offcanvasAddCandidato .form-control,
-body.dark-mode #offcanvasAddCandidato .form-select { background: #334155; border-color: rgba(148, 163, 184, 0.3); color: #f1f5f9; }
-body.dark-mode #offcanvasAddCandidato .form-control::placeholder { color: #94a3b8; }
-body.dark-mode #offcanvasAddCandidato .form-control:focus,
-body.dark-mode #offcanvasAddCandidato .form-select:focus { background: #475569; border-color: #6366f1; color: #f1f5f9; }
-body.dark-mode #offcanvasAddCandidato .form-check-label { color: #cbd5e1; }
-body.dark-mode #offcanvasAddCandidato .text-danger { color: #f87171 !important; }
 /* Modo oscuro - Modal Resumen Postulación */
 body.dark-mode #modalResumenPostulacion .modal-content { background: #1e293b; border: 1px solid rgba(148, 163, 184, 0.2); }
 body.dark-mode #modalResumenPostulacion .modal-header { border-bottom-color: rgba(148, 163, 184, 0.2); }
