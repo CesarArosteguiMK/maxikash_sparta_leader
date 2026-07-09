@@ -1053,6 +1053,26 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
 .aev-ev-slot--click { cursor: pointer; }
 .aev-ev-slot--click:focus { outline: 2px solid #2563eb; outline-offset: 2px; }
 .aev-ev-slot .aev-txt-lbl { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(15,23,42,.75); color: #fff; font-size: .55rem; font-weight: 700; text-transform: uppercase; padding: .2rem; text-align: center; }
+.aev-ev-slot--media-error .aev-thumb { opacity: .14; }
+.aev-media-error {
+    position: absolute;
+    inset: .28rem .28rem 1.55rem .28rem;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .3rem;
+    color: #991b1b;
+    background: rgba(255,255,255,.82);
+    border: 1px solid rgba(239,68,68,.36);
+    border-radius: .35rem;
+    font-size: .58rem;
+    font-weight: 900;
+    line-height: 1.05;
+    text-align: center;
+    text-transform: uppercase;
+}
+.aev-media-error i { font-size: .72rem; }
 .aev-btn-reemplazo-gestor {
     position: absolute;
     top: .32rem;
@@ -1193,6 +1213,23 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
 .aev-vista-mediabox.aev-vista-mediabox--zoomable .aev-zoom-media {
     max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain;
     transform-origin: center center; transition: transform 0.1s ease-out; display: block; will-change: transform;
+}
+.aev-vista-mediabox--media-error .aev-zoom-wrap { opacity: .22; }
+.aev-media-error-panel {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+    z-index: 4;
+    width: min(420px, calc(100% - 2rem));
+    padding: .85rem 1rem;
+    border-radius: .5rem;
+    border: 1px solid rgba(248,113,113,.5);
+    background: rgba(255,255,255,.94);
+    color: #991b1b;
+    text-align: center;
+    font-size: .82rem;
+    font-weight: 800;
+    box-shadow: 0 .8rem 2rem rgba(15,23,42,.16);
 }
 .aev-vista-mediabox iframe { width: 100%; min-height: 50vh; border: 0; background: #fff; border-radius: 0.35rem; }
 #modalAevValidarEvidencias .aev-vista-panel.aev-vista-panel--pdf-only { max-width: min(56rem, 96vw); }
@@ -1673,6 +1710,35 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             }
         });
     }
+
+    document.addEventListener('error', function (ev) {
+        const el = ev && ev.target;
+        if (!el || !el.matches || !el.matches('img.aev-thumb, video.aev-thumb, img.aev-zoom-media, video.aev-zoom-media')) {
+            return;
+        }
+        const slot = el.closest('.aev-ev-slot');
+        if (slot) {
+            slot.classList.add('aev-ev-slot--media-error');
+            if (!slot.querySelector('.aev-media-error')) {
+                slot.insertAdjacentHTML(
+                    'afterbegin',
+                    '<span class="aev-media-error"><i class="fa-solid fa-triangle-exclamation"></i>Archivo no disponible</span>'
+                );
+            }
+        }
+
+        const box = el.closest('#aev-vista-mediabox');
+        if (box) {
+            box.classList.add('aev-vista-mediabox--media-error');
+            if (!box.querySelector('.aev-media-error-panel')) {
+                box.insertAdjacentHTML(
+                    'beforeend',
+                    '<div class="aev-media-error-panel"><i class="fa-solid fa-triangle-exclamation me-1"></i>Archivo no disponible en el origen de almacenamiento.</div>'
+                );
+            }
+        }
+    }, true);
+
     function aevAsegurarOverlayDentroModal() {
         const o = document.getElementById('aev-vista-overlay');
         const m = document.getElementById('modalAevValidarEvidencias');
@@ -2176,6 +2242,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             aevZoomTeardown();
             box.classList.remove('aev-vista-mediabox--repuve');
             box.classList.remove('aev-vista-mediabox--zoomable');
+            box.classList.remove('aev-vista-mediabox--media-error');
             box.innerHTML = '';
         }
         if (ovl) ovl.classList.add('d-none');
@@ -2290,6 +2357,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             || (row.tipo && String(row.tipo).toLowerCase().indexOf('pdf') !== -1)
             || /\.pdf(\?|#|$)/i.test(urlRaw);
         aevZoomTeardown();
+        box.classList.remove('aev-vista-mediabox--media-error');
         if (esPdf) {
             box.classList.remove('aev-vista-mediabox--zoomable');
             box.innerHTML = '<iframe data-aev-src="' + urlE + '" title="Documento" class="aev-iframe-pdf"></iframe>';
@@ -2350,6 +2418,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         aevZoomTeardown();
         box.classList.remove('aev-vista-mediabox--zoomable');
         box.classList.add('aev-vista-mediabox--repuve');
+        box.classList.remove('aev-vista-mediabox--media-error');
         const urlE = aeEsc(urlRaw);
         box.innerHTML = '<iframe data-aev-src="' + urlE + '" title="Repuve (PDF)" class="aev-iframe-pdf"></iframe>';
         aevSanearDomUrls(box);

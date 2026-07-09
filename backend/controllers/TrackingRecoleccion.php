@@ -166,6 +166,14 @@ class TrackingRecoleccion extends Controller
         return $base . $path;
     }
 
+    private function _trkTrackingEndpointNotFound(array $resp): bool
+    {
+        $data = json_decode((string)($resp['body'] ?? ''), true);
+        return (int)($resp['http_code'] ?? 0) === 404
+            && is_array($data)
+            && strtolower((string)($data['detail'] ?? '')) === 'not found';
+    }
+
     private function _trkTrackingCurlFallback(string $baseUrl, array $paths, string $method, string $body, array $headers): array
     {
         $last = ['http_code' => 0, 'body' => '', 'error' => 'Sin rutas para consultar.'];
@@ -173,16 +181,61 @@ class TrackingRecoleccion extends Controller
             $url = $this->_trkTrackingBuildUrl($baseUrl, $path);
             $resp = $this->_trkChatCurl($url, $method, $body, $headers);
             $resp['path'] = $path;
-            $data = json_decode((string)($resp['body'] ?? ''), true);
-            $isEndpointNotFound = (int)($resp['http_code'] ?? 0) === 404
-                && is_array($data)
-                && strtolower((string)($data['detail'] ?? '')) === 'not found';
             $last = $resp;
-            if (!$isEndpointNotFound) {
+            if (!$this->_trkTrackingEndpointNotFound($resp)) {
                 return $resp;
             }
         }
         return $last;
+    }
+
+    private function _trkChatContext(array $data): array
+    {
+        $idRuta = (int)($data['id_ruta'] ?? $data['idRuta'] ?? 0);
+        $idDetalle = (int)($data['id_detalle'] ?? $data['idDetalle'] ?? 0);
+
+        if ($idRuta > 0) {
+            return ['tipo' => 'ruta', 'id_ruta' => $idRuta, 'id_detalle' => 0];
+        }
+        if ($idDetalle > 0) {
+            return ['tipo' => 'detalle', 'id_ruta' => 0, 'id_detalle' => $idDetalle];
+        }
+
+        return ['tipo' => '', 'id_ruta' => 0, 'id_detalle' => 0];
+    }
+
+    private function _trkChatContextValido(array $ctx): bool
+    {
+        return $ctx['tipo'] === 'ruta'
+            ? (int)$ctx['id_ruta'] > 0
+            : ($ctx['tipo'] === 'detalle' && (int)$ctx['id_detalle'] > 0);
+    }
+
+    private function _trkChatPaths(array $ctx, string $suffix = ''): array
+    {
+        if ($ctx['tipo'] === 'ruta') {
+            $idRuta = (int)$ctx['id_ruta'];
+            return [
+                "/api/tracking/rutas/{$idRuta}/chat{$suffix}",
+                "/api/tracking/rutas/{$idRuta}/chats/general{$suffix}",
+                "/api/tracking/chats/ruta/{$idRuta}{$suffix}",
+                "/api/tracking/chats/rutas/{$idRuta}{$suffix}",
+                "/api/tracking/chats/route/{$idRuta}{$suffix}",
+            ];
+        }
+
+        $idDetalle = (int)$ctx['id_detalle'];
+        return $idDetalle > 0 ? ["/api/tracking/chats/{$idDetalle}{$suffix}"] : [];
+    }
+
+    private function _trkChatMetadata(array $ctx, $metadata): array
+    {
+        $base = is_array($metadata) ? $metadata : [];
+        if ($ctx['tipo'] === 'ruta') {
+            $base['tipo_conversacion'] = $base['tipo_conversacion'] ?? 'ruta_general';
+            $base['id_ruta'] = $base['id_ruta'] ?? (int)$ctx['id_ruta'];
+        }
+        return $base;
     }
 
     /**
@@ -251,14 +304,14 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
-     * GET /TrackingRecoleccion/chatInfo?id_detalle=N
-     * Proxy: GET /api/tracking/chats/{id_detalle}
+     * GET /TrackingRecoleccion/chatInfo?id_ruta=N|id_detalle=N
+     * Proxy: GET /api/tracking/rutas/{id_ruta}/chat o /api/tracking/chats/{id_detalle}
      */
     public function chatInfo()
     {
-        $idDetalle = (int)($_GET['id_detalle'] ?? 0);
-        if ($idDetalle <= 0) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'id_detalle requerido.']);
+        $ctx = $this->_trkChatContext($_GET);
+        if (!$this->_trkChatContextValido($ctx)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_ruta o id_detalle requerido.']);
             return;
         }
 
@@ -269,8 +322,7 @@ class TrackingRecoleccion extends Controller
             return;
         }
 
-        $url  = rtrim($cfg['base_url'], '/') . "/api/tracking/chats/{$idDetalle}";
-        $resp = $this->_trkChatCurl($url, 'GET', '', [
+        $resp = $this->_trkTrackingCurlFallback($cfg['base_url'], $this->_trkChatPaths($ctx), 'GET', '', [
             'X-API-Key: '     . $cfg['api_key'],
             'Authorization: Bearer ' . $token,
         ]);
@@ -279,14 +331,14 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
-     * GET /TrackingRecoleccion/chatMensajes?id_detalle=N[&limit=50][&before_id=M]
-     * Proxy: GET /api/tracking/chats/{id_detalle}/mensajes
+     * GET /TrackingRecoleccion/chatMensajes?id_ruta=N|id_detalle=N[&limit=50][&before_id=M]
+     * Proxy: GET /api/tracking/rutas/{id_ruta}/chat/mensajes o /api/tracking/chats/{id_detalle}/mensajes
      */
     public function chatMensajes()
     {
-        $idDetalle = (int)($_GET['id_detalle'] ?? 0);
-        if ($idDetalle <= 0) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'id_detalle requerido.']);
+        $ctx = $this->_trkChatContext($_GET);
+        if (!$this->_trkChatContextValido($ctx)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_ruta o id_detalle requerido.']);
             return;
         }
 
@@ -301,8 +353,7 @@ class TrackingRecoleccion extends Controller
         }
 
         $qs  = "?limit={$limit}" . ($beforeId > 0 ? "&before_id={$beforeId}" : '');
-        $url = rtrim($cfg['base_url'], '/') . "/api/tracking/chats/{$idDetalle}/mensajes{$qs}";
-        $resp = $this->_trkChatCurl($url, 'GET', '', [
+        $resp = $this->_trkTrackingCurlFallback($cfg['base_url'], $this->_trkChatPaths($ctx, "/mensajes{$qs}"), 'GET', '', [
             'X-API-Key: '     . $cfg['api_key'],
             'Authorization: Bearer ' . $token,
         ]);
@@ -424,17 +475,17 @@ class TrackingRecoleccion extends Controller
 
     /**
      * POST /TrackingRecoleccion/chatEnviarMensaje
-     * Body JSON: { id_detalle, mensaje, tipo_mensaje?, latitud?, longitud?, metadata? }
-     * Proxy: POST /api/tracking/chats/{id_detalle}/mensajes
+     * Body JSON: { id_ruta|id_detalle, mensaje, tipo_mensaje?, latitud?, longitud?, metadata? }
+     * Proxy: POST /api/tracking/rutas/{id_ruta}/chat/mensajes o /api/tracking/chats/{id_detalle}/mensajes
      */
     public function chatEnviarMensaje()
     {
         $raw  = (string)file_get_contents('php://input');
         $data = json_decode($raw, true) ?: [];
 
-        $idDetalle = (int)($data['id_detalle'] ?? 0);
-        if ($idDetalle <= 0) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'id_detalle requerido.']);
+        $ctx = $this->_trkChatContext($data);
+        if (!$this->_trkChatContextValido($ctx)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_ruta o id_detalle requerido.']);
             return;
         }
 
@@ -453,11 +504,10 @@ class TrackingRecoleccion extends Controller
             'nombre_remitente' => trim((string)($_SESSION['usuario_nombre'] ?? 'Gestor')),
             'latitud'          => $data['latitud']  ?? null,
             'longitud'         => $data['longitud'] ?? null,
-            'metadata'         => $data['metadata'] ?? null,
+            'metadata'         => $this->_trkChatMetadata($ctx, $data['metadata'] ?? null),
         ]);
 
-        $url  = rtrim($cfg['base_url'], '/') . "/api/tracking/chats/{$idDetalle}/mensajes";
-        $resp = $this->_trkChatCurl($url, 'POST', $payload, [
+        $resp = $this->_trkTrackingCurlFallback($cfg['base_url'], $this->_trkChatPaths($ctx, '/mensajes'), 'POST', $payload, [
             'Content-Type: application/json',
             'X-API-Key: '     . $cfg['api_key'],
             'Authorization: Bearer ' . $token,
@@ -468,14 +518,14 @@ class TrackingRecoleccion extends Controller
 
     /**
      * POST /TrackingRecoleccion/chatSubirArchivo
-     * Multipart: id_detalle, archivo, mensaje?, latitud?, longitud?
-     * Proxy: POST /api/tracking/chats/{id_detalle}/archivos
+     * Multipart: id_ruta|id_detalle, archivo, mensaje?, latitud?, longitud?
+     * Proxy: POST /api/tracking/rutas/{id_ruta}/chat/archivos o /api/tracking/chats/{id_detalle}/archivos
      */
     public function chatSubirArchivo()
     {
-        $idDetalle = (int)($_POST['id_detalle'] ?? 0);
-        if ($idDetalle <= 0) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'id_detalle requerido.']);
+        $ctx = $this->_trkChatContext($_POST);
+        if (!$this->_trkChatContextValido($ctx)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_ruta o id_detalle requerido.']);
             return;
         }
         if (empty($_FILES['archivo']) || !is_uploaded_file($_FILES['archivo']['tmp_name'])) {
@@ -494,7 +544,6 @@ class TrackingRecoleccion extends Controller
             return;
         }
 
-        $url = rtrim($cfg['base_url'], '/') . "/api/tracking/chats/{$idDetalle}/archivos";
         if (!function_exists('curl_init') || !class_exists('\CURLFile')) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Carga de archivos no disponible en este servidor.']);
             return;
@@ -508,34 +557,47 @@ class TrackingRecoleccion extends Controller
                 (string)($file['name'] ?? 'archivo')
             ),
         ];
+        if ($ctx['tipo'] === 'ruta') {
+            $post['id_ruta'] = (string)$ctx['id_ruta'];
+        } else {
+            $post['id_detalle'] = (string)$ctx['id_detalle'];
+        }
         foreach (['mensaje', 'latitud', 'longitud'] as $k) {
             if (isset($_POST[$k]) && trim((string)$_POST[$k]) !== '') {
                 $post[$k] = (string)$_POST[$k];
             }
         }
 
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 120,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $post,
-            CURLOPT_HTTPHEADER     => [
-                'X-API-Key: ' . $cfg['api_key'],
-                'Authorization: Bearer ' . $token,
-            ],
-            CURLOPT_SSL_VERIFYPEER => false,
-        ]);
-        $raw      = curl_exec($ch);
-        $curlErr  = $raw === false ? curl_error($ch) : '';
-        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        $last = ['http_code' => 0, 'body' => '', 'error' => 'Sin rutas para subir archivo.'];
+        foreach ($this->_trkChatPaths($ctx, '/archivos') as $path) {
+            $ch = curl_init($this->_trkTrackingBuildUrl($cfg['base_url'], $path));
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => 120,
+                CURLOPT_POST           => true,
+                CURLOPT_POSTFIELDS     => $post,
+                CURLOPT_HTTPHEADER     => [
+                    'X-API-Key: ' . $cfg['api_key'],
+                    'Authorization: Bearer ' . $token,
+                ],
+                CURLOPT_SSL_VERIFYPEER => false,
+            ]);
+            $raw      = curl_exec($ch);
+            $curlErr  = $raw === false ? curl_error($ch) : '';
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $last = [
+                'http_code' => $httpCode,
+                'body'      => ($raw === false ? '' : (string)$raw),
+                'error'     => $curlErr,
+                'path'      => $path,
+            ];
+            if (!$this->_trkTrackingEndpointNotFound($last)) {
+                break;
+            }
+        }
 
-        $this->_trkChatRelayResponse([
-            'http_code' => $httpCode,
-            'body'      => ($raw === false ? '' : (string)$raw),
-            'error'     => $curlErr,
-        ]);
+        $this->_trkChatRelayResponse($last);
     }
 
     /**

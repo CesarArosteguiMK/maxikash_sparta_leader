@@ -10,6 +10,7 @@ use Models\Adjudicacion as AdjudicacionModel;
 class MotosAdjudicadas extends Model
 {
     private const ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION = 'EL GESTOR ENVIO EVIDENCIAS DE LA ADJUDICACION';
+    private const ACCION_MONITOREO_FORZO_EVIDENCIAS = 'MONITOREO FORZO ENVIO A EVIDENCIAS';
 
     private $db;
 
@@ -4024,7 +4025,7 @@ SQL;
     /**
      * Cambia el estatus de una operaci?n y registra historial.
      */
-    public function cambiarEstatus(int $id, string $estatusNuevo, int $idUsuario, string $nombreUsuario = ''): array
+    public function cambiarEstatus(int $id, string $estatusNuevo, int $idUsuario, string $nombreUsuario = '', string $origen = ''): array
     {
         if (!in_array($estatusNuevo, self::ESTATUS_VALIDOS, true)) {
             return ['success' => false, 'message' => 'Estatus no v?lido.'];
@@ -4063,6 +4064,9 @@ SQL;
         );
 
         $this->registrarBitacora($id, 'MOVIO A ETAPA: ' . strtoupper($estatusNuevo), $idUsuario, $nombreUsuario, $ahora);
+        if ($estatusNuevo === 'Recibido' && strtolower(trim($origen)) === 'monitoreo') {
+            $this->registrarBitacora($id, self::ACCION_MONITOREO_FORZO_EVIDENCIAS, $idUsuario, $nombreUsuario, $ahora);
+        }
 
         return ['success' => true];
     }

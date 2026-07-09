@@ -3043,6 +3043,63 @@ body.dark-mode .trk-route-event-item {
     overflow-y: auto;
     padding-right: .12rem;
 }
+.trk-route-mini-chat {
+    border: 1px solid #c7f5ef;
+    background: #fff;
+    border-radius: .65rem;
+    margin-top: .75rem;
+    overflow: hidden;
+}
+.trk-route-mini-chat-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .65rem;
+    padding: .62rem .72rem;
+    border-bottom: 1px solid #d5f3ed;
+    background: #f0fdfa;
+}
+.trk-route-mini-chat-title {
+    color: #172554;
+    font-size: .82rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+.trk-route-mini-chat-sub {
+    color: #64748b;
+    font-size: .69rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+.trk-route-mini-chat-messages {
+    min-height: 170px;
+    max-height: 240px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    padding: .7rem;
+    background: #f8fafc;
+}
+.trk-route-mini-chat-messages .chat-bubble-wrap {
+    max-width: 92%;
+}
+.trk-route-mini-chat-compose {
+    display: flex;
+    gap: .5rem;
+    align-items: flex-end;
+    padding: .62rem .72rem .72rem;
+    border-top: 1px solid #e2e8f0;
+    background: #fff;
+}
+.trk-route-mini-chat-compose .chat-textarea {
+    min-height: 42px;
+    max-height: 86px;
+}
+.trk-route-mini-chat-compose .chat-send-btn {
+    width: 40px;
+    height: 42px;
+}
 .trk-route-opportunity {
     border: 1px solid #dbeafe;
     background: #fff;
@@ -3084,15 +3141,29 @@ body.dark-mode .trk-route-opportunities {
     background: #101c24;
     border-color: #1e3a5f;
 }
+body.dark-mode .trk-route-mini-chat,
+body.dark-mode .trk-route-mini-chat-compose {
+    background: #172121;
+    border-color: #2d4444;
+}
+body.dark-mode .trk-route-mini-chat-head {
+    background: #112222;
+    border-bottom-color: #244644;
+}
 body.dark-mode .trk-route-opportunities-title,
+body.dark-mode .trk-route-mini-chat-title,
 body.dark-mode .trk-route-opportunity-title {
     color: #e2e8f0;
 }
 body.dark-mode .trk-route-opportunities-sub,
+body.dark-mode .trk-route-mini-chat-sub,
 body.dark-mode .trk-route-opportunity-meta,
 body.dark-mode .trk-route-opportunity-reasons,
 body.dark-mode .trk-route-opportunities-tools label {
     color: #b0cece;
+}
+body.dark-mode .trk-route-mini-chat-messages {
+    background: #101818;
 }
 body.dark-mode .trk-route-opportunities-summary .mini-kpi,
 body.dark-mode .trk-route-opportunity {
@@ -5617,6 +5688,40 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                             </div>
                         </div>
                     </div>
+                    <div class="trk-route-mini-chat d-none" id="trkRouteMiniChat">
+                        <div class="trk-route-mini-chat-head">
+                            <div style="min-width:0;">
+                                <div class="trk-route-mini-chat-title">
+                                    <i class="fa-solid fa-comments me-1" style="color:var(--track-color);"></i>
+                                    Chat operativo de ruta
+                                </div>
+                                <div class="trk-route-mini-chat-sub" id="trkRouteMiniChatSub">
+                                    Conversacion general con transportista y torre de control.
+                                </div>
+                            </div>
+                            <div class="d-inline-flex align-items-center gap-1">
+                                <span class="chat-ws-dot chat-ws-off" id="trkRouteMiniChatWsDot"></span>
+                                <button type="button" class="btn btn-sm btn-label-primary" id="trkRouteMiniChatExpand" title="Extender chat">
+                                    <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="chat-status-notice d-none" id="trkRouteMiniChatNotice"></div>
+                        <div class="trk-route-mini-chat-messages" id="trkRouteMiniChatMessages">
+                            <div class="text-center text-muted small py-3">Abre una ruta para cargar el chat.</div>
+                        </div>
+                        <div class="chat-typing-indicator d-none" id="trkRouteMiniChatTyping">
+                            <span>Escribiendo</span>
+                            <span class="chat-typing-dots"><span></span><span></span><span></span></span>
+                        </div>
+                        <div class="trk-route-mini-chat-compose">
+                            <textarea class="form-control chat-textarea" id="trkRouteMiniChatTextarea"
+                                      placeholder="Mensaje para la ruta..." rows="2" maxlength="2000" disabled></textarea>
+                            <button class="chat-send-btn" id="trkRouteMiniChatSend" type="button" disabled>
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- CEDIS destino en modo planeador (columna izquierda) -->
@@ -6249,6 +6354,23 @@ const _trk = {
     chatLiveConectado:    false,
     chatUltimaConexionAt: null,
     chatConnectionTimer:  null,
+    routeMiniChat:        {
+        idRuta: null,
+        rutaNombre: '',
+        estatus: null,
+        mensajes: [],
+        ws: null,
+        wsRetries: 0,
+        wsRetryTimeout: null,
+        wsPingInterval: null,
+        typingTimeout: null,
+        typingStopTimeout: null,
+        lastTypingSent: 0,
+        loading: false,
+        loaded: false,
+        allLoaded: false,
+        oldestMsgId: null,
+    },
     opsRutaActualId:      null,
     opsRutaActualData:    null,
     opsMapInstance:       null,
@@ -6620,6 +6742,22 @@ document.addEventListener('DOMContentLoaded', function () {
         _trkAbrirModalOperacionTransportista($(this).data('id'));
     });
     document.getElementById('btnToggleChatMap')?.addEventListener('click', () => _trkToggleChatMapPanel());
+    document.getElementById('trkRouteMiniChatExpand')?.addEventListener('click', () => {
+        const idRuta = _trk.routeMiniChat.idRuta || _trk.idRutaEditando;
+        if (!idRuta) return;
+        _trkMiniChatDesconectarWS();
+        _trkChatCargarYAbrir(Number(idRuta));
+    });
+    document.getElementById('trkRouteMiniChatSend')?.addEventListener('click', _trkMiniChatEnviarMensaje);
+    document.getElementById('trkRouteMiniChatTextarea')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            _trkMiniChatEnviarMensaje();
+        }
+    });
+    document.getElementById('trkRouteMiniChatTextarea')?.addEventListener('input', e => _trkMiniChatEmitirTyping(e.target.value.trim() !== ''));
+    document.getElementById('trkRouteMiniChatTextarea')?.addEventListener('blur', () => _trkMiniChatEmitirTyping(false));
+    document.getElementById('modalRegistrarRuta')?.addEventListener('hidden.bs.modal', _trkMiniChatLimpiar);
     document.getElementById('trkSectionGrid')?.addEventListener('click', ev => {
         const btn = ev.target.closest('.trk-section-card');
         if (!btn) return;
@@ -11675,6 +11813,7 @@ async function _trkAbrirModalConCredito(cred) {
 function _trkResetModal() {
     _trkCancelarAutosaveProgramado();
     _trkRTLimpiar();   // limpia tracking RT antes de resetear el modal
+    _trkMiniChatLimpiar();
     _trk.idRutaEditando        = null;
     _trk.estatusRuta           = null;
     _trk.soloLectura           = false;
@@ -15355,6 +15494,7 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
                 _trkRTLimpiar();
             }
             _trkSetPlaneadorActivo(true);
+            _trkMiniChatIniciar(idRuta, nombreRutaLimpio || `Ruta #${idRuta}`);
             Swal.close();
         })
         .catch((err) => {
@@ -18772,9 +18912,9 @@ function _trkRTProcesarEvento(data) {
    CHAT OPERATIVO  -  gestor (Sparta Ledger)
    Flujo:
      1. Usuario hace clic en btn-abrir-chat de tablaRutas.
-     2. Se obtiene el detalle de la ruta para listar id_detalle.
-     3. Se abre el offcanvas con una pestana por id_detalle.
-     4. Al activar una pestana, se carga info del chat por REST.
+     2. Se obtiene el detalle de la ruta para abrir la conversacion general.
+     3. Se abre el offcanvas existente con una pestana de ruta.
+     4. Al activar la pestana, se carga info del chat por REST.
      5. Si el chat esta activo, se conecta WebSocket (solo lectura).
      6. Mensajes se envian siempre por REST.
 ============================================================ */
@@ -18782,15 +18922,65 @@ function _trkRTProcesarEvento(data) {
 // --- Estado global del Chat ------------------------------
 const _trkChat = {
     rutaId:    null,   // id_ruta abierto actualmente
-    activeTab: null,   // id_detalle de la pestana activa
+    activeTab: null,   // clave de conversacion activa
     jwtToken:  null,   // JWT en memoria JS (solo para WS)
     jwtExpiry: 0,      // timestamp ms de expiracion
-    chats:     {},     // Map<id_detalle, chatState>
+    chats:     {},     // Map<chatKey, chatState>
 };
 /* chatState = {
     id_chat, estatus, mensajes[], ws, wsRetries, wsRetryTimeout,
     unread, loadingMsgs, allLoaded, oldestMsgId
 } */
+
+function _trkChatRutaKey(idRuta) {
+    return `ruta_${idRuta}`;
+}
+
+function _trkChatKey(det) {
+    if (det?.chat_key) return String(det.chat_key);
+    if (det?.scope === 'ruta' || (det?.id_ruta && !det?.id_detalle)) return _trkChatRutaKey(det.id_ruta);
+    return String(det?.id_detalle || '');
+}
+
+function _trkChatQueryString(chatKey) {
+    const state = _trkChat.chats[String(chatKey)];
+    if (!state) return '';
+    if (state.scope === 'ruta') return `id_ruta=${encodeURIComponent(state.id_ruta)}`;
+    return `id_detalle=${encodeURIComponent(state.id_detalle || chatKey)}`;
+}
+
+function _trkChatRequestBody(chatKey, extra = {}) {
+    const state = _trkChat.chats[String(chatKey)];
+    const base = { ...extra };
+    if (state?.scope === 'ruta') base.id_ruta = state.id_ruta;
+    else base.id_detalle = state?.id_detalle || chatKey;
+    return base;
+}
+
+function _trkChatWsUrl(chatKey, token) {
+    const state = _trkChat.chats[String(chatKey)];
+    const wsBase = String(window._trackingChatWsBaseUrl || '').replace(/\/$/, '');
+    if (!state || !wsBase) return '';
+    if (state.scope === 'ruta') {
+        return `${wsBase}/api/tracking/rutas/${encodeURIComponent(state.id_ruta)}/chat/live?token=${encodeURIComponent(token)}`;
+    }
+    return `${wsBase}/api/tracking/chats/${encodeURIComponent(state.id_detalle || chatKey)}/live?token=${encodeURIComponent(token)}`;
+}
+
+function _trkChatBuildRutaConversation(idRuta, datos = {}) {
+    const detalle = Array.isArray(datos.detalle) ? datos.detalle : [];
+    const nombre = _trkSanitizarNombreRuta(datos.nombre_ruta || '') || `Ruta #${idRuta}`;
+    return {
+        chat_key: _trkChatRutaKey(idRuta),
+        scope: 'ruta',
+        id_ruta: idRuta,
+        ruta_nombre: nombre,
+        fecha_programada: datos.fecha_programada_fmt || datos.fecha_programada || '',
+        estatus_ruta: datos.estatus_ruta || '',
+        total_creditos: detalle.length,
+        transportista: _trkTransportistaRutaData(datos)?.nombre || datos.nombre_transportista || '',
+    };
+}
 
 // --- Abrir chat de una ruta (entry point) ----------------
 function _trkChatCargarYAbrir(idRuta) {
@@ -18800,25 +18990,33 @@ function _trkChatCargarYAbrir(idRuta) {
                 Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar la ruta.', confirmButtonText: 'Aceptar' });
                 return;
             }
-            const detalle = (r.datos.detalle || []).map(d => ({
-                id_detalle:     d.id_detalle,
-                id_credito:     d.id_credito,
-                nombre_cliente: d.nombre_cliente || '',
-                orden_ruta:     d.orden_ruta,
-                modelo:         d.modelo || '',
-                bin:            d.bin || d.vin || '',
-                estado:         d.estado || '',
-                municipio:      d.municipio || '',
-                direccion:      d.direccion || '',
-                estatus_confirmacion_gestor: d.estatus_confirmacion_gestor || '',
-                estatus_recoleccion: d.estatus_recoleccion || '',
-            }));
-            _trkChatAbrir(idRuta, r.datos.nombre_ruta || `Ruta #${idRuta}`, detalle);
+            const rutaNombre = _trkSanitizarNombreRuta(r.datos.nombre_ruta || '') || `Ruta #${idRuta}`;
+            _trkChatAbrir(idRuta, rutaNombre, [_trkChatBuildRutaConversation(idRuta, r.datos)]);
         })
         .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión.', confirmButtonText: 'Aceptar' }));
 }
 
 function _trkChatRenderContextoDetalle(det) {
+    if (det?.scope === 'ruta') {
+        const idRuta = det?.id_ruta || '';
+        const ruta = det?.ruta_nombre || `Ruta #${idRuta}`;
+        const fecha = det?.fecha_programada || 'Sin fecha';
+        const estatus = det?.estatus_ruta || 'Sin estatus';
+        const total = det?.total_creditos ?? 0;
+        const transportista = det?.transportista || 'Sin transportista';
+        return `<div class="chat-detail-context-main">
+                <span class="chat-detail-context-chip">
+                    <i class="fa-solid fa-route"></i>Ruta #${_trkChatEscapeHtml(idRuta)}
+                </span>
+                <span class="chat-detail-context-title">${_trkChatEscapeHtml(ruta)}</span>
+                <span class="chat-detail-context-chip">${_trkChatEscapeHtml(total)} creditos</span>
+            </div>
+            <div class="chat-detail-context-grid">
+                <span class="chat-detail-context-item"><b>Fecha:</b> ${_trkChatEscapeHtml(fecha)}</span>
+                <span class="chat-detail-context-item"><b>Estatus:</b> ${_trkChatEscapeHtml(estatus)}</span>
+                <span class="chat-detail-context-item chat-detail-context-address"><b>Transportista:</b> ${_trkChatEscapeHtml(transportista)}</span>
+            </div>`;
+    }
     const idDetalle = det?.id_detalle || '';
     const idCredito = det?.id_credito || 'Sin crédito';
     const orden = parseInt(det?.orden_ruta, 10) || 0;
@@ -18850,23 +19048,23 @@ function _trkChatRenderContextoDetalle(det) {
 }
 
 function _trkChatDetalleActivoValido(idDetalle, accion = 'continuar') {
-    const id = Number(idDetalle);
+    const id = String(idDetalle);
     const state = _trkChat.chats[id];
     const pane = document.getElementById(`chatPane_${id}`);
     if (!state || !pane) {
         Swal.fire({
             icon: 'warning',
-            title: 'Punto no disponible',
-            text: 'No se encontró el punto de recolección para esta acción.',
+            title: 'Conversacion no disponible',
+            text: 'No se encontro el chat para esta accion.',
             confirmButtonText: 'Aceptar',
         });
         return false;
     }
-    if (Number(_trkChat.activeTab) !== id || !pane.classList.contains('active')) {
+    if (String(_trkChat.activeTab) !== id || !pane.classList.contains('active')) {
         Swal.fire({
             icon: 'warning',
-            title: 'Revisa el punto activo',
-            text: `Para ${accion}, primero abre la pestaña correcta del punto de recolección.`,
+            title: 'Revisa el chat activo',
+            text: `Para ${accion}, primero abre la pestana correcta de la conversacion.`,
             confirmButtonText: 'Aceptar',
         });
         return false;
@@ -18875,12 +19073,21 @@ function _trkChatDetalleActivoValido(idDetalle, accion = 'continuar') {
 }
 
 function _trkChatEventoPerteneceDetalle(idDetalle, data) {
+    const state = _trkChat.chats[String(idDetalle)];
+    if (state?.scope === 'ruta') {
+        const recibidoRuta = data?.id_ruta || data?.ruta_id || data?.mensaje?.id_ruta || data?.mensaje?.metadata?.id_ruta;
+        return !recibidoRuta || Number(recibidoRuta) === Number(state.id_ruta);
+    }
     const recibido = data?.id_detalle || data?.detalle_id || data?.mensaje?.id_detalle;
     return !recibido || Number(recibido) === Number(idDetalle);
 }
 
 function _trkChatResumenDetalle(idDetalle) {
-    const det = _trkChat.chats[Number(idDetalle)]?.detalle || {};
+    const state = _trkChat.chats[String(idDetalle)];
+    const det = state?.detalle || {};
+    if (state?.scope === 'ruta') {
+        return det.ruta_nombre ? `Ruta #${det.id_ruta} | ${det.ruta_nombre}` : `Ruta #${det.id_ruta || ''}`;
+    }
     const partes = [
         det.orden_ruta ? `Punto ${det.orden_ruta}` : '',
         det.id_detalle ? `Detalle #${det.id_detalle}` : '',
@@ -18891,7 +19098,7 @@ function _trkChatResumenDetalle(idDetalle) {
 }
 
 function _trkChatActualizarContextoDetalle(idDetalle, patch = {}) {
-    const state = _trkChat.chats[Number(idDetalle)];
+    const state = _trkChat.chats[String(idDetalle)];
     if (!state) return;
     state.detalle = { ...(state.detalle || {}), ...(patch || {}) };
     const el = document.getElementById(`chatContext_${idDetalle}`);
@@ -18937,9 +19144,13 @@ function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
     tabsWrap.style.display    = '';
 
     detalleItems.forEach(det => {
-        const id = det.id_detalle;
+        const id = _trkChatKey(det);
+        if (!id) return;
         _trkChat.chats[id] = {
             id_chat: null, estatus: null, mensajes: [],
+            scope: det.scope || 'detalle',
+            id_ruta: det.id_ruta || idRuta,
+            id_detalle: det.id_detalle || null,
             detalle: det,
             ws: null, wsRetries: 0, wsRetryTimeout: null, wsPingInterval: null,
             unread: 0, loadingMsgs: false, allLoaded: false, oldestMsgId: null,
@@ -18949,11 +19160,16 @@ function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
         // Tab ---------------------------------------------
         const li = document.createElement('li');
         li.className = 'nav-item';
-        const credLabel = det.id_credito ? `  -  ${det.id_credito}` : '';
+        const tabLabel = det.scope === 'ruta'
+            ? 'Ruta general'
+            : `#${id}${det.id_credito ? `  -  ${det.id_credito}` : ''}`;
+        const tabTitle = det.scope === 'ruta'
+            ? (det.ruta_nombre || rutaNombre)
+            : (det.nombre_cliente || '');
         li.innerHTML = `
             <button class="chat-tab-link" id="chatTabBtn_${id}" data-detalle="${id}" type="button"
-                    title="${_trkChatEscapeHtml(det.nombre_cliente)}">
-                <span>#${id}${credLabel}</span>
+                    title="${_trkChatEscapeHtml(tabTitle)}">
+                <span>${_trkChatEscapeHtml(tabLabel)}</span>
                 <span class="chat-status-badge chat-status-desconocido" id="chatStatusBadge_${id}">...</span>
                 <span class="chat-unread-badge d-none" id="chatUnreadBadge_${id}"></span>
             </button>`;
@@ -19046,7 +19262,7 @@ function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
 
     // Activar primera pestana ------------------------------
     if (detalleItems.length > 0) {
-        _trkChatActivarTab(detalleItems[0].id_detalle);
+        _trkChatActivarTab(_trkChatKey(detalleItems[0]));
     }
 
     // Limpiar WS al cerrar el modal
@@ -19059,29 +19275,31 @@ function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
 
 // --- Gestion de pestanas ---------------------------------
 function _trkChatActivarTab(idDetalle) {
+    const chatKey = String(idDetalle);
     document.querySelectorAll('.chat-tab-link').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.chat-pane').forEach(p => p.classList.remove('active'));
 
-    const btn  = document.getElementById(`chatTabBtn_${idDetalle}`);
-    const pane = document.getElementById(`chatPane_${idDetalle}`);
+    const btn  = document.getElementById(`chatTabBtn_${chatKey}`);
+    const pane = document.getElementById(`chatPane_${chatKey}`);
     if (btn)  btn.classList.add('active');
     if (pane) pane.classList.add('active');
 
-    _trkChat.activeTab = idDetalle;
-    _trkChatClearUnread(idDetalle);
+    _trkChat.activeTab = chatKey;
+    _trkChatClearUnread(chatKey);
 
-    const state = _trkChat.chats[idDetalle];
+    const state = _trkChat.chats[chatKey];
     if (state && state.estatus === null) {
-        _trkChatCargarInfo(idDetalle);
+        _trkChatCargarInfo(chatKey);
     }
 }
 
 // --- Carga de info del chat ------------------------------
 async function _trkChatCargarInfo(idDetalle) {
-    const state = _trkChat.chats[idDetalle];
+    const chatKey = String(idDetalle);
+    const state = _trkChat.chats[chatKey];
     if (!state) return;
 
-    const wrap = document.getElementById(`chatMsgsWrap_${idDetalle}`);
+    const wrap = document.getElementById(`chatMsgsWrap_${chatKey}`);
     if (wrap) {
         wrap.innerHTML = `<div class="text-center py-5">
             <div class="spinner-border spinner-border-sm" style="color:var(--track-color);"></div>
@@ -19089,24 +19307,24 @@ async function _trkChatCargarInfo(idDetalle) {
     }
 
     try {
-        const r = await trkFetch(`/TrackingRecoleccion/chatInfo?id_detalle=${idDetalle}`);
+        const r = await trkFetch(`/TrackingRecoleccion/chatInfo?${_trkChatQueryString(chatKey)}`);
         if (!r.success) {
-            _trkChatMostrarError(idDetalle, r.mensaje || 'Error al cargar el chat.');
+            _trkChatMostrarError(chatKey, r.mensaje || 'Error al cargar el chat.');
             return;
         }
-        const chat = r.chat;
-        state.id_chat = chat.id_chat;
-        state.estatus = chat.estatus;
+        const chat = r.chat || r.conversacion || {};
+        state.id_chat = chat.id_chat || chat.id || null;
+        state.estatus = chat.estatus || r.estatus || 'activo';
         if (chat.unread_count !== undefined && chat.unread_count !== null) {
             state.unread = Math.max(0, parseInt(chat.unread_count, 10) || 0);
-            _trkChatActualizarUnreadBadge(idDetalle);
+            _trkChatActualizarUnreadBadge(chatKey);
         }
-        _trkChatActualizarEstatusBadge(idDetalle, chat.estatus);
-        _trkChatActualizarUI(idDetalle);
-        await _trkChatCargarMensajes(idDetalle);
-        if (chat.estatus === 'activo' || chat.estatus === 'bloqueado') {
+        _trkChatActualizarEstatusBadge(chatKey, state.estatus);
+        _trkChatActualizarUI(chatKey);
+        await _trkChatCargarMensajes(chatKey);
+        if (state.estatus === 'activo' || state.estatus === 'bloqueado') {
             const token = await _trkChatObtenerToken();
-            if (token) _trkChatConectarWS(idDetalle, token);
+            if (token) _trkChatConectarWS(chatKey, token);
         }
     } catch {
         _trkChatMostrarError(idDetalle, 'Error de conexión al cargar el chat.');
@@ -19115,11 +19333,12 @@ async function _trkChatCargarInfo(idDetalle) {
 
 // --- Carga paginada de mensajes --------------------------
 async function _trkChatCargarMensajes(idDetalle, beforeId = null) {
-    const state = _trkChat.chats[idDetalle];
+    const chatKey = String(idDetalle);
+    const state = _trkChat.chats[chatKey];
     if (!state || state.loadingMsgs || state.allLoaded) return;
     state.loadingMsgs = true;
 
-    let url = `/TrackingRecoleccion/chatMensajes?id_detalle=${idDetalle}&limit=50`;
+    let url = `/TrackingRecoleccion/chatMensajes?${_trkChatQueryString(chatKey)}&limit=50`;
     if (beforeId) url += `&before_id=${beforeId}`;
 
     try {
@@ -19136,7 +19355,7 @@ async function _trkChatCargarMensajes(idDetalle, beforeId = null) {
         if (state.mensajes.length > 0) {
             state.oldestMsgId = state.mensajes[0].id_mensaje;
         }
-        _trkChatRenderMensajes(idDetalle, !beforeId);
+        _trkChatRenderMensajes(chatKey, !beforeId);
     } catch { /* silent */ }
     finally { state.loadingMsgs = false; }
 }
@@ -19315,39 +19534,39 @@ function _trkChatScrollFinal(idDetalle) {
 // --- Enviar mensaje --------------------------------------
 async function _trkChatEnviarMensaje(idDetalle) {
     if (!_trkChatDetalleActivoValido(idDetalle, 'enviar mensajes')) return;
-    const state    = _trkChat.chats[idDetalle];
-    const textarea = document.getElementById(`chatTextarea_${idDetalle}`);
-    const sendBtn  = document.getElementById(`chatSendBtn_${idDetalle}`);
+    const chatKey = String(idDetalle);
+    const state    = _trkChat.chats[chatKey];
+    const textarea = document.getElementById(`chatTextarea_${chatKey}`);
+    const sendBtn  = document.getElementById(`chatSendBtn_${chatKey}`);
     if (!state || state.estatus !== 'activo' || !textarea || !sendBtn) return;
 
     const texto = textarea.value.trim();
     if (!texto) return;
 
-    _trkChatEmitirTyping(idDetalle, false);
+    _trkChatEmitirTyping(chatKey, false);
     textarea.disabled = true;
     sendBtn.disabled  = true;
     try {
         const r = await trkFetch('/TrackingRecoleccion/chatEnviarMensaje', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({
-                id_detalle:   idDetalle,
+            body:    JSON.stringify(_trkChatRequestBody(chatKey, {
                 mensaje:      texto,
                 tipo_mensaje: 'texto',
                 latitud:      null,
                 longitud:     null,
                 metadata:     null,
-            }),
+            })),
         });
         if (r.success) {
             textarea.value = '';
             // Si WS no esta activo, agregar localmente para feedback inmediato
             if ((!state.ws || state.ws.readyState !== WebSocket.OPEN) && r.mensaje) {
-                _trkChatAgregarMensaje(idDetalle, r.mensaje);
+                _trkChatAgregarMensaje(chatKey, r.mensaje);
             }
             // Si WS activo, el evento message.new lo agregara (evita duplicados)
         } else if (r.codigo_http === 409) {
-            _trkChatDeshabilitarInput(idDetalle, r.mensaje || 'Chat bloqueado o cerrado.');
+            _trkChatDeshabilitarInput(chatKey, r.mensaje || 'Chat bloqueado o cerrado.');
         } else {
             Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'Error al enviar.', confirmButtonText: 'Aceptar' });
         }
@@ -19378,25 +19597,24 @@ async function _trkChatObtenerToken() {
 
 // --- WebSocket -------------------------------------------
 function _trkChatConectarWS(idDetalle, token) {
-    const state = _trkChat.chats[idDetalle];
+    const chatKey = String(idDetalle);
+    const state = _trkChat.chats[chatKey];
     if (!state) return;
     if (state.ws && state.ws.readyState === WebSocket.OPEN) return;
     if (state.ws) { state.ws.onclose = null; state.ws.close(); state.ws = null; }
 
-    const wsBase = window._trackingChatWsBaseUrl;
-    if (!wsBase) { _trkChatActualizarWsDot(idDetalle, false); return; }
+    const wsUrl = _trkChatWsUrl(chatKey, token);
+    if (!wsUrl) { _trkChatActualizarWsDot(chatKey, false); return; }
 
     let ws;
     try {
-        ws = new WebSocket(
-            `${wsBase}/api/tracking/chats/${idDetalle}/live?token=${encodeURIComponent(token)}`
-        );
-    } catch { _trkChatActualizarWsDot(idDetalle, false); return; }
+        ws = new WebSocket(wsUrl);
+    } catch { _trkChatActualizarWsDot(chatKey, false); return; }
     state.ws = ws;
 
     ws.onopen = () => {
         state.wsRetries = 0;
-        _trkChatActualizarWsDot(idDetalle, true);
+        _trkChatActualizarWsDot(chatKey, true);
         // Heartbeat cada 30s para mantener la conexion activa en Cloud Run
         state.wsPingInterval = setInterval(() => {
             if (state.ws && state.ws.readyState === WebSocket.OPEN) {
@@ -19412,23 +19630,23 @@ function _trkChatConectarWS(idDetalle, token) {
         let data;
         try { data = JSON.parse(evt.data); } catch { return; }
         if (data.event === 'pong') return; // ignorar respuesta heartbeat
-        _trkChatProcesarEventoWS(idDetalle, data);
+        _trkChatProcesarEventoWS(chatKey, data);
     };
 
     ws.onclose = evt => {
         clearInterval(state.wsPingInterval);
         state.wsPingInterval = null;
         state.ws = null;
-        _trkChatActualizarWsDot(idDetalle, false);
+        _trkChatActualizarWsDot(chatKey, false);
 
         // Codigos de cierre definitivo (no reintentar)
         if (evt.code === 4001) { // token invalido/expirado
             _trkChat.jwtToken = null;
-        _trkChatMostrarNotice(idDetalle, 'Sesión expirada. Recarga la página.', 'cerrado');
+            _trkChatMostrarNotice(chatKey, 'Sesion expirada. Recarga la pagina.', 'cerrado');
             return;
         }
         if (evt.code === 4003) { // sin acceso
-            _trkChatMostrarNotice(idDetalle, 'Sin acceso a este chat.', 'cerrado');
+            _trkChatMostrarNotice(chatKey, 'Sin acceso a este chat.', 'cerrado');
             return;
         }
 
@@ -19438,15 +19656,15 @@ function _trkChatConectarWS(idDetalle, token) {
             state.wsRetries++;
             state.wsRetryTimeout = setTimeout(async () => {
                 const tok = await _trkChatObtenerToken();
-                const est = _trkChat.chats[idDetalle]?.estatus;
+                const est = _trkChat.chats[chatKey]?.estatus;
                 if (tok && (est === 'activo' || est === 'bloqueado')) {
-                    _trkChatConectarWS(idDetalle, tok);
+                    _trkChatConectarWS(chatKey, tok);
                 }
             }, delay);
         } else {
             _trkChatMostrarNotice(
-                idDetalle,
-                'Sin conexión en tiempo real  -  los mensajes se actualizan al enviar.',
+                chatKey,
+                'Sin conexion en tiempo real - los mensajes se actualizan al enviar.',
                 'cerrado'
             );
         }
@@ -19512,7 +19730,7 @@ function _trkChatDesconectarWS(idDetalle) {
 }
 
 function _trkChatLimpiarTodo() {
-    Object.keys(_trkChat.chats).forEach(id => _trkChatDesconectarWS(Number(id)));
+    Object.keys(_trkChat.chats).forEach(id => _trkChatDesconectarWS(id));
     _trkChat.chats     = {};
     _trkChat.activeTab = null;
     _trkChat.rutaId    = null;
@@ -19701,10 +19919,11 @@ function _trkChatPreviewArchivo(file, tipo) {
 
 async function _trkChatSubirArchivo(idDetalle, file, mensaje = '') {
     if (!_trkChatDetalleActivoValido(idDetalle, 'subir evidencia')) return;
-    const state = _trkChat.chats[idDetalle];
+    const chatKey = String(idDetalle);
+    const state = _trkChat.chats[chatKey];
     if (!state || state.estatus !== 'activo') return;
-    const sendBtn = document.getElementById(`chatSendBtn_${idDetalle}`);
-    const attachBtns = document.querySelectorAll(`#chatInputArea_${idDetalle} .chat-attach-btn`);
+    const sendBtn = document.getElementById(`chatSendBtn_${chatKey}`);
+    const attachBtns = document.querySelectorAll(`#chatInputArea_${chatKey} .chat-attach-btn`);
     const oldHtml = sendBtn ? sendBtn.innerHTML : '';
     if (sendBtn) {
         sendBtn.disabled = true;
@@ -19713,7 +19932,8 @@ async function _trkChatSubirArchivo(idDetalle, file, mensaje = '') {
     attachBtns.forEach(btn => { btn.disabled = true; });
     try {
         const formData = new FormData();
-        formData.append('id_detalle', String(idDetalle));
+        if (state.scope === 'ruta') formData.append('id_ruta', String(state.id_ruta));
+        else formData.append('id_detalle', String(state.id_detalle || chatKey));
         formData.append('archivo', file);
         if (mensaje) formData.append('mensaje', mensaje);
         const r = await fetch('/TrackingRecoleccion/chatSubirArchivo', {
@@ -19724,16 +19944,16 @@ async function _trkChatSubirArchivo(idDetalle, file, mensaje = '') {
         if (!r.success || !r.mensaje) {
             Swal.fire({ icon: 'error', title: 'No se pudo subir', text: r.mensaje || r.detail || 'Intenta nuevamente.', confirmButtonText: 'Aceptar' });
             if ([401, 403, 404, 409, 413, 415].includes(parseInt(r.codigo_http, 10))) {
-                _trkChatMostrarNotice(idDetalle, r.mensaje || 'No se pudo subir el archivo.', 'cerrado', 5000);
+                _trkChatMostrarNotice(chatKey, r.mensaje || 'No se pudo subir el archivo.', 'cerrado', 5000);
             }
             return;
         }
-        _trkChatAgregarMensaje(idDetalle, r.mensaje);
+        _trkChatAgregarMensaje(chatKey, r.mensaje);
     } catch {
         Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión al subir el archivo.', confirmButtonText: 'Aceptar' });
     } finally {
         if (sendBtn) sendBtn.innerHTML = oldHtml || '<i class="fa-solid fa-paper-plane"></i>';
-        _trkChatActualizarUI(idDetalle);
+        _trkChatActualizarUI(chatKey);
     }
 }
 
@@ -19745,6 +19965,332 @@ function _trkChatAdjuntoPendiente(idDetalle, tipo) {
         text: `El boton de ${labels[tipo] || 'archivo'} ya esta preparado para id_detalle ${idDetalle}. Falta enlazar el endpoint de adjuntos del servicio de tracking.`,
         confirmButtonText: 'Entendido',
     });
+}
+
+function _trkMiniChatSetVisible(visible) {
+    document.getElementById('trkRouteMiniChat')?.classList.toggle('d-none', !visible);
+}
+
+function _trkMiniChatActualizarWsDot(online) {
+    const dot = document.getElementById('trkRouteMiniChatWsDot');
+    if (!dot) return;
+    dot.className = `chat-ws-dot ${online ? 'chat-ws-on' : 'chat-ws-off'}`;
+    dot.title = online ? 'Tiempo real activo' : 'Sin tiempo real';
+}
+
+function _trkMiniChatMostrarNotice(msg, tipo = 'cerrado', autoHideMs = 0) {
+    const notice = document.getElementById('trkRouteMiniChatNotice');
+    if (!notice) return;
+    notice.textContent = msg;
+    notice.className = `chat-status-notice chat-notice-${tipo}`;
+    notice.classList.remove('d-none');
+    if (autoHideMs > 0) setTimeout(() => notice.classList.add('d-none'), autoHideMs);
+}
+
+function _trkMiniChatActualizarUI() {
+    const st = _trk.routeMiniChat;
+    const textarea = document.getElementById('trkRouteMiniChatTextarea');
+    const sendBtn = document.getElementById('trkRouteMiniChatSend');
+    const activo = st.estatus === 'activo';
+    if (textarea) textarea.disabled = !activo;
+    if (sendBtn) sendBtn.disabled = !activo;
+    if (activo) {
+        document.getElementById('trkRouteMiniChatNotice')?.classList.add('d-none');
+    } else if (st.estatus === 'bloqueado') {
+        _trkMiniChatMostrarNotice('El chat esta disponible cuando la ruta inicia.', 'bloqueado');
+    } else if (st.estatus === 'cerrado') {
+        _trkMiniChatMostrarNotice('Esta conversacion ha sido cerrada.', 'cerrado');
+    }
+}
+
+function _trkMiniChatRenderMensajes(scrollToBottom = true) {
+    const st = _trk.routeMiniChat;
+    const wrap = document.getElementById('trkRouteMiniChatMessages');
+    if (!wrap) return;
+    if (!st.mensajes.length) {
+        wrap.innerHTML = `<div class="text-center text-muted small py-3">
+            <i class="fa-solid fa-comment-slash opacity-25 fa-2x mb-2 d-block"></i>
+            Sin mensajes aun
+        </div>`;
+        return;
+    }
+    wrap.innerHTML = st.mensajes.slice(-40).map(_trkChatRenderBurbuja).join('');
+    if (scrollToBottom) _trkMiniChatScrollFinal();
+}
+
+function _trkMiniChatScrollFinal() {
+    const wrap = document.getElementById('trkRouteMiniChatMessages');
+    if (wrap) wrap.scrollTo({ top: wrap.scrollHeight, behavior: 'smooth' });
+}
+
+function _trkMiniChatAgregarMensaje(msg) {
+    const st = _trk.routeMiniChat;
+    if (!msg) return;
+    if (msg.id_mensaje && st.mensajes.some(m => m.id_mensaje === msg.id_mensaje)) return;
+    _trkMiniChatMostrarTyping(false);
+    st.mensajes.push(msg);
+    _trkMiniChatRenderMensajes(true);
+}
+
+function _trkMiniChatMostrarTyping(mostrar = true, actor = 'Conductor') {
+    const el = document.getElementById('trkRouteMiniChatTyping');
+    const st = _trk.routeMiniChat;
+    if (!el) return;
+    if (st.typingTimeout) {
+        clearTimeout(st.typingTimeout);
+        st.typingTimeout = null;
+    }
+    if (!mostrar) {
+        el.classList.add('d-none');
+        return;
+    }
+    const labelEl = el.querySelector('span:first-child');
+    if (labelEl) labelEl.textContent = actor && actor !== 'Conductor' ? `${actor} escribiendo` : 'Escribiendo';
+    el.classList.remove('d-none');
+    st.typingTimeout = setTimeout(() => _trkMiniChatMostrarTyping(false), 4500);
+    _trkMiniChatScrollFinal();
+}
+
+function _trkMiniChatEmitirTyping(activo) {
+    const st = _trk.routeMiniChat;
+    if (st.estatus !== 'activo' || !st.ws || st.ws.readyState !== WebSocket.OPEN) return;
+    clearTimeout(st.typingStopTimeout);
+    const now = Date.now();
+    if (activo) {
+        if (now - (st.lastTypingSent || 0) > 1800) {
+            try { st.ws.send(JSON.stringify({ event: 'typing.start', tipo_actor: 'gestor' })); } catch {}
+            st.lastTypingSent = now;
+        }
+        st.typingStopTimeout = setTimeout(() => _trkMiniChatEmitirTyping(false), 1800);
+    } else {
+        try { st.ws.send(JSON.stringify({ event: 'typing.stop', tipo_actor: 'gestor' })); } catch {}
+        st.lastTypingSent = 0;
+    }
+}
+
+function _trkMiniChatProcesarEventoWS(data) {
+    const st = _trk.routeMiniChat;
+    const recibidoRuta = data?.id_ruta || data?.ruta_id || data?.mensaje?.id_ruta || data?.mensaje?.metadata?.id_ruta;
+    if (recibidoRuta && Number(recibidoRuta) !== Number(st.idRuta)) return;
+    switch (data.event) {
+        case 'init':
+            st.mensajes = data.mensajes || [];
+            st.allLoaded = st.mensajes.length < 50;
+            if (st.mensajes.length) st.oldestMsgId = st.mensajes[0].id_mensaje;
+            _trkMiniChatRenderMensajes(true);
+            break;
+        case 'message.new':
+            if (data.mensaje) _trkMiniChatAgregarMensaje(data.mensaje);
+            break;
+        case 'typing':
+        case 'typing.start':
+        case 'typing.stop':
+        case 'chat.typing': {
+            const tipoActor = String(data.tipo_actor || data.actor || '').toLowerCase();
+            if (tipoActor === 'gestor') break;
+            const activo = data.event === 'typing.stop' ? false : (data.typing ?? data.is_typing ?? data.active ?? true);
+            _trkMiniChatMostrarTyping(!!activo, data.nombre_remitente || data.nombre || 'Conductor');
+            break;
+        }
+        case 'chat.unlocked':
+            st.estatus = 'activo';
+            _trkMiniChatActualizarUI();
+            _trkMiniChatMostrarNotice('La ruta ha iniciado; ya puedes enviar mensajes.', 'activo', 5000);
+            break;
+        case 'error':
+            _trkMiniChatMostrarNotice(data.detail || 'Error en el chat.', 'cerrado');
+            break;
+    }
+}
+
+function _trkMiniChatWsUrl(token) {
+    const st = _trk.routeMiniChat;
+    const wsBase = String(window._trackingChatWsBaseUrl || '').replace(/\/$/, '');
+    if (!wsBase || !st.idRuta) return '';
+    return `${wsBase}/api/tracking/rutas/${encodeURIComponent(st.idRuta)}/chat/live?token=${encodeURIComponent(token)}`;
+}
+
+function _trkMiniChatConectarWS(token) {
+    const st = _trk.routeMiniChat;
+    if (!st.idRuta) return;
+    if (st.ws && st.ws.readyState === WebSocket.OPEN) return;
+    if (st.ws) { st.ws.onclose = null; st.ws.close(); }
+    st.ws = null;
+    const wsUrl = _trkMiniChatWsUrl(token);
+    if (!wsUrl) { _trkMiniChatActualizarWsDot(false); return; }
+    let ws;
+    try { ws = new WebSocket(wsUrl); } catch { _trkMiniChatActualizarWsDot(false); return; }
+    st.ws = ws;
+    ws.onopen = () => {
+        st.wsRetries = 0;
+        _trkMiniChatActualizarWsDot(true);
+        st.wsPingInterval = setInterval(() => {
+            if (st.ws && st.ws.readyState === WebSocket.OPEN) st.ws.send(JSON.stringify({ event: 'ping' }));
+            else {
+                clearInterval(st.wsPingInterval);
+                st.wsPingInterval = null;
+            }
+        }, 30000);
+    };
+    ws.onmessage = evt => {
+        let data;
+        try { data = JSON.parse(evt.data); } catch { return; }
+        if (data.event === 'pong') return;
+        _trkMiniChatProcesarEventoWS(data);
+    };
+    ws.onclose = evt => {
+        clearInterval(st.wsPingInterval);
+        st.wsPingInterval = null;
+        st.ws = null;
+        _trkMiniChatActualizarWsDot(false);
+        if (evt.code === 4001) _trkChat.jwtToken = null;
+        if (evt.code === 4001 || evt.code === 4003) return;
+        if (st.wsRetries < 5 && st.idRuta) {
+            const delay = Math.min(1000 * Math.pow(2, st.wsRetries), 30000);
+            st.wsRetries++;
+            st.wsRetryTimeout = setTimeout(async () => {
+                const tok = await _trkChatObtenerToken();
+                if (tok && ['activo', 'bloqueado'].includes(st.estatus)) _trkMiniChatConectarWS(tok);
+            }, delay);
+        } else {
+            _trkMiniChatMostrarNotice('Sin conexion en tiempo real; se actualizara al enviar.', 'cerrado');
+        }
+    };
+    ws.onerror = () => {};
+}
+
+function _trkMiniChatDesconectarWS() {
+    const st = _trk.routeMiniChat;
+    if (st.wsPingInterval) { clearInterval(st.wsPingInterval); st.wsPingInterval = null; }
+    if (st.wsRetryTimeout) { clearTimeout(st.wsRetryTimeout); st.wsRetryTimeout = null; }
+    if (st.typingTimeout) { clearTimeout(st.typingTimeout); st.typingTimeout = null; }
+    if (st.typingStopTimeout) { clearTimeout(st.typingStopTimeout); st.typingStopTimeout = null; }
+    if (st.ws) { st.ws.onclose = null; st.ws.close(); }
+    st.ws = null;
+    _trkMiniChatActualizarWsDot(false);
+}
+
+function _trkMiniChatLimpiar() {
+    _trkMiniChatDesconectarWS();
+    _trk.routeMiniChat = {
+        ..._trk.routeMiniChat,
+        idRuta: null,
+        rutaNombre: '',
+        estatus: null,
+        mensajes: [],
+        wsRetries: 0,
+        lastTypingSent: 0,
+        loading: false,
+        loaded: false,
+        allLoaded: false,
+        oldestMsgId: null,
+    };
+    const msgWrap = document.getElementById('trkRouteMiniChatMessages');
+    if (msgWrap) msgWrap.innerHTML = '<div class="text-center text-muted small py-3">Abre una ruta para cargar el chat.</div>';
+    document.getElementById('trkRouteMiniChatNotice')?.classList.add('d-none');
+    _trkMiniChatSetVisible(false);
+    _trkMiniChatActualizarUI();
+}
+
+async function _trkMiniChatCargarMensajes() {
+    const st = _trk.routeMiniChat;
+    if (!st.idRuta || st.loading) return;
+    st.loading = true;
+    try {
+        const r = await trkFetch(`/TrackingRecoleccion/chatMensajes?id_ruta=${encodeURIComponent(st.idRuta)}&limit=50`);
+        if (!r.success) return;
+        st.mensajes = r.mensajes || [];
+        st.allLoaded = st.mensajes.length < 50;
+        if (st.mensajes.length) st.oldestMsgId = st.mensajes[0].id_mensaje;
+        _trkMiniChatRenderMensajes(true);
+    } finally {
+        st.loading = false;
+    }
+}
+
+async function _trkMiniChatIniciar(idRuta, rutaNombre = '') {
+    if (!idRuta) {
+        _trkMiniChatLimpiar();
+        return;
+    }
+    _trkMiniChatDesconectarWS();
+    const st = _trk.routeMiniChat;
+    st.idRuta = Number(idRuta);
+    st.rutaNombre = rutaNombre || `Ruta #${idRuta}`;
+    st.estatus = null;
+    st.mensajes = [];
+    st.loaded = false;
+    st.allLoaded = false;
+    st.oldestMsgId = null;
+    _trkMiniChatSetVisible(true);
+    document.getElementById('trkRouteMiniChatSub').textContent = `${st.rutaNombre} | conversacion general`;
+    const wrap = document.getElementById('trkRouteMiniChatMessages');
+    if (wrap) wrap.innerHTML = '<div class="text-center py-3"><span class="spinner-border spinner-border-sm" style="color:var(--track-color);"></span></div>';
+    try {
+        const r = await trkFetch(`/TrackingRecoleccion/chatInfo?id_ruta=${encodeURIComponent(st.idRuta)}`);
+        if (!r.success) {
+            st.estatus = 'cerrado';
+            _trkMiniChatActualizarUI();
+            if (wrap) wrap.innerHTML = `<div class="alert alert-warning small m-2 py-2">${_trkChatEscapeHtml(r.mensaje || 'No se pudo cargar el chat de ruta.')}</div>`;
+            return;
+        }
+        const chat = r.chat || r.conversacion || {};
+        st.estatus = chat.estatus || r.estatus || 'activo';
+        st.loaded = true;
+        _trkMiniChatActualizarUI();
+        await _trkMiniChatCargarMensajes();
+        if (['activo', 'bloqueado'].includes(st.estatus)) {
+            const token = await _trkChatObtenerToken();
+            if (token) _trkMiniChatConectarWS(token);
+        }
+    } catch {
+        st.estatus = 'cerrado';
+        _trkMiniChatActualizarUI();
+        if (wrap) wrap.innerHTML = '<div class="alert alert-warning small m-2 py-2">Error de conexion al cargar el chat.</div>';
+    }
+}
+
+async function _trkMiniChatEnviarMensaje() {
+    const st = _trk.routeMiniChat;
+    const textarea = document.getElementById('trkRouteMiniChatTextarea');
+    const sendBtn = document.getElementById('trkRouteMiniChatSend');
+    if (!st.idRuta || st.estatus !== 'activo' || !textarea || !sendBtn) return;
+    const texto = textarea.value.trim();
+    if (!texto) return;
+    _trkMiniChatEmitirTyping(false);
+    textarea.disabled = true;
+    sendBtn.disabled = true;
+    try {
+        const r = await trkFetch('/TrackingRecoleccion/chatEnviarMensaje', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id_ruta: st.idRuta,
+                mensaje: texto,
+                tipo_mensaje: 'texto',
+                latitud: null,
+                longitud: null,
+                metadata: null,
+            }),
+        });
+        if (r.success) {
+            textarea.value = '';
+            if ((!st.ws || st.ws.readyState !== WebSocket.OPEN) && r.mensaje) {
+                _trkMiniChatAgregarMensaje(r.mensaje);
+            }
+        } else if (r.codigo_http === 409) {
+            st.estatus = 'cerrado';
+            _trkMiniChatActualizarUI();
+            _trkMiniChatMostrarNotice(r.mensaje || 'Chat bloqueado o cerrado.', 'cerrado');
+        } else {
+            Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'Error al enviar.', confirmButtonText: 'Aceptar' });
+        }
+    } catch {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo enviar el mensaje.', confirmButtonText: 'Aceptar' });
+    } finally {
+        _trkMiniChatActualizarUI();
+        textarea.focus();
+    }
 }
 
 function _trkChatMostrarError(idDetalle, msg) {

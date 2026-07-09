@@ -345,7 +345,18 @@ class AtencionClientes
 
     private function sqlCondicionBitacoraEnvioEvidencias(string $aliasBitacora): string
     {
-        return "({$aliasBitacora}.accion LIKE '%AL PIPELINE%' OR {$aliasBitacora}.accion LIKE '%EVIDENCIAS DE LA ADJUDICACION%')";
+        return "({$aliasBitacora}.accion LIKE '%AL PIPELINE%' OR {$aliasBitacora}.accion LIKE '%EVIDENCIAS DE LA ADJUDICACION%' OR {$aliasBitacora}.accion LIKE '%MONITOREO FORZO ENVIO A EVIDENCIAS%')";
+    }
+
+    private function sqlExisteEnvioForzadoMonitoreoEvidencias(string $aliasOperacion = 'o'): string
+    {
+        return "EXISTS (
+            SELECT 1
+              FROM adj_bitacora b_mon
+             WHERE b_mon.id_operacion = {$aliasOperacion}.id
+               AND b_mon.accion LIKE '%MONITOREO FORZO ENVIO A EVIDENCIAS%'
+             LIMIT 1
+        )";
     }
 
     private function sqlConteoEvidenciasFisicas(string $aliasOperacion = 'o'): string
@@ -899,34 +910,43 @@ SQL;
         $existeEvidencia = $this->sqlExisteEvidenciaFisica('o');
         $existeEvidenciaMinima = $this->sqlExisteEvidenciaFisicaMinima('o');
         $existeFormulario = $this->sqlExisteFormularioEvidencias('o');
+        $envioForzadoMonitoreo = $this->sqlExisteEnvioForzadoMonitoreoEvidencias('o');
 
         return <<<SQL
 (
-      {$existeEvidencia}
-      AND {$existeFormulario}
-      AND (
-          EXISTS (
-              SELECT 1
-              FROM adj_bitacora b_env
-              WHERE b_env.id_operacion = o.id
-                AND {$condEnvio}
-          )
-          OR o.estatus = 'Recibido'
-          OR (
-              o.estatus = 'en_transito'
-              AND {$existeEvidenciaMinima}
-          )
-      )
-      AND (
-          o.estatus IN ('Recibido', 'en_transito')
-          OR (
-              o.estatus = 'Procesando IA'
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM adj_bitacora bv
-                  WHERE bv.id_operacion = o.id
-                    AND bv.accion LIKE :pat_validadas
+      (
+          (
+              {$existeEvidencia}
+              AND {$existeFormulario}
+              AND (
+                  EXISTS (
+                      SELECT 1
+                      FROM adj_bitacora b_env
+                      WHERE b_env.id_operacion = o.id
+                        AND {$condEnvio}
+                  )
+                  OR o.estatus = 'Recibido'
+                  OR (
+                      o.estatus = 'en_transito'
+                      AND {$existeEvidenciaMinima}
+                  )
               )
+              AND (
+                  o.estatus IN ('Recibido', 'en_transito')
+                  OR (
+                      o.estatus = 'Procesando IA'
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM adj_bitacora bv
+                          WHERE bv.id_operacion = o.id
+                            AND bv.accion LIKE :pat_validadas
+                      )
+                  )
+              )
+          )
+          OR (
+              o.estatus = 'Recibido'
+              AND {$envioForzadoMonitoreo}
           )
       )
       AND NOT EXISTS (

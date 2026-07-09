@@ -218,6 +218,45 @@
         color: #0f172a;
         font-weight: 800;
     }
+    .avr-otp-panel {
+        border: 1px solid #bfdbfe;
+        background: #eff6ff;
+        border-radius: .5rem;
+        padding: .85rem;
+    }
+    .avr-otp-panel.is-empty {
+        border-color: #e2e8f0;
+        background: #f8fafc;
+    }
+    .avr-otp-label {
+        color: #1e40af;
+        font-size: .72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+    .avr-otp-code {
+        color: #0f172a;
+        font-size: 1.35rem;
+        font-weight: 800;
+        line-height: 1.1;
+    }
+    .avr-otp-meta {
+        color: #475569;
+        font-size: .75rem;
+        font-weight: 700;
+    }
+    .avr-otp-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .28rem;
+        border-radius: 999px;
+        background: #dbeafe;
+        color: #1d4ed8;
+        font-size: .68rem;
+        font-weight: 800;
+        padding: .18rem .46rem;
+        margin-top: .35rem;
+    }
     .avr-evidence-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -438,6 +477,7 @@
             <div class="modal-body">
                 <input type="hidden" name="id_unidad" id="avr-id-unidad">
                 <div class="avr-modal-summary mb-3" id="avr-modal-summary"></div>
+                <div class="avr-otp-panel mb-3 is-empty" id="avr-otp-panel"></div>
                 <div class="row g-3">
                     <div class="col-12 col-lg-7">
                         <div class="row g-3">
@@ -593,6 +633,53 @@
             ? 'avr-status-' + key
             : 'avr-status-default';
         return '<span class="avr-status ' + safe + '"><i class="fa-solid fa-circle"></i>' + esc(statusLabel(value)) + '</span>';
+    }
+
+    function otpLabel(row) {
+        const codigo = String(row?.otp_codigo || '').trim();
+        if (!codigo) return '';
+        return '<div class="avr-otp-chip"><i class="fa-solid fa-key"></i>OTP ' + esc(codigo) + '</div>';
+    }
+
+    function renderOtpPanel(row) {
+        const target = $('avr-otp-panel');
+        if (!target) return;
+        const codigo = String(row?.otp_codigo || '').trim();
+        if (!codigo) {
+            target.classList.add('is-empty');
+            target.innerHTML = `
+                <div class="d-flex align-items-center gap-2 text-muted">
+                    <i class="fa-solid fa-key"></i>
+                    <div>
+                        <div class="fw-bold small">Sin OTP activo</div>
+                        <div class="small">El transportista debe generarlo desde MotoTrack.</div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        target.classList.remove('is-empty');
+        const intentos = Number.isFinite(Number(row.otp_intentos)) ? Number(row.otp_intentos) : 0;
+        const maxIntentos = Number.isFinite(Number(row.otp_max_intentos)) ? Number(row.otp_max_intentos) : 3;
+        const expira = row.otp_expiracion_fmt ? 'Expira ' + row.otp_expiracion_fmt : 'Sin expiracion registrada';
+        target.innerHTML = `
+            <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+                <div>
+                    <div class="avr-otp-label">OTP entrega almacen</div>
+                    <div class="avr-otp-code">${esc(codigo)}</div>
+                    <div class="avr-otp-meta">${esc(expira)} | Intentos ${esc(intentos)} / ${esc(maxIntentos)}</div>
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="btn btn-label-primary btn-sm" data-action="usar-otp" data-code="${esc(codigo)}">
+                        <i class="fa-solid fa-arrow-right-to-bracket me-1"></i>Usar
+                    </button>
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-action="copiar-otp" data-code="${esc(codigo)}">
+                        <i class="fa-regular fa-copy me-1"></i>Copiar
+                    </button>
+                </div>
+            </div>
+        `;
     }
 
     const evidenciaLabels = {
@@ -913,7 +1000,7 @@
                         <div>${esc(row.nombre_ubicacion || 'Sin ubicacion')}</div>
                         <div class="avr-unit-sub">${esc(row.tipo_ubicacion || '')}</div>
                     </td>
-                    <td>${statusHtml(row.estatus_inventario)}</td>
+                    <td>${statusHtml(row.estatus_inventario)}${otpLabel(row)}</td>
                     <td>${accion}</td>
                 </tr>
             `;
@@ -976,6 +1063,7 @@
         if (!row) return;
         $('avr-form-recepcion')?.reset();
         $('avr-id-unidad').value = row.id_unidad || '';
+        $('avr-codigo-verificacion').value = '';
         $('avr-vin').value = row.vin || '';
         $('avr-no-motor').value = row.no_motor || '';
         $('avr-placas').value = row.placas || '';
@@ -1001,6 +1089,7 @@
             <div class="text-muted small">${esc(moto || 'Sin datos de moto')}</div>
             <div class="avr-unit-sub mt-1">${esc([ruta, cedis, row.tracking_fecha_finalizacion_fmt].filter(Boolean).join(' | '))}</div>
         `;
+        renderOtpPanel(row);
 
         const modalEl = $('avr-modal-recepcion');
         if (window.bootstrap && window.bootstrap.Modal && modalEl) {
@@ -1082,6 +1171,31 @@
         });
         $('avr-btn-filtrar')?.addEventListener('click', () => reloadAll(true));
         $('avr-form-recepcion')?.addEventListener('submit', confirmarRecepcion);
+        $('avr-otp-panel')?.addEventListener('click', (ev) => {
+            const btn = ev.target.closest('[data-action]');
+            if (!btn) return;
+            const code = String(btn.dataset.code || '').trim();
+            if (!code) return;
+            if (btn.dataset.action === 'usar-otp') {
+                const input = $('avr-codigo-verificacion');
+                if (input) {
+                    input.value = code;
+                    input.focus();
+                }
+                return;
+            }
+            if (btn.dataset.action === 'copiar-otp') {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(code).then(() => {
+                        notify('success', 'OTP copiado', 'Codigo copiado al portapapeles.');
+                    }).catch(() => {
+                        notify('info', 'OTP activo', code);
+                    });
+                } else {
+                    notify('info', 'OTP activo', code);
+                }
+            }
+        });
         $('avr-limit')?.addEventListener('change', () => {
             state.limit = Number($('avr-limit')?.value || 8) || 8;
             reloadAll(true);

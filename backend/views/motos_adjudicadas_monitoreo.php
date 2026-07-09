@@ -547,13 +547,26 @@
         if (!actual) return;
         postJson('/MotosAdjudicadas/cambiarEstatus', {
             id: actual.id,
-            estatus: $('#madjDetalleEstatus').val()
+            estatus: $('#madjDetalleEstatus').val(),
+            origen: 'monitoreo'
         }, function (resp) {
             if (!resp || resp.success === false) {
                 Swal.fire({ icon: 'error', title: 'Estatus', text: (resp && resp.message) || 'No se pudo actualizar.' });
                 return;
             }
-            Swal.fire({ icon: 'success', title: 'Listo', text: 'Estatus actualizado correctamente.' });
+            var inv = resp.inventario_motos_adjudicadas || null;
+            var icon = inv && inv.success === false ? 'warning' : 'success';
+            var msg = 'Estatus actualizado correctamente.';
+            if (inv) {
+                if (inv.success === false) {
+                    msg += ' ' + (inv.message || 'No se pudo sincronizar con Almacen Virtual.');
+                } else if (inv.ya_existe) {
+                    msg += ' La unidad ya existia en Almacen Virtual.';
+                } else {
+                    msg += ' Unidad creada en Almacen Virtual para Evidencias.';
+                }
+            }
+            Swal.fire({ icon: icon, title: inv && inv.success === false ? 'Estatus actualizado' : 'Listo', text: msg });
             cargar();
         });
     }

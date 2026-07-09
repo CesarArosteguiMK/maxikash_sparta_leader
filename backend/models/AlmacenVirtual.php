@@ -1169,17 +1169,38 @@ class AlmacenVirtual extends Model
                 ub.nombre_ubicacion,
                 ub.tipo_ubicacion,
                 {$trackingSelect}
+                otp.id_codigo AS otp_id,
+                otp.codigo AS otp_codigo,
+                otp.tipo_codigo AS otp_tipo_codigo,
+                otp.estatus AS otp_estatus,
+                otp.intentos AS otp_intentos,
+                3 AS otp_max_intentos,
+                DATE_FORMAT(otp.fecha_generacion, '%d/%m/%Y %H:%i') AS otp_generacion_fmt,
+                DATE_FORMAT(otp.fecha_expiracion, '%d/%m/%Y %H:%i') AS otp_expiracion_fmt,
+                DATE_FORMAT(otp.fecha_expiracion, '%Y-%m-%dT%H:%i:%s') AS otp_expira_at,
                 DATE_FORMAT(u.fecha_ingreso_virtual, '%d/%m/%Y %H:%i') AS fecha_ingreso_virtual_fmt,
                 DATE_FORMAT(u.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt
              FROM av_unidades u
              LEFT JOIN av_ubicaciones ub ON ub.id_ubicacion = u.id_ubicacion_actual
              {$trackingJoin}
+             LEFT JOIN (
+                SELECT c.*
+                FROM av_codigos_verificacion c
+                INNER JOIN (
+                    SELECT id_unidad, MAX(id_codigo) AS id_codigo
+                    FROM av_codigos_verificacion
+                    WHERE tipo_codigo = 'ingreso_almacen'
+                      AND estatus = 'generado'
+                      AND (fecha_expiracion IS NULL OR fecha_expiracion >= :otp_ahora)
+                    GROUP BY id_unidad
+                ) ult ON ult.id_codigo = c.id_codigo
+             ) otp ON otp.id_unidad = u.id_unidad
              {$whereSql}
              ORDER BY FIELD(u.estatus_inventario, 'incidencia_recepcion', 'en_recepcion', 'pendiente_recepcion', 'pendiente_revision'),
                       u.fecha_actualizacion DESC,
                       u.id_unidad DESC
              LIMIT {$limit} OFFSET {$offset}",
-            $params
+            $params + ['otp_ahora' => $this->fechaHoraCdmx()]
         ) ?: [];
 
         $celulas = $this->obtenerCelulas();

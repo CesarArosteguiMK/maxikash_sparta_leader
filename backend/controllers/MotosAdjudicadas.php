@@ -3365,6 +3365,7 @@ class MotosAdjudicadas extends Controller
         $body    = json_decode(file_get_contents('php://input'), true) ?? [];
         $id      = (int) ($body['id']     ?? 0);
         $estatus = trim($body['estatus']  ?? '');
+        $origen  = trim((string) ($body['origen'] ?? ''));
 
         if ($id <= 0 || $estatus === '') {
             echo json_encode(['success' => false, 'message' => 'Parámetros inválidos.']);
@@ -3375,7 +3376,19 @@ class MotosAdjudicadas extends Controller
         $nombreUsuario = trim($_SESSION['usuario_nombre'] ?? 'SISTEMA');
 
         try {
-            $result = $this->model->cambiarEstatus($id, $estatus, $idUsuario, $nombreUsuario);
+            $result = $this->model->cambiarEstatus($id, $estatus, $idUsuario, $nombreUsuario, $origen);
+            if (!empty($result['success']) && in_array($estatus, ['Recibido', 'en_transito'], true)) {
+                try {
+                    $result['inventario_motos_adjudicadas'] = $this->inventarioDao()
+                        ->crearDesdeMotosAdjudicadas($id, $idUsuario, $nombreUsuario);
+                } catch (\Throwable $e) {
+                    $result['inventario_motos_adjudicadas'] = [
+                        'success' => false,
+                        'message' => 'Estatus actualizado, pero no se pudo sincronizar con Almacen Virtual.',
+                        'error' => $e->getMessage(),
+                    ];
+                }
+            }
             echo json_encode($result);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
