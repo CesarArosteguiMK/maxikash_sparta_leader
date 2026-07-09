@@ -7,6 +7,7 @@ existing API routes can map to their current response shapes.
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import json
 import re
@@ -710,6 +711,144 @@ def render_solicitud_assistida(file_bytes: bytes, filename: str, dpi: int) -> Li
     return variants[:6]
 
 
+def _source_images_for_assistance(
+    file_bytes: bytes,
+    filename: str,
+    dpi: int,
+    max_pages: int = 2,
+) -> List[Image.Image]:
+    ext = (filename.rsplit(".", 1)[-1] if "." in filename else "").lower()
+    images: List[Image.Image] = []
+    render_dpi = max(180, min(240, int(dpi or 180) + 45))
+    try:
+        if ext == "pdf":
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            matrix = fitz.Matrix(render_dpi / 72, render_dpi / 72)
+            for idx in range(min(int(doc.page_count or 0), max(1, int(max_pages)))):
+                pix = doc[idx].get_pixmap(matrix=matrix, alpha=False)
+                images.append(Image.frombytes("RGB", [pix.width, pix.height], pix.samples))
+            doc.close()
+        else:
+            with Image.open(io.BytesIO(file_bytes)) as img:
+                images.append(img.convert("RGB"))
+    except Exception:
+        return []
+    return images
+
+
+def _autocrop_document_content(img: Image.Image) -> Image.Image:
+    """Remove broad white margins while keeping a small safety border."""
+    source = img.convert("RGB")
+    gray = ImageOps.grayscale(source)
+    foreground = gray.point(lambda value: 255 if value < 245 else 0)
+    bbox = foreground.getbbox()
+    if not bbox:
+        return source
+    left, top, right, bottom = bbox
+    w, h = source.size
+    content_ratio = ((right - left) * (bottom - top)) / max(1, w * h)
+    if content_ratio < 0.04 or content_ratio > 0.97:
+        return source
+    pad_x = max(10, int(w * 0.025))
+    pad_y = max(10, int(h * 0.025))
+    return source.crop((
+        max(0, left - pad_x),
+        max(0, top - pad_y),
+        min(w, right + pad_x),
+        min(h, bottom + pad_y),
+    ))
+
+
+def _deskew_document_image(img: Image.Image) -> tuple[Image.Image, float]:
+    """Correct small camera/scanner skew; right-angle rotation is handled separately."""
+    try:
+        import cv2
+        import numpy as np
+
+        source = img.convert("RGB")
+        gray = np.array(ImageOps.grayscale(source))
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        coords = np.column_stack(np.where(binary > 0))
+        if len(coords) < 500:
+            return source, 0.0
+        angle = float(cv2.minAreaRect(coords.astype("float32"))[-1])
+        angle = -(90.0 + angle) if angle < -45.0 else -angle
+        if abs(angle) < 0.6 or abs(angle) > 15.0:
+            return source, 0.0
+        corrected = source.rotate(
+            angle,
+            resample=Image.BICUBIC,
+            expand=True,
+            fillcolor=(255, 255, 255),
+        )
+        return corrected, round(angle, 2)
+    except Exception:
+        return img.convert("RGB"), 0.0
+
+
+def render_documento_assistido_generico(
+    file_bytes: bytes,
+    filename: str,
+    dpi: int,
+    expected_doc_type: Optional[str] = None,
+    max_views: int = 10,
+) -> List[RenderedPage]:
+    """Build rotated, deskewed and cropped views for any candidate document.
+
+    A compact subset is included in the first AI call so difficult orientation
+    does not require another provider round trip. A larger set is available for
+    the exceptional second pass when required fields are still missing.
+    """
+    images = _source_images_for_assistance(file_bytes, filename, dpi, max_pages=2)
+    if not images:
+        return []
+
+    variants: List[RenderedPage] = []
+    seen: Set[str] = set()
+
+    def add_variant(img: Optional[Image.Image], max_side: int = 1800) -> None:
+        if img is None or len(variants) >= max(1, int(max_views)):
+            return
+        data = _jpeg_bytes_from_image(_enhance_document_crop(img), max_side=max_side)
+        digest = hashlib.sha256(data).hexdigest()
+        if digest in seen:
+            return
+        seen.add(digest)
+        variants.append(RenderedPage(data))
+
+    first = _autocrop_document_content(images[0])
+    first, _ = _deskew_document_image(first)
+    add_variant(first, 2000)
+
+    crop_boxes = {
+        "identificacion_oficial": ((0.02, 0.05, 0.88, 0.53), (0.04, 0.40, 0.94, 0.90)),
+        "solicitud___SPARTA_SECRET_REDACTED__": ((0.00, 0.00, 1.00, 0.60), (0.00, 0.40, 1.00, 1.00)),
+        "solicitud_interna": ((0.00, 0.00, 1.00, 0.60), (0.00, 0.40, 1.00, 1.00)),
+        "curp": ((0.00, 0.00, 1.00, 0.58), (0.00, 0.35, 1.00, 0.90)),
+        "constancia_fiscal": ((0.00, 0.00, 1.00, 0.62), (0.00, 0.38, 1.00, 1.00)),
+        "__SPARTA_SECRET_REDACTED__": ((0.00, 0.00, 1.00, 0.62), (0.00, 0.30, 1.00, 0.88)),
+    }.get(str(expected_doc_type or ""), ((0.00, 0.00, 1.00, 0.60), (0.00, 0.40, 1.00, 1.00)))
+
+    # Full-page right-angle alternatives recover sideways and upside-down scans.
+    # The first crop of every orientation enlarges the most likely data block;
+    # this matters when an ID occupies only a small portion of an A4 page.
+    for angle in (90, 180, 270):
+        rotated = first.rotate(angle, expand=True, fillcolor=(255, 255, 255))
+        add_variant(rotated, 2000)
+        add_variant(_safe_crop_ratio(rotated, crop_boxes[0]), 2000)
+
+    for box in crop_boxes:
+        add_variant(_safe_crop_ratio(first, box), 2000)
+
+    if len(images) > 1:
+        second = _autocrop_document_content(images[1])
+        second, _ = _deskew_document_image(second)
+        add_variant(second, 1900)
+        add_variant(second.rotate(180, expand=True, fillcolor=(255, 255, 255)), 1800)
+
+    return variants[:max(1, int(max_views))]
+
+
 def render_input(file_bytes: bytes, filename: str, max_pages: int, dpi: int) -> tuple[List[RenderedPage], int]:
     ext = (filename.rsplit(".", 1)[-1] if "." in filename else "").lower()
     if ext == "pdf":
@@ -726,6 +865,22 @@ def render_input(file_bytes: bytes, filename: str, max_pages: int, dpi: int) -> 
         return pages, page_count
     with Image.open(io.BytesIO(file_bytes)) as img:
         return [RenderedPage(_jpeg_bytes_from_image(img))], 1
+
+
+def _dedupe_rendered_pages(pages: List[RenderedPage], max_pages: int = 12) -> List[RenderedPage]:
+    output: List[RenderedPage] = []
+    seen: Set[str] = set()
+    for page in pages:
+        if not isinstance(page, RenderedPage) or not page.data:
+            continue
+        digest = hashlib.sha256(page.data).hexdigest()
+        if digest in seen:
+            continue
+        seen.add(digest)
+        output.append(page)
+        if len(output) >= max(1, int(max_pages)):
+            break
+    return output
 
 
 def build_openai_content(rendered_pages: List[RenderedPage], prompt_text: str) -> List[Dict[str, Any]]:
@@ -886,6 +1041,12 @@ def quick_result_to_summary(key: str, label: str, filename: str, result: Dict[st
         "motor_ia": result.get("provider") or "alibaba",
         "modelo_ia": result.get("model"),
         "fuente_lectura": "motor_v2_prefinal",
+        "lectura_asistida_aplicada": bool(result.get("assisted_preprocessing_enabled")),
+        "vistas_asistidas_iniciales": int(result.get("assisted_initial_views") or 0),
+        "motivo_relectura_asistida": result.get("assisted_retry_reason"),
+        "relectura_asistida_intentada": bool(result.get("assisted_retry_attempted")),
+        "lectura_asistida_usada": bool(result.get("assisted_retry_used")),
+        "vistas_asistidas": int(result.get("assisted_views") or 0),
         "validacion_previa": validation_payload,
     }
 
@@ -900,6 +1061,12 @@ def compact_summary_for_prompt(summary: Dict[str, Any]) -> Dict[str, Any]:
         "motor_ia",
         "modelo_ia",
         "fuente_lectura",
+        "lectura_asistida_aplicada",
+        "vistas_asistidas_iniciales",
+        "motivo_relectura_asistida",
+        "relectura_asistida_intentada",
+        "lectura_asistida_usada",
+        "vistas_asistidas",
         "validacion_previa",
     }
     compact = {k: v for k, v in summary.items() if k in allowed and v not in (None, "", [])}
@@ -1038,7 +1205,10 @@ def quick_prompt_for(expected_doc_type: Optional[str], nombre_candidato: Optiona
             "Usa esas vistas para leer el bloque NOMBRE y la linea CURP. En INE, el bloque "
             "NOMBRE suele traer apellido paterno, apellido materno y nombres en lineas "
             "separadas; devuelve nombre_completo normalizado en orden natural si se lee con "
-            "claridad. No tomes texto del holograma, QR, reverso, clave de elector ni folios "
+            "claridad. El bloque NOMBRE termina antes de DOMICILIO, CLAVE DE ELECTOR, CURP "
+            "o FECHA DE NACIMIENTO. Nunca agregues al nombre una alcaldia, municipio o parte "
+            "del domicilio, por ejemplo GUSTAVO A. MADERO. No tomes texto del holograma, QR, "
+            "reverso, clave de elector ni folios "
             "como CURP. Si una letra/digito no es claro, deja ese campo en null y explicalo."
         )
     return (
@@ -1315,6 +1485,147 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
     }
 
 
+ASSISTED_VIEWS_PROMPT = """
+
+Las imagenes adicionales son vistas del mismo archivo: pueden estar enderezadas,
+rotadas, con mayor contraste o recortadas por zonas. No las cuentes como paginas o
+documentos diferentes. Usa la orientacion y el recorte mas legibles para cada campo.
+Conserva null cuando ninguna vista sostenga un dato; no inventes ni completes por contexto.
+"""
+
+
+ASSISTED_RETRY_PROMPT = """
+
+La primera lectura no obtuvo todos los datos necesarios. Revisa nuevamente las vistas
+asistidas y prioriza aquellas donde las etiquetas y los campos se vean derechos y completos.
+"""
+
+
+def quick_assistance_reason(
+    extracted: Dict[str, Any],
+    validation: Dict[str, Any],
+    expected_doc_type: Optional[str],
+) -> Optional[str]:
+    """Return why a second visual pass is useful, or None for a final result."""
+    doc_type = str(extracted.get("tipo_documento") or "desconocido").strip()
+    fields = extracted.get("campos") if isinstance(extracted.get("campos"), dict) else {}
+    confidence = normalize_text(str(extracted.get("confianza_lectura") or "baja"))
+    quality = normalize_text(str(extracted.get("calidad_imagen") or "mala"))
+    accepted = compatible_document_types(expected_doc_type)
+
+    low_visual_quality = (
+        confidence == "BAJA"
+        or quality == "MALA"
+        or bool(extracted.get("evidencia_insuficiente"))
+    )
+    if doc_type == "desconocido" or doc_type not in DOCUMENT_TYPES:
+        return "tipo_no_identificado"
+    if accepted and doc_type not in accepted:
+        return "calidad_baja_con_tipo_dudoso" if low_visual_quality else None
+    if low_visual_quality:
+        return "lectura_visual_insuficiente"
+
+    def has_any(*keys: str) -> bool:
+        return any(fields.get(key) not in (None, "", []) for key in keys)
+
+    expected = str(expected_doc_type or "")
+    if expected == "identificacion_oficial":
+        if not has_any("nombre_completo"):
+            return "falta_nombre_identificacion"
+        if doc_type == "ine" and not has_any("curp"):
+            return "falta_curp_identificacion"
+        if doc_type not in {"pasaporte_mexicano", "pasaporte_extranjero"}:
+            sides = extracted.get("frente_reverso") if isinstance(extracted.get("frente_reverso"), dict) else {}
+            if not bool(sides.get("frente_detectado")) or not bool(sides.get("reverso_detectado")):
+                return "falta_cara_identificacion"
+    elif expected == "curp":
+        if not has_any("curp"):
+            return "falta_curp"
+        if not has_any("fecha_emision", "fecha_expedicion"):
+            return "falta_fecha_curp"
+    elif expected == "nss":
+        if not has_any("nss"):
+            return "falta_nss"
+    elif expected == "constancia_fiscal":
+        if not has_any("rfc"):
+            return "falta_rfc_fiscal"
+        if not has_any("fecha_emision", "fecha_expedicion"):
+            return "falta_fecha_fiscal"
+        if not _has_actividad_asalariado(fields) and not _has_sueldos_salarios(fields):
+            return "falta_regimen_fiscal"
+    elif expected == "comprobante_domicilio":
+        if not has_any("domicilio"):
+            return "falta_domicilio"
+        if not has_any("fecha_emision", "fecha_vencimiento", "periodo___SPARTA_SECRET_REDACTED___fin", "periodo___SPARTA_SECRET_REDACTED___inicio"):
+            return "falta_fecha_domicilio"
+    elif expected == "__SPARTA_SECRET_REDACTED__":
+        if not has_any("banco"):
+            return "falta_banco"
+        if not has_any("clabe", "numero_cuenta", "cuenta", "titular_cuenta", "nombre_completo"):
+            return "falta_cuenta_o_titular"
+    elif expected in {"solicitud___SPARTA_SECRET_REDACTED__", "solicitud_interna", "cv"}:
+        if not has_any("nombre_completo", "curp", "rfc", "nss"):
+            return "falta_identidad_solicitud"
+    elif expected == "acta_nacimiento":
+        if not has_any("nombre_completo", "fecha_nacimiento"):
+            return "falta_identidad_acta"
+    elif expected in {"infonavit_fonacot", "carta_no_adeudo"}:
+        if doc_type == "carta_no_adeudo":
+            if not has_any("nombre_completo") or _bool_from_field(fields.get("firma_detectada")) is not True:
+                return "falta_nombre_o_firma"
+
+    warnings = " ".join(str(item) for item in validation.get("advertencias") or [])
+    warnings_norm = normalize_text(warnings)
+    if any(token in warnings_norm for token in ("NO SE DETECTO", "NO SE PUDO LEER", "BAJA CLARIDAD")):
+        return "advertencia_de_lectura"
+    return None
+
+
+def quick_result_quality_score(
+    extracted: Dict[str, Any],
+    validation: Dict[str, Any],
+    expected_doc_type: Optional[str],
+) -> int:
+    doc_type = str(extracted.get("tipo_documento") or "desconocido").strip()
+    fields = extracted.get("campos") if isinstance(extracted.get("campos"), dict) else {}
+    score = 0
+    accepted = compatible_document_types(expected_doc_type)
+    if not accepted or doc_type in accepted:
+        score += 20
+    elif doc_type == "desconocido":
+        score -= 10
+    else:
+        score -= 20
+    score += {"ALTA": 8, "MEDIA": 4, "BAJA": 0}.get(
+        normalize_text(str(extracted.get("confianza_lectura") or "")),
+        0,
+    )
+    score += {"BUENA": 5, "REGULAR": 2, "MALA": 0}.get(
+        normalize_text(str(extracted.get("calidad_imagen") or "")),
+        0,
+    )
+    useful_fields = sum(1 for value in fields.values() if value not in (None, "", []))
+    score += min(12, useful_fields)
+    if validation.get("aprobado") is True:
+        score += 8
+    score -= 4 * len(validation.get("errores") or [])
+    score -= len(validation.get("advertencias") or [])
+    return score
+
+
+def _merge_usage(*items: Dict[str, Any]) -> Dict[str, Any]:
+    merged: Dict[str, Any] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        for key, value in item.items():
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                merged[key] = merged.get(key, 0) + value
+            elif key not in merged:
+                merged[key] = value
+    return merged
+
+
 class AlibabaDocumentAI:
     def __init__(
         self,
@@ -1339,15 +1650,29 @@ class AlibabaDocumentAI:
     def enabled(self) -> bool:
         return bool(self.api_key and self.base_url and self.model)
 
-    def _call_content(self, content: List[Dict[str, Any]], max_tokens: int = 1600) -> tuple[Dict[str, Any], Dict[str, Any], str, bool]:
+    def _call_content(
+        self,
+        content: List[Dict[str, Any]],
+        max_tokens: int = 1600,
+        deadline: Optional[float] = None,
+    ) -> tuple[Dict[str, Any], Dict[str, Any], str, bool]:
         endpoint = self.base_url + "/chat/completions"
         last_exc: Optional[Exception] = None
         model_chain = parse_model_chain(self.model, self.fallback_models)
         for model_idx, current_model in enumerate(model_chain):
             for attempt, delay in enumerate(self.retry_delays, start=1):
                 if delay:
+                    if deadline is not None and time.monotonic() + delay >= deadline:
+                        last_exc = TimeoutError("Tiempo agotado antes del siguiente intento de IA")
+                        break
                     time.sleep(delay)
                 try:
+                    request_timeout = float(self.timeout_seconds)
+                    if deadline is not None:
+                        remaining = deadline - time.monotonic()
+                        if remaining < 1.5:
+                            raise TimeoutError("Tiempo agotado para completar la lectura IA")
+                        request_timeout = max(1.0, min(request_timeout, remaining))
                     payload = {
                         "model": current_model,
                         "messages": [{"role": "user", "content": content}],
@@ -1364,7 +1689,7 @@ class AlibabaDocumentAI:
                         },
                         method="POST",
                     )
-                    with urllib.request.urlopen(req, timeout=self.timeout_seconds) as response:
+                    with urllib.request.urlopen(req, timeout=request_timeout) as response:
                         body = json.loads(response.read().decode("utf-8"))
                     text = ((body.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
                     if not str(text).strip():
@@ -1386,21 +1711,81 @@ class AlibabaDocumentAI:
                     break
         raise last_exc or RuntimeError("No se pudo llamar a Alibaba")
 
-    def _call(self, pages: List[RenderedPage], prompt_text: str) -> tuple[Dict[str, Any], Dict[str, Any], str, bool]:
-        return self._call_content(build_openai_content(pages, prompt_text), max_tokens=1600)
+    def _call(
+        self,
+        pages: List[RenderedPage],
+        prompt_text: str,
+        deadline: Optional[float] = None,
+    ) -> tuple[Dict[str, Any], Dict[str, Any], str, bool]:
+        return self._call_content(
+            build_openai_content(pages, prompt_text),
+            max_tokens=1600,
+            deadline=deadline,
+        )
 
     def quick_verify(self, file_bytes: bytes, filename: str, expected_doc_type: str, nombre_candidato: Optional[str] = None) -> Dict[str, Any]:
         start = time.time()
-        pages, page_count = render_input(file_bytes, filename, self.max_pages, self.dpi)
+        deadline = time.monotonic() + float(self.timeout_seconds)
+        base_pages, page_count = render_input(file_bytes, filename, self.max_pages, self.dpi)
+        generic_initial_pages = render_documento_assistido_generico(
+            file_bytes,
+            filename,
+            self.dpi,
+            expected_doc_type,
+            max_views=6,
+        )
+        pages = list(base_pages) + generic_initial_pages
         if expected_doc_type == "identificacion_oficial":
             pages = pages + render_identificacion_assistida(file_bytes, filename, self.dpi)
         elif expected_doc_type in {"solicitud___SPARTA_SECRET_REDACTED__", "solicitud_interna"}:
             pages = pages + render_solicitud_assistida(file_bytes, filename, self.dpi)
+        pages = _dedupe_rendered_pages(pages, max_pages=12)
         prompt = quick_prompt_for(expected_doc_type, nombre_candidato)
-        extracted, usage, actual_model, fallback_used = self._call(pages, prompt)
-        extracted["paginas_analizadas"] = extracted.get("paginas_analizadas") or len(pages)
+        if len(pages) > len(base_pages):
+            prompt += ASSISTED_VIEWS_PROMPT
+        extracted, usage, actual_model, fallback_used = self._call(pages, prompt, deadline=deadline)
+        extracted["paginas_analizadas"] = min(page_count, self.max_pages)
         extracted["paginas_pdf"] = page_count
         validation = validate_quick_extracted(extracted, expected_doc_type)
+        assistance_reason = quick_assistance_reason(extracted, validation, expected_doc_type)
+        assistance_attempted = False
+        assistance_used = False
+        assistance_views = max(0, len(pages) - len(base_pages))
+        assistance_error: Optional[str] = None
+
+        if assistance_reason:
+            assisted_pages = render_documento_assistido_generico(
+                file_bytes,
+                filename,
+                self.dpi,
+                expected_doc_type,
+                max_views=10,
+            )
+            assistance_views = max(assistance_views, len(assisted_pages))
+            remaining = deadline - time.monotonic()
+            if assisted_pages and remaining >= 8.0:
+                assistance_attempted = True
+                try:
+                    retry_extracted, retry_usage, retry_model, retry_fallback = self._call(
+                        _dedupe_rendered_pages(list(base_pages) + assisted_pages, max_pages=12),
+                        prompt + ASSISTED_RETRY_PROMPT,
+                        deadline=deadline,
+                    )
+                    retry_extracted["paginas_analizadas"] = min(page_count, self.max_pages)
+                    retry_extracted["paginas_pdf"] = page_count
+                    retry_validation = validate_quick_extracted(retry_extracted, expected_doc_type)
+                    usage = _merge_usage(usage, retry_usage)
+                    if quick_result_quality_score(retry_extracted, retry_validation, expected_doc_type) > quick_result_quality_score(extracted, validation, expected_doc_type):
+                        extracted = retry_extracted
+                        validation = retry_validation
+                        actual_model = retry_model
+                        fallback_used = bool(fallback_used or retry_fallback)
+                        assistance_used = True
+                except Exception as exc:
+                    assistance_error = f"{type(exc).__name__}: {str(exc).strip()}"[:300]
+            elif assisted_pages:
+                assistance_error = "Tiempo restante insuficiente para una segunda lectura asistida"
+
         return {
             "provider": "alibaba",
             "model": actual_model,
@@ -1411,6 +1796,13 @@ class AlibabaDocumentAI:
             "expected_doc_type": expected_doc_type,
             "extraction": extracted,
             "validation": validation,
+            "assisted_retry_reason": assistance_reason,
+            "assisted_retry_attempted": assistance_attempted,
+            "assisted_retry_used": assistance_used,
+            "assisted_preprocessing_enabled": bool(assistance_views),
+            "assisted_initial_views": max(0, len(pages) - len(base_pages)),
+            "assisted_views": assistance_views,
+            "assisted_retry_error": assistance_error,
             "elapsed_ms": int((time.time() - start) * 1000),
         }
 

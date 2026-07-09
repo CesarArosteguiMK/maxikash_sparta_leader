@@ -52,7 +52,7 @@ except ImportError:
 router = APIRouter()
 settings = get_settings()
 API_BUILD = "doc-precheck-2026-07-06-v2-consensus-reasoning"
-DOC_AI_QUICK_CACHE_VERSION = "2026-07-09-company-application-routing"
+DOC_AI_QUICK_CACHE_VERSION = "2026-07-09-adaptive-assistance-all-documents-v4"
 
 api_key_header = APIKeyHeader(name=settings.api_key_header, auto_error=False)
 
@@ -249,6 +249,13 @@ def _ai_metadata(res: Dict[str, Any]) -> Dict[str, Any]:
         "modelo_ia": res.get("model"),
         "tiempo_ms": int(res.get("elapsed_ms") or 0),
     }
+    if res.get("assisted_preprocessing_enabled"):
+        out["lectura_asistida_aplicada"] = True
+        out["vistas_asistidas"] = int(res.get("assisted_views") or 0)
+    if res.get("assisted_retry_reason"):
+        out["motivo_relectura_asistida"] = res.get("assisted_retry_reason")
+        out["relectura_asistida_intentada"] = bool(res.get("assisted_retry_attempted"))
+        out["lectura_asistida_usada"] = bool(res.get("assisted_retry_used"))
     if res.get("_cache_hit") is True:
         out["cache_ia"] = True
     return out

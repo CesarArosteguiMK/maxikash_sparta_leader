@@ -1,7 +1,14 @@
 import pytest
 
 from app.api import routes
-from app.services.alibaba_document_ai import validate_quick_extracted
+from app.services import alibaba_document_ai as document_ai
+from app.services.alibaba_document_ai import (
+    AlibabaDocumentAI,
+    RenderedPage,
+    quick_assistance_reason,
+    render_documento_assistido_generico,
+    validate_quick_extracted,
+)
 
 
 CANDIDATE = "MIGUEL ANGEL CORONA CRUZ"
@@ -263,3 +270,248 @@ def test_internal_crosscheck_error_is_recoverable():
     assert result["modo_verificacion"] == "v2_alibaba_crosscheck_error_recuperable"
     assert result["api_pendiente"] is True
     assert len(result["documentos_analizados_v2"]) == 10
+
+
+def test_generic_assistance_builds_rotated_and_cropped_views():
+    import io
+    from PIL import Image, ImageDraw
+
+    image = Image.new("RGB", (1200, 800), "white")
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((160, 120, 1040, 680), outline="black", width=5)
+    draw.text((230, 260), "DOCUMENTO DE PRUEBA", fill="black")
+    draw.text((230, 340), CANDIDATE, fill="black")
+    image = image.rotate(90, expand=True, fillcolor="white")
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+
+    views = render_documento_assistido_generico(
+        buffer.getvalue(),
+        "documento.png",
+        150,
+        "acta_nacimiento",
+    )
+
+    assert len(views) >= 6
+    for view in views:
+        assert isinstance(view, RenderedPage)
+        assert view.data.startswith(b"\xff\xd8")
+
+
+@pytest.mark.parametrize(
+    "expected_type",
+    [
+        "solicitud___SPARTA_SECRET_REDACTED__",
+        "cv",
+        "acta_nacimiento",
+        "curp",
+        "identificacion_oficial",
+        "comprobante_domicilio",
+        "constancia_fiscal",
+        "nss",
+        "infonavit_fonacot",
+        "__SPARTA_SECRET_REDACTED__",
+    ],
+)
+def test_all_ten_document_types_can_request_assisted_reading(expected_type):
+    extracted = {
+        "tipo_documento": "desconocido",
+        "confianza_lectura": "baja",
+        "calidad_imagen": "mala",
+        "campos": {},
+        "evidencia_insuficiente": True,
+    }
+    validation = validate_quick_extracted(extracted, expected_type)
+
+    assert quick_assistance_reason(extracted, validation, expected_type) is not None
+
+
+@pytest.mark.parametrize(
+    "expected_type,detected_type,fields,extra",
+    [
+        ("solicitud___SPARTA_SECRET_REDACTED__", "solicitud___SPARTA_SECRET_REDACTED__", {"nombre_completo": CANDIDATE}, {}),
+        ("cv", "cv", {"nombre_completo": CANDIDATE}, {}),
+        ("acta_nacimiento", "acta_nacimiento", {"nombre_completo": CANDIDATE}, {}),
+        ("curp", "curp", {"nombre_completo": CANDIDATE, "curp": CURP, "fecha_emision": "2026-07-01"}, {}),
+        (
+            "identificacion_oficial",
+            "ine",
+            {"nombre_completo": CANDIDATE, "curp": CURP, "fecha_vencimiento": "2035-12-31"},
+            {"frente_reverso": {"frente_detectado": True, "reverso_detectado": True}},
+        ),
+        (
+            "comprobante_domicilio",
+            "comprobante_domicilio",
+            {"domicilio": "CALLE PRUEBA 123", "fecha_emision": "2026-07-01"},
+            {},
+        ),
+        (
+            "constancia_fiscal",
+            "constancia_fiscal",
+            {
+                "rfc": RFC,
+                "fecha_emision": "2026-07-01",
+                "actividad_economica": "Asalariado",
+                "regimen_fiscal": "Sueldos y Salarios",
+            },
+            {},
+        ),
+        ("nss", "nss", {"nombre_completo": CANDIDATE, "nss": NSS}, {}),
+        ("infonavit_fonacot", "infonavit_fonacot", {"nombre_completo": CANDIDATE}, {}),
+        (
+            "__SPARTA_SECRET_REDACTED__",
+            "__SPARTA_SECRET_REDACTED__",
+            {"banco": "BBVA", "clabe": "0__SPARTA_PASSWORD_REDACTED__01234567", "titular_cuenta": CANDIDATE},
+            {},
+        ),
+    ],
+)
+def test_all_ten_types_receive_assisted_views_on_first_call(
+    monkeypatch,
+    expected_type,
+    detected_type,
+    fields,
+    extra,
+):
+    import copy
+
+    extraction = {
+        "tipo_documento": detected_type,
+        "confianza_lectura": "alta",
+        "calidad_imagen": "buena",
+        "campos": fields,
+        "observaciones": [],
+        **extra,
+    }
+    call_sizes = []
+    ai = AlibabaDocumentAI(
+        api_key="test",
+        base_url="https://example.invalid/v1",
+        model="qwen-test",
+        timeout_seconds=35,
+    )
+
+    monkeypatch.setattr(
+        document_ai,
+        "render_input",
+        lambda *args, **kwargs: ([RenderedPage(b"base-view")], 1),
+    )
+    monkeypatch.setattr(
+        document_ai,
+        "render_documento_assistido_generico",
+        lambda *args, **kwargs: [RenderedPage(b"assisted-view")],
+    )
+    monkeypatch.setattr(document_ai, "render_identificacion_assistida", lambda *args, **kwargs: [])
+    monkeypatch.setattr(document_ai, "render_solicitud_assistida", lambda *args, **kwargs: [])
+
+    def fake_call(pages, prompt, deadline=None):
+        call_sizes.append(len(pages))
+        return copy.deepcopy(extraction), {}, "qwen-test", False
+
+    monkeypatch.setattr(ai, "_call", fake_call)
+    result = ai.quick_verify(b"document", "documento.pdf", expected_type, CANDIDATE)
+
+    assert call_sizes[0] == 2
+    assert result["assisted_preprocessing_enabled"] is True
+    assert result["assisted_initial_views"] == 1
+
+
+def test_clear_wrong_document_does_not_force_assisted_retry():
+    extracted = {
+        "tipo_documento": "solicitud___SPARTA_SECRET_REDACTED__",
+        "confianza_lectura": "alta",
+        "calidad_imagen": "buena",
+        "campos": {"nombre_completo": CANDIDATE},
+        "observaciones": ["SOLICITUD DE EMPLEO FURIAMOTOS"],
+    }
+    validation = validate_quick_extracted(extracted, "cv")
+
+    assert validation["aprobado"] is False
+    assert quick_assistance_reason(extracted, validation, "cv") is None
+
+
+def test_ine_without_curp_requests_assisted_retry():
+    extracted = {
+        "tipo_documento": "ine",
+        "confianza_lectura": "alta",
+        "calidad_imagen": "buena",
+        "campos": {"nombre_completo": "LOPEZ TENORIO ARNALDO"},
+        "frente_reverso": {
+            "frente_detectado": True,
+            "reverso_detectado": True,
+        },
+        "observaciones": [],
+    }
+    validation = validate_quick_extracted(extracted, "identificacion_oficial")
+
+    assert quick_assistance_reason(
+        extracted,
+        validation,
+        "identificacion_oficial",
+    ) == "falta_curp_identificacion"
+
+
+def test_quick_verify_uses_better_assisted_reading(monkeypatch):
+    import io
+    from PIL import Image
+
+    image = Image.new("RGB", (800, 600), "white")
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+
+    first = {
+        "tipo_documento": "curp",
+        "confianza_lectura": "media",
+        "calidad_imagen": "regular",
+        "campos": {"nombre_completo": CANDIDATE},
+        "observaciones": ["No se pudo leer la CURP completa"],
+    }
+    assisted = {
+        "tipo_documento": "curp",
+        "confianza_lectura": "alta",
+        "calidad_imagen": "buena",
+        "campos": {
+            "nombre_completo": CANDIDATE,
+            "curp": CURP,
+            "fecha_emision": "2026-07-01",
+        },
+        "observaciones": [],
+    }
+    calls = []
+    responses = [first, assisted]
+
+    ai = AlibabaDocumentAI(
+        api_key="test",
+        base_url="https://example.invalid/v1",
+        model="qwen-test",
+        timeout_seconds=35,
+    )
+
+    def fake_call(pages, prompt, deadline=None):
+        calls.append({"pages": len(pages), "assisted_prompt": "vistas del mismo archivo" in prompt})
+        return responses.pop(0), {"total_tokens": 10}, "qwen-test", False
+
+    monkeypatch.setattr(ai, "_call", fake_call)
+    monkeypatch.setattr(
+        document_ai,
+        "render_documento_assistido_generico",
+        lambda *args, **kwargs: [RenderedPage(b"assisted-view")],
+    )
+
+    result = ai.quick_verify(
+        buffer.getvalue(),
+        "curp.png",
+        "curp",
+        CANDIDATE,
+    )
+
+    assert len(calls) == 2
+    assert calls[0]["assisted_prompt"] is True
+    assert calls[1]["assisted_prompt"] is True
+    assert result["assisted_preprocessing_enabled"] is True
+    assert result["assisted_retry_attempted"] is True
+    assert result["assisted_retry_used"] is True
+    assert result["assisted_views"] == 1
+    assert result["extraction"]["campos"]["curp"] == CURP
+    assert result["validation"]["aprobado"] is True
+    assert result["usage"]["total_tokens"] == 20
