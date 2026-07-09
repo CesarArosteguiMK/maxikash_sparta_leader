@@ -872,6 +872,79 @@ def _v2_has_strong_identity_consensus(
     return bool(has_rfc_support or has_nss_support)
 
 
+def _v2_accept_curp_name_consensus(
+    comps: List[Dict[str, Any]],
+    docs: Dict[str, Any],
+    nombre_registro: Optional[str],
+    datos_ref: Dict[str, Any],
+    alertas: List[str],
+) -> bool:
+    """Accepts a CURP PDF whose own name is clear when the expediente confirms it."""
+    curp_doc = docs.get("curp")
+    if not isinstance(curp_doc, dict):
+        return False
+    if str(curp_doc.get("tipo_detectado") or "").strip() != "curp":
+        return False
+    # A readable but different CURP must still be reviewed; this rescue is only
+    # for the common case where image noise prevents reading the CURP itself.
+    if _v2_clean_curp(curp_doc.get("curp")):
+        return False
+
+    ref_name = nombre_registro or datos_ref.get("nombre_registro") or datos_ref.get("nombre_principal_documentos")
+    if not _v2_names_match(ref_name, curp_doc.get("nombre")):
+        return False
+    if not _v2_has_strong_identity_consensus(comps, docs, nombre_registro, datos_ref):
+        return False
+
+    resolved_messages: set[str] = set()
+    resolved = False
+    for comp in comps:
+        if not isinstance(comp, dict) or comp.get("coincide") is not False:
+            continue
+        if "curp" not in _v2_comp_docs(comp):
+            continue
+        category = normalize_text(str(comp.get("categoria") or ""))
+        label = normalize_text(str(comp.get("etiqueta") or ""))
+        if not (
+            category == "APORTE DOCUMENTAL"
+            or (category == "REGLA DOCUMENTAL" and "CURP REQUIERE REVISION" in label)
+        ):
+            continue
+        original_message = str(comp.get("mensaje") or "").strip()
+        if original_message:
+            resolved_messages.add(normalize_text(original_message))
+        comp["coincide"] = True
+        comp["severidad"] = "ok"
+        comp["mensaje"] = (
+            "El documento CURP se confirmó por coincidencia de identidad: el nombre del PDF "
+            "coincide con el candidato y la CURP está respaldada por los demás documentos oficiales."
+        )
+        resolved = True
+
+    if not resolved:
+        return False
+
+    curp_doc["estado"] = "coincide"
+    curp_doc["mensaje"] = (
+        "El documento CURP se confirmó por el nombre del candidato y por la coincidencia "
+        "de los datos oficiales del expediente."
+    )
+    observations = curp_doc.setdefault("observaciones", [])
+    if isinstance(observations, list):
+        observations[:] = [
+            obs for obs in observations
+            if "FALTA CONFIRMAR LA CLAVE CURP COMPLETA" not in normalize_text(str(obs or ""))
+        ]
+        observations.append(curp_doc["mensaje"])
+
+    alertas[:] = [
+        alerta for alerta in alertas
+        if normalize_text(str(alerta or "")) not in resolved_messages
+        and "FALTA CONFIRMAR LA CLAVE CURP COMPLETA" not in normalize_text(str(alerta or ""))
+    ]
+    return True
+
+
 def _v2_downgrade_solicitud_consensus(
     comps: List[Dict[str, Any]],
     docs: Dict[str, Any],
@@ -2470,6 +2543,18 @@ def _resultado_v2_reglas_expediente(
         datos_ref,
         alertas,
     )
+    curp_confirmada_por_consenso = _v2_accept_curp_name_consensus(
+        comparaciones,
+        docs_out,
+        nombre_registro,
+        datos_ref,
+        alertas,
+    )
+    if curp_confirmada_por_consenso:
+        recomendaciones.append(
+            "El documento CURP fue confirmado mediante el nombre del candidato y la "
+            "coincidencia de los datos oficiales del expediente."
+        )
     datos_ref["nombre_principal_documentos"] = next((v.get("nombre") for v in readable.values() if v.get("nombre")), None)
 
     evaluables = [c for c in comparaciones if isinstance(c.get("coincide"), bool)]
