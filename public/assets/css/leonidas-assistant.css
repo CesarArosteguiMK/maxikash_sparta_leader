@@ -1,0 +1,200 @@
+.leonidas-assistant {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 1.2rem;
+    z-index: 1085;
+    display: flex;
+    align-items: flex-end;
+    gap: .8rem;
+    pointer-events: none;
+}
+
+.leonidas-orb,
+.leonidas-panel {
+    pointer-events: auto;
+}
+
+.leonidas-orb {
+    position: relative;
+    width: 11.5rem;
+    height: 17.5rem;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: none;
+    cursor: pointer;
+}
+
+.leonidas-orb::before {
+    content: none;
+}
+
+.leonidas-orb__stage {
+    position: absolute;
+    inset: 0;
+}
+
+.leonidas-orb__canvas,
+.leonidas-orb__fallback {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.leonidas-orb__canvas {
+    display: block;
+    filter: drop-shadow(0 8px 7px rgba(22, 31, 45, .22));
+}
+
+.leonidas-orb__fallback {
+    display: none;
+    object-fit: contain;
+    object-position: center bottom;
+}
+
+.leonidas-assistant.is-3d-fallback .leonidas-orb__canvas {
+    display: none;
+}
+
+.leonidas-assistant.is-3d-fallback .leonidas-orb__fallback {
+    display: block;
+}
+
+.leonidas-orb:focus-visible,
+.leonidas-composer__send:focus-visible,
+.leonidas-panel__close:focus-visible {
+    outline: 3px solid rgba(65, 122, 226, .42);
+    outline-offset: 3px;
+}
+
+.leonidas-panel {
+    display: none;
+    width: min(22rem, calc(100vw - 2.5rem));
+    overflow: hidden;
+    border: 1px solid rgba(28, 48, 83, .14);
+    border-radius: .8rem;
+    background: #fff;
+    box-shadow: 0 18px 42px rgba(25, 38, 63, .22);
+}
+
+.leonidas-assistant.is-open .leonidas-panel {
+    display: block;
+    animation: leonidas-panel-in .2s ease-out;
+}
+
+.leonidas-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .85rem 1rem;
+    border-bottom: 1px solid #e7ebf2;
+    background: #f7f9fc;
+}
+
+.leonidas-panel__identity {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    color: #182947;
+}
+
+.leonidas-panel__identity strong,
+.leonidas-panel__identity small {
+    display: block;
+}
+
+.leonidas-panel__identity strong { font-size: .98rem; }
+.leonidas-panel__identity small { color: #67758a; font-size: .72rem; }
+
+.leonidas-panel__crest {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border-radius: .55rem;
+    background: #223755;
+    color: #f1ca55;
+}
+
+.leonidas-panel__close {
+    border: 0;
+    background: transparent;
+    color: #6d7785;
+    cursor: pointer;
+}
+
+.leonidas-messages {
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+    max-height: 15rem;
+    min-height: 8.5rem;
+    padding: .9rem;
+    overflow-y: auto;
+    background: #fff;
+}
+
+.leonidas-message {
+    width: fit-content;
+    max-width: 88%;
+    padding: .58rem .7rem;
+    border-radius: .65rem;
+    font-size: .8rem;
+    line-height: 1.4;
+}
+
+.leonidas-message--assistant { background: #eef3fb; color: #294365; }
+.leonidas-message--user { align-self: flex-end; background: #243a5c; color: #fff; }
+
+.leonidas-composer {
+    display: flex;
+    gap: .45rem;
+    padding: .75rem .85rem;
+    border-top: 1px solid #e7ebf2;
+}
+
+.leonidas-composer input {
+    min-width: 0;
+    flex: 1;
+    padding: .55rem .7rem;
+    border: 1px solid #cfd8e5;
+    border-radius: .45rem;
+    color: #26364e;
+    font-size: .8rem;
+}
+
+.leonidas-composer__send {
+    width: 2.3rem;
+    border: 0;
+    border-radius: .45rem;
+    background: #243a5c;
+    color: #fff;
+    cursor: pointer;
+}
+
+.leonidas-panel__notice {
+    margin: 0;
+    padding: 0 .85rem .75rem;
+    color: #6a778a;
+    font-size: .68rem;
+    line-height: 1.35;
+}
+
+.leonidas-panel__notice i { color: #d39c27; }
+@keyframes leonidas-panel-in {
+    from { opacity: 0; transform: translateY(.55rem) scale(.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 575.98px) {
+    .leonidas-assistant { right: .8rem; bottom: .85rem; }
+    .leonidas-panel { position: fixed; right: .8rem; bottom: 10.5rem; }
+    .leonidas-orb { width: 8.5rem; height: 13rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .leonidas-assistant.is-open .leonidas-panel { animation: none; }
+}

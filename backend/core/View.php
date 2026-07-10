@@ -1,7 +1,7 @@
 <?php
 
 $titulo = $titulo ?? "Inicio | "  . CONFIGURACION['EMPRESA'];
-$usuario = $_SESSION['nombre'] ?? 'Usuario';
+$usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'Usuario';
 /** Si la vista lo define (p. ej. estado de cuenta), se omiten CSS/JS vendor masivos para acelerar carga */
 $layoutVendorLite = isset($layoutVendorLite) && $layoutVendorLite;
 /** Rastreo embebido desde Estado de cuenta: ocultar menú/navbar (solo con ?chromeless=1 en consulta Analítica) */
@@ -12,11 +12,21 @@ $__demoCss    = realpath(__DIR__ . '/../../public/assets/css/demo.css');
 $__darkCss    = realpath(__DIR__ . '/../../public/assets/css/dark-mode.css');
 $__swalGlassCss = realpath(__DIR__ . '/../../public/assets/css/swal-liquid-glass.css');
 $__spartaSwalEnviadoOkJs = realpath(__DIR__ . '/../../public/assets/js/sparta_swal_enviado_ok.js');
+$__leonidasCss = realpath(__DIR__ . '/../../public/assets/css/leonidas-assistant.css');
+$__leonidasJs = realpath(__DIR__ . '/../../public/assets/js/leonidas-assistant.js');
+$__leonidas3dJs = realpath(__DIR__ . '/../../public/assets/js/leonidas-3d.js');
 $__spartaSwalEnviadoOkVer = ($__spartaSwalEnviadoOkJs ? filemtime($__spartaSwalEnviadoOkJs) : time());
+$__leonidasVer = max(
+    $__leonidasCss ? filemtime($__leonidasCss) : 0,
+    $__leonidasJs ? filemtime($__leonidasJs) : 0,
+    $__leonidas3dJs ? filemtime($__leonidas3dJs) : 0
+);
 $__assetsVer  = ($__demoCss ? filemtime($__demoCss) : '')
     . ($__darkCss ? '.' . filemtime($__darkCss) : '')
     . ($__swalGlassCss ? '.' . filemtime($__swalGlassCss) : '');
 if ($__assetsVer === '.' || $__assetsVer === '') $__assetsVer = (string) time();
+$__personaIdAsistente = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+$__mostrarLeonidas = $__personaIdAsistente === 878;
 
 function getMenu(): string
 {
@@ -466,6 +476,9 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
     <link rel="stylesheet" href="/assets/vendor/css/core.css" />
     <link rel="stylesheet" href="/assets/css/demo.css?v=<?= $__assetsVer ?>" />
     <link rel="stylesheet" href="/assets/css/dark-mode.css?v=<?= $__assetsVer ?>" />
+    <?php if ($__mostrarLeonidas): ?>
+    <link rel="stylesheet" href="/assets/css/leonidas-assistant.css?v=<?= (int) $__leonidasVer ?>" />
+    <?php endif; ?>
 
     <!-- Vendors CSS -->
     <?php if (!$layoutVendorLite): ?>
@@ -1710,6 +1723,42 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
     </script>
 
     <?= $script ?? ''; ?>
+    <?php if ($__mostrarLeonidas): ?>
+    <aside id="leonidasAssistant" class="leonidas-assistant" aria-label="Asistente Leónidas" data-leonidas-user="<?= htmlspecialchars((string) $usuario, ENT_QUOTES, 'UTF-8') ?>">
+        <section class="leonidas-panel" aria-live="polite" aria-hidden="true">
+            <header class="leonidas-panel__header">
+                <div class="leonidas-panel__identity">
+                    <span class="leonidas-panel__crest" aria-hidden="true"><i class="fa-solid fa-helmet-un"></i></span>
+                    <span><strong>Leónidas</strong><small>Asistente de Sparta</small></span>
+                </div>
+                <button type="button" class="leonidas-panel__close" data-leonidas-close aria-label="Cerrar Leónidas">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </header>
+            <div class="leonidas-messages" data-leonidas-messages>
+                <article class="leonidas-message leonidas-message--assistant">
+                    <span>Estoy listo. Puedes contarme qué necesitas revisar dentro de Sparta.</span>
+                </article>
+            </div>
+            <form class="leonidas-composer" data-leonidas-form>
+                <label class="visually-hidden" for="leonidasPrompt">Mensaje para Leónidas</label>
+                <input id="leonidasPrompt" type="text" maxlength="500" autocomplete="off" placeholder="Escribe una instrucción..." data-leonidas-input>
+                <button type="submit" class="leonidas-composer__send" aria-label="Enviar mensaje a Leónidas">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </form>
+            <p class="leonidas-panel__notice"><i class="fa-solid fa-shield-halved"></i> Primera fase: conversa y prepara tareas; no modifica datos sin autorización.</p>
+        </section>
+        <button type="button" class="leonidas-orb" data-leonidas-toggle aria-expanded="false" aria-controls="leonidasAssistant" aria-label="Abrir a Leónidas">
+            <span class="leonidas-orb__stage" aria-hidden="true">
+                <canvas class="leonidas-orb__canvas" data-leonidas-canvas></canvas>
+                <img class="leonidas-orb__fallback" src="/assets/img/leonidas-reposo.png" alt="">
+            </span>
+        </button>
+    </aside>
+    <script src="/assets/js/leonidas-assistant.js?v=<?= (int) $__leonidasVer ?>"></script>
+    <script type="module" src="/assets/js/leonidas-3d.js?v=<?= (int) $__leonidasVer ?>"></script>
+    <?php endif; ?>
 </body>
 
 </html>

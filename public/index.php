@@ -164,22 +164,13 @@ function recursoNoDisponible()
  */
 function validaNavegador()
 {
-    $navegadores = [
-        'Brave' => 120,
-        'Chrome' => 120,
-        'Chromium' => 120,
-        'Edge' => 120,
-        'Firefox' => 130,
-        // 'Safari' => 140,
-        // 'Opera' => 105
-    ];
-
-    $b = new \foroco\BrowserDetection();
-    $navegador = $b->getBrowser($_SERVER['HTTP_USER_AGENT']);
-
-    $nombre = $navegador['browser_name'] ?? '';
-    $version = (float) ($navegador['browser_version'] ?? 0);
-    if (!isset($navegadores[$nombre]) || $version < $navegadores[$nombre]) return false;
+    /*
+     * No bloquear el acceso por User-Agent. Equipos que siguen operando con
+     * versiones antiguas de macOS no pueden instalar Chrome/Edge recientes;
+     * el bloqueo impedía incluso probar el sistema con el navegador disponible.
+     * Las funciones que requieran capacidades modernas se validan en su propio
+     * flujo y muestran su alternativa cuando aplique.
+     */
     return true;
 }
 
