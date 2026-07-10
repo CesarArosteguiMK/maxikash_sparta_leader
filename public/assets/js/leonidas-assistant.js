@@ -21,28 +21,38 @@
         window.clearTimeout(root._leonidasGreetingTimer);
         root._leonidasGreetingTimer = window.setTimeout(function () {
             root.classList.remove('is-greeting');
-        }, 3400);
+        }, 1800);
+    }
+
+    function triggerVictory() {
+        root.classList.remove('is-greeting');
+        root.classList.add('is-victory');
+        window.clearTimeout(root._leonidasVictoryTimer);
+        root._leonidasVictoryTimer = window.setTimeout(function () {
+            root.classList.remove('is-victory');
+        }, 2200);
     }
 
     if (firstMessage) {
         firstMessage.textContent = 'Hola, ' + firstName + '. ¿Qué batallas tendremos hoy?';
     }
 
-    function openPanel() {
+    function openPanel(celebrate) {
         root.classList.add('is-open');
         panel.setAttribute('aria-hidden', 'false');
         toggle.setAttribute('aria-expanded', 'true');
         localStorage.setItem(storageKey, '1');
-        triggerGreeting();
+        if (celebrate) triggerVictory();
+        else triggerGreeting();
         window.setTimeout(function () { input.focus(); }, 180);
     }
 
-    function closePanel() {
+    function closePanel(restoreFocus) {
         root.classList.remove('is-open');
         panel.setAttribute('aria-hidden', 'true');
         toggle.setAttribute('aria-expanded', 'false');
         localStorage.removeItem(storageKey);
-        toggle.focus();
+        if (restoreFocus) toggle.focus();
     }
 
     function addMessage(text, type) {
@@ -68,9 +78,15 @@
     }
 
     toggle.addEventListener('click', function () {
-        root.classList.contains('is-open') ? closePanel() : openPanel();
+        root.classList.contains('is-open') ? closePanel(false) : openPanel(true);
     });
-    close.addEventListener('click', closePanel);
+    function startHoverGreeting() {
+        triggerGreeting();
+    }
+
+    toggle.addEventListener('mouseenter', startHoverGreeting);
+    toggle.addEventListener('pointerenter', startHoverGreeting);
+    close.addEventListener('click', function () { closePanel(false); });
 
     form.addEventListener('submit', function (event) {
         event.preventDefault();
@@ -86,10 +102,10 @@
     });
 
     document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && root.classList.contains('is-open')) closePanel();
+        if (event.key === 'Escape' && root.classList.contains('is-open')) closePanel(true);
     });
 
-    if (localStorage.getItem(storageKey) === '1') openPanel();
+    if (localStorage.getItem(storageKey) === '1') openPanel(false);
     else {
         triggerGreeting();
     }

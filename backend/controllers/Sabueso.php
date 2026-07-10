@@ -6,6 +6,8 @@ use Core\Controller;
 use Models\Ticket as TicketDAO;
 use Models\Empresa as EmpresaDAO;
 use Models\CreditoInfoSabueso;
+use Models\CreditoDireccionIneSabueso;
+use Models\EstadoCuenta as EstadoCuentaDAO;
 use Models\Notificacion;
 use Models\Gestiones as GestionesDAO;
 use Models\Ubicacion as UbicacionDAO;
@@ -4743,6 +4745,314 @@ class Sabueso extends Controller
         return trim(preg_replace('/\s+/', ' ', implode(', ', $limpias)));
     }
 
+    private function direccionReferenciaTieneContexto(array $partesDireccion): bool
+    {
+        $principal = trim((string) ($partesDireccion['direccion'] ?? ''));
+        $calleNumero = trim((string) ($partesDireccion['calle_numero'] ?? ''));
+        if ($principal === '' && $calleNumero === '') {
+            return false;
+        }
+
+        foreach (['colonia', 'ciudad', 'estado'] as $campo) {
+            $valor = trim((string) ($partesDireccion[$campo] ?? ''));
+            if ($valor !== '' && !in_array(strtoupper($valor), ['N/A', 'NA', 'NULL', '0', '-'], true)) {
+                return true;
+            }
+        }
+
+        // Calle + CP sin colonia/ciudad/estado puede geocodificar otra ciudad.
+        return false;
+    }
+
+    private function respuestaPareceImagenIne(string $archivo, $contenido): bool
+    {
+        if (!is_string($contenido) || strlen($contenido) < 32) {
+            return false;
+        }
+        $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
+        if (in_array($extension, ['jpg', 'jpeg'], true)) {
+            return substr($contenido, 0, 2) === "\xFF\xD8";
+        }
+        if ($extension === 'png') {
+            return substr($contenido, 0, 8) === "\x89PNG\r\n\x1A\n";
+        }
+        if ($extension === 'webp') {
+            return substr($contenido, 0, 4) === 'RIFF' && substr($contenido, 8, 4) === 'WEBP';
+        }
+        return false;
+    }
+
+    /**
+     * Devuelve posibles nombres S3 del frente del INE sin descargar la imagen.
+     * El nombre forma la huella: si el documento cambia, se vuelve a leer una vez.
+     */
+    private function obtenerFuenteIneCredito(int $idCredito): array
+    {
+        $candidatos = [];
+        $esperadoNombre = '';
+        $esperadoCurp = '';
+        try {
+            $resOferta = EstadoCuentaDAO::obtenerINEOfertaDocumentos($idCredito);
+            $archivoOferta = trim((string) ($resOferta['datos']['archivo_ine_frente'] ?? ''));
+            if ($archivoOferta !== '') {
+                $archivoOferta = ltrim(str_replace('\\', '/', $archivoOferta), '/');
+                $candidatos[] = strpos($archivoOferta, 'INE/') === 0 ? $archivoOferta : 'INE/' . basename($archivoOferta);
+            }
+
+            $res = EstadoCuentaDAO::obtenerINEPersonaDocumentos($idCredito);
+            $archivo = trim((string) ($res['datos']['archivo_ine_frente'] ?? ''));
+            if ($archivo !== '') {
+                $archivo = ltrim(str_replace('\\', '/', $archivo), '/');
+                $candidatos[] = strpos($archivo, 'INE/') === 0 ? $archivo : 'INE/' . basename($archivo);
+            }
+        } catch (\Throwable $e) {
+            // La segunda fuente se intenta abajo; no usar una dirección de persona como sustituto.
+        }
+
+        try {
+            $consulta = EmpresaDAO::getConsultaDireccionEstadoCuenta($idCredito);
+            $fila = !empty($consulta['datos'][0]) && is_array($consulta['datos'][0]) ? $consulta['datos'][0] : [];
+            $idCliente = $fila['Id_cliente'] ?? $fila['id_cliente'] ?? null;
+            if (is_numeric($idCliente) && (int) $idCliente > 0) {
+                foreach (['jpeg', 'jpg', 'png'] as $extension) {
+                    $candidatos[] = 'INE/' . (int) $idCliente . '_frente.' . $extension;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Sin fuente de INE no se invoca IA ni se altera el mapa.
+        }
+
+        // Misma fuente que usa Estado de Cuenta cuando el ID de cliente de
+        // Megareporte no coincide con el que tiene guardado el INE en S2.
+        try {
+            $endpoint = 'https://servicios.s2movil.net/s2maxikash/estadocuenta';
+            $payload = json_encode(['idCredito' => $idCredito, 'fechaCorte' => date('Y-m-d')]);
+            $ch = curl_init($endpoint);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'Token: 3oJVoAHtwWn7oBT4o340gFkvq9uWRRmpFo7p',
+                ],
+                CURLOPT_POSTFIELDS => $payload,
+                CURLOPT_TIMEOUT => 12,
+            ]);
+            $respuesta = curl_exec($ch);
+            curl_close($ch);
+            $data = is_string($respuesta) ? json_decode($respuesta, true) : null;
+            $clienteS2 = is_array($data['estadoCuenta']['datosCliente'] ?? null)
+                ? $data['estadoCuenta']['datosCliente']
+                : [];
+            $idClienteS2 = $clienteS2['idCliente'] ?? null;
+            $esperadoNombre = trim((string) ($clienteS2['nombreCliente'] ?? ''));
+            $esperadoCurp = trim((string) ($clienteS2['curp'] ?? ''));
+            if (is_numeric($idClienteS2) && (int) $idClienteS2 > 0) {
+                foreach (['jpeg', 'jpg', 'png'] as $extension) {
+                    $candidatos[] = 'INE/' . (int) $idClienteS2 . '_frente.' . $extension;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Se mantienen las fuentes de MaxiProd/Megareporte disponibles.
+        }
+
+        $candidatos = array_values(array_unique(array_filter($candidatos)));
+        return [
+            'archivos' => $candidatos,
+            'huella' => $candidatos ? hash('sha256', implode('|', $candidatos)) : '',
+            'archivo_referencia' => $candidatos ? implode('|', $candidatos) : '',
+            'esperado_nombre' => $esperadoNombre,
+            'esperado_curp' => $esperadoCurp,
+        ];
+    }
+
+    private function normalizarTextoIdentidad(string $valor): string
+    {
+        $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $valor);
+        if (is_string($ascii) && $ascii !== '') {
+            $valor = $ascii;
+        }
+        return preg_replace('/[^A-Z0-9]/', '', strtoupper($valor));
+    }
+
+    /** Solo acepta un INE cuando su titular coincide con el cliente que devuelve S2. */
+    private function validarTitularIne(array $lectura, array $fuente): array
+    {
+        $esperadoCurp = $this->normalizarTextoIdentidad((string) ($fuente['esperado_curp'] ?? ''));
+        $leidoCurp = $this->normalizarTextoIdentidad((string) ($lectura['curp'] ?? ''));
+        if (strlen($esperadoCurp) >= 16 && strlen($leidoCurp) >= 16) {
+            return [
+                'ok' => hash_equals($esperadoCurp, $leidoCurp),
+                'detalle' => hash_equals($esperadoCurp, $leidoCurp)
+                    ? ''
+                    : 'El CURP leido en el INE no coincide con el cliente del credito.',
+            ];
+        }
+
+        $esperadoNombre = trim((string) ($fuente['esperado_nombre'] ?? ''));
+        $leidoNombre = trim((string) ($lectura['nombre'] ?? ''));
+        $tokensEsperados = array_values(array_filter(explode(' ', $this->normalizarDireccionReferencia($esperadoNombre)), static function ($token) {
+            return strlen($token) >= 3;
+        }));
+        $tokensLeidos = array_values(array_filter(explode(' ', $this->normalizarDireccionReferencia($leidoNombre)), static function ($token) {
+            return strlen($token) >= 3;
+        }));
+        $coincidencias = count(array_intersect($tokensEsperados, $tokensLeidos));
+        if (count($tokensEsperados) >= 2 && $coincidencias >= 2) {
+            return ['ok' => true, 'detalle' => ''];
+        }
+
+        return [
+            'ok' => false,
+            'detalle' => 'El nombre leido en el INE no coincide con el cliente del credito.',
+        ];
+    }
+
+    private function descargarImagenIneDesdeS3(array $candidatos): ?array
+    {
+        $configPath = dirname(__DIR__) . '/config/config.ini';
+        $config = is_file($configPath) ? (parse_ini_file($configPath, true) ?: []) : [];
+        $bases = array_filter([
+            trim((string) getenv('SPARTA_DOCUMENTOS_S3_PROXY_URL')),
+            trim((string) ($config['documentos_s3']['proxy_url'] ?? '')),
+            'http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File',
+            'http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File',
+        ]);
+        $bases = array_values(array_unique($bases));
+
+        foreach ($candidatos as $archivo) {
+            foreach ($bases as $base) {
+                $url = rtrim(preg_replace('/\?.*$/', '', (string) $base), '?') . '?fileName=' . urlencode($archivo);
+                $ch = curl_init($url);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_TIMEOUT => 20,
+                    CURLOPT_SSL_VERIFYHOST => 0,
+                    CURLOPT_SSL_VERIFYPEER => 0,
+                ]);
+                $contenido = curl_exec($ch);
+                $codigo = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+                if ($codigo === 200 && $this->respuestaPareceImagenIne((string) $archivo, $contenido)) {
+                    return ['archivo' => $archivo, 'bytes' => $contenido];
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Lee el INE solo si no hay una lectura guardada para el mismo archivo fuente. */
+    private function obtenerDireccionIneLeidaCredito(int $idCredito): ?array
+    {
+        // Después de la primera extracción no se consulta de nuevo S3 ni V2 al abrir el mapa.
+        $fuente = $this->obtenerFuenteIneCredito($idCredito);
+        if (empty($fuente['huella']) || empty($fuente['archivos'])) {
+            return null;
+        }
+
+        $guardada = CreditoDireccionIneSabueso::obtenerPorHuella($idCredito, (string) $fuente['huella']);
+        if (is_array($guardada)) {
+            if (($guardada['estado'] ?? 'valida') === 'incompatible') {
+                return ['incompatible' => true, 'detalle' => $guardada['detalle_verificacion'] ?? null];
+            }
+            if (!empty($guardada['direccion'])) {
+                $validacionGuardada = $this->validarTitularIne($guardada, $fuente);
+                if (!empty($validacionGuardada['ok'])) {
+                    return $guardada;
+                }
+            }
+        }
+
+        $imagen = $this->descargarImagenIneDesdeS3($fuente['archivos']);
+        if (empty($imagen['bytes'])) {
+            return null;
+        }
+
+        $extension = strtolower(pathinfo((string) $imagen['archivo'], PATHINFO_EXTENSION));
+        $mime = $extension === 'png' ? 'image/png' : ($extension === 'webp' ? 'image/webp' : 'image/jpeg');
+        $tmpDir = dirname(__DIR__) . '/storage/tmp_media';
+        if (!is_dir($tmpDir) && !@mkdir($tmpDir, 0755, true) && !is_dir($tmpDir)) {
+            return null;
+        }
+        $tmpFile = tempnam($tmpDir, 'ine_dir_');
+        if ($tmpFile === false || file_put_contents($tmpFile, $imagen['bytes']) === false) {
+            if ($tmpFile !== false) {
+                @unlink($tmpFile);
+            }
+            return null;
+        }
+
+        try {
+            $configPath = dirname(__DIR__) . '/config/config.ini';
+            $config = is_file($configPath) ? (parse_ini_file($configPath, true) ?: []) : [];
+            $apiUrl = trim((string) ($config['doc_verificacion']['api_url'] ?? ''));
+            $apiKey = trim((string) ($config['doc_verificacion']['api_key'] ?? 'sparta-ledger-doc-verificacion-key'));
+            if ($apiUrl === '') {
+                $apiUrl = 'http://127.0.0.1:8001/api/v1/verificar';
+            }
+            $baseUrl = preg_replace('#/[^/]+$#', '', rtrim($apiUrl, '/'));
+            $endpoint = rtrim((string) $baseUrl, '/') . '/extraer-direccion-ine';
+            $archivoCarga = 'ine_frente.' . ($extension ?: 'jpg');
+            $ch = curl_init($endpoint);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => ['documento' => new \CURLFile($tmpFile, $mime, $archivoCarga)],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 45,
+                CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            ]);
+            $respuesta = curl_exec($ch);
+            $codigo = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $json = is_string($respuesta) ? json_decode($respuesta, true) : null;
+            if ($codigo !== 200 || !is_array($json) || empty($json['success']) || empty($json['direccion'])) {
+                return null;
+            }
+
+            $direccion = trim((string) $json['direccion']);
+            if (mb_strlen($direccion) < 15) {
+                return null;
+            }
+            $validacionTitular = $this->validarTitularIne([
+                'nombre' => $json['nombre'] ?? null,
+                'curp' => $json['curp'] ?? null,
+            ], $fuente);
+            if (empty($validacionTitular['ok'])) {
+                CreditoDireccionIneSabueso::guardarIncompatible(
+                    $idCredito,
+                    (string) $fuente['huella'],
+                    (string) $fuente['archivo_referencia'],
+                    isset($json['nombre']) ? (string) $json['nombre'] : null,
+                    isset($json['curp']) ? (string) $json['curp'] : null,
+                    (string) ($json['motor'] ?? 'motor_v2_alibaba'),
+                    isset($json['modelo']) ? (string) $json['modelo'] : null,
+                    (string) ($validacionTitular['detalle'] ?? 'El INE no corresponde al cliente del credito.')
+                );
+                return ['incompatible' => true, 'detalle' => $validacionTitular['detalle'] ?? null];
+            }
+            $guardado = CreditoDireccionIneSabueso::guardar(
+                $idCredito,
+                (string) $fuente['huella'],
+                (string) $fuente['archivo_referencia'],
+                $direccion,
+                isset($json['nombre']) ? (string) $json['nombre'] : null,
+                isset($json['curp']) ? (string) $json['curp'] : null,
+                isset($json['confianza']) ? (string) $json['confianza'] : null,
+                (string) ($json['motor'] ?? 'motor_v2_alibaba'),
+                isset($json['modelo']) ? (string) $json['modelo'] : null
+            );
+            return !empty($guardado['success']) ? [
+                'direccion' => $direccion,
+                'nombre' => $json['nombre'] ?? null,
+                'curp' => $json['curp'] ?? null,
+                'confianza' => $json['confianza'] ?? null,
+            ] : null;
+        } finally {
+            @unlink($tmpFile);
+        }
+    }
+
     private function agregarDomicilioReferencia(array &$domicilios, string $id, string $fuente, string $direccion): void
     {
         $direccion = trim(preg_replace('/\s+/', ' ', $direccion));
@@ -4850,6 +5160,10 @@ class Sabueso extends Controller
     private function obtenerDomiciliosReferenciaCredito(int $idCredito, string $domicilioMegareporte, GeocodingService $geocoding, bool $geocodificar = true): array
     {
         $domicilios = [];
+        $direccionIneLeida = $this->obtenerDireccionIneLeidaCredito($idCredito);
+        if (!empty($direccionIneLeida['direccion'])) {
+            $this->agregarDomicilioReferencia($domicilios, 'ine_documento', 'INE leído del documento', (string) $direccionIneLeida['direccion']);
+        }
         $this->agregarDomicilioReferencia($domicilios, 'megareporte', 'Megareporte', $domicilioMegareporte);
 
         $direccionesMaxiProd = EmpresaDAO::getDireccionesMaxiProdCredito($idCredito);
@@ -4858,25 +5172,46 @@ class Sabueso extends Controller
             : [];
 
         if (!empty($row)) {
-            $direccionIne = $this->unirPartesDireccion([
-                $row['direccion_ine'] ?? '',
-                $row['calle_numero_ine'] ?? '',
-                $row['colonia_ine'] ?? '',
-                $row['ciudad_ine'] ?? '',
-                $row['estado_ine'] ?? '',
-                $row['codigo_postal_ine'] ?? '',
-            ]);
-            $direccionSolicitud = $this->unirPartesDireccion([
-                $row['direccion_solicitud'] ?? '',
-                $row['calle_numero_solicitud'] ?? '',
-                $row['colonia_solicitud'] ?? '',
-                $row['ciudad_solicitud'] ?? '',
-                $row['estado_solicitud'] ?? '',
-                $row['codigo_postal_solicitud'] ?? '',
-            ]);
+            $partesIne = [
+                'direccion' => $row['direccion_ine'] ?? '',
+                'calle_numero' => $row['calle_numero_ine'] ?? '',
+                'colonia' => $row['colonia_ine'] ?? '',
+                'ciudad' => $row['ciudad_ine'] ?? '',
+                'estado' => $row['estado_ine'] ?? '',
+                'codigo_postal' => $row['codigo_postal_ine'] ?? '',
+            ];
+            $partesSolicitud = [
+                'direccion' => $row['direccion_solicitud'] ?? '',
+                'calle_numero' => $row['calle_numero_solicitud'] ?? '',
+                'colonia' => $row['colonia_solicitud'] ?? '',
+                'ciudad' => $row['ciudad_solicitud'] ?? '',
+                'estado' => $row['estado_solicitud'] ?? '',
+                'codigo_postal' => $row['codigo_postal_solicitud'] ?? '',
+            ];
 
-            $this->agregarDomicilioReferencia($domicilios, 'ine_persona', 'INE / persona', $direccionIne);
-            $this->agregarDomicilioReferencia($domicilios, 'solicitud_actual', 'Solicitud / domicilio actual', $direccionSolicitud);
+            if ($this->direccionReferenciaTieneContexto($partesIne)) {
+                $direccionIne = $this->unirPartesDireccion([
+                    $partesIne['direccion'],
+                    $partesIne['calle_numero'],
+                    $partesIne['colonia'],
+                    $partesIne['ciudad'],
+                    $partesIne['estado'],
+                    $partesIne['codigo_postal'],
+                ]);
+                $this->agregarDomicilioReferencia($domicilios, 'ine_persona', 'INE / persona', $direccionIne);
+            }
+
+            if ($this->direccionReferenciaTieneContexto($partesSolicitud)) {
+                $direccionSolicitud = $this->unirPartesDireccion([
+                    $partesSolicitud['direccion'],
+                    $partesSolicitud['calle_numero'],
+                    $partesSolicitud['colonia'],
+                    $partesSolicitud['ciudad'],
+                    $partesSolicitud['estado'],
+                    $partesSolicitud['codigo_postal'],
+                ]);
+                $this->agregarDomicilioReferencia($domicilios, 'solicitud_actual', 'Solicitud / domicilio actual', $direccionSolicitud);
+            }
         }
 
         foreach ($domicilios as &$domicilio) {
@@ -4904,10 +5239,23 @@ class Sabueso extends Controller
         return $domicilios;
     }
 
+    /** Estado legible para avisar cuando el archivo de INE asociado no pertenece al titular del credito. */
+    private function obtenerEstadoIneReferencia(int $idCredito): ?array
+    {
+        $row = CreditoDireccionIneSabueso::obtenerPorCredito($idCredito);
+        if (($row['estado'] ?? '') !== 'incompatible') {
+            return null;
+        }
+        return [
+            'estado' => 'incompatible',
+            'mensaje' => 'No se muestra direccion del INE: el documento asociado no coincide con el titular del credito.',
+        ];
+    }
+
     private function getUbicacionesCachePath(int $idCredito, bool $modoRapido = false): string
     {
         // Bump suffix when payload shape changes (ej. domicilio_megareporte con dirección aunque falten coords).
-        $sufijo = $modoRapido ? '_lite9' : '_v9';
+        $sufijo = $modoRapido ? '_lite12' : '_v12';
         return dirname(__DIR__) . '/storage/cache/sabueso_ubicaciones_' . $idCredito . $sufijo . '.json';
     }
 
@@ -4992,6 +5340,7 @@ class Sabueso extends Controller
             }
             $geocodingReferencias = new GeocodingService();
             $domiciliosReferencia = $this->obtenerDomiciliosReferenciaCredito($idCredito, $domicilioCompleto, $geocodingReferencias);
+            $estadoIneReferencia = $this->obtenerEstadoIneReferencia($idCredito);
             foreach ($domiciliosReferencia as $domicilioReferencia) {
                 if (in_array('Megareporte', $domicilioReferencia['fuentes'] ?? [], true)) {
                     $domicilioMegareporte = [
@@ -5016,6 +5365,7 @@ class Sabueso extends Controller
                 'puntos_geo' => $puntosGeo,
                 'domicilio_megareporte' => $domicilioMegareporte,
                 'domicilios_referencia' => $domiciliosReferencia,
+                'ine_verificacion' => $estadoIneReferencia,
                 'indice_casa' => $indiceCasa,
             ];
             $cacheDir = dirname($cachePath);
@@ -5062,6 +5412,7 @@ class Sabueso extends Controller
                 'mensaje' => '',
                 'puntos_geo' => $puntosGeo,
                 'domicilios_referencia' => $domiciliosReferencia,
+                'ine_verificacion' => $this->obtenerEstadoIneReferencia($idCredito),
             ]);
         } catch (\Exception $e) {
             self::respuestaJSON([
@@ -7006,12 +7357,16 @@ class Sabueso extends Controller
         $nombre = TicketDAO::getNombrePersona($idPersona);
         $resultado = TicketDAO::otorgarProrrogaDictamenSistema($idTicket, $idPersona, (string)$nombre);
         if ($resultado['success'] ?? false) {
-            $idGestor = TicketDAO::getCreadorIdPorTicket($idTicket);
-            if ($idGestor > 0) {
-                $folio = TicketDAO::getFolioPorTicket($idTicket);
-                $ticketRef = $folio !== '' ? $folio : '#' . $idTicket;
-                $mensaje = 'Se le ha otorgado una prórroga de 12 horas para el ticket (' . $ticketRef . '). Tiene ese plazo para completar las visitas indicadas en el dictamen.';
-                Notificacion::crear($idGestor, 'prorroga_otorgada', $mensaje, $idTicket);
+            try {
+                $idGestor = TicketDAO::getCreadorIdPorTicket($idTicket);
+                if ($idGestor > 0) {
+                    $folio = TicketDAO::getFolioPorTicket($idTicket);
+                    $ticketRef = $folio !== '' ? $folio : '#' . $idTicket;
+                    $mensaje = 'Se le ha otorgado una prórroga de 12 horas para el ticket (' . $ticketRef . '). Tiene ese plazo para completar las visitas indicadas en el dictamen.';
+                    Notificacion::crear($idGestor, 'prorroga_otorgada', $mensaje, $idTicket);
+                }
+            } catch (\Throwable $e) {
+                error_log('Sabueso::otorgarProrrogaDictamenSistema notificacion error: ' . $e->getMessage());
             }
         }
         self::respuestaJSON([
@@ -7042,12 +7397,16 @@ class Sabueso extends Controller
         $nombre = TicketDAO::getNombrePersona($idPersona);
         $resultado = TicketDAO::otorgarIntensidadDictamenSistema($idTicket, $idPersona, (string)$nombre);
         if ($resultado['success'] ?? false) {
-            $idGestor = TicketDAO::getCreadorIdPorTicket($idTicket);
-            if ($idGestor > 0) {
-                $folio = TicketDAO::getFolioPorTicket($idTicket);
-                $ticketRef = $folio !== '' ? $folio : '#' . $idTicket;
-                $mensaje = 'Se ha otorgado Intensidad (12 horas adicionales) para el ticket (' . $ticketRef . '). Aplica tras visita en campo sin pago en la ventana inicial.';
-                Notificacion::crear($idGestor, 'intensidad_otorgada', $mensaje, $idTicket);
+            try {
+                $idGestor = TicketDAO::getCreadorIdPorTicket($idTicket);
+                if ($idGestor > 0) {
+                    $folio = TicketDAO::getFolioPorTicket($idTicket);
+                    $ticketRef = $folio !== '' ? $folio : '#' . $idTicket;
+                    $mensaje = 'Se ha otorgado Intensidad (12 horas adicionales) para el ticket (' . $ticketRef . '). Aplica tras visita en campo sin pago en la ventana inicial.';
+                    Notificacion::crear($idGestor, 'intensidad_otorgada', $mensaje, $idTicket);
+                }
+            } catch (\Throwable $e) {
+                error_log('Sabueso::otorgarIntensidadDictamenSistema notificacion error: ' . $e->getMessage());
             }
         }
         self::respuestaJSON([

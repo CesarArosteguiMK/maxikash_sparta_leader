@@ -4,12 +4,15 @@ import { FBXLoader } from '../vendor/three/addons/loaders/FBXLoader.js';
 
 const root = document.getElementById('leonidasAssistant');
 const canvas = root?.querySelector('[data-leonidas-canvas]');
+const interactionTarget = root?.querySelector('[data-leonidas-toggle]');
 
 if (root && canvas) {
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(25, 1, 0.1, 50);
-    camera.position.set(0, 0.04, 4.8);
-    camera.lookAt(0, 0.04, 0);
+    camera.position.set(0, 0, 4.8);
+    camera.lookAt(0, 0, 0);
+    const characterAnchor = new THREE.Group();
+    scene.add(characterAnchor);
 
     let renderer;
     try {
@@ -45,18 +48,58 @@ if (root && canvas) {
         let waveArm = null;
         let waveForeArm = null;
         let waveHand = null;
+        let wavePalm = null;
+        let shieldArm = null;
         let shieldForeArm = null;
         let shieldHand = null;
         let shieldAnchor = null;
         let spine = null;
         let head = null;
         let greetingWeight = 0;
+        let victoryWeight = 0;
         let shieldLoaded = false;
+        let characterScale = 1;
+        const characterHeight = 1.98;
         const baseRotations = new Map();
         const poseEuler = new THREE.Euler();
         const poseQuaternion = new THREE.Quaternion();
+        const parentWorldQuaternion = new THREE.Quaternion();
+        const inverseParentQuaternion = new THREE.Quaternion();
+        const baseBoneDirection = new THREE.Vector3();
+        const desiredBoneDirection = new THREE.Vector3();
+        const boneWorldPosition = new THREE.Vector3();
+        const boneAimDelta = new THREE.Quaternion();
+        const boneTargetQuaternion = new THREE.Quaternion();
         const shieldHandPosition = new THREE.Vector3();
         const shieldForeArmPosition = new THREE.Vector3();
+        const palmFingerDirection = new THREE.Vector3();
+        const palmSpreadDirection = new THREE.Vector3();
+        const palmBaseNormal = new THREE.Vector3();
+        const palmDesiredNormal = new THREE.Vector3();
+        const palmHandPosition = new THREE.Vector3();
+        const palmCameraPosition = new THREE.Vector3();
+        const palmRotation = new THREE.Quaternion();
+        const headForward = new THREE.Vector3();
+        const headDesiredForward = new THREE.Vector3();
+        const headPosition = new THREE.Vector3();
+        const headCameraPosition = new THREE.Vector3();
+        const headRotation = new THREE.Quaternion();
+
+        const layoutCharacter = (width, height) => {
+            const visibleHeight = 2 * camera.position.z * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+            const visibleWidth = visibleHeight * camera.aspect;
+            const desiredHeight = width <= 575 ? 208 : 300;
+            const edgeMargin = (width <= 575 ? 12 : 22) * visibleHeight / height;
+            characterScale = desiredHeight * visibleHeight / (height * characterHeight);
+
+            characterAnchor.scale.setScalar(characterScale);
+            characterAnchor.position.set(
+                visibleWidth / 2 - characterScale * 0.98 - edgeMargin,
+                -visibleHeight / 2 + edgeMargin,
+                0
+            );
+            shieldAnchor?.scale.setScalar(characterScale);
+        };
 
         const resize = () => {
             const width = Math.max(1, canvas.clientWidth);
@@ -64,6 +107,7 @@ if (root && canvas) {
             renderer.setSize(width, height, false);
             camera.aspect = width / height;
             camera.updateProjectionMatrix();
+            layoutCharacter(width, height);
         };
 
         const rememberRotation = (bone) => {
@@ -80,27 +124,119 @@ if (root && canvas) {
             bone.quaternion.copy(base).multiply(poseQuaternion);
         };
 
+        const aimBoneAt = (bone, child, targetWorld, blend = 1) => {
+            const base = bone ? baseRotations.get(bone) : null;
+            if (!bone || !child || !base || !bone.parent) return;
+
+            bone.parent.getWorldQuaternion(parentWorldQuaternion);
+            inverseParentQuaternion.copy(parentWorldQuaternion).invert();
+            bone.getWorldPosition(boneWorldPosition);
+            desiredBoneDirection.copy(targetWorld).sub(boneWorldPosition).normalize().applyQuaternion(inverseParentQuaternion);
+            baseBoneDirection.copy(child.position).normalize().applyQuaternion(base);
+            boneAimDelta.setFromUnitVectors(baseBoneDirection, desiredBoneDirection);
+            boneTargetQuaternion.copy(boneAimDelta).multiply(base);
+            bone.quaternion.slerpQuaternions(base, boneTargetQuaternion, blend);
+            characterAnchor.updateMatrixWorld(true);
+        };
+
+        const poseLimb = (arm, foreArm, hand, elbowOffset, handOffset, weight, wristWave = 0) => {
+            if (!arm || !foreArm || !hand || weight <= 0.001) return;
+
+            const shoulderPosition = arm.getWorldPosition(new THREE.Vector3());
+            const restingElbow = foreArm.getWorldPosition(new THREE.Vector3());
+            const desiredElbow = shoulderPosition.clone().addScaledVector(elbowOffset, characterScale);
+            const elbowTarget = restingElbow.clone().lerp(desiredElbow, weight);
+            aimBoneAt(arm, foreArm, elbowTarget);
+
+            applyBoneRotation(foreArm, 0, 0, 0);
+            characterAnchor.updateMatrixWorld(true);
+            const restingHand = hand.getWorldPosition(new THREE.Vector3());
+            const desiredHand = shoulderPosition.clone().addScaledVector(handOffset, characterScale);
+            const handTarget = restingHand.clone().lerp(desiredHand, weight);
+            aimBoneAt(foreArm, hand, handTarget);
+            applyBoneRotation(hand, wristWave * weight, 0, 0);
+        };
+
+        const orientWavePalmTowardsCamera = (weight) => {
+            const base = waveHand ? baseRotations.get(waveHand) : null;
+            const { index, middle, pinky } = wavePalm || {};
+            if (!waveHand || !base || !index || !middle || !pinky || !waveHand.parent) return;
+
+            // Build the palm normal from the actual finger roots, then orient it toward the viewer.
+            palmFingerDirection.copy(middle.position).normalize();
+            palmSpreadDirection.copy(index.position).sub(pinky.position).normalize();
+            palmBaseNormal.copy(palmFingerDirection).cross(palmSpreadDirection).normalize().applyQuaternion(base);
+            waveHand.getWorldPosition(palmHandPosition);
+            camera.getWorldPosition(palmCameraPosition);
+            waveHand.parent.getWorldQuaternion(parentWorldQuaternion);
+            inverseParentQuaternion.copy(parentWorldQuaternion).invert();
+            palmDesiredNormal.copy(palmCameraPosition).sub(palmHandPosition).normalize().multiplyScalar(-1).applyQuaternion(inverseParentQuaternion);
+            palmRotation.setFromUnitVectors(palmBaseNormal, palmDesiredNormal);
+            poseQuaternion.copy(palmRotation).multiply(base);
+            waveHand.quaternion.slerpQuaternions(base, poseQuaternion, weight);
+        };
+
+        const faceHeadTowardCamera = () => {
+            const base = head ? baseRotations.get(head) : null;
+            if (!head || !base || !head.parent) return;
+
+            head.getWorldPosition(headPosition);
+            camera.getWorldPosition(headCameraPosition);
+            headCameraPosition.y = headPosition.y;
+            head.parent.getWorldQuaternion(parentWorldQuaternion);
+            inverseParentQuaternion.copy(parentWorldQuaternion).invert();
+            headDesiredForward.copy(headCameraPosition).sub(headPosition).normalize().applyQuaternion(inverseParentQuaternion);
+            headForward.set(0, 0, 1).applyQuaternion(base);
+            headRotation.setFromUnitVectors(headForward, headDesiredForward);
+            poseQuaternion.copy(headRotation).multiply(base);
+            head.quaternion.copy(poseQuaternion);
+        };
+
         const applyGreetingPose = (elapsed, delta) => {
-            const target = root.classList.contains('is-greeting') ? 1 : 0;
-            greetingWeight = THREE.MathUtils.damp(greetingWeight, target, 7, delta);
+            const victoryTarget = root.classList.contains('is-victory') ? 1 : 0;
+            const greetingTarget = !victoryTarget && root.classList.contains('is-greeting') ? 1 : 0;
+            greetingWeight = THREE.MathUtils.damp(greetingWeight, greetingTarget, 8, delta);
+            victoryWeight = THREE.MathUtils.damp(victoryWeight, victoryTarget, 8, delta);
             const breath = Math.sin(elapsed * 1.8) * 0.018;
             const wave = Math.sin(elapsed * 8.5) * 0.16;
 
             applyBoneRotation(spine, breath, 0, 0);
-            applyBoneRotation(head, 0, Math.sin(elapsed * 0.75) * 0.035, 0);
-            applyBoneRotation(
-                waveArm,
-                0,
-                0,
-                0.58 * greetingWeight
-            );
-            applyBoneRotation(
-                waveForeArm,
-                0,
-                0,
-                2.45 * greetingWeight
-            );
-            applyBoneRotation(waveHand, wave * 0.45 * greetingWeight, 0, 0);
+            faceHeadTowardCamera();
+            applyBoneRotation(waveArm, 0, 0, 0);
+            applyBoneRotation(waveForeArm, 0, 0, 0);
+            applyBoneRotation(waveHand, 0, 0, 0);
+            applyBoneRotation(shieldArm, 0, 0, 0);
+            applyBoneRotation(shieldForeArm, 0, 0, 0);
+            applyBoneRotation(shieldHand, 0, 0, 0);
+
+            if (victoryWeight > 0.001) {
+                poseLimb(
+                    waveArm,
+                    waveForeArm,
+                    waveHand,
+                    new THREE.Vector3(-0.3, 0.2, 0.16),
+                    new THREE.Vector3(-0.2, 0.64, 0.24),
+                    victoryWeight
+                );
+                poseLimb(
+                    shieldArm,
+                    shieldForeArm,
+                    shieldHand,
+                    new THREE.Vector3(0.3, 0.2, 0.16),
+                    new THREE.Vector3(0.2, 0.64, 0.24),
+                    victoryWeight
+                );
+            } else if (greetingWeight > 0.001) {
+                poseLimb(
+                    waveArm,
+                    waveForeArm,
+                    waveHand,
+                    new THREE.Vector3(-0.36, 0.2, 0.18),
+                    new THREE.Vector3(-0.34 + wave * 0.22, 0.62, 0.24),
+                    greetingWeight
+                );
+                orientWavePalmTowardsCamera(greetingWeight);
+            }
         };
 
         const updateShieldPose = () => {
@@ -109,9 +245,9 @@ if (root && canvas) {
             shieldHand.getWorldPosition(shieldHandPosition);
             shieldForeArm.getWorldPosition(shieldForeArmPosition);
             shieldAnchor.position.lerpVectors(shieldForeArmPosition, shieldHandPosition, 0.62);
-            shieldAnchor.position.x += 0.12;
-            shieldAnchor.position.y -= 0.08;
-            shieldAnchor.position.z += 0.26;
+            shieldAnchor.position.x += 0.12 * characterScale;
+            shieldAnchor.position.y -= 0.08 * characterScale;
+            shieldAnchor.position.z += 0.26 * characterScale;
         };
 
         const animate = () => {
@@ -162,6 +298,7 @@ if (root && canvas) {
                     shieldAnchor = new THREE.Group();
                     shieldAnchor.add(shield);
                     scene.add(shieldAnchor);
+                    shieldAnchor.scale.setScalar(characterScale);
                     updateShieldPose();
                 }
             );
@@ -179,17 +316,13 @@ if (root && canvas) {
             const box = new THREE.Box3().setFromObject(model);
             const size = box.getSize(new THREE.Vector3());
             const center = box.getCenter(new THREE.Vector3());
-            const scale = 1.98 / Math.max(size.y, 0.01);
+            const scale = characterHeight / Math.max(size.y, 0.01);
             model.scale.setScalar(scale);
-            model.position.set(-center.x * scale, -box.min.y * scale - 0.99, -center.z * scale);
-            model.rotation.y = 0;
-            scene.add(model);
+            model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
+            model.rotation.y = -0.45;
+            characterAnchor.add(model);
 
-            if (animations.length) {
-                mixer = new THREE.AnimationMixer(model);
-                const idle = animations.find((clip) => /idle/i.test(clip.name)) || animations[0];
-                mixer.clipAction(idle).play();
-            }
+            mixer = null;
 
             const rightLimb = {
                 arm: findBone(model, ['rightarm', 'upperarmr', 'rupperarm']),
@@ -210,11 +343,20 @@ if (root && canvas) {
             waveArm = visualLeftLimb.arm;
             waveForeArm = visualLeftLimb.foreArm;
             waveHand = visualLeftLimb.hand;
+            shieldArm = visualRightLimb.arm;
             shieldForeArm = visualRightLimb.foreArm;
             shieldHand = visualRightLimb.hand;
             spine = findBone(model, ['spine2', 'spine03', 'chest', 'spine']);
             head = findBone(model, ['head']);
-            [waveArm, waveForeArm, waveHand, spine, head].forEach(rememberRotation);
+            wavePalm = {};
+            waveHand?.traverse((node) => {
+                if (!node.isBone) return;
+                const name = normalizedBoneName(node.name);
+                if (name.endsWith('handindex1')) wavePalm.index = node;
+                if (name.endsWith('handmiddle1')) wavePalm.middle = node;
+                if (name.endsWith('handpinky1')) wavePalm.pinky = node;
+            });
+            [waveArm, waveForeArm, waveHand, shieldArm, shieldForeArm, shieldHand, spine, head].forEach(rememberRotation);
             loadShield();
 
             root.dataset.leonidasModel = 'spartan';

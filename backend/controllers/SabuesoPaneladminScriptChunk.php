@@ -17,6 +17,7 @@
         var rastreoDireccionesParaMapa = [];
         var rastreoDomicilioMegareporte = null;
         var rastreoDomiciliosReferencia = [];
+        var rastreoIneVerificacion = null;
         var rastreoIndiceCasa = null;
         var rastreoCentrarEnPunto = null;
         var rastreoMarkersMaxiApp = [];
@@ -577,6 +578,7 @@ JS;
                         rastreoDomiciliosReferencia = respGeo.domicilios_referencia;
                         rastreoFusionarReferenciasPorPuntoCliente();
                     }
+                    rastreoIneVerificacion = respGeo.ine_verificacion || rastreoIneVerificacion;
                     rastreoPuntosGeo = (respGeo.puntos_geo && respGeo.puntos_geo.length) ? respGeo.puntos_geo : [];
                     var htmlGeo = buildGeoListHtml(rastreoPuntosGeo);
                     $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeo || \'<span class="text-muted small">Sin coordenada de firma ni dirección de solicitud/INE para este crédito.</span>\');
@@ -750,10 +752,15 @@ JS;
             if (d.indexOf(\'AGENCIA\') !== -1) return { clase: \'rastreo-geo-agencia\', pinClass: \'rastreo-pin-carmelita\', iconHtml: \'\' };
             return { clase: \'rastreo-geo-otro\', pinClass: \'rastreo-pin-verde\', iconHtml: \'\' };
         }
+        function rastreoAvisoIneIncompatible() {
+            if (!rastreoIneVerificacion || rastreoIneVerificacion.estado !== \'incompatible\') return \'\';
+            return \'<div class="alert alert-warning py-2 px-3 small mb-2"><i class="fa-solid fa-triangle-exclamation me-1"></i>Direcci&oacute;n del INE no disponible: el documento asociado no coincide con el titular del cr&eacute;dito.</div>\';
+        }
         function buildGeoListHtml(puntosGeo) {
             puntosGeo = puntosGeo || [];
             var refsAlternas = rastreoReferenciasAlternasParaLista();
-            if (!puntosGeo.length && !refsAlternas.length) return \'\';
+            var avisoIne = rastreoAvisoIneIncompatible();
+            if (!puntosGeo.length && !refsAlternas.length) return avisoIne;
             function escG(s) { if (s==null||s===undefined) return \'\'; return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/\"/g, \'&quot;\'); }
             var html = \'<div class="rastreo-donde-firma-titulo">Donde firmó:</div>\';
             if (!puntosGeo.length) {
@@ -784,7 +791,7 @@ JS;
                     html += \'<div class="rastreo-geo-item rastreo-ref-item \' + estRef.clase + \' small mb-2" data-ref-key="\' + refKey + \'" title="\' + titleRef + \'"><span class="\' + estRef.pinClass + \'"></span>\' + estRef.iconHtml + \' <strong>\' + label + \'</strong>\' + linkRef + \'</div>\';
                 });
             }
-            return html;
+            return avisoIne + html;
         }
         function labelDistanciaIcon(txt) {
             var esc = (txt || \'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
@@ -2251,7 +2258,7 @@ JS;
             $(\'#modalRastreoCredito\').on(\'shown.bs.modal\', function() {
                 $(\'.modal-backdrop\').last().addClass(\'rastreo-modal-backdrop\');
                 $(document.body).addClass(\'rastreo-modal-open\');
-                rastreoGestionesParaMapa = []; rastreoGestionesCargadas = false; rastreoFiltroGestorActual = \'\';
+                rastreoGestionesParaMapa = []; rastreoGestionesCargadas = false; rastreoFiltroGestorActual = \'\'; rastreoIneVerificacion = null;
                 $(\'#rastreoDireccionesContenido\').addClass(\'rastreo-contenido-cargando\').html(\'<div class="rastreo-cargando-bloque"><span class="spinner-border text-primary" role="status" aria-hidden="true"></span><span class="rastreo-cargando-texto">Cargando información</span></div>\');
                 $(\'#rastreoDirecciones .rastreo-mapa-wrap\').hide();
                 $(\'#rastreoDireccionesAlternasContenido\').addClass(\'rastreo-contenido-cargando\').html(\'<div class="rastreo-cargando-bloque"><span class="spinner-border text-primary" role="status" aria-hidden="true"></span><span class="rastreo-cargando-texto">Cargando información</span></div>\');
@@ -2268,6 +2275,7 @@ JS;
                     rastreoPuntosGeoCargados = false;
                     rastreoDomicilioMegareporte = (r.domicilio_megareporte && (r.domicilio_megareporte.direccion || (r.domicilio_megareporte.lat != null && r.domicilio_megareporte.lng != null))) ? r.domicilio_megareporte : null;
                     rastreoDomiciliosReferencia = Array.isArray(r.domicilios_referencia) ? r.domicilios_referencia : (rastreoDomicilioMegareporte ? [rastreoDomicilioMegareporte] : []);
+                    rastreoIneVerificacion = r.ine_verificacion || null;
                     rastreoFusionarReferenciasPorPuntoCliente();
                     rastreoIndiceCasa = (r.indice_casa !== undefined && r.indice_casa !== null && Number.isInteger(r.indice_casa)) ? r.indice_casa : null;
                     $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(\'<span class="text-muted small">Cargando direcciones alternas...</span>\');

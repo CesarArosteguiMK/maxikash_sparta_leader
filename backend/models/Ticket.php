@@ -4189,7 +4189,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 'resultado' => 'prorroga_activa',
                 'detalle' => $detalle,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return self::resultado(false, 'Error al otorgar prórroga.', null, $e->getMessage());
         }
     }
@@ -4295,7 +4295,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 'resultado' => 'intensidad_activa',
                 'detalle' => $detalle,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return self::resultado(false, 'Error al otorgar Intensidad.', null, $e->getMessage());
         }
     }

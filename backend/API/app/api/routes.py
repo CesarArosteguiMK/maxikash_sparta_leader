@@ -5440,6 +5440,61 @@ async def precheck_identificacion_pdf(
 
 
 @router.post(
+    "/extraer-direccion-ine",
+    summary="Extraer domicilio desde imagen frontal del INE",
+    description="Lee una imagen real de INE una sola vez para que Sabueso guarde y reutilice el domicilio extraido.",
+    tags=["Sabueso"]
+)
+async def extraer_direccion_ine(
+    documento: UploadFile = File(..., description="Imagen frontal del INE"),
+    api_key: str = Depends(verificar_api_key)
+):
+    nombre_archivo = str(documento.filename or "ine_frente.jpg")
+    extension = nombre_archivo.rsplit(".", 1)[-1].lower() if "." in nombre_archivo else ""
+    if extension not in EXTENSIONES_PERMITIDAS:
+        raise HTTPException(status_code=400, detail="Se requiere una imagen JPG, PNG, WEBP o TIFF del frente del INE")
+
+    contenido = await documento.read()
+    if not contenido:
+        raise HTTPException(status_code=400, detail="La imagen del INE esta vacia")
+    if len(contenido) > MAX_SIZE_BYTES:
+        raise HTTPException(status_code=413, detail="La imagen del INE supera el limite permitido")
+
+    inicio = time.time()
+    resultado = await _validar_rapido_alibaba_o_none(contenido, nombre_archivo, "identificacion_oficial")
+    if resultado is None:
+        return {
+            "success": False,
+            "direccion": None,
+            "mensaje": "El motor V2 no estuvo disponible para leer el INE.",
+            "motor": None,
+            "tiempo_ms": int((time.time() - inicio) * 1000),
+        }
+
+    extraccion = _ai_extraccion(resultado)
+    campos = _ai_campos(resultado)
+    tipo = str(extraccion.get("tipo_documento") or "").strip().lower()
+    direccion = re.sub(r"\s+", " ", str(campos.get("domicilio") or "")).strip()
+    es_ine = tipo in {"ine", "identificacion_oficial"}
+    # Una dirección demasiado corta suele ser solo una etiqueta parcial, no un domicilio.
+    suficiente = es_ine and len(direccion) >= 15
+
+    return {
+        "success": bool(suficiente),
+        "direccion": direccion if suficiente else None,
+        "nombre": campos.get("nombre_completo"),
+        "curp": campos.get("curp"),
+        "confianza": extraccion.get("confianza_lectura"),
+        "calidad": extraccion.get("calidad_imagen"),
+        "tipo_documento": tipo or None,
+        "mensaje": "Direccion del INE extraida." if suficiente else "No se pudo leer un domicilio completo en la imagen del INE.",
+        "motor": "motor_v2_alibaba",
+        "modelo": resultado.get("model"),
+        "tiempo_ms": int(resultado.get("elapsed_ms") or (time.time() - inicio) * 1000),
+    }
+
+
+@router.post(
     "/verificar-calidad-identificacion-pdf",
     summary="Revisión de calidad de identificación oficial (PDF)",
     description="""

@@ -1210,6 +1210,10 @@ def quick_prompt_for(expected_doc_type: Optional[str], nombre_candidato: Optiona
             "del domicilio, por ejemplo GUSTAVO A. MADERO. No tomes texto del holograma, QR, "
             "reverso, clave de elector ni folios "
             "como CURP. Si una letra/digito no es claro, deja ese campo en null y explicalo."
+            " Extrae tambien el DOMICILIO completo tal como aparece impreso en el INE, "
+            "incluyendo calle, numero, colonia, alcaldia/municipio, ciudad/entidad y codigo postal "
+            "cuando sean visibles. No confundas el domicilio con lugar de nacimiento, seccion electoral "
+            "ni la entidad de expedicion."
         )
     return (
         QUICK_PROMPT

@@ -243,6 +243,31 @@ class EstadoCuenta extends Model
         }
     }
 
+    /** INE cargado directamente en la oferta. Solo los consumidores que validan titularidad deben usarlo. */
+    public static function obtenerINEOfertaDocumentos($idCredito)
+    {
+        if (!$idCredito || !is_numeric($idCredito)) {
+            return self::resultado(false, 'ID de crédito inválido', null);
+        }
+
+        try {
+            $db = new DatabaseAWS('maxi-prod');
+            $row = $db->queryOne(
+                'SELECT archivo_ine_frente, archivo_ine_reverso
+                 FROM oferta
+                 WHERE id_oferta = :id_credito
+                 LIMIT 1',
+                ['id_credito' => (int) $idCredito]
+            );
+            if (!$row) {
+                return self::resultado(false, 'INE no encontrado en oferta', null);
+            }
+            return self::resultado(true, 'OK', $row);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'Error al consultar INE de oferta', null, $e->getMessage());
+        }
+    }
+
     public static function getClientesEstadoCuentaPorNombre($data)
     {
         if (!$data || !isset($data['nombre'])) {

@@ -165,13 +165,19 @@ final class ComparativoCierreSemanal
             throw new \InvalidArgumentException('Tabla no permitida.');
         }
 
-        if ($semana !== null) {
-            $bucketSql = self::bucketCierreHistoricoSql();
-        } else {
-            $bucketSql = $modoBucket === 'conciliado'
-                ? self::bucketConciliadoSql((string) $columnaDiasMora)
-                : self::bucketHistoricoSql((string) $columnaDiasMora);
-        }
+        /*
+         * Ambos lados del comparativo deben usar el mismo corte elegido.
+         * Las tablas históricas conservan las columnas Dias_mora_* por hora;
+         * antes la semana pasada usaba siempre el cierre consolidado
+         * (Bucket_ajustado_ghost / Cierre_Actual), ignorando el corte.
+         */
+        $bucketCorteSql = $modoBucket === 'conciliado'
+            ? self::bucketConciliadoSql((string) $columnaDiasMora)
+            : self::bucketHistoricoSql((string) $columnaDiasMora);
+        /* Si falta el dato de corte pero existe Bucket_Morosidad_Real, la
+         * fórmula conserva ese bucket; si faltan ambos datos no se inventa un
+         * cierre consolidado para un corte histórico. */
+        $bucketSql = $bucketCorteSql;
         $saldoSql = "COALESCE(CAST(REPLACE(REPLACE(NULLIF(TRIM(CAST(Saldo_total_capital AS CHAR)), ''), '$', ''), ',', '') AS DECIMAL(18,2)), 0)";
         $where = $semana === null ? '' : 'WHERE SEMANA = :semana';
 
@@ -249,8 +255,7 @@ final class ComparativoCierreSemanal
         return "
             CASE
                 WHEN ({$ordenReal}) IS NOT NULL
-                     AND ({$ordenDia}) IS NOT NULL
-                     AND ({$ordenReal}) < ({$ordenDia})
+                     AND (({$ordenDia}) IS NULL OR ({$ordenReal}) < ({$ordenDia}))
                 THEN Bucket_Morosidad_Real
                 ELSE ({$bucketDia})
             END
