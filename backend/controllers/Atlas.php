@@ -9,13 +9,46 @@ class Atlas extends Controller
 {
     public function atlas()
     {
-        header('Location: /Atlas/catalogos', true, 302);
+        header('Location: /Atlas/sucursales', true, 302);
         exit;
     }
 
     public function catalogos()
     {
-        $this->set('titulo', 'Catálogos Operativos');
+        header('Location: /Atlas/sucursales', true, 302);
+        exit;
+    }
+
+    public function sucursales()
+    {
+        $this->set('titulo', 'Sucursales');
+        $this->set('atlas_vista_catalogos', 'sucursales');
+        $this->set('google_maps_api_key_js', json_encode($this->googleMapsApiKey(), JSON_UNESCAPED_SLASHES));
+        $usuarioId = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->set('atlas_permisos_sucursal', AtlasDAO::permisosSucursalAtlas($usuarioId));
+        $this->render('atlas');
+    }
+
+    public function catalogosOperativos()
+    {
+        header('Location: /Atlas/distribuidores', true, 302);
+        exit;
+    }
+
+    public function distribuidores()
+    {
+        $this->set('titulo', 'Distribuidores');
+        $this->set('atlas_vista_catalogos', 'distribuidores');
+        $this->set('google_maps_api_key_js', json_encode($this->googleMapsApiKey(), JSON_UNESCAPED_SLASHES));
+        $usuarioId = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->set('atlas_permisos_sucursal', AtlasDAO::permisosSucursalAtlas($usuarioId));
+        $this->render('atlas');
+    }
+
+    public function clasificaciones()
+    {
+        $this->set('titulo', 'Clasificaciones');
+        $this->set('atlas_vista_catalogos', 'clasificaciones');
         $this->set('google_maps_api_key_js', json_encode($this->googleMapsApiKey(), JSON_UNESCAPED_SLASHES));
         $usuarioId = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
         $this->set('atlas_permisos_sucursal', AtlasDAO::permisosSucursalAtlas($usuarioId));
@@ -652,12 +685,6 @@ class Atlas extends Controller
         exit;
     }
 
-    public function sucursales()
-    {
-        header('Location: /Atlas/catalogos', true, 302);
-        exit;
-    }
-
     public function getSucursales()
     {
         $this->json(AtlasDAO::getSucursales());
@@ -1236,7 +1263,9 @@ class Atlas extends Controller
                 $value = $sheet->getCell($this->excelCell($col, $row))->getValue();
                 $tmp[$col] = $this->normalizarHeaderPresupuesto($value);
             }
-            if (in_array('pksucursal', $tmp, true) && (in_array('creditos', $tmp, true) || in_array('cash', $tmp, true))) {
+            $headersCredito = ['creditos', 'credito', 'metacreditos', 'presupuestodecreditos', 'presupuestocreditos'];
+            $headersCash = ['cash', 'metacash', 'presupuesto', 'presupuestodecash', 'presupuestocash'];
+            if (in_array('pksucursal', $tmp, true) && (array_intersect($headersCredito, $tmp) || array_intersect($headersCash, $tmp))) {
                 $headerRow = $row;
                 $headers = $tmp;
                 break;
@@ -1256,12 +1285,12 @@ class Atlas extends Controller
                 'divisional' => 'divisional',
                 'regional' => 'regional',
                 'supervisor' => 'supervisor',
-                'asesor' => 'asesor',
+                'asesor', 'asignacionjulio', 'gestor', 'responsable' => 'asesor',
                 'estado' => 'estado',
                 'promediofebmay', 'promediofebreroamay' => 'promedio_creditos',
                 'clasificacionnuevoesquema', 'clasificacion' => 'clasificacion',
-                'creditos', 'credito', 'meta', 'metacreditos', 'metacredito' => 'meta_creditos',
-                'cash', 'metacash', 'presupuesto' => 'meta_cash',
+                'creditos', 'credito', 'meta', 'metacreditos', 'metacredito', 'presupuestodecreditos', 'presupuestocreditos' => 'meta_creditos',
+                'cash', 'metacash', 'presupuesto', 'presupuestodecash', 'presupuestocash' => 'meta_cash',
                 default => null,
             };
             if ($campo !== null) {

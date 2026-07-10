@@ -32,8 +32,8 @@ class Atlas extends Model
             ],
             133 => [
                 'pestana' => 'Atlas',
-                'nombre' => 'Atlas Catalogos Operativos',
-                'descripcion' => 'Acceso a catalogos operativos de Atlas.',
+                'nombre' => 'Atlas Sucursales',
+                'descripcion' => 'Acceso al modulo de sucursales Atlas.',
             ],
             134 => [
                 'pestana' => 'Atlas',
@@ -700,17 +700,6 @@ class Atlas extends Model
                     s.localidad,
                     s.colonia,
                     s.codigo_postal,
-                    s.divisional_id,
-                    s.divisional_persona_id,
-                    COALESCE(NULLIF(TRIM(CONCAT_WS(' ', pdvl.nombres, pdvl.segundo_nombre, pdvl.apellidop, pdvl.apellidom)), ''), dvl.nombre) AS divisional_nombre,
-                    s.division_id,
-                    divs.nombre AS division_nombre,
-                    s.regional_id,
-                    s.regional_persona_id,
-                    COALESCE(NULLIF(TRIM(CONCAT_WS(' ', preg.nombres, preg.segundo_nombre, preg.apellidop, preg.apellidom)), ''), reg.nombre) AS regional_nombre,
-                    s.supervisor_id,
-                    s.supervisor_persona_id,
-                    COALESCE(NULLIF(TRIM(CONCAT_WS(' ', psup.nombres, psup.segundo_nombre, psup.apellidop, psup.apellidom)), ''), sup.nombre) AS supervisor_nombre,
                     s.asesor_id,
                     s.asesor_persona_id,
                     COALESCE(NULLIF(TRIM(CONCAT_WS(' ', pase.nombres, pase.segundo_nombre, pase.apellidop, pase.apellidom)), ''), ase.nombre) AS asesor_nombre,
@@ -746,24 +735,6 @@ class Atlas extends Model
                 INNER JOIN atlas_catalogo_distribuidores d
                         ON d.id = s.distribuidor_id
                        AND d.activo = 1
-                LEFT JOIN atlas_catalogo_divisionales dvl
-                       ON dvl.id = s.divisional_id
-                      AND dvl.activo = 1
-                LEFT JOIN persona pdvl
-                       ON pdvl.id = s.divisional_persona_id
-                LEFT JOIN atlas_catalogo_divisiones divs
-                       ON divs.id = s.division_id
-                      AND divs.activo = 1
-                LEFT JOIN atlas_catalogo_regionales reg
-                       ON reg.id = s.regional_id
-                      AND reg.activo = 1
-                LEFT JOIN persona preg
-                       ON preg.id = s.regional_persona_id
-                LEFT JOIN atlas_catalogo_supervisores sup
-                       ON sup.id = s.supervisor_id
-                      AND sup.activo = 1
-                LEFT JOIN persona psup
-                       ON psup.id = s.supervisor_persona_id
                 LEFT JOIN atlas_catalogo_asesores ase
                        ON ase.id = s.asesor_id
                       AND ase.activo = 1
@@ -840,42 +811,6 @@ class Atlas extends Model
                 'success' => true,
                 'mensaje' => 'CatÃƒÂ¡logos obtenidos.',
                 'datos' => [
-                    'divisiones' => $db->queryAll("
-                        SELECT
-                            divs.id,
-                            divs.divisional_id,
-                            COALESCE(dvl.tipo_asignacion, CASE WHEN dvl.persona_id IS NULL THEN 'vacante' ELSE 'persona' END) AS tipo_asignacion,
-                            dvl.nombre_vacante,
-                            dvl.vacante_personal_id,
-                            dvl.persona_id AS divisional_persona_id,
-                            dvl.nombre AS divisional_nombre,
-                            au.numero_empleado AS divisional_numero_empleado,
-                            au.puesto AS divisional_puesto,
-                            p.estatus AS divisional_persona_estatus,
-                            DATE_FORMAT(bp.fecha_baja, '%d/%m/%Y') AS divisional_fecha_baja_fmt,
-                            divs.nombre,
-                            divs.activo,
-                            divs.fecha_alta,
-                            divs.fecha_actualizacion
-                        FROM atlas_catalogo_divisiones divs
-                        LEFT JOIN atlas_catalogo_divisionales dvl
-                               ON dvl.id = divs.divisional_id
-                              AND dvl.activo = 1
-                        LEFT JOIN atlas_acceso_usuarios au
-                               ON au.persona_id = dvl.persona_id
-                        LEFT JOIN persona p
-                               ON p.id = dvl.persona_id
-                        LEFT JOIN (
-                            SELECT bp1.id_persona, bp1.fecha_baja
-                            FROM baja_persona bp1
-                            INNER JOIN (
-                                SELECT id_persona, MAX(id) AS id_ultima_baja
-                                FROM baja_persona
-                                GROUP BY id_persona
-                            ) ult ON ult.id_persona = bp1.id_persona AND ult.id_ultima_baja = bp1.id
-                        ) bp ON bp.id_persona = dvl.persona_id
-                        ORDER BY divs.activo DESC, dvl.nombre ASC, divs.nombre ASC, divs.id ASC
-                    "),
                     'divisionales' => $db->queryAll("
                         SELECT
                             dvl.id,
@@ -930,9 +865,6 @@ class Atlas extends Model
                             reg.fecha_alta,
                             reg.fecha_actualizacion
                         FROM atlas_catalogo_regionales reg
-                        INNER JOIN atlas_catalogo_divisiones divs
-                                ON divs.id = reg.division_id
-                               AND divs.activo = 1
                         LEFT JOIN persona p
                                ON p.id = reg.persona_id
                         LEFT JOIN (
@@ -963,9 +895,6 @@ class Atlas extends Model
                             sup.fecha_alta,
                             sup.fecha_actualizacion
                         FROM atlas_catalogo_supervisores sup
-                        INNER JOIN atlas_catalogo_regionales reg
-                                ON reg.id = sup.regional_id
-                               AND reg.activo = 1
                         LEFT JOIN persona p
                                ON p.id = sup.persona_id
                         LEFT JOIN (
@@ -1235,9 +1164,6 @@ class Atlas extends Model
                 'longitud' => 'longitud',
             ];
             $camposAsignacion = [
-                'divisional_id' => 'divisional',
-                'division_id' => 'division',
-                'regional_id' => 'regional',
                 'supervisor_id' => 'supervisor',
                 'asesor_id' => 'asesor',
             ];
@@ -1285,9 +1211,9 @@ class Atlas extends Model
                 'calle' => self::nullableStr($input['calle'] ?? null),
                 'numero_exterior' => self::nullableStr($input['numero_exterior'] ?? null),
                 'numero_interior' => self::nullableStr($input['numero_interior'] ?? null),
-                'divisional_id' => self::nullableInt($input['divisional_id'] ?? null),
+                'divisional_id' => null,
                 'division_id' => self::nullableInt($input['division_id'] ?? null),
-                'regional_id' => self::nullableInt($input['regional_id'] ?? null),
+                'regional_id' => null,
                 'supervisor_id' => self::nullableInt($input['supervisor_id'] ?? null),
                 'asesor_id' => self::nullableInt($input['asesor_id'] ?? null),
                 'clasificacion_id' => self::nullableInt($input['clasificacion_id'] ?? null),
@@ -4153,6 +4079,12 @@ class Atlas extends Model
                 KEY idx_atlas_pres_bit_evento (evento)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
+
+        self::asegurarColumna($db, 'atlas_presupuesto_bitacora', 'payload_json', 'JSON NULL');
+        self::asegurarColumna($db, 'atlas_presupuesto_bitacora', 'meta_creditos_anterior', 'DECIMAL(14,2) NULL');
+        self::asegurarColumna($db, 'atlas_presupuesto_bitacora', 'meta_creditos_nueva', 'DECIMAL(14,2) NULL');
+        self::asegurarColumna($db, 'atlas_presupuesto_bitacora', 'meta_cash_anterior', 'DECIMAL(16,2) NULL');
+        self::asegurarColumna($db, 'atlas_presupuesto_bitacora', 'meta_cash_nueva', 'DECIMAL(16,2) NULL');
     }
 
     private static function registrarBitacoraPresupuesto(Database $db, array $datos): void
@@ -4210,7 +4142,7 @@ class Atlas extends Model
                     SELECT
                         presupuesto_id,
                         COUNT(*) AS total_eventos,
-                        SUM(CASE WHEN evento = 'modificacion_sucursal' THEN 1 ELSE 0 END) AS total_modificaciones
+                        SUM(CASE WHEN evento IN ('modificacion_sucursal', 'alta_sucursal', 'desactivacion_sucursal') THEN 1 ELSE 0 END) AS total_modificaciones
                     FROM atlas_presupuesto_bitacora
                     GROUP BY presupuesto_id
                 ) bit ON bit.presupuesto_id = p.id
@@ -4275,12 +4207,25 @@ class Atlas extends Model
             $detalles = $db->queryAll("
                 SELECT
                     d.*,
+                    COALESCE(cls.nombre, '') AS clasificacion_catalogo,
                     DATE_FORMAT(d.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt
                 FROM atlas_presupuesto_sucursal_detalle d
+                LEFT JOIN atlas_catalogo_sucursales s
+                       ON s.fk_sucursal = d.fk_sucursal
+                LEFT JOIN atlas_catalogo_clasificaciones cls
+                       ON cls.id = s.clasificacion_id
                 WHERE d.presupuesto_id = :id
                   AND d.activo = 1
                 ORDER BY d.sucursal ASC, d.fk_sucursal ASC
             ", ['id' => $id]);
+
+            foreach ($detalles as &$detalle) {
+                $detalle['clasificacion_presupuesto'] = $detalle['clasificacion'] ?? '';
+                if (trim((string)($detalle['clasificacion_catalogo'] ?? '')) !== '') {
+                    $detalle['clasificacion'] = $detalle['clasificacion_catalogo'];
+                }
+            }
+            unset($detalle);
 
             $presupuesto['puede_eliminar'] = self::presupuestoMesEsFuturo((int)$presupuesto['anio'], (int)$presupuesto['mes']) ? 1 : 0;
 
@@ -4347,12 +4292,16 @@ class Atlas extends Model
                     d.fk_sucursal,
                     d.sucursal,
                     d.distribuidor,
-                    d.clasificacion,
+                    COALESCE(cls.nombre, d.clasificacion, '') AS clasificacion,
                     d.meta_creditos,
                     d.meta_cash,
                     0 AS creditos_vendidos,
                     0 AS cash_vendido
                 FROM atlas_presupuesto_sucursal_detalle d
+                LEFT JOIN atlas_catalogo_sucursales s
+                       ON s.fk_sucursal = d.fk_sucursal
+                LEFT JOIN atlas_catalogo_clasificaciones cls
+                       ON cls.id = s.clasificacion_id
                 WHERE d.presupuesto_id = :id
                   AND d.activo = 1
                 ORDER BY d.meta_cash DESC, d.sucursal ASC
@@ -4454,7 +4403,7 @@ class Atlas extends Model
                 LEFT JOIN persona p ON p.id = b.usuario_id
                 WHERE $where
                 ORDER BY b.fecha_evento DESC, b.id DESC
-                LIMIT 500
+                LIMIT 2500
             ", $params) ?: [];
 
             if ($presupuesto && !$eventos) {
@@ -4477,7 +4426,7 @@ class Atlas extends Model
             $ultimaCarga = null;
             $ultimaEliminacion = null;
             foreach ($eventos as $evento) {
-                if (($evento['evento'] ?? '') === 'modificacion_sucursal') {
+                if (in_array(($evento['evento'] ?? ''), ['modificacion_sucursal', 'alta_sucursal', 'desactivacion_sucursal'], true)) {
                     $totalModificaciones++;
                 }
                 if (($evento['evento'] ?? '') === 'eliminacion') {
@@ -4731,15 +4680,18 @@ class Atlas extends Model
         }
 
         $rol = (string)($contexto['rol_rutas'] ?? '');
-        $campo = match ($rol) {
+        $campoJerarquia = match ($rol) {
             'divisional' => 'divisional_id',
             'regional' => 'regional_id',
             'supervisor' => 'supervisor_id',
             default => 'asesor_id',
         };
 
-        return array_values(array_filter($sucursales, static function ($sucursal) use ($campo, $usuarioId) {
-            return (int)($sucursal[$campo] ?? 0) === $usuarioId;
+        return array_values(array_filter($sucursales, static function ($sucursal) use ($campoJerarquia, $usuarioId) {
+            if ((int)($sucursal['asesor_id'] ?? 0) === $usuarioId) {
+                return true;
+            }
+            return $campoJerarquia !== 'asesor_id' && (int)($sucursal[$campoJerarquia] ?? 0) === $usuarioId;
         }));
     }
 
@@ -5744,21 +5696,13 @@ class Atlas extends Model
             $db->beginTransaction();
 
             $actual = $db->queryOne("
-                SELECT id
+                SELECT *
                 FROM atlas_presupuestos_mensuales
                 WHERE anio = :anio
                   AND mes = :mes
                   AND activo = 1
                 LIMIT 1
             ", ['anio' => $anio, 'mes' => $mes]);
-
-            if ($actual) {
-                $db->rollback();
-                return [
-                    'success' => false,
-                    'mensaje' => 'Ya existe un presupuesto cargado para ' . self::nombreMes($mes) . " $anio. Elimina el presupuesto actual antes de volver a cargarlo.",
-                ];
-            }
 
             $esRecarga = (bool)$actual;
             if ($actual) {
@@ -5792,9 +5736,23 @@ class Atlas extends Model
                 $presupuestoId = $db->lastInsertId();
             }
 
+            $detallesAnteriores = [];
+            if ($esRecarga) {
+                $rowsAnteriores = $db->queryAll("
+                    SELECT *
+                    FROM atlas_presupuesto_sucursal_detalle
+                    WHERE presupuesto_id = :id
+                      AND activo = 1
+                ", ['id' => $presupuestoId]) ?: [];
+                foreach ($rowsAnteriores as $rowAnterior) {
+                    $detallesAnteriores[(int)($rowAnterior['fk_sucursal'] ?? 0)] = $rowAnterior;
+                }
+            }
+
             $db->CRUD("UPDATE atlas_presupuesto_sucursal_detalle SET activo = 0 WHERE presupuesto_id = :id", ['id' => $presupuestoId]);
 
             $sucursalesEsperadas = self::getSucursalesTemplatePresupuesto();
+            $clasificacionesPorNombre = self::getClasificacionesAtlasPorNombre($db);
             $esperadasPorFk = [];
             foreach ($sucursalesEsperadas as $sucursalEsperada) {
                 $fkEsperada = (int)($sucursalEsperada['fk_sucursal'] ?? 0);
@@ -5847,7 +5805,45 @@ class Atlas extends Model
             }
 
             $importadas = 0;
+            $catalogoClasificacionActualizado = 0;
+            $cambiosRegistrados = 0;
+            $altasRegistradas = 0;
             foreach ($filasUnicas as $fkSucursal => $fila) {
+                $sucursalEsperada = $esperadasPorFk[$fkSucursal] ?? [];
+                $clasificacionExcel = self::strVal($fila['clasificacion'] ?? '');
+                $clasificacionOficial = self::strVal($sucursalEsperada['clasificacion'] ?? '');
+
+                if ($clasificacionExcel !== '') {
+                    $clasificacionKey = self::normalizarNombreCatalogoParaComparar($clasificacionExcel);
+                    if (!isset($clasificacionesPorNombre[$clasificacionKey])) {
+                        $db->rollback();
+                        return [
+                            'success' => false,
+                            'mensaje' => "La clasificacion '{$clasificacionExcel}' no existe en el catalogo principal. Corrige el catalogo antes de importar.",
+                            'datos' => [
+                                'fk_sucursal' => (int)$fkSucursal,
+                                'sucursal' => self::strVal($fila['sucursal'] ?? ''),
+                                'clasificacion' => $clasificacionExcel,
+                            ],
+                        ];
+                    }
+
+                    $clasificacionId = (int)$clasificacionesPorNombre[$clasificacionKey]['id'];
+                    $clasificacionOficial = self::strVal($clasificacionesPorNombre[$clasificacionKey]['nombre'] ?? $clasificacionExcel);
+                    $actualizados = $db->CRUD("
+                        UPDATE atlas_catalogo_sucursales
+                        SET clasificacion_id = :clasificacion_id
+                        WHERE fk_sucursal = :fk_sucursal
+                          AND (clasificacion_id IS NULL OR clasificacion_id <> :clasificacion_id_actual)
+                    ", [
+                        'clasificacion_id' => $clasificacionId,
+                        'fk_sucursal' => (int)$fkSucursal,
+                        'clasificacion_id_actual' => $clasificacionId,
+                    ]);
+                    if ($actualizados) {
+                        $catalogoClasificacionActualizado++;
+                    }
+                }
 
                 $datos = [
                     'presupuesto_id' => $presupuestoId,
@@ -5860,7 +5856,7 @@ class Atlas extends Model
                     'asesor' => self::strVal($fila['asesor'] ?? ''),
                     'estado' => self::strVal($fila['estado'] ?? ''),
                     'promedio_creditos' => self::decimalPresupuesto($fila['promedio_creditos'] ?? null),
-                    'clasificacion' => self::strVal($fila['clasificacion'] ?? ''),
+                    'clasificacion' => $clasificacionOficial,
                     'meta_creditos' => self::decimalPresupuesto($fila['meta_creditos'] ?? 0),
                     'meta_cash' => self::decimalPresupuesto($fila['meta_cash'] ?? 0),
                     'usuario' => $usuarioId ?: null,
@@ -5911,7 +5907,96 @@ class Atlas extends Model
                         activo = 1,
                         updated_by = VALUES(updated_by)
                 ", $datos);
+
+                if ($esRecarga) {
+                    $detalleActual = $db->queryOne("
+                        SELECT *
+                        FROM atlas_presupuesto_sucursal_detalle
+                        WHERE presupuesto_id = :presupuesto_id
+                          AND fk_sucursal = :fk_sucursal
+                        LIMIT 1
+                    ", [
+                        'presupuesto_id' => $presupuestoId,
+                        'fk_sucursal' => (int)$fkSucursal,
+                    ]) ?: [];
+
+                    $anterior = $detallesAnteriores[(int)$fkSucursal] ?? null;
+                    $metaCreditosAnterior = $anterior ? self::decimalPresupuesto($anterior['meta_creditos'] ?? 0) : null;
+                    $metaCashAnterior = $anterior ? self::decimalPresupuesto($anterior['meta_cash'] ?? 0) : null;
+                    $metaCreditosNueva = self::decimalPresupuesto($datos['meta_creditos'] ?? 0);
+                    $metaCashNueva = self::decimalPresupuesto($datos['meta_cash'] ?? 0);
+                    $cambioMeta = !$anterior
+                        || abs(($metaCreditosAnterior ?? 0) - $metaCreditosNueva) > 0.0001
+                        || abs(($metaCashAnterior ?? 0) - $metaCashNueva) > 0.0001;
+                    $cambioDatos = $anterior && (
+                        self::strVal($anterior['sucursal'] ?? '') !== self::strVal($datos['sucursal'] ?? '')
+                        || self::strVal($anterior['distribuidor'] ?? '') !== self::strVal($datos['distribuidor'] ?? '')
+                        || self::strVal($anterior['asesor'] ?? '') !== self::strVal($datos['asesor'] ?? '')
+                        || self::strVal($anterior['clasificacion'] ?? '') !== self::strVal($datos['clasificacion'] ?? '')
+                    );
+
+                    if ($cambioMeta || $cambioDatos) {
+                        self::registrarBitacoraPresupuesto($db, [
+                            'presupuesto_id' => $presupuestoId,
+                            'anio' => $anio,
+                            'mes' => $mes,
+                            'evento' => $anterior ? 'modificacion_sucursal' : 'alta_sucursal',
+                            'descripcion' => $anterior
+                                ? 'Sucursal actualizada por recarga de presupuesto desde Excel.'
+                                : 'Sucursal agregada por recarga de presupuesto desde Excel.',
+                            'sucursal_detalle_id' => (int)($detalleActual['id'] ?? 0) ?: null,
+                            'fk_sucursal' => (int)$fkSucursal,
+                            'meta_creditos_anterior' => $metaCreditosAnterior,
+                            'meta_creditos_nueva' => $metaCreditosNueva,
+                            'meta_cash_anterior' => $metaCashAnterior,
+                            'meta_cash_nueva' => $metaCashNueva,
+                            'archivo_original' => mb_substr($archivoOriginal, 0, 220),
+                            'usuario_id' => $usuarioId ?: null,
+                            'payload_json' => [
+                                'tipo' => $anterior ? 'recarga_cambio_sucursal' : 'recarga_alta_sucursal',
+                                'excel_row' => (int)($fila['_excel_row'] ?? 0),
+                                'antes' => $anterior,
+                                'despues' => $detalleActual ?: $datos,
+                            ],
+                        ]);
+                        if ($anterior) {
+                            $cambiosRegistrados++;
+                        } else {
+                            $altasRegistradas++;
+                        }
+                    }
+                }
                 $importadas++;
+            }
+
+            $desactivadasRegistradas = 0;
+            if ($esRecarga && $detallesAnteriores) {
+                foreach ($detallesAnteriores as $fkAnterior => $anterior) {
+                    if (isset($filasUnicas[$fkAnterior])) {
+                        continue;
+                    }
+                    self::registrarBitacoraPresupuesto($db, [
+                        'presupuesto_id' => $presupuestoId,
+                        'anio' => $anio,
+                        'mes' => $mes,
+                        'evento' => 'desactivacion_sucursal',
+                        'descripcion' => 'Sucursal desactivada del presupuesto por no venir en la recarga de Excel.',
+                        'sucursal_detalle_id' => (int)($anterior['id'] ?? 0) ?: null,
+                        'fk_sucursal' => (int)$fkAnterior,
+                        'meta_creditos_anterior' => self::decimalPresupuesto($anterior['meta_creditos'] ?? 0),
+                        'meta_creditos_nueva' => 0,
+                        'meta_cash_anterior' => self::decimalPresupuesto($anterior['meta_cash'] ?? 0),
+                        'meta_cash_nueva' => 0,
+                        'archivo_original' => mb_substr($archivoOriginal, 0, 220),
+                        'usuario_id' => $usuarioId ?: null,
+                        'payload_json' => [
+                            'tipo' => 'recarga_desactivacion_sucursal',
+                            'antes' => $anterior,
+                            'despues' => ['activo' => 0],
+                        ],
+                    ]);
+                    $desactivadasRegistradas++;
+                }
             }
 
             self::recalcularTotalesPresupuesto($db, $presupuestoId);
@@ -5924,6 +6009,11 @@ class Atlas extends Model
                 'faltantes' => count($faltantes),
                 'omitidos_invalidos' => $omitidasInvalidas,
                 'total_omitidos' => count($duplicadas) + count($extras) + count($faltantes) + $omitidasInvalidas,
+                'catalogo_clasificacion_actualizado' => $catalogoClasificacionActualizado,
+                'es_recarga' => $esRecarga ? 1 : 0,
+                'cambios_registrados' => $cambiosRegistrados,
+                'altas_registradas' => $altasRegistradas,
+                'desactivadas_registradas' => $desactivadasRegistradas,
                 'detalle_duplicados' => $duplicadas,
                 'detalle_extras' => $extras,
                 'detalle_faltantes' => $faltantes,
@@ -6079,6 +6169,28 @@ class Atlas extends Model
     private static function distribuidorDetieneOperacion(?string $estatus): bool
     {
         return in_array(strtolower(trim((string)$estatus)), ['bloqueado', 'pausado', 'inhabilitado'], true);
+    }
+
+    private static function getClasificacionesAtlasPorNombre(Database $db): array
+    {
+        $rows = $db->queryAll("
+            SELECT id, nombre
+            FROM atlas_catalogo_clasificaciones
+            WHERE activo = 1
+        ");
+
+        $map = [];
+        foreach ($rows as $row) {
+            $nombre = self::strVal($row['nombre'] ?? '');
+            if ($nombre === '') {
+                continue;
+            }
+            $map[self::normalizarNombreCatalogoParaComparar($nombre)] = [
+                'id' => (int)($row['id'] ?? 0),
+                'nombre' => $nombre,
+            ];
+        }
+        return $map;
     }
 
     private static function getDistribuidorSucursalPresupuesto(Database $db, int $fkSucursal): ?array

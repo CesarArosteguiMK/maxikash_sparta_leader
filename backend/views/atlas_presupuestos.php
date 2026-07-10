@@ -67,6 +67,7 @@
         .atlas-pres-import-result-value { display:block; color:#22303e; font-size:1.05rem; font-weight:900; margin-top:.12rem; }
         .atlas-pres-import-title { text-align:center; font-size:1.05rem; font-weight:900; color:#22303e; border:0; background:transparent; padding:0; margin:.15rem auto .85rem; display:block; cursor:pointer; }
         .atlas-pres-import-title:hover { color:#d09f48; }
+        .atlas-pres-import-download { display:flex; justify-content:flex-end; margin:.65rem 0 .25rem; }
         .atlas-pres-import-warnings { text-align:left; border:1px solid #fde68a; border-radius:.6rem; background:#fffbeb; color:#92400e; padding:.75rem .85rem; font-size:.82rem; font-weight:700; }
         .atlas-pres-import-warning-list { margin:.4rem 0 0; padding-left:1rem; max-height:7.5rem; overflow:auto; }
         .atlas-pres-import-warning-list li { margin-bottom:.22rem; }
@@ -377,6 +378,10 @@
                 this.cargar();
             },
 
+            nombreMes(mes) {
+                return meses[(parseInt(mes, 10) || 1) - 1] || 'Mes';
+            },
+
             initYears() {
                 const actual = new Date().getFullYear();
                 const opts = [];
@@ -505,6 +510,7 @@
                 const selectMes = document.getElementById('atlasPresImportMes');
                 const inputArchivo = document.querySelector('#atlasPresImportForm input[name="archivo"]');
                 const submitBtn = document.querySelector('#atlasPresImportForm button[type="submit"]');
+                const mesPrevio = selectMes.value || String(new Date().getMonth() + 1);
                 selectMes.disabled = true;
                 selectMes.innerHTML = '<option value="">Validando meses...</option>';
                 if (inputArchivo) inputArchivo.disabled = true;
@@ -521,7 +527,7 @@
                     const base = Array.isArray(calendario) && calendario.length
                         ? calendario
                         : meses.map((nombre, idx) => ({ mes: idx + 1, nombre_mes: nombre, presupuesto: null }));
-                    const disponibles = base.filter(item => !item.presupuesto);
+                    const disponibles = base;
                     if (!disponibles.length) {
                         selectMes.innerHTML = '<option value="">Sin meses disponibles</option>';
                         selectMes.disabled = true;
@@ -532,8 +538,12 @@
                     selectMes.innerHTML = disponibles.map(item => {
                         const mes = parseInt(item.mes, 10);
                         const nombre = item.nombre_mes || meses[mes - 1] || `Mes ${mes}`;
-                        return `<option value="${mes}">${this.escape(nombre)}</option>`;
+                        const etiqueta = item.presupuesto ? `${nombre} - Recargar presupuesto existente` : `${nombre} - Carga nueva`;
+                        return `<option value="${mes}">${this.escape(etiqueta)}</option>`;
                     }).join('');
+                    if ([...selectMes.options].some(opt => opt.value === mesPrevio)) {
+                        selectMes.value = mesPrevio;
+                    }
                     selectMes.disabled = false;
                     if (inputArchivo) inputArchivo.disabled = false;
                     if (submitBtn) submitBtn.disabled = false;
@@ -929,6 +939,8 @@
                     carga: 'Carga de presupuesto',
                     recarga: 'Recarga de presupuesto',
                     modificacion_sucursal: 'Modificacion de sucursal',
+                    alta_sucursal: 'Alta de sucursal en presupuesto',
+                    desactivacion_sucursal: 'Sucursal desactivada del presupuesto',
                     eliminacion: 'Eliminacion de presupuesto',
                     carga_inicial: 'Carga inicial'
                 };
@@ -938,6 +950,8 @@
 
             iconoEvento(evento) {
                 if (evento === 'modificacion_sucursal') return 'fa-solid fa-pen';
+                if (evento === 'alta_sucursal') return 'fa-solid fa-circle-plus';
+                if (evento === 'desactivacion_sucursal') return 'fa-solid fa-circle-minus';
                 if (evento === 'eliminacion') return 'fa-solid fa-trash-can';
                 if (evento === 'recarga') return 'fa-solid fa-file-import';
                 return 'fa-solid fa-file-excel';
@@ -948,7 +962,7 @@
                 if (ev.total_sucursales) partes.push(`${this.number(ev.total_sucursales)} sucursales`);
                 if (ev.archivo_original) partes.push(`Archivo: ${this.escape(ev.archivo_original)}`);
                 if (ev.fk_sucursal) partes.push(`FK ${this.escape(ev.fk_sucursal)}`);
-                if (ev.evento === 'modificacion_sucursal') {
+                if (['modificacion_sucursal', 'alta_sucursal', 'desactivacion_sucursal'].includes(ev.evento)) {
                     partes.push(`Creditos: ${this.number(ev.meta_creditos_anterior || 0)} -> ${this.number(ev.meta_creditos_nueva || 0)}`);
                     partes.push(`Cash: ${this.money(ev.meta_cash_anterior || 0)} -> ${this.money(ev.meta_cash_nueva || 0)}`);
                 }
@@ -970,7 +984,7 @@
                 this.modalEdit.show();
             },
 
-            importar(ev) {
+            async importar(ev) {
                 ev.preventDefault();
                 const form = ev.currentTarget;
                 const submitBtn = form.querySelector('button[type="submit"]');
@@ -981,8 +995,8 @@
                     return;
                 }
                 if (this.mesImportacionYaCargado(anioImportacion, mesImportacion)) {
-                    this.avisoPresupuestoExistente(anioImportacion, mesImportacion);
-                    return;
+                    const confirmado = await this.confirmarRecargaPresupuesto(anioImportacion, mesImportacion);
+                    if (!confirmado) return;
                 }
                 if (submitBtn) submitBtn.disabled = true;
                 const fd = new FormData(form);
@@ -1047,6 +1061,21 @@
                 });
             },
 
+            confirmarRecargaPresupuesto(anio, mes) {
+                const nombreMes = meses[(parseInt(mes, 10) || 1) - 1] || 'este mes';
+                if (typeof Swal === 'undefined') {
+                    return Promise.resolve(window.confirm(`Ya existe presupuesto para ${nombreMes} ${anio}. Se recargará y se guardará bitácora de cambios por sucursal. ¿Continuar?`));
+                }
+                return Swal.fire({
+                    icon: 'warning',
+                    title: 'Recargar presupuesto existente',
+                    html: `Ya existe presupuesto para <strong>${this.escape(nombreMes)} ${this.escape(anio)}</strong>.<br>Se comparará contra el archivo anterior y se guardará bitácora con antes/después por sucursal.`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, recargar',
+                    cancelButtonText: 'Cancelar'
+                }).then(r => !!r.isConfirmed);
+            },
+
             cerrarModalImportacion() {
                 const el = document.getElementById('modalAtlasPresupuestoImportar');
                 if (!el || !el.classList.contains('show')) return Promise.resolve();
@@ -1074,7 +1103,10 @@
                 const resumen = datos.resumen_importacion || {};
                 const omitidos = Number(resumen.total_omitidos || 0);
                 const icon = omitidos > 0 ? 'warning' : 'success';
-                const title = omitidos > 0 ? 'Presupuesto cargado con observaciones' : 'Presupuesto cargado completo';
+                const esRecarga = Number(resumen.es_recarga || 0) === 1;
+                const title = esRecarga
+                    ? (omitidos > 0 ? 'Presupuesto recargado con observaciones' : 'Presupuesto recargado')
+                    : (omitidos > 0 ? 'Presupuesto cargado con observaciones' : 'Presupuesto cargado completo');
                 const detalle = [];
                 if (Number(resumen.duplicados || 0) > 0) {
                     detalle.push(`${this.number(resumen.duplicados)} duplicado(s). Se tomó el último registro de cada sucursal.`);
@@ -1091,6 +1123,7 @@
                     detalle.push(`${this.number(resumen.omitidos_invalidos)} fila(s) omitida(s) por Pk_Sucursal inválido.`);
                 }
                 const detalleHtml = this.htmlObservacionesImportacion(resumen);
+                const tieneFaltantes = Number(resumen.faltantes || 0) > 0 && Array.isArray(resumen.detalle_faltantes) && resumen.detalle_faltantes.length > 0;
                 if (detalleHtml) detalle.length = 0;
                 return Swal.fire({
                     icon,
@@ -1104,8 +1137,19 @@
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Duplicadas</span><span class="atlas-pres-import-result-value">${this.number(resumen.duplicados || 0)}</span></div>
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Extras</span><span class="atlas-pres-import-result-value">${this.number(resumen.extras || 0)}</span></div>
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Faltantes</span><span class="atlas-pres-import-result-value">${this.number(resumen.faltantes || 0)}</span></div>
+                            <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Catalogo actualizado</span><span class="atlas-pres-import-result-value">${this.number(resumen.catalogo_clasificacion_actualizado || 0)}</span></div>
+                            <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Cambios bitácora</span><span class="atlas-pres-import-result-value">${this.number(resumen.cambios_registrados || 0)}</span></div>
+                            <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Altas</span><span class="atlas-pres-import-result-value">${this.number(resumen.altas_registradas || 0)}</span></div>
+                            <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Desactivadas</span><span class="atlas-pres-import-result-value">${this.number(resumen.desactivadas_registradas || 0)}</span></div>
                         </div>
                         ${detalleHtml}
+                        ${tieneFaltantes ? `
+                            <div class="atlas-pres-import-download">
+                                <button type="button" class="btn btn-sm btn-label-success" data-atlas-pres-import-download-missing>
+                                    <i class="fa-solid fa-file-excel me-1"></i>Descargar Excel de sucursales sin presupuesto
+                                </button>
+                            </div>
+                        ` : ''}
                         ${detalle.length ? `<div class="atlas-pres-import-warnings">${detalle.map(x => `<div>${this.escape(x)}</div>`).join('')}</div>` : '<div class="text-success fw-bold">El archivo cuadró contra el template.</div>'}
                     `,
                     width: 760,
@@ -1115,7 +1159,7 @@
                             const successText = document.querySelector('.swal2-html-container .text-success');
                             if (successText) successText.remove();
                         }
-                        const ayuda = ['esperadas', 'leidas', 'cargadas', 'duplicadas', 'extras', 'faltantes'];
+                        const ayuda = ['esperadas', 'leidas', 'cargadas', 'duplicadas', 'extras', 'faltantes', 'catalogo', 'cambios', 'altas', 'desactivadas'];
                         document.querySelectorAll('.atlas-pres-import-result-item').forEach((btn, idx) => {
                             btn.classList.add('atlas-pres-import-result-button');
                             btn.setAttribute('role', 'button');
@@ -1125,6 +1169,10 @@
                         document.querySelectorAll('[data-import-help]').forEach(btn => {
                             btn.addEventListener('click', () => this.mostrarAyudaImportacion(btn.getAttribute('data-import-help')));
                         });
+                        const downloadMissingBtn = document.querySelector('[data-atlas-pres-import-download-missing]');
+                        if (downloadMissingBtn) {
+                            downloadMissingBtn.addEventListener('click', () => this.descargarSucursalesSinPresupuestoExcel(datos));
+                        }
                         this.descargarResumenImportacionPdf(datos);
                     }
                 });
@@ -1179,7 +1227,11 @@
                     cargadas: 'Sucursales que si se guardaron en el presupuesto mensual.',
                     duplicadas: 'FK repetidos dentro del Excel. El sistema conserva el ultimo registro encontrado para esa sucursal.',
                     extras: 'Sucursales que venian en el Excel, pero no existen en el template esperado. No se cargan.',
-                    faltantes: 'Sucursales del template oficial que no llegaron en el Excel. Deben revisarse porque quedaron sin cargar.'
+                    faltantes: 'Sucursales del template oficial que no llegaron en el Excel. Deben revisarse porque quedaron sin cargar.',
+                    catalogo: 'Clasificaciones del catalogo de sucursales que fueron actualizadas para empatar con el Excel.',
+                    cambios: 'Sucursales que ya existian en el presupuesto y cambiaron meta, cash o datos operativos durante la recarga.',
+                    altas: 'Sucursales que no estaban activas en el presupuesto anterior y entraron con la recarga.',
+                    desactivadas: 'Sucursales que estaban activas antes, pero ya no vinieron en el Excel de recarga.'
                 };
                 Swal.fire({
                     icon: 'info',
@@ -1196,6 +1248,69 @@
                 iframe.src = datos.pdf_url;
                 document.body.appendChild(iframe);
                 setTimeout(() => iframe.remove(), 15000);
+            },
+
+            descargarSucursalesSinPresupuestoExcel(datos) {
+                const resumen = datos?.resumen_importacion || {};
+                const faltantes = Array.isArray(resumen.detalle_faltantes) ? resumen.detalle_faltantes : [];
+                if (!faltantes.length) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'info', title: 'Sin sucursales', text: 'No hay sucursales sin presupuesto para descargar.' });
+                    }
+                    return;
+                }
+
+                const anio = parseInt(datos?.anio || this.anio || new Date().getFullYear(), 10) || new Date().getFullYear();
+                const mes = parseInt(datos?.mes || document.getElementById('atlasPresImportMes')?.value || 1, 10) || 1;
+                const mesNombre = this.nombreMes(mes);
+                const rows = faltantes.map((item, index) => {
+                    const record = item && typeof item === 'object' ? item : { fk_sucursal: item };
+                    return `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${this.escape(record.fk_sucursal || '')}</td>
+                            <td>${this.escape(record.sucursal || 'Sin nombre de sucursal')}</td>
+                            <td>${this.escape(record.distribuidor || '')}</td>
+                        </tr>
+                    `;
+                }).join('');
+                const html = `
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <style>
+                            table { border-collapse:collapse; font-family:Arial, sans-serif; font-size:12px; }
+                            th { background:#26344e; color:#ffffff; font-weight:bold; }
+                            th, td { border:1px solid #d9dee3; padding:6px 8px; mso-number-format:'\\@'; }
+                            .title { font-size:18px; font-weight:bold; color:#22303e; }
+                            .subtitle { color:#64748b; font-weight:bold; }
+                        </style>
+                    </head>
+                    <body>
+                        <table>
+                            <tr><td colspan="4" class="title">Sucursales sin presupuesto</td></tr>
+                            <tr><td colspan="4" class="subtitle">Presupuesto base: ${this.escape(mesNombre)} ${anio}</td></tr>
+                            <tr><td colspan="4"></td></tr>
+                            <tr>
+                                <th>#</th>
+                                <th>FK sucursal</th>
+                                <th>Sucursal</th>
+                                <th>Distribuidor</th>
+                            </tr>
+                            ${rows}
+                        </table>
+                    </body>
+                    </html>
+                `;
+                const blob = new Blob(['\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `sucursales_sin_presupuesto_${anio}_${String(mes).padStart(2, '0')}.xls`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
             },
 
             guardarDetalle(ev) {
