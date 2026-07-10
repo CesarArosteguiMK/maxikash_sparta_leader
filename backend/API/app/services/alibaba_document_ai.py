@@ -1727,22 +1727,12 @@ class AlibabaDocumentAI:
         start = time.time()
         deadline = time.monotonic() + float(self.timeout_seconds)
         base_pages, page_count = render_input(file_bytes, filename, self.max_pages, self.dpi)
-        generic_initial_pages = render_documento_assistido_generico(
-            file_bytes,
-            filename,
-            self.dpi,
-            expected_doc_type,
-            max_views=6,
-        )
-        pages = list(base_pages) + generic_initial_pages
-        if expected_doc_type == "identificacion_oficial":
-            pages = pages + render_identificacion_assistida(file_bytes, filename, self.dpi)
-        elif expected_doc_type in {"solicitud___SPARTA_SECRET_REDACTED__", "solicitud_interna"}:
-            pages = pages + render_solicitud_assistida(file_bytes, filename, self.dpi)
-        pages = _dedupe_rendered_pages(pages, max_pages=12)
+        # La lectura normal debe ser compacta. Enviar de inicio todas las
+        # rotaciones y recortes puede saturar al proveedor incluso cuando las
+        # paginas originales son legibles. Las vistas asistidas se generan
+        # abajo, unicamente si faltan campos o la calidad/orientacion lo exige.
+        pages = list(base_pages)
         prompt = quick_prompt_for(expected_doc_type, nombre_candidato)
-        if len(pages) > len(base_pages):
-            prompt += ASSISTED_VIEWS_PROMPT
         extracted, usage, actual_model, fallback_used = self._call(pages, prompt, deadline=deadline)
         extracted["paginas_analizadas"] = min(page_count, self.max_pages)
         extracted["paginas_pdf"] = page_count
@@ -1759,16 +1749,21 @@ class AlibabaDocumentAI:
                 filename,
                 self.dpi,
                 expected_doc_type,
-                max_views=10,
+                max_views=6,
             )
+            if expected_doc_type == "identificacion_oficial":
+                assisted_pages += render_identificacion_assistida(file_bytes, filename, self.dpi)
+            elif expected_doc_type in {"solicitud___SPARTA_SECRET_REDACTED__", "solicitud_interna"}:
+                assisted_pages += render_solicitud_assistida(file_bytes, filename, self.dpi)
+            assisted_pages = _dedupe_rendered_pages(assisted_pages, max_pages=8)
             assistance_views = max(assistance_views, len(assisted_pages))
             remaining = deadline - time.monotonic()
             if assisted_pages and remaining >= 8.0:
                 assistance_attempted = True
                 try:
                     retry_extracted, retry_usage, retry_model, retry_fallback = self._call(
-                        _dedupe_rendered_pages(list(base_pages) + assisted_pages, max_pages=12),
-                        prompt + ASSISTED_RETRY_PROMPT,
+                        _dedupe_rendered_pages(list(base_pages) + assisted_pages, max_pages=10),
+                        prompt + ASSISTED_VIEWS_PROMPT + ASSISTED_RETRY_PROMPT,
                         deadline=deadline,
                     )
                     retry_extracted["paginas_analizadas"] = min(page_count, self.max_pages)
@@ -1799,9 +1794,9 @@ class AlibabaDocumentAI:
             "assisted_retry_reason": assistance_reason,
             "assisted_retry_attempted": assistance_attempted,
             "assisted_retry_used": assistance_used,
-            "assisted_preprocessing_enabled": bool(assistance_views),
+            "assisted_preprocessing_enabled": bool(assistance_attempted),
             "assisted_initial_views": max(0, len(pages) - len(base_pages)),
-            "assisted_views": assistance_views,
+            "assisted_views": assistance_views if assistance_attempted else 0,
             "assisted_retry_error": assistance_error,
             "elapsed_ms": int((time.time() - start) * 1000),
         }

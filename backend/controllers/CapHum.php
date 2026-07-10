@@ -13185,7 +13185,7 @@ class CapHum extends Controller
                 var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
                 candidatosDocConsola("info", "verificarExpedienteCandidato - inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
                 registrarTrazaDocModalTecnico("verificarExpedienteCandidato - POST (detalle)", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
-                setDocModalApiTraceUsuario("Reevaluacion iniciada: la IA documental revisara el expediente y usara lectura de respaldo cuando sea necesario. La documentacion se actualizara automaticamente.", "wait");
+                setDocModalApiTraceUsuario("Reevaluación iniciada: la IA documental revisará el expediente y usará una lectura de respaldo cuando sea necesario. La documentación se actualizará automáticamente.", "wait");
                 fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }, signal: ctrl.signal })
                     .then(function(r) {
                         clearTimeout(tid);
@@ -17448,9 +17448,6 @@ class CapHum extends Controller
     private function encolarVerificacionDocumentalCandidato($id_candidato, array $tiposSubidos = [], ?bool $expedienteCompleto = null, string $origen = 'upload'): array
     {
         $forzarLecturaCompleta = $origen === 'reintento_modal';
-        if ($forzarLecturaCompleta) {
-            $tiposSubidos = range(1, 10);
-        }
         if (in_array($origen, ['reintento_modal', 'modal_auto_reintento'], true)) {
             CandidatosDAO::cancelarJobsVerificacionDocumentalActivos(
                 (int) $id_candidato,
@@ -17467,7 +17464,7 @@ class CapHum extends Controller
                 'checks_totales' => 0,
                 'alertas' => [
                     $forzarLecturaCompleta
-                        ? 'Reevaluacion iniciada: se leeran nuevamente los 10 documentos para generar resultados actualizados.'
+                        ? 'Reevaluación iniciada: se conservarán las lecturas correctas y solo se revisarán nuevamente los documentos pendientes o dudosos.'
                         : 'Verificacion automatica en cola local. Capital Humano puede continuar y la vista se actualizara al terminar.'
                 ],
                 'identificacion_frente_score' => null,
@@ -21649,7 +21646,9 @@ class CapHum extends Controller
                 }
                 return !$this->lecturaIaTieneValor($validacion, ['nombre', 'nombre_completo', 'curp', 'clave_elector', 'numero_documento']);
             case 'solicitud_interna':
-                return !$this->lecturaIaTieneValor($validacion, ['tipo_documento_detectado', 'nombre', 'nombre_completo', 'curp', 'rfc', 'nss']);
+                $tipoConfirmado = $this->lecturaIaTieneValor($validacion, ['tipo_documento_detectado', 'tipo_documento']);
+                $identidadLeida = $this->lecturaIaTieneValor($validacion, ['nombre', 'nombre_completo', 'curp', 'rfc', 'nss']);
+                return !$tipoConfirmado || !$identidadLeida;
             default:
                 return false;
         }

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from app.api import routes
@@ -366,7 +368,7 @@ def test_all_ten_document_types_can_request_assisted_reading(expected_type):
         ),
     ],
 )
-def test_all_ten_types_receive_assisted_views_on_first_call(
+def test_all_ten_types_start_with_compact_original_reading(
     monkeypatch,
     expected_type,
     detected_type,
@@ -411,9 +413,9 @@ def test_all_ten_types_receive_assisted_views_on_first_call(
     monkeypatch.setattr(ai, "_call", fake_call)
     result = ai.quick_verify(b"document", "documento.pdf", expected_type, CANDIDATE)
 
-    assert call_sizes[0] == 2
-    assert result["assisted_preprocessing_enabled"] is True
-    assert result["assisted_initial_views"] == 1
+    assert call_sizes[0] == 1
+    assert result["assisted_preprocessing_enabled"] is False
+    assert result["assisted_initial_views"] == 0
 
 
 def test_clear_wrong_document_does_not_force_assisted_retry():
@@ -506,7 +508,7 @@ def test_quick_verify_uses_better_assisted_reading(monkeypatch):
     )
 
     assert len(calls) == 2
-    assert calls[0]["assisted_prompt"] is True
+    assert calls[0]["assisted_prompt"] is False
     assert calls[1]["assisted_prompt"] is True
     assert result["assisted_preprocessing_enabled"] is True
     assert result["assisted_retry_attempted"] is True
@@ -515,3 +517,29 @@ def test_quick_verify_uses_better_assisted_reading(monkeypatch):
     assert result["extraction"]["campos"]["curp"] == CURP
     assert result["validation"]["aprobado"] is True
     assert result["usage"]["total_tokens"] == 20
+
+
+def test_modal_reevaluation_preserves_useful_document_readings():
+    controller_path = Path(__file__).resolve().parents[1] / "controllers" / "CapHum.php"
+    source = controller_path.read_text(encoding="utf-8")
+    start = source.index("private function encolarVerificacionDocumentalCandidato")
+    end = source.index("private function psQuoteVerificacionDocumental", start)
+    reevaluation_flow = source[start:end]
+
+    assert "$tiposSubidos = range(1, 10)" not in reevaluation_flow
+    assert "solo se revisarán nuevamente los documentos pendientes o dudosos" in reevaluation_flow
+
+
+def test_internal_application_type_only_reading_is_rescued_again():
+    document = {
+        "key": "solicitud_interna",
+        "summary": _summary(
+            "solicitud_interna",
+            "solicitud___SPARTA_SECRET_REDACTED__",
+        ),
+    }
+
+    assert routes._v2_summary_needs_pdf_text_rescue(document) is True
+
+    document["summary"]["validacion_previa"]["nombre"] = CANDIDATE
+    assert routes._v2_summary_needs_pdf_text_rescue(document) is False

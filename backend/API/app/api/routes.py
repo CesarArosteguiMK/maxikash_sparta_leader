@@ -51,8 +51,8 @@ except ImportError:
 
 router = APIRouter()
 settings = get_settings()
-API_BUILD = "doc-precheck-2026-07-06-v2-consensus-reasoning"
-DOC_AI_QUICK_CACHE_VERSION = "2026-07-09-adaptive-assistance-all-documents-v4"
+API_BUILD = "doc-precheck-2026-07-09-selective-reevaluation-v1"
+DOC_AI_QUICK_CACHE_VERSION = "2026-07-09-adaptive-assistance-on-demand-v5"
 
 api_key_header = APIKeyHeader(name=settings.api_key_header, auto_error=False)
 
@@ -1275,7 +1275,11 @@ def _v2_summary_needs_pdf_text_rescue(doc: Dict[str, Any]) -> bool:
         previo = doc.get("datos") or {}
     if key == "solicitud_interna":
         detected = str(previo.get("tipo_documento_detectado") or previo.get("tipo_documento") or "").strip()
-        return detected not in {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"}
+        has_identity = any(
+            str(previo.get(field) or "").strip()
+            for field in ("nombre", "nombre_completo", "curp", "rfc", "nss")
+        )
+        return detected not in {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"} or not has_identity
     if key == "identificacion_oficial":
         detected = str(previo.get("tipo_documento_detectado") or previo.get("tipo_documento") or "").strip()
         texto_identificacion = " ".join([
@@ -5794,10 +5798,13 @@ async def validar_expediente(
                 t_prefill = time.time()
                 quick_ai = _crear_alibaba_ai()
                 if quick_ai is not None and quick_ai.enabled():
-                    quick_ai.timeout_seconds = max(10, min(15, int(getattr(quick_ai, "timeout_seconds", 12) or 12)))
+                    quick_ai.timeout_seconds = max(20, min(35, int(getattr(quick_ai, "timeout_seconds", 35) or 35)))
                     quick_ai.max_pages = min(2, int(getattr(quick_ai, "max_pages", 2) or 2))
                     quick_ai.dpi = max(130, min(150, int(getattr(quick_ai, "dpi", 140) or 140)))
-                    sem = asyncio.Semaphore(5)
+                    # Normalmente solo entra aqui uno o dos documentos sin
+                    # lectura util. Limitar la concurrencia evita saturar Qwen
+                    # y mantiene estable el tiempo total de la reevaluacion.
+                    sem = asyncio.Semaphore(2)
 
                     async def _prefill_summary(doc: Dict[str, Any]) -> None:
                         key = str(doc.get("key") or "")
@@ -5814,7 +5821,7 @@ async def validar_expediente(
                                         expected,
                                         nombre_candidato_registro,
                                     ),
-                                    timeout=int(getattr(quick_ai, "timeout_seconds", 12) or 12) + 4,
+                                    timeout=int(getattr(quick_ai, "timeout_seconds", 35) or 35) + 3,
                                 )
                                 if isinstance(result, dict):
                                     doc["summary"] = quick_result_to_summary(
