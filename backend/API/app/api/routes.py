@@ -2065,9 +2065,17 @@ def _v2_apply_identity_noise_consensus(
                         or _v2_same_curp_family(ref_curp, read_curp)
                     )
                 ):
+                    nombre_leido = str(doc.get("nombre") or ref_name or "").strip()
+                    diferencia = dist_curp if dist_curp is not None else "varios"
+                    sujeto = (
+                        f"el nombre {nombre_leido} coincide con el candidato"
+                        if nombre_leido
+                        else "la identidad coincide con el resto del expediente"
+                    )
                     msg = (
-                        f"{doc.get('archivo') or doc_key} requiere revision: la CURP leida parece tener ruido, "
-                        "pero pertenece a la misma identidad documental."
+                        f"Identificación oficial ({doc.get('archivo') or doc_key}): {sujeto} y el documento "
+                        f"pertenece a la misma persona. La CURP leída difiere en {diferencia} carácter(es) "
+                        "respecto del expediente; revise únicamente ese dato manualmente."
                     )
                     comp["severidad"] = "aviso"
                     comp["mensaje"] = msg
@@ -2579,9 +2587,12 @@ def _resultado_v2_reglas_expediente(
     if has_critical:
         dictamen = "rechazado"
         resumen = "El expediente no puede aprobarse automaticamente: se detectaron diferencias criticas entre la informacion registrada y los documentos recibidos."
-    elif has_unread or has_warning:
+    elif has_unread:
         dictamen = "requiere_revision"
-        resumen = "El expediente requiere revision documental: falta lectura suficiente en uno o mas documentos o hay observaciones pendientes."
+        resumen = "El expediente requiere revision documental porque uno o mas documentos no pudieron leerse con informacion suficiente."
+    elif has_warning:
+        dictamen = "requiere_revision"
+        resumen = "Los documentos fueron leidos y no se detectaron diferencias criticas. Revise los avisos marcados en amarillo antes de continuar."
     else:
         dictamen = "aprobado"
         resumen = "La informacion recibida es consistente entre los documentos revisados, cumple con las reglas documentales establecidas y corresponde al candidato registrado."

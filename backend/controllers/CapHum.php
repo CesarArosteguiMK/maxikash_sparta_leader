@@ -11637,7 +11637,12 @@ class CapHum extends Controller
                     }
                     if (alertas.length || (Array.isArray(v.recomendaciones) && v.recomendaciones.length)) {
                         htmlV2 += "<div class=\"mt-2 pt-2 border-top\"><span class=\"text-muted d-block mb-1\"><strong>Observaciones</strong></span><ul class=\"mb-0 ps-3\">";
-                        alertas.forEach(function(a) { htmlV2 += "<li class=\"text-danger\">" + escHtmlComparaciones(a) + "</li>"; });
+                        alertas.forEach(function(a) {
+                            var esAviso = esObservacionAvisoMotorV2(a, v);
+                            var clase = esAviso ? "text-warning fw-semibold" : "text-danger fw-semibold";
+                            var etiqueta = esAviso ? "Aviso" : "Alerta";
+                            htmlV2 += "<li class=\"" + clase + "\"><strong>" + etiqueta + ":</strong> " + escHtmlComparaciones(a) + "</li>";
+                        });
                         (Array.isArray(v.recomendaciones) ? v.recomendaciones : []).slice(0, 3).forEach(function(a) { htmlV2 += "<li class=\"text-muted\">" + escHtmlComparaciones(a) + "</li>"; });
                         htmlV2 += "</ul></div>";
                     } else if (comps.length) {
@@ -12015,6 +12020,22 @@ class CapHum extends Controller
                 var texto = claveDocModalGlobal(a);
                 if (texto.indexOf("CURP NO COINCIDE ENTRE DOCUMENTOS") === -1) return false;
                 return esVerificacionMotorV2(v) && !hayCurpCriticoMotorV2(v);
+            }
+
+            function esObservacionAvisoMotorV2(a, v) {
+                var texto = claveDocModalGlobal(a);
+                if (!texto) return false;
+                var comps = Array.isArray(v && v.comparaciones_v2) ? v.comparaciones_v2 : [];
+                for (var i = 0; i < comps.length; i++) {
+                    var comp = comps[i] || {};
+                    var severidad = claveDocModalGlobal(comp.severidad || comp.nivel || "");
+                    var mensaje = claveDocModalGlobal(comp.mensaje || comp.detalle || "");
+                    if (severidad !== "AVISO" && severidad !== "WARNING" && severidad !== "ADVERTENCIA") continue;
+                    if (!mensaje || texto === mensaje || texto.indexOf(mensaje) !== -1 || mensaje.indexOf(texto) !== -1) return true;
+                }
+                return texto.indexOf("PERTENECE A LA MISMA PERSONA") !== -1
+                    || texto.indexOf("MISMA IDENTIDAD DOCUMENTAL") !== -1
+                    || (texto.indexOf("CURP") !== -1 && texto.indexOf("RUIDO") !== -1);
             }
 
             function filtrarNotasCalidadVisibles(notas) {

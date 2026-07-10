@@ -543,3 +543,33 @@ def test_internal_application_type_only_reading_is_rescued_again():
 
     document["summary"]["validacion_previa"]["nombre"] = CANDIDATE
     assert routes._v2_summary_needs_pdf_text_rescue(document) is False
+
+
+def test_ine_name_match_with_three_noisy_curp_chars_is_yellow_warning():
+    documents = _consistent_documents()
+    identity = next(doc for doc in documents if doc["key"] == "identificacion_oficial")
+    identity["summary"]["validacion_previa"]["curp"] = "GOCA850612HDFMPX76"
+
+    rules_result = routes._resultado_v2_reglas_expediente(documents, CANDIDATE)
+    response = routes._respuesta_alibaba_expediente(rules_result, CANDIDATE)
+    warning_comparisons = [
+        comp
+        for comp in response["comparaciones_v2"]
+        if str(comp.get("severidad") or "").lower() == "aviso"
+    ]
+
+    assert response["dictamen_ia"] == "requiere_revision"
+    assert response["checks_ok"] == response["checks_totales"] - 1
+    assert warning_comparisons
+    assert all(comp.get("severidad") == "aviso" for comp in warning_comparisons)
+    assert any("MISMA PERSONA" in routes.normalize_text(comp.get("mensaje")) for comp in warning_comparisons)
+    assert any(CANDIDATE in str(alerta) for alerta in response["alertas"])
+    assert "NO SE DETECTARON DIFERENCIAS CRITICAS" in routes.normalize_text(response["resumen_ia"])
+
+
+def test_document_observations_distinguish_yellow_warnings_from_red_alerts():
+    controller_path = Path(__file__).resolve().parents[1] / "controllers" / "CapHum.php"
+    source = controller_path.read_text(encoding="utf-8")
+
+    assert "function esObservacionAvisoMotorV2" in source
+    assert 'esAviso ? "text-warning fw-semibold" : "text-danger fw-semibold"' in source
