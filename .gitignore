@@ -38,6 +38,7 @@ tmp/
 %TEMP%/
 output/
 tmp_atlas_audits/
+.tmp_template_inspect/
 tmp_*.php
 scripts/tmp_*.php
 scripts/tmp_*_out/
@@ -63,6 +64,7 @@ backend/storage/tmp_media/
 backend/storage/tmp_mpdf/
 backend/storage/tmp_rrhh_import/
 backend/storage/runtime/
+backend/storage/leonidas/*.jsonl
 # Expedientes/documentos de candidatos (runtime; no subir PDFs ni archivos personales al repo)
 backend/storage/candidatos/**
 !backend/storage/candidatos/.gitkeep

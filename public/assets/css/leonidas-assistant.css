@@ -157,6 +157,25 @@
 .leonidas-message--assistant { background: #eef3fb; color: #294365; }
 .leonidas-message--user { align-self: flex-end; background: #243a5c; color: #fff; }
 
+.leonidas-results,
+.leonidas-proposal {
+    display: grid;
+    gap: .42rem;
+    padding: .55rem;
+    border: 1px solid #dce4ef;
+    border-radius: .6rem;
+    background: #f8fafc;
+}
+
+.leonidas-result strong,
+.leonidas-result small { display: block; }
+.leonidas-result strong { color: #253a59; font-size: .76rem; }
+.leonidas-result small { color: #68778c; font-size: .68rem; }
+
+.leonidas-proposal { grid-template-columns: 1fr auto; align-items: center; color: #5b4a1f; font-size: .73rem; background: #fff8e7; border-color: #f0d78d; }
+.leonidas-proposal button { border: 0; border-radius: .4rem; padding: .38rem .55rem; background: #243a5c; color: #fff; cursor: pointer; font-size: .72rem; }
+.leonidas-proposal button:disabled { cursor: wait; opacity: .65; }
+
 .leonidas-composer {
     display: flex;
     gap: .45rem;

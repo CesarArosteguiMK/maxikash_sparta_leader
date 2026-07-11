@@ -15528,7 +15528,7 @@ class CapHum extends Controller
 </body>
 </html>';
 
-        $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
+        $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline, [], [], true);
         if ($enviado) {
             CandidatosDAO::registrarFechaEnvioCorreoPostulacion($id, $ahoraCdmx->format('Y-m-d H:i:s'));
             echo json_encode(self::respuesta(true, "Postulación enviada por correo correctamente.", [
@@ -18449,7 +18449,7 @@ class CapHum extends Controller
   </table>
 </body>
 </html>';
-                $correoOk = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInlineDel);
+                $correoOk = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInlineDel, [], [], true);
             }
         }
 
@@ -18903,7 +18903,7 @@ class CapHum extends Controller
         $fechaProgramadaGuardada = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
         CandidatosDAO::registrarIngresoProgramado($id_candidato, $fechaIngresoNormalizada, $fechaProgramadaGuardada);
 
-        $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
+        $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline, [], [], true);
         if ($enviado) {
             $nombreJefe = trim($c['nombre_jefe'] ?? '') ?: 'Jefe directo';
             $correoJefeInfo = $this->resolverCorreoPersonaIngreso(
@@ -19057,7 +19057,7 @@ class CapHum extends Controller
                 (int) ($_SESSION['usuario_id'] ?? 0),
                 $fechaProgramadaGuardada
             );
-            echo json_encode(self::respuesta(false, 'No se pudo enviar el correo al candidato. La fecha quedo guardada; revisa la configuracion de correo y vuelve a notificar antes de continuar.', [
+            echo json_encode(self::respuesta(false, 'No se pudo enviar el correo al candidato. La fecha quedo guardada. Detalle: ' . $msg, [
                 'id_candidato' => $id_candidato,
                 'fecha_ingreso' => $fechaIngresoNormalizada,
                 'fecha_ingreso_notificada_en' => $fechaProgramadaGuardada,
@@ -19449,7 +19449,7 @@ class CapHum extends Controller
   </td></tr></table>
 </body></html>';
             try {
-                $correoBienvenidaEnviado = $this->enviarCorreo($destino, 'Bienvenido(a) a Maxikash', $cuerpoBienvenida, $nombreCompleto, $rutaLogoInline, $adjuntosBienvenida);
+                $correoBienvenidaEnviado = $this->enviarCorreo($destino, 'Bienvenido(a) a Maxikash', $cuerpoBienvenida, $nombreCompleto, $rutaLogoInline, $adjuntosBienvenida, [], true);
                 if (!$correoBienvenidaEnviado) {
                     $correoBienvenidaError = $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo de bienvenida.';
                 }
@@ -23890,7 +23890,7 @@ class CapHum extends Controller
      * @param string|null $rutaLogoInline Ruta absoluta al logo para incrustar (cid:) — si existe se adjunta y se usa cid:logo__SPARTA_SECRET_REDACTED__ en el HTML
      * @return bool
      */
-    private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '', $rutaLogoInline = null, array $adjuntos = [], array $cc = [])
+    private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '', $rutaLogoInline = null, array $adjuntos = [], array $cc = [], bool $permitirFallbackLimiteDiario = false)
     {
         $repoRoot = defined('RAIZ') ? dirname(RAIZ) : dirname(__DIR__, 2);
         $autoload = $repoRoot . '/vendor/autoload.php';
@@ -23930,6 +23930,16 @@ class CapHum extends Controller
         $driver      = strtolower(trim($get('MAIL_DRIVER', 'mail_driver', 'smtp')));
         $fromEmail   = $mailFrom !== '' ? $mailFrom : $smtpUser;
         $fromName    = $mailFromName !== '' ? $mailFromName : 'Recursos Humanos';
+        $fallbackSmtpHost = trim($get('MAIL_FALLBACK_SMTP_HOST', 'fallback_smtp_host', $smtpHost));
+        $fallbackSmtpUser = trim($get('MAIL_FALLBACK_SMTP_USER', 'fallback_smtp_user', ''));
+        $fallbackSmtpPassRaw = $get('MAIL_FALLBACK_SMTP_PASS', 'fallback_smtp_pass', '');
+        $fallbackSmtpPass = preg_replace('/\s+/', '', $fallbackSmtpPassRaw);
+        $fallbackSmtpPass = preg_replace('/[^\x20-\x7E]/', '', $fallbackSmtpPass);
+        $fallbackSmtpPass = trim($fallbackSmtpPass);
+        $fallbackSmtpPort = (int) ($get('MAIL_FALLBACK_SMTP_PORT', 'fallback_smtp_port', (string) $smtpPort) ?: $smtpPort);
+        $fallbackSmtpSecure = strtolower(trim($get('MAIL_FALLBACK_SMTP_SECURE', 'fallback_smtp_secure', $smtpSecure)));
+        $fallbackMailFrom = trim($get('MAIL_FALLBACK_FROM', 'fallback_mail_from', ''));
+        $fallbackMailFromName = trim($get('MAIL_FALLBACK_FROM_NAME', 'fallback_mail_from_name', $fromName));
         $adjuntosValidos = $this->normalizarAdjuntosCorreo($adjuntos);
         $ccValidos = [];
         foreach ($cc as $correoCc => $nombreCc) {
@@ -23954,7 +23964,7 @@ class CapHum extends Controller
         if ($driver === 'sendgrid') {
             $apiKey = trim($get('MAIL_SENDGRID_API_KEY', 'sendgrid_api_key', ''));
             if ($apiKey === '' || $fromEmail === '') {
-                $this->enviarCorreoUltimoError = 'Con MAIL_DRIVER=sendgrid configure MAIL_SENDGRID_API_KEY y MAIL_FROM en .env. Cree cuenta en sendgrid.com, verifique el remitente y genere una API key.';
+                $this->enviarCorreoUltimoError = 'Con MAIL_DRIVER=sendgrid configure MAIL_SENDGRID_API_KEY y MAIL_FROM=postulaciones@maxikash.mx en .env. Verifique el dominio maxikash.mx en SendGrid con SPF/DKIM y genere una API key con permiso Mail Send.';
                 return false;
             }
             $personalization = ['to' => [['email' => $para, 'name' => $nombreDestinatario ?: $para]]];
@@ -24037,7 +24047,7 @@ class CapHum extends Controller
             $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
             $ok = @mail($para, $asunto, $cuerpoHtml, $headers);
             if (!$ok) {
-                $this->enviarCorreoUltimoError = 'mail() falló. En XAMPP/Windows suele no estar configurado; use MAIL_DRIVER=sendgrid (recomendado) o smtp.';
+                $this->enviarCorreoUltimoError = 'mail() falló. En XAMPP/Windows suele no estar configurado; use MAIL_DRIVER=smtp con una cuenta Gmail y contraseña de aplicación.';
                 return false;
             }
             $this->enviarCorreoUltimoError = '';
@@ -24053,13 +24063,20 @@ class CapHum extends Controller
                 $smtpSecure = 'ssl';
             }
         }
+        if ($fallbackSmtpHost === 'smtp.gmail.com') {
+            $force587 = !empty($envMail['MAIL_GMAIL_FORCE_587']) && trim($envMail['MAIL_GMAIL_FORCE_587']) !== '0';
+            if (!$force587 && ($fallbackSmtpPort === 587 || $fallbackSmtpSecure === 'tls')) {
+                $fallbackSmtpPort = 465;
+                $fallbackSmtpSecure = 'ssl';
+            }
+        }
         $smtpConfigurado = $smtpHost !== '' && $smtpUser !== '';
         if (!$smtpConfigurado) {
-            $this->enviarCorreoUltimoError = 'Para enviar correos configure .env: MAIL_DRIVER=sendgrid + MAIL_SENDGRID_API_KEY (recomendado), o SMTP (smtp_host, smtp_user, smtp_pass).';
+            $this->enviarCorreoUltimoError = 'Para enviar correos configure .env con SMTP: MAIL_SMTP_HOST, MAIL_SMTP_USER y MAIL_SMTP_PASS. Opcionalmente agregue MAIL_FALLBACK_SMTP_USER para un correo secundario.';
             return false;
         }
         if ($smtpPass === '') {
-            $this->enviarCorreoUltimoError = 'Contraseña SMTP vacía. O use MAIL_DRIVER=sendgrid con API key para evitar SMTP.';
+            $this->enviarCorreoUltimoError = 'Contraseña SMTP vacía. Configure MAIL_SMTP_PASS con la contraseña de aplicación de Gmail.';
             return false;
         }
 
@@ -24145,13 +24162,87 @@ class CapHum extends Controller
             return true;
         } catch (\Exception $e) {
             $msg = $e->getMessage();
+            $limiteDiarioEnvio = false;
             // En el log guardamos la respuesta SMTP completa para ver el 535 exacto de Gmail
             if ($smtpDebugLog !== '') {
                 error_log('CapHum SMTP debug (últimas líneas): ' . trim(substr($smtpDebugLog, -800)));
+                if (stripos($smtpDebugLog, 'Daily user sending limit exceeded') !== false
+                    || stripos($smtpDebugLog, '550-5.4.5') !== false) {
+                    $limiteDiarioEnvio = true;
+                    $msg = 'Límite diario de envío alcanzado para la cuenta de correo principal. El candidato fue guardado; comparta manualmente el enlace o intente más tarde. Puede configurar un correo secundario gratis con MAIL_FALLBACK_SMTP_USER para reintentar automáticamente.';
+                }
                 $lines = explode("\n", $smtpDebugLog);
                 $lastLine = trim($lines[count($lines) - 1] ?? '');
                 if (strpos($lastLine, '535') !== false || stripos($lastLine, 'auth') !== false) {
                     $msg .= "\n\nGmail rechazó usuario/contraseña. Compruebe: 1) Contraseña de aplicación (no la de la cuenta). 2) Verificación en 2 pasos activada. 3) Si es Google Workspace, el admin debe permitir contraseñas de aplicación. Se está usando puerto 465/SSL y AUTH LOGIN.";
+                }
+            }
+            if ($permitirFallbackLimiteDiario && $limiteDiarioEnvio && $fallbackSmtpHost !== '' && $fallbackSmtpUser !== '' && $fallbackSmtpPass !== '') {
+                $fallbackDebugLog = '';
+                try {
+                    $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+                    $mail->CharSet = 'UTF-8';
+                    $mail->Encoding = 'base64';
+                    $langPath = $repoRoot . '/vendor/phpmailer/phpmailer/language/';
+                    if (is_dir($langPath)) {
+                        $mail->setLanguage('es', $langPath);
+                    }
+                    $mail->isHTML(true);
+                    $mail->Subject = $asunto;
+                    $mail->Body = $cuerpoHtml;
+                    $mail->AltBody = strip_tags(preg_replace('/<br\s*\/?>/i', "\n", $cuerpoHtml));
+                    $mail->addAddress($para, $nombreDestinatario ?: '');
+                    foreach ($ccValidos as $ccItem) {
+                        $mail->addCC($ccItem['email'], $ccItem['name']);
+                    }
+
+                    $mail->setFrom(
+                        $fallbackMailFrom !== '' ? $fallbackMailFrom : $fallbackSmtpUser,
+                        $fallbackMailFromName !== '' ? $fallbackMailFromName : $fromName
+                    );
+                    if ($rutaLogoInline !== null && is_file($rutaLogoInline)) {
+                        $mail->addEmbeddedImage($rutaLogoInline, 'logomaxikash', 'logo.png');
+                    }
+                    foreach ($adjuntosValidos as $adjunto) {
+                        $mail->addAttachment($adjunto['path'], $adjunto['name']);
+                    }
+
+                    $mail->isSMTP();
+                    $mail->Host = $fallbackSmtpHost;
+                    $mail->SMTPAuth = true;
+                    $mail->Username = $fallbackSmtpUser;
+                    $mail->Password = $fallbackSmtpPass;
+                    $mail->Port = $fallbackSmtpPort;
+                    if ($fallbackSmtpSecure === 'ssl') {
+                        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+                    } else {
+                        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+                    }
+                    if ($fallbackSmtpHost === 'smtp.gmail.com') {
+                        $mail->AuthType = 'LOGIN';
+                        $mail->SMTPOptions = [
+                            'ssl' => [
+                                'verify_peer' => false,
+                                'verify_peer_name' => false,
+                            ],
+                        ];
+                    }
+
+                    $mail->SMTPDebug = 2;
+                    $mail->Debugoutput = function ($str) use (&$fallbackDebugLog) {
+                        $fallbackDebugLog .= $str . "\n";
+                    };
+
+                    $mail->send();
+                    $this->enviarCorreoUltimoError = '';
+                    error_log('CapHum::enviarCorreo: envio realizado con SMTP secundario por limite diario del principal. user=' . $fallbackSmtpUser);
+                    return true;
+                } catch (\Exception $fallbackException) {
+                    if ($fallbackDebugLog !== '') {
+                        error_log('CapHum SMTP fallback debug (ultimas lineas): ' . trim(substr($fallbackDebugLog, -800)));
+                    }
+                    $msg .= "\n\nTambien fallo el correo secundario: " . $fallbackException->getMessage();
+                    error_log('CapHum::enviarCorreo fallback: ' . $fallbackException->getMessage());
                 }
             }
             $this->enviarCorreoUltimoError = $msg;
@@ -27186,6 +27277,7 @@ class CapHum extends Controller
         $idxSupervisor = $buscarIndice(['supervisor', 'jefe_directo', 'jefe']);
         $idxSubgerente = $buscarIndice(['subgerente']);
         $idxGerente = $buscarIndice(['gerente']);
+        $idxSubdirector = $buscarIndice(['subdirector']);
 
         if ($idxExternal === false || $idxPuesto === false || $idxDepartamento === false) {
             throw new \RuntimeException('El archivo debe tener las columnas external_id, puesto_legacy y departamento.');
@@ -27200,6 +27292,7 @@ class CapHum extends Controller
             $supervisor = $idxSupervisor !== false ? trim((string)($row[$idxSupervisor] ?? '')) : '';
             $subgerente = $idxSubgerente !== false ? trim((string)($row[$idxSubgerente] ?? '')) : '';
             $gerente = $idxGerente !== false ? trim((string)($row[$idxGerente] ?? '')) : '';
+            $subdirector = $idxSubdirector !== false ? trim((string)($row[$idxSubdirector] ?? '')) : '';
 
             if ($externalId === '' && $puesto === '' && $departamento === '' && $nombreCompleto === '') {
                 continue;
@@ -27214,6 +27307,7 @@ class CapHum extends Controller
                 'supervisor' => $supervisor,
                 'subgerente' => $subgerente,
                 'gerente' => $gerente,
+                'subdirector' => $subdirector,
             ];
         }
 
@@ -28481,8 +28575,8 @@ public function getEstadosMunicipiosMexico()
             $datosVacantes = !empty($vacantes['success']) ? $normalizarVacantesJefe($vacantes['datos'] ?? []) : [];
             return array_merge((array)$personas, $datosVacantes);
         };
-        $responderPersonasEmpresa = function ($mensaje) use ($deduplicarPorPersona) {
-            $personasEmpresa = CapHumDAO::getPersonasActivasEmpresaParaJefe();
+        $responderPersonasEmpresa = function ($mensaje) use ($deduplicarPorPersona, $idDepartamento) {
+            $personasEmpresa = CapHumDAO::getPersonasActivasEmpresaParaJefe($idDepartamento);
             if (!empty($personasEmpresa['success']) && !empty($personasEmpresa['datos'])) {
                 self::respuestaJSON([
                     'success' => true,
