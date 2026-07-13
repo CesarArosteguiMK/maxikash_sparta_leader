@@ -1011,11 +1011,11 @@
             const errores = Array.isArray(json.errores) ? json.errores.length : 0;
             if (status) {
                 status.textContent = creadas > 0
-                    ? `${creadas} unidad(es) recolectada(s) migrada(s) al inventario.`
+                    ? `${creadas} prealta(s) esperando entrega fisica en CEDIS.`
                     : 'Sin recolectadas nuevas por migrar.';
             }
             if (!silent && creadas > 0) {
-                notify('success', 'Sincronizacion lista', `${creadas} unidad(es) migrada(s) desde Tracking.`);
+                notify('success', 'Sincronizacion lista', `${creadas} prealta(s) preparadas desde Tracking.`);
             } else if (!silent && errores > 0) {
                 notify('warning', 'Sincronizacion parcial', json.message || 'Algunas unidades no pudieron sincronizarse.');
             }

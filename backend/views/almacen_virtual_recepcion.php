@@ -1042,11 +1042,11 @@
             const creadas = Number(json.creadas || 0);
             if (status) {
                 status.textContent = creadas > 0
-                    ? `${creadas} unidad(es) nueva(s) pendientes de evidencias.`
+                    ? `${creadas} prealta(s) esperando entrega fisica en CEDIS.`
                     : 'Sin recolectadas nuevas por migrar.';
             }
             if (!silent && creadas > 0) {
-                notify('success', 'Sincronizacion lista', `${creadas} unidad(es) migrada(s) desde Tracking.`);
+                notify('success', 'Sincronizacion lista', `${creadas} prealta(s) preparadas desde Tracking.`);
             } else if (!silent && !json.success) {
                 notify('warning', 'Sin sincronizacion', json.message || 'No se pudo sincronizar Tracking.');
             }
