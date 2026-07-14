@@ -50,7 +50,7 @@ class Candidatos extends Model
                 continue;
             }
             try {
-                $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.candidatos ADD COLUMN {$nombre} {$definicion}");
+                $db->CRUD("ALTER TABLE estado_cuenta.candidatos ADD COLUMN {$nombre} {$definicion}");
             } catch (\Exception $e) {
             }
         }
@@ -80,7 +80,7 @@ class Candidatos extends Model
         try {
             $row = $db->queryOne(
                 "SELECT NULLIF(TRIM(codigo_interno), '') AS codigo_postal
-                 FROM __SPARTA_SECRET_REDACTED__.divisiones_administrativas
+                 FROM estado_cuenta.divisiones_administrativas
                  WHERE id = :id AND activo = 1
                  LIMIT 1",
                 ['id' => (int) $params['id_div_nivel3']]
@@ -424,7 +424,7 @@ class Candidatos extends Model
             $columnasPersona = $db->queryAll(
                 "SELECT COLUMN_NAME
                  FROM INFORMATION_SCHEMA.COLUMNS
-                 WHERE TABLE_SCHEMA = '__SPARTA_SECRET_REDACTED__'
+                 WHERE TABLE_SCHEMA = 'estado_cuenta'
                    AND TABLE_NAME = 'persona'"
             );
             $columnasPersona = array_flip(array_map(static fn($r) => (string) ($r['COLUMN_NAME'] ?? ''), $columnasPersona));
@@ -463,10 +463,10 @@ class Candidatos extends Model
                     bp.fecha_baja,
                     bp.motivo,
                     bp.descripcion
-                 FROM __SPARTA_SECRET_REDACTED__.persona p
-                 LEFT JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON bp.id = (
+                 FROM estado_cuenta.persona p
+                 LEFT JOIN estado_cuenta.baja_persona bp ON bp.id = (
                     SELECT bp2.id
-                    FROM __SPARTA_SECRET_REDACTED__.baja_persona bp2
+                    FROM estado_cuenta.baja_persona bp2
                     WHERE bp2.id_persona = p.id
                     ORDER BY bp2.id DESC
                     LIMIT 1
@@ -1141,7 +1141,7 @@ class Candidatos extends Model
             }
         }
         if ($contacto === '' || !filter_var($contacto, FILTER_VALIDATE_EMAIL)) {
-            $contacto = 'reporteria__SPARTA_SECRET_REDACTED__@gmail.com';
+            $contacto = 'no-reply@sparta.local';
         }
 
         return $contacto;

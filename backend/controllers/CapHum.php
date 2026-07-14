@@ -11888,7 +11888,7 @@ class CapHum extends Controller
                     constancia_fiscal: "Constancia fiscal",
                     nss: "NSS",
                     hoja_retencion: "Retención FONACOT/INFONAVIT",
-                    __SPARTA_SECRET_REDACTED__: "Estado de cuenta"
+                    estado_cuenta: "Estado de cuenta"
                 };
                 return labels[k] || k || "Documento";
             }
