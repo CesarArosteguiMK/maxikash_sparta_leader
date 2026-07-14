@@ -1826,7 +1826,7 @@ HTML;
         if (empty($rows)) return;
 
         $endpoint   = defined('ENDPOINT') ? ENDPOINT : 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
-        $token      = defined('TOKEN')    ? TOKEN    : '__SPARTA_TOKEN_REDACTED__';
+        $token      = defined('TOKEN')    ? TOKEN    : (defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: ''));
         $fechaCorte = date('Y-m-d');
         $headers    = ['Content-Type: application/json', 'Token: ' . $token];
 

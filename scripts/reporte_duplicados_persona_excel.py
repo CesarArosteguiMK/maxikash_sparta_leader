@@ -15,12 +15,28 @@ import datetime as dt
 import os
 import re
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
 import pymysql
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+
+
+def load_env_file(path: str = r"C:\xampp\secure\sparta___SPARTA_SECRET_REDACTED__.env") -> None:
+    env_path = Path(os.getenv("SPARTA_ENV_FILE") or path)
+    if not env_path.is_file():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
 
 
 def normalize_text(value: Any) -> str:
@@ -125,17 +141,22 @@ def style_sheet(ws) -> None:
 
 
 def main() -> None:
+    load_env_file()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=0, help="Limite de filas (0 = sin limite)")
     parser.add_argument("--sim-threshold", type=float, default=88.0, help="Umbral similitud 0..100")
     parser.add_argument("--out", type=str, default="", help="Ruta de salida .xlsx")
     args = parser.parse_args()
 
-    db_host = os.getenv("DB_HOST", "__SPARTA_HOST_REDACTED__")
+    db_host = os.getenv("DB_HOST", "")
     db_port = int(os.getenv("DB_PUERTO", "3306"))
-    db_name = os.getenv("DB_NAME", "__SPARTA_SECRET_REDACTED__")
-    db_user = os.getenv("DB_USER", "__SPARTA_SECRET_REDACTED__")
-    db_pass = os.getenv("DB_PASSWORD", "__SPARTA_PASSWORD_REDACTED__")
+    db_name = os.getenv("DB_NAME", "")
+    db_user = os.getenv("DB_USER", "")
+    db_pass = os.getenv("DB_PASSWORD", "")
+
+    if not all([db_host, db_name, db_user, db_pass]):
+        raise RuntimeError("Falta configurar DB_HOST, DB_NAME, DB_USER o DB_PASSWORD en SPARTA_ENV_FILE.")
 
     conn = pymysql.connect(
         host=db_host,

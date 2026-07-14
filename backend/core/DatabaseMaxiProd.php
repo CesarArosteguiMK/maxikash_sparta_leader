@@ -3,6 +3,8 @@ namespace core;
 
 use PDO;
 
+require_once __DIR__ . '/EnvLoader.php';
+
 class DatabaseMaxiProd
 {
     private $db;
@@ -10,6 +12,8 @@ class DatabaseMaxiProd
 
     function __construct()
     {
+        \Core\EnvLoader::load();
+
         $servidor = $this->envValue(['DB_MAXI_HOST', 'MAXI_PROD_DB_HOST']);
         $puerto   = $this->envValue(['DB_MAXI_PORT', 'MAXI_PROD_DB_PORT'], '3306');
         $esquema  = $this->envValue(['DB_MAXI_DATABASE', 'DB_MAXI_NAME', 'MAXI_PROD_DB_NAME']);

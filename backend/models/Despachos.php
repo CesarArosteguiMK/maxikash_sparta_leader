@@ -562,7 +562,7 @@ SQL;
         ]);
 
         $headers = [
-            "Token: __SPARTA_TOKEN_REDACTED__",
+            'Token: ' . (defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: '')),
             "Content-Type: application/json"
         ];
 

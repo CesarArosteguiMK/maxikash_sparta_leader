@@ -17,10 +17,13 @@ set_time_limit(0);
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 require dirname(__DIR__) . '/backend/core/DatabaseCliSupport.php';
+require dirname(__DIR__) . '/backend/core/EnvLoader.php';
 require dirname(__DIR__) . '/backend/core/Database.php';
 require dirname(__DIR__) . '/backend/core/Model.php';
 require dirname(__DIR__) . '/backend/models/CapHum.php';
 require dirname(__DIR__) . '/backend/models/CapHumRrhh.php';
+
+\Core\EnvLoader::load();
 
 final class BajasMaxiReadFilter implements IReadFilter
 {
@@ -551,7 +554,7 @@ function upsert_person(Database $db, array $r, ?array $person, array $catalog, a
         'correo' => $r['correo'],
         'telefono' => $r['telefono'],
         'user_name' => $username,
-        'password' => '__SPARTA_PASSWORD_REDACTED__',
+        'password' => getenv('TI_COMERCIAL_DEFAULT_PASSWORD') ?: '',
         'fecha_ingreso' => $r['fecha_ingreso'],
         'fecha_registro' => $fechaRegistro,
         'id_pais' => $r['id_pais'],

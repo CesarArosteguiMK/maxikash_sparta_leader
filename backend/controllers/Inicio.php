@@ -212,9 +212,13 @@ class Inicio extends Controller
         $lines[] = '';
 
         // --- Conectividad de red (socket TCP) ---
-        $host = '__SPARTA_HOST_REDACTED__';
+        $host = getenv('GEO_DB_HOST') ?: '';
         $port = 3306;
         $lines[] = '--- Conectividad de red (TCP ' . $host . ':' . $port . ') ---';
+        if ($host === '') {
+            $lines[] = 'GEO_DB_HOST no esta configurado.';
+            return implode("\n", $lines);
+        }
         $timeoutSocket = 5;
         $errno = 0;
         $errstr = '';

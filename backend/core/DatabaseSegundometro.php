@@ -3,18 +3,25 @@
 namespace Core;
 use PDO;
 
+require_once __DIR__ . '/EnvLoader.php';
+
 class DatabaseSegundometro
 {
     private $db;
 
     function __construct()
     {
-        // 🔧 Ajusta tus valores aquí
-        $servidor = "__SPARTA_HOST_REDACTED__";   // tu host
-        $puerto   = "3306";        // puerto MySQL
-        $esquema  = "__SPARTA_SECRET_REDACTED__";     // nombre de tu BD
-        $usuario  = "__SPARTA_SECRET_REDACTED__";        // usuario
-        $password = "__SPARTA_PASSWORD_REDACTED__";            // contraseña
+        EnvLoader::load();
+
+        $servidor = getenv('SEGUNDOMETRO_DB_HOST') ?: '';
+        $puerto   = getenv('SEGUNDOMETRO_DB_PORT') ?: '3306';
+        $esquema  = getenv('SEGUNDOMETRO_DB_NAME') ?: '';
+        $usuario  = getenv('SEGUNDOMETRO_DB_USER') ?: '';
+        $password = getenv('SEGUNDOMETRO_DB_PASSWORD') ?: '';
+
+        if ($servidor === '' || $esquema === '' || $usuario === '' || $password === '') {
+            throw new \RuntimeException('Falta configurar la conexion de Segundometro en SPARTA_ENV_FILE.');
+        }
 
         // Cadena MySQL
         $cadena = "mysql:host=$servidor;port=$puerto;dbname=$esquema;charset=utf8mb4";

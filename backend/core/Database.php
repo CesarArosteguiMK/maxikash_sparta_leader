@@ -4,18 +4,25 @@ namespace Core;
 
 use PDO;
 
+require_once __DIR__ . '/EnvLoader.php';
+
 class Database
 {
     private $db;
 
     function __construct()
     {
-        // Preferir variables de entorno; fallback a valores por defecto (no commitear secretos en producción)
-        $servidor = getenv('DB_HOST') ?: getenv('DB_SERVIDOR') ?: '__SPARTA_HOST_REDACTED__';
+        EnvLoader::load();
+
+        $servidor = getenv('DB_HOST') ?: getenv('DB_SERVIDOR') ?: '';
         $puerto   = getenv('DB_PUERTO') ?: '3306';
-        $esquema  = getenv('DB_NAME') ?: getenv('DB_ESQUEMA') ?: '__SPARTA_SECRET_REDACTED__';
-        $usuario  = getenv('DB_USER') ?: getenv('DB_USUARIO') ?: '__SPARTA_SECRET_REDACTED__';
-        $password = getenv('DB_PASSWORD') ?: getenv('DB_PASS') ?: '__SPARTA_PASSWORD_REDACTED__';
+        $esquema  = getenv('DB_NAME') ?: getenv('DB_ESQUEMA') ?: '';
+        $usuario  = getenv('DB_USER') ?: getenv('DB_USUARIO') ?: '';
+        $password = getenv('DB_PASSWORD') ?: getenv('DB_PASS') ?: '';
+
+        if ($servidor === '' || $esquema === '' || $usuario === '' || $password === '') {
+            throw new \RuntimeException('Falta configurar la conexion principal en SPARTA_ENV_FILE.');
+        }
 
         $cadena = "mysql:host=$servidor;port=$puerto;dbname=$esquema;charset=utf8mb4";
 

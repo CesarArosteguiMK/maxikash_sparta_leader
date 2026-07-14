@@ -7,6 +7,27 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Import-SpartaEnvFile {
+    param([string]$Path = $(if ($env:SPARTA_ENV_FILE) { $env:SPARTA_ENV_FILE } else { "C:\xampp\secure\sparta___SPARTA_SECRET_REDACTED__.env" }))
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    Get-Content -LiteralPath $Path | ForEach-Object {
+        $line = $_.Trim()
+        if ([string]::IsNullOrWhiteSpace($line) -or $line.StartsWith("#") -or -not $line.Contains("=")) {
+            return
+        }
+        $parts = $line.Split("=", 2)
+        $name = $parts[0].Trim()
+        $value = $parts[1].Trim().Trim('"').Trim("'")
+        if (-not [string]::IsNullOrWhiteSpace($name) -and [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+            [Environment]::SetEnvironmentVariable($name, $value, "Process")
+        }
+    }
+}
+
 function Read-EnvOrDefault {
     param([string[]]$Names, [string]$Default = "")
     foreach ($name in $Names) {
@@ -24,6 +45,8 @@ function Write-Log {
     Write-Host $line
 }
 
+Import-SpartaEnvFile
+
 if (-not (Test-Path -LiteralPath $MysqlDump)) {
     throw "No se encontro mysqldump en: $MysqlDump"
 }
@@ -32,11 +55,15 @@ $dateStamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $runDir = Join-Path $BackupRoot $dateStamp
 New-Item -ItemType Directory -Force -Path $runDir | Out-Null
 
-$hostName = Read-EnvOrDefault -Names @("DB_BACKUP_HOST", "DB_HOST", "DB_SERVIDOR") -Default "__SPARTA_HOST_REDACTED__"
+$hostName = Read-EnvOrDefault -Names @("DB_BACKUP_HOST", "DB_HOST", "DB_SERVIDOR")
 $port = Read-EnvOrDefault -Names @("DB_BACKUP_PORT", "DB_PUERTO") -Default "3306"
-$user = Read-EnvOrDefault -Names @("DB_BACKUP_USER", "DB_USER", "DB_USUARIO") -Default "__SPARTA_SECRET_REDACTED__"
-$password = Read-EnvOrDefault -Names @("DB_BACKUP_PASSWORD", "DB_PASSWORD", "DB_PASS") -Default '__SPARTA_PASSWORD_REDACTED__'
+$user = Read-EnvOrDefault -Names @("DB_BACKUP_USER", "DB_USER", "DB_USUARIO")
+$password = Read-EnvOrDefault -Names @("DB_BACKUP_PASSWORD", "DB_PASSWORD", "DB_PASS")
 $databases = $Databases | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+if ([string]::IsNullOrWhiteSpace($hostName) -or [string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($password)) {
+    throw "Falta configurar DB_BACKUP_HOST/DB_HOST, DB_BACKUP_USER/DB_USER o DB_BACKUP_PASSWORD/DB_PASSWORD."
+}
 
 $defaultsFile = Join-Path $env:TEMP ("sparta_mysqldump_{0}.cnf" -f ([Guid]::NewGuid().ToString("N")))
 $errFile = $null

@@ -44,11 +44,11 @@ import mysql.connector
 from openpyxl import load_workbook
 
 _MEGA_PHP_DEFAULTS: dict = {
-    "host": "__SPARTA_HOST_REDACTED__",
+    "host": "",
     "port": 3306,
-    "database": "__SPARTA_SECRET_REDACTED__",
-    "user": "__SPARTA_SECRET_REDACTED__",
-    "password": "__SPARTA_PASSWORD_REDACTED__",
+    "database": "",
+    "user": "",
+    "password": "",
 }
 
 CDMX = ZoneInfo("America/Mexico_City")
@@ -60,6 +60,21 @@ def print_ec_webhook_lista_negra_resumen(payload: Dict[str, Any]) -> None:
     Una línea JSON (prefijo fijo) para que el agente Node envíe a Google Chat métricas claras.
     """
     print("[ec-webhook-lista-negra] " + json.dumps(payload, ensure_ascii=False), flush=True)
+
+
+def load_default_env_file() -> None:
+    env_path = Path(os.getenv("SPARTA_ENV_FILE") or r"C:\xampp\secure\sparta___SPARTA_SECRET_REDACTED__.env")
+    if not env_path.is_file():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
 
 
 def log_lista_negra_resumen_ids(
@@ -159,7 +174,14 @@ def tiene_host_db_en_entorno() -> bool:
 
 def db_config(*, mega_php_defaults: bool) -> dict:
     if mega_php_defaults:
-        return {k: v for k, v in _MEGA_PHP_DEFAULTS.items()}
+        load_default_env_file()
+        return {
+            "host": env_first("SEGUNDOMETRO_DB_HOST", "MEGA_HOST", "MYSQL_HOST", "DB_HOST", "DB_SERVIDOR") or "",
+            "port": int(env_first("SEGUNDOMETRO_DB_PORT", "MEGA_PORT", "MYSQL_PORT", "DB_PUERTO") or "3306"),
+            "database": env_first("SEGUNDOMETRO_DB_NAME", "MEGA_DATABASE", "MYSQL_DATABASE", "DB_NAME", "DB_ESQUEMA") or "",
+            "user": env_first("SEGUNDOMETRO_DB_USER", "MEGA_USER", "MYSQL_USER", "DB_USER", "DB_USUARIO") or "",
+            "password": env_first("SEGUNDOMETRO_DB_PASSWORD", "MEGA_PASSWORD", "MYSQL_PASSWORD", "DB_PASSWORD", "DB_PASS") or "",
+        }
 
     host = env_first("MEGA_HOST", "MYSQL_HOST", "DB_HOST", "DB_SERVIDOR")
     user = env_first("MEGA_USER", "MYSQL_USER", "DB_USER", "DB_USUARIO")
@@ -661,7 +683,7 @@ def main() -> None:
     if not use_embedded and not args.no_mega_php_defaults and not tiene_host_db_en_entorno():
         use_embedded = True
         print(
-            "Nota: sin MEGA_HOST en el entorno; usando credenciales embebidas.",
+            "Nota: sin MEGA_HOST en el entorno; usando archivo externo de configuracion.",
             file=sys.stderr,
         )
     cfg = db_config(mega_php_defaults=use_embedded)

@@ -4,6 +4,8 @@ namespace Core;
 
 use PDO;
 
+require_once __DIR__ . '/EnvLoader.php';
+
 /**
  * Conexión a BD __SPARTA_SECRET_REDACTED__ (direcciones alternas / oferta_coordenada).
  */
@@ -16,11 +18,19 @@ class DatabaseGeo
 
     public function __construct()
     {
-        $servidor = '__SPARTA_HOST_REDACTED__';
-        $puerto   = '3306';
-        $esquema  = '__SPARTA_SECRET_REDACTED__';
-        $usuario  = '__SPARTA_SECRET_REDACTED__';
-        $password = '__SPARTA_PASSWORD_REDACTED__';
+        EnvLoader::load();
+
+        $servidor = getenv('GEO_DB_HOST') ?: '';
+        $puerto   = getenv('GEO_DB_PORT') ?: '3306';
+        $esquema  = getenv('GEO_DB_NAME') ?: '';
+        $usuario  = getenv('GEO_DB_USER') ?: '';
+        $password = getenv('GEO_DB_PASSWORD') ?: '';
+
+        if ($servidor === '' || $esquema === '' || $usuario === '' || $password === '') {
+            self::$lastError = 'Falta configurar la conexion Geo en SPARTA_ENV_FILE.';
+            $this->db = null;
+            return;
+        }
         $cadena   = "mysql:host=$servidor;port=$puerto;dbname=$esquema;charset=utf8mb4";
 
         $opciones = [

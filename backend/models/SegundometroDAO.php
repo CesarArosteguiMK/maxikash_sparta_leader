@@ -2,8 +2,11 @@
 
 namespace Models;
 
+require_once __DIR__ . '/../core/EnvLoader.php';
+
 use Core\Model;
 use Core\DatabaseSegundometro;
+use Core\EnvLoader;
 
 class SegundometroDAO extends Model
 {
@@ -654,7 +657,8 @@ class SegundometroDAO extends Model
      */
     public static function truncarSemanaAHistorico()
     {
-        $webhookUrl = '__SPARTA_WEBHOOK_REDACTED__';
+        EnvLoader::load();
+        $webhookUrl = getenv('SEGUNDOMETRO_GCHAT_WEBHOOK_URL') ?: '';
         $db = new DatabaseSegundometro();
         $fecha = date('Y-m-d H:i:s');
         $usuario = $_SESSION['usuario'] ?? 'sistema';
@@ -817,7 +821,7 @@ class SegundometroDAO extends Model
     }
 
     /**
-     * Conteos por Bucket_Morosidad para un crédito en tbl_segundometro_histo (__SPARTA_SECRET_REDACTED__, __SPARTA_HOST_REDACTED__).
+     * Conteos por Bucket_Morosidad para un crédito en tbl_segundometro_histo.
      * Útil para el modal Gestiones/Pagos: cuántas veces aparece Current, 1 a 7 días, etc.
      *
      * @param int $idCredito ID del crédito
@@ -1518,7 +1522,7 @@ class SegundometroDAO extends Model
             $db = new DatabaseSegundometro();
             $row = $db->queryOne('SELECT 1 AS test');
             $dbOk = ($row && isset($row['test']) && $row['test'] == 1);
-            $dbDetalle = $dbOk ? 'Conexión MySQL exitosa (__SPARTA_HOST_REDACTED__, __SPARTA_SECRET_REDACTED__)' : 'Conectó pero SELECT 1 falló';
+            $dbDetalle = $dbOk ? 'Conexión MySQL exitosa (__SPARTA_SECRET_REDACTED__)' : 'Conectó pero SELECT 1 falló';
         } catch (\Throwable $e) {
             $dbDetalle = 'FALLO: ' . $e->getMessage();
         }
@@ -1526,7 +1530,7 @@ class SegundometroDAO extends Model
             'nombre' => 'Base de datos (Truncar/Estado)',
             'ok' => $dbOk,
             'detalle' => $dbDetalle,
-            'ayuda' => 'Conexión a __SPARTA_HOST_REDACTED__ __SPARTA_SECRET_REDACTED__ funciona',
+            'ayuda' => 'Conexión a __SPARTA_SECRET_REDACTED__ funciona',
             'cubre' => 'Truncar, Estado reportes',
             'grupo' => 'bd',
         ];

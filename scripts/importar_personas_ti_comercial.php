@@ -480,7 +480,15 @@ if ($stats['insertables'] !== 89) {
     exit(3);
 }
 
-$password = '__SPARTA_PASSWORD_REDACTED__';
+require_once __DIR__ . '/../backend/core/EnvLoader.php';
+\Core\EnvLoader::load();
+
+$password = getenv('TI_COMERCIAL_DEFAULT_PASSWORD') ?: '';
+if ($password === '') {
+    fwrite(STDERR, "Abortado: falta configurar TI_COMERCIAL_DEFAULT_PASSWORD en SPARTA_ENV_FILE.\n");
+    exit(4);
+}
+
 $insertedByName = [];
 $db->beginTransaction();
 try {

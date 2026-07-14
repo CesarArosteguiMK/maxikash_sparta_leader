@@ -1,11 +1,14 @@
 <?php
 
 require_once __DIR__ . '/../core/UploadsPaths.php';
+require_once __DIR__ . '/../core/EnvLoader.php';
+
+\Core\EnvLoader::load();
 
 // Preferir variables de entorno en producción; no commitear valores reales.
 if (!defined('TOKEN')) {
-    $t = getenv('TOKEN');
-    define('TOKEN', ($t !== false && $t !== '') ? $t : '__SPARTA_TOKEN_REDACTED__');
+    $t = getenv('TOKEN') ?: getenv('S2_ESTADO_CUENTA_TOKEN');
+    define('TOKEN', ($t !== false && $t !== '') ? $t : '');
 }
 if (!defined('ENDPOINT')) {
     $e = getenv('ENDPOINT');

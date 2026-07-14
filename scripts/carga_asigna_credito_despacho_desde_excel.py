@@ -3,9 +3,7 @@
 """
 Carga masiva a asigna_creditos_despacho (BD __SPARTA_SECRET_REDACTED__) desde Excel (Id_credito + id_despacho).
 
-En PHP, Database.php usa getenv('DB_HOST') etc. primero; los literales solo aplican si no hay env.
-En Windows suele haber DB_* de otros proyectos: pisan esos literales. Para ignorar el sistema y usar
-exactamente los mismos literales que al final de las líneas 14-18 de Database.php, usa --database-php-solo.
+La conexión se toma de variables de entorno o del archivo indicado con --env-file.
 
 Dependencias:
   pip install pandas openpyxl mysql-connector-python
@@ -31,9 +29,7 @@ Opciones útiles:
   --test-db               solo prueba usuario/clave/host (SELECT 1), no inserta ni lee Excel
   --ignore-duplicates     INSERT IGNORE (si hay UNIQUE y quieres omitir duplicados sin error)
 
-Contraseñas con caracteres especiales en PowerShell: usa comillas simples, p. ej.
-  $env:DB_PASSWORD = '__SPARTA_PASSWORD_REDACTED__'
-En comillas dobles el backtick (`) es carácter de escape y la clave queda mal.
+Contraseñas con caracteres especiales en PowerShell: usa comillas simples.
   --env-file RUTA         Carga KEY=valor (UTF-8) sin pisar variables ya definidas en la sesión
 
 Si en PowerShell ves el prompt >> (modo continuación), pulsa Ctrl+C; define $env:... con
@@ -52,14 +48,7 @@ import mysql.connector
 import pandas as pd
 from mysql.connector import errorcode
 
-# Debe coincidir con backend/core/Database.php (getenv con ?:)
-_PHP_DB_DEFAULTS: dict = {
-    "host": "__SPARTA_HOST_REDACTED__",
-    "port": 3306,
-    "database": "__SPARTA_SECRET_REDACTED__",
-    "user": "__SPARTA_SECRET_REDACTED__",
-    "password": "__SPARTA_PASSWORD_REDACTED__",
-}
+_DEFAULT_ENV_FILE = r"C:\xampp\secure\sparta___SPARTA_SECRET_REDACTED__.env"
 
 
 def _load_env_file(path: str, *, required: bool, override: bool = False) -> None:
@@ -121,13 +110,16 @@ def _print_config_summary(cfg: dict) -> None:
 def _db_config_from_env(
     *, use_php_fallback: bool = False, database_php_solo: bool = False
 ) -> dict:
+    if use_php_fallback or database_php_solo:
+        _load_env_file(os.getenv("SPARTA_ENV_FILE") or _DEFAULT_ENV_FILE, required=False, override=database_php_solo)
+
     if database_php_solo:
         return {
-            "host": str(_PHP_DB_DEFAULTS["host"]).strip(),
-            "user": str(_PHP_DB_DEFAULTS["user"]).strip(),
-            "password": str(_PHP_DB_DEFAULTS["password"]),
-            "database": str(_PHP_DB_DEFAULTS["database"]).strip(),
-            "port": int(_PHP_DB_DEFAULTS["port"]),
+            "host": str(_env_first("DB_HOST", "DB_SERVIDOR") or "").strip(),
+            "user": str(_env_first("DB_USER", "DB_USUARIO") or "").strip(),
+            "password": str(_env_first("DB_PASSWORD", "DB_PASS") or ""),
+            "database": str(_env_first("DB_NAME", "DB_ESQUEMA") or "").strip(),
+            "port": int(_env_first("DB_PUERTO") or "3306"),
         }
 
     host = _env_first("MYSQL_HOST", "DB_HOST", "DB_SERVIDOR")
@@ -138,18 +130,6 @@ def _db_config_from_env(
 
     if password is None:
         password = ""
-
-    if use_php_fallback:
-        if not (host or "").strip():
-            host = _PHP_DB_DEFAULTS["host"]
-        if not (user or "").strip():
-            user = _PHP_DB_DEFAULTS["user"]
-        if not (database or "").strip():
-            database = _PHP_DB_DEFAULTS["database"]
-        if not str(port_s).strip():
-            port_s = str(_PHP_DB_DEFAULTS["port"])
-        if password == "":
-            password = _PHP_DB_DEFAULTS["password"]
 
     missing_labels: list[str] = []
     if not (host or "").strip():
@@ -278,12 +258,12 @@ def main() -> None:
     parser.add_argument(
         "--use-php-fallback",
         action="store_true",
-        help="Si falta host/usuario/clave/BD, usa los mismos valores por defecto que Database.php",
+        help="Si falta host/usuario/clave/BD, carga el archivo externo de entorno",
     )
     parser.add_argument(
         "--database-php-solo",
         action="store_true",
-        help="Ignora DB_* y MYSQL_* del sistema; conecta solo con los literales de Database.php (líneas 14-18)",
+        help="Ignora DB_* y MYSQL_* del sistema; conecta solo con el archivo externo de entorno",
     )
     parser.add_argument(
         "--ignore-duplicates",

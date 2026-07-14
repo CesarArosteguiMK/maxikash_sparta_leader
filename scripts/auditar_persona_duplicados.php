@@ -180,11 +180,18 @@ $simThreshold = (float) (argValue($argv, '--sim-threshold', '88') ?? '88');
 $simThreshold = max(0.0, min(100.0, $simThreshold));
 $outCsv = argValue($argv, '--out', null);
 
-$dbHost = getenv('DB_HOST') ?: '__SPARTA_HOST_REDACTED__';
+require_once __DIR__ . '/../backend/core/EnvLoader.php';
+\Core\EnvLoader::load();
+
+$dbHost = getenv('DB_HOST') ?: '';
 $dbPort = getenv('DB_PUERTO') ?: '3306';
-$dbName = getenv('DB_NAME') ?: '__SPARTA_SECRET_REDACTED__';
-$dbUser = getenv('DB_USER') ?: '__SPARTA_SECRET_REDACTED__';
-$dbPass = getenv('DB_PASSWORD') ?: '__SPARTA_PASSWORD_REDACTED__';
+$dbName = getenv('DB_NAME') ?: '';
+$dbUser = getenv('DB_USER') ?: '';
+$dbPass = getenv('DB_PASSWORD') ?: '';
+
+if ($dbHost === '' || $dbName === '' || $dbUser === '' || $dbPass === '') {
+    throw new RuntimeException('Falta configurar DB_HOST, DB_NAME, DB_USER o DB_PASSWORD en SPARTA_ENV_FILE.');
+}
 
 $dsn = "mysql:host={$dbHost};port={$dbPort};dbname={$dbName};charset=utf8mb4";
 $pdo = new PDO($dsn, $dbUser, $dbPass, [
@@ -387,4 +394,3 @@ if ($outCsv !== null && trim($outCsv) !== '') {
 }
 
 echo "\nFin de auditoria.\n";
-

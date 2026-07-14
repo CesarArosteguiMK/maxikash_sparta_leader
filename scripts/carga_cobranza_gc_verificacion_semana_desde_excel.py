@@ -72,13 +72,12 @@ from zoneinfo import ZoneInfo
 import mysql.connector
 import pandas as pd
 
-# Coincide con backend/core/DatabaseSegundometro.php (fallback)
 _MEGA_PHP_DEFAULTS: dict = {
-    "host": "__SPARTA_HOST_REDACTED__",
+    "host": "",
     "port": 3306,
-    "database": "__SPARTA_SECRET_REDACTED__",
-    "user": "__SPARTA_SECRET_REDACTED__",
-    "password": "__SPARTA_PASSWORD_REDACTED__",
+    "database": "",
+    "user": "",
+    "password": "",
 }
 
 CDMX = ZoneInfo("America/Mexico_City")
@@ -150,9 +149,31 @@ def _env_first(*names: str) -> Optional[str]:
     return None
 
 
+def _load_default_env_file() -> None:
+    env_path = Path(os.getenv("SPARTA_ENV_FILE") or r"C:\xampp\secure\sparta___SPARTA_SECRET_REDACTED__.env")
+    if not env_path.is_file():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
 def _db_config(*, mega_php_defaults: bool) -> dict:
     if mega_php_defaults:
-        return {k: v for k, v in _MEGA_PHP_DEFAULTS.items()}
+        _load_default_env_file()
+        return {
+            "host": _env_first("SEGUNDOMETRO_DB_HOST", "MEGA_HOST", "MYSQL_HOST", "DB_HOST", "DB_SERVIDOR") or "",
+            "port": int(_env_first("SEGUNDOMETRO_DB_PORT", "MEGA_PORT", "MYSQL_PORT", "DB_PUERTO") or "3306"),
+            "database": _env_first("SEGUNDOMETRO_DB_NAME", "MEGA_DATABASE", "MYSQL_DATABASE", "DB_NAME", "DB_ESQUEMA") or "",
+            "user": _env_first("SEGUNDOMETRO_DB_USER", "MEGA_USER", "MYSQL_USER", "DB_USER", "DB_USUARIO") or "",
+            "password": _env_first("SEGUNDOMETRO_DB_PASSWORD", "MEGA_PASSWORD", "MYSQL_PASSWORD", "DB_PASSWORD", "DB_PASS") or "",
+        }
 
     host = _env_first("MEGA_HOST", "MYSQL_HOST", "DB_HOST", "DB_SERVIDOR")
     user = _env_first("MEGA_USER", "MYSQL_USER", "DB_USER", "DB_USUARIO")

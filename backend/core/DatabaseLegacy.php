@@ -2,18 +2,25 @@
 namespace Core;
 use PDO;
 
+require_once __DIR__ . '/EnvLoader.php';
+
 class DatabaseLegacy
 {
     private $db;
 
     function __construct()
     {
-        // 🔧 Ajusta tus valores aquí
-        $servidor = "__SPARTA_HOST_REDACTED__";
-        $puerto   = "3306";
-        $esquema  = "__SPARTA_SECRET_REDACTED__";
-        $usuario  = "__SPARTA_SECRET_REDACTED__";
-        $password = '__SPARTA_PASSWORD_REDACTED__';
+        EnvLoader::load();
+
+        $servidor = getenv('LEGACY_DB_HOST') ?: '';
+        $puerto   = getenv('LEGACY_DB_PORT') ?: '3306';
+        $esquema  = getenv('LEGACY_DB_NAME') ?: '';
+        $usuario  = getenv('LEGACY_DB_USER') ?: '';
+        $password = getenv('LEGACY_DB_PASSWORD') ?: '';
+
+        if ($servidor === '' || $esquema === '' || $usuario === '' || $password === '') {
+            throw new \RuntimeException('Falta configurar la conexion Legacy en SPARTA_ENV_FILE.');
+        }
 
         // Cadena MySQL
         $cadena = "mysql:host=$servidor;port=$puerto;dbname=$esquema;charset=utf8mb4";

@@ -86,6 +86,24 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+def _load_env_file(path: str | None = None) -> None:
+    env_path = path or os.environ.get("SPARTA_ENV_FILE") or r"C:\xampp\secure\sparta___SPARTA_SECRET_REDACTED__.env"
+    if not os.path.isfile(env_path):
+        return
+    with open(env_path, encoding="utf-8") as fh:
+        for raw_line in fh:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+_load_env_file()
+
 # Carpeta compartida con el agente Node: excel semanales y log de ejecuciones Python.
 REPORTE_DIR = os.path.normpath(os.path.join(_SCRIPT_DIR, "..", "reporte"))
 os.makedirs(REPORTE_DIR, exist_ok=True)
@@ -107,11 +125,11 @@ log = logging.getLogger(__name__)
 # CONFIGURACION
 # ─────────────────────────────────────────────
 DB_CONFIG = {
-    "host":            "__SPARTA_HOST_REDACTED__",
-    "port":            3306,
-    "user":            "__SPARTA_SECRET_REDACTED__",
-    "password":        "__SPARTA_PASSWORD_REDACTED__",
-    "database":        "__SPARTA_SECRET_REDACTED__",
+    "host":            os.environ.get("SEGUNDOMETRO_DB_HOST") or os.environ.get("DB_HOST") or "",
+    "port":            int(os.environ.get("SEGUNDOMETRO_DB_PORT") or os.environ.get("DB_PUERTO") or "3306"),
+    "user":            os.environ.get("SEGUNDOMETRO_DB_USER") or os.environ.get("DB_USER") or "",
+    "password":        os.environ.get("SEGUNDOMETRO_DB_PASSWORD") or os.environ.get("DB_PASSWORD") or "",
+    "database":        os.environ.get("SEGUNDOMETRO_DB_NAME") or os.environ.get("DB_NAME") or "",
     "charset":         "utf8mb4",
     "connect_timeout": 30,
     "read_timeout":    180,
@@ -120,22 +138,19 @@ DB_CONFIG = {
 }
 
 # Defaults alineados con Core\DatabaseAWS (__SPARTA_SECRET_REDACTED__). Sobreescribir vía REPORTE_COBRANZA_AWS_* (ver docstring).
-_DEFAULT_AWS_MOVIL_HOST = "__SPARTA_HOST_REDACTED__"
-_DEFAULT_AWS_MOVIL_USER = "__SPARTA_SECRET_REDACTED__"
-_DEFAULT_AWS_MOVIL_PASSWORD = "__SPARTA_PASSWORD_REDACTED__"
-_DEFAULT_AWS_MOVIL_DATABASE = "__SPARTA_SECRET_REDACTED__"
+_DEFAULT_AWS_MOVIL_HOST = ""
+_DEFAULT_AWS_MOVIL_USER = ""
+_DEFAULT_AWS_MOVIL_PASSWORD = ""
+_DEFAULT_AWS_MOVIL_DATABASE = ""
 
 S2_URL     = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta"
-S2_TOKEN   = "__SPARTA_TOKEN_REDACTED__"
+S2_TOKEN   = os.environ.get("S2_ESTADO_CUENTA_TOKEN", "")
 S2_HEADERS = {"Content-Type": "application/json", "Token": S2_TOKEN}
 
 TZ_CDMX = ZoneInfo("America/Mexico_City")
 
 # Google Chat (espacio Gastos Cobranza). Sobreescribir con GASTOS_COBRANZA_GCHAT_URL en el entorno.
-GCHAT_URL = os.environ.get(
-    "GASTOS_COBRANZA_GCHAT_URL",
-    "__SPARTA_WEBHOOK_REDACTED__",
-)
+GCHAT_URL = os.environ.get("GASTOS_COBRANZA_GCHAT_URL", "")
 
 FECHA_CORTE_GASTOS = date(2026, 1, 28)
 CONCEPTO_GC        = "NOTA DE DE CARGO GASTOS DE COBRANZA"

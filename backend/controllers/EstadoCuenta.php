@@ -3830,7 +3830,7 @@ JS;
         }
 
         $headers = [
-            'Token: __SPARTA_TOKEN_REDACTED__',
+            'Token: ' . (defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: '')),
             'Content-Type: application/json',
         ];
         curl_setopt($ch, CURLOPT_POST, true);
@@ -5767,7 +5767,7 @@ public function descargar()
             // Si no existe local, buscar en API externo y S3 (2da forma)
             error_log("INE $id - 1RA FORMA falló, probando 2DA FORMA (API + S3)...");
             $endpoint = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta";
-            $token    = "__SPARTA_TOKEN_REDACTED__";
+            $token    = (defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: ''));
 
             $payload = json_encode([
                 "idCredito"  => (int)$id,
@@ -7361,7 +7361,7 @@ public function descargar()
     private function ineObtenerIdClientePorCreditoApi(int $idCredito): ?int
     {
         $endpoint = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
-        $token = '__SPARTA_TOKEN_REDACTED__';
+        $token = (defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: ''));
         $payload = json_encode([
             'idCredito' => $idCredito,
             'fechaCorte' => date('Y-m-d'),

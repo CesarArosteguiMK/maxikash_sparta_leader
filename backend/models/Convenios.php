@@ -1453,7 +1453,7 @@ private static function _getPagosS2Movil($id_credito)
             CURLOPT_TIMEOUT        => 10,
             CURLOPT_HTTPHEADER     => [
                 'Content-Type: application/json',
-                'Token: __SPARTA_TOKEN_REDACTED__',
+                'Token: ' . (defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: '')),
             ],
         ]);
 
@@ -2661,7 +2661,7 @@ public static function registrarPago($id_convenio, $numero_semana, $id_credito)
             CURLOPT_TIMEOUT        => 15,
             CURLOPT_HTTPHEADER     => [
                 'Content-Type: application/json',
-                'Token: __SPARTA_TOKEN_REDACTED__',
+                'Token: ' . (defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: '')),
             ],
         ]);
         $response = curl_exec($ch);
@@ -2775,7 +2775,7 @@ public static function getEstadoCuenta($id_credito)
             CURLOPT_TIMEOUT        => 15,
             CURLOPT_HTTPHEADER     => [
                 'Content-Type: application/json',
-                'Token: __SPARTA_TOKEN_REDACTED__',
+                'Token: ' . (defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: '')),
             ],
         ]);
 
@@ -2855,7 +2855,7 @@ private static function _buscarCuotaOriginal($id_credito, $fecha_pago_convenio)
             CURLOPT_TIMEOUT        => 15,
             CURLOPT_HTTPHEADER     => [
                 'Content-Type: application/json',
-                'Token: __SPARTA_TOKEN_REDACTED__',
+                'Token: ' . (defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: '')),
             ],
         ]);
 
@@ -3240,7 +3240,7 @@ private static function _marcarSemanasDesdeS2Movil($idConvenio, $idCredito, $fec
             CURLOPT_TIMEOUT        => 15,
             CURLOPT_HTTPHEADER     => [
                 'Content-Type: application/json',
-                'Token: __SPARTA_TOKEN_REDACTED__',
+                'Token: ' . (defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: '')),
             ],
         ]);
         $response = curl_exec($ch);
@@ -3456,7 +3456,7 @@ public static function getConciliacionSemana($id_convenio, $numero_semana, $id_c
             CURLOPT_TIMEOUT        => 15,
             CURLOPT_HTTPHEADER     => [
                 'Content-Type: application/json',
-                'Token: __SPARTA_TOKEN_REDACTED__',
+                'Token: ' . (defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: '')),
             ],
         ]);
         $response = curl_exec($ch);

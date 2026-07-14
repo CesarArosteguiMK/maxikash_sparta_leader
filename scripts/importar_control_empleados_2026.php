@@ -18,10 +18,13 @@ set_time_limit(0);
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 require dirname(__DIR__) . '/backend/core/DatabaseCliSupport.php';
+require dirname(__DIR__) . '/backend/core/EnvLoader.php';
 require dirname(__DIR__) . '/backend/core/Database.php';
 require dirname(__DIR__) . '/backend/core/Model.php';
 require dirname(__DIR__) . '/backend/models/CapHum.php';
 require dirname(__DIR__) . '/backend/models/CapHumRrhh.php';
+
+\Core\EnvLoader::load();
 
 function usage(): void
 {
@@ -1015,7 +1018,7 @@ foreach ($sheets as $sheetCfg) {
         $record['catalogo'] = ensure_catalog($db, $record, false, $planningCatalog, $stats, $plannedCatalogs, $positionLevels);
         $record['usuario'] = unique_username(username_base($record['correo'], $record['nombres'], $record['apellidop']), $existing['usernames']);
         $record['numero_empleado'] = unique_employee_number($record['codigo_contpaq'], $existing['employee_numbers'], $existing['max_employee_number']);
-        $record['password'] = '__SPARTA_PASSWORD_REDACTED__';
+        $record['password'] = getenv('TI_COMERCIAL_DEFAULT_PASSWORD') ?: '';
         $records[] = $record;
         $stats['listas_para_insertar']++;
 

@@ -78,6 +78,9 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../core/EnvLoader.php';
+\Core\EnvLoader::load();
+
 // ============================================================
 // BOOTSTRAP MÍNIMO
 // ============================================================
@@ -192,7 +195,7 @@ define('TABLA_DESPACHO', '`__SPARTA_SECRET_REDACTED__`.asigna_creditos_despacho'
 // ============================================================
 
 const API_URL     = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
-const API_TOKEN   = '__SPARTA_TOKEN_REDACTED__';
+define('API_TOKEN', getenv('S2_ESTADO_CUENTA_TOKEN') ?: (defined('TOKEN') ? TOKEN : ''));
 const API_TIMEOUT = 25;
 
 const FECHA_INICIO  = '2026-01-28';

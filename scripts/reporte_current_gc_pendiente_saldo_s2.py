@@ -49,14 +49,14 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 
 
 DEFAULT_DB = {
-    "host": "__SPARTA_HOST_REDACTED__",
+    "host": "",
     "port": 3306,
-    "database": "__SPARTA_SECRET_REDACTED__",
-    "user": "__SPARTA_SECRET_REDACTED__",
-    "password": "__SPARTA_PASSWORD_REDACTED__",
+    "database": "",
+    "user": "",
+    "password": "",
 }
-S2_URL = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta"
-S2_TOKEN = "__SPARTA_TOKEN_REDACTED__"
+S2_URL = os.getenv("S2_ESTADO_CUENTA_URL") or "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta"
+S2_TOKEN = os.getenv("S2_ESTADO_CUENTA_TOKEN") or ""
 OUTPUT_DIR = REPO_ROOT / "backend" / "storage" / "reportes"
 SQL_FILE = REPO_ROOT / "scripts" / "consulta_current_gastos_cobranza_pendiente.sql"
 MONEY_RE = re.compile(r"[\s$,]")
@@ -73,9 +73,31 @@ def env_first(*names: str) -> str | None:
     return None
 
 
+def load_env_file(path: str = r"C:\xampp\secure\sparta___SPARTA_SECRET_REDACTED__.env") -> None:
+    env_path = Path(os.getenv("SPARTA_ENV_FILE") or path)
+    if not env_path.is_file():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
 def db_config(use_defaults: bool) -> dict[str, Any]:
     if use_defaults:
-        return dict(DEFAULT_DB)
+        load_env_file()
+        return {
+            "host": env_first("SEGUNDOMETRO_DB_HOST", "MEGA_HOST", "MYSQL_HOST", "DB_HOST", "DB_SERVIDOR") or "",
+            "port": int(env_first("SEGUNDOMETRO_DB_PORT", "MEGA_PORT", "MYSQL_PORT", "DB_PUERTO") or "3306"),
+            "database": env_first("SEGUNDOMETRO_DB_NAME", "MEGA_DATABASE", "MYSQL_DATABASE", "DB_NAME", "DB_ESQUEMA") or "",
+            "user": env_first("SEGUNDOMETRO_DB_USER", "MEGA_USER", "MYSQL_USER", "DB_USER", "DB_USUARIO") or "",
+            "password": env_first("SEGUNDOMETRO_DB_PASSWORD", "MEGA_PASSWORD", "MYSQL_PASSWORD", "DB_PASSWORD", "DB_PASS") or "",
+        }
 
     host = env_first("MEGA_HOST", "MYSQL_HOST", "DB_HOST", "DB_SERVIDOR")
     user = env_first("MEGA_USER", "MYSQL_USER", "DB_USER", "DB_USUARIO")
@@ -201,7 +223,7 @@ def session() -> requests.Session:
 
 def s2_request(id_credito: int, fecha_corte: str, timeout: int, retries: int) -> dict[str, Any]:
     payload = {"idCredito": int(id_credito), "fechaCorte": fecha_corte}
-    headers = {"Token": S2_TOKEN, "Content-Type": "application/json"}
+    headers = {"Token": os.getenv("S2_ESTADO_CUENTA_TOKEN") or S2_TOKEN, "Content-Type": "application/json"}
     last_error = ""
 
     for attempt in range(retries + 1):

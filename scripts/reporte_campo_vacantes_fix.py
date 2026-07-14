@@ -24,13 +24,29 @@ if PYDEPS.is_dir():
 import mysql.connector
 import pandas as pd
 
+def load_env_file(path: str = r"C:\xampp\secure\sparta___SPARTA_SECRET_REDACTED__.env") -> None:
+    env_path = Path(os.getenv("SPARTA_ENV_FILE") or path)
+    if not env_path.is_file():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+load_env_file()
 # ── CONFIGURACIÓN ────────────────────────────────────────────────────────────
 # Opcional: export DB_PASSWORD en PowerShell para no guardar clave en este archivo.
 config = {
-    "host": os.getenv("DB_HOST") or "__SPARTA_HOST_REDACTED__",
-    "user": os.getenv("DB_USER") or "__SPARTA_SECRET_REDACTED__",
-    "password": os.getenv("DB_PASSWORD") or "__SPARTA_PASSWORD_REDACTED__",
-    "database": os.getenv("DB_NAME") or "__SPARTA_SECRET_REDACTED__",
+    "host": os.getenv("DB_HOST") or "",
+    "user": os.getenv("DB_USER") or "",
+    "password": os.getenv("DB_PASSWORD") or "",
+    "database": os.getenv("DB_NAME") or "",
     "port": int(os.getenv("DB_PORT") or "3306"),
 }
 
