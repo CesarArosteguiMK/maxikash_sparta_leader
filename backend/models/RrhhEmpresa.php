@@ -22,8 +22,8 @@ class RrhhEmpresa extends Model
                     e.activo,
                     g.clave AS grupo_clave,
                     g.nombre AS grupo_nombre
-                 FROM __SPARTA_SECRET_REDACTED__.rrhh_empresas e
-                 INNER JOIN __SPARTA_SECRET_REDACTED__.rrhh_grupos_corporativos g
+                 FROM estado_cuenta.rrhh_empresas e
+                 INNER JOIN estado_cuenta.rrhh_grupos_corporativos g
                     ON g.id = e.id_grupo
                  WHERE COALESCE(e.activo, 1) = 1
                    AND COALESCE(g.activo, 1) = 1

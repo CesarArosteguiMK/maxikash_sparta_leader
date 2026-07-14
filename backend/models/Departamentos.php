@@ -22,7 +22,7 @@ class Departamentos extends Model
 
         for ($i = 2; $i <= 999; $i++) {
             $params = ['clave' => $clave];
-            $sql = "SELECT id FROM __SPARTA_SECRET_REDACTED__.puesto WHERE clave = :clave";
+            $sql = "SELECT id FROM estado_cuenta.puesto WHERE clave = :clave";
             if ($excepto_id > 0) {
                 $sql .= " AND id <> :excepto_id";
                 $params['excepto_id'] = $excepto_id;
@@ -45,7 +45,7 @@ class Departamentos extends Model
     {
         try {
             $db->CRUD("
-                CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.direcciones_organizacion (
+                CREATE TABLE IF NOT EXISTS estado_cuenta.direcciones_organizacion (
                   id INT NOT NULL AUTO_INCREMENT,
                   nombre VARCHAR(120) NOT NULL,
                   id_empresa INT NOT NULL DEFAULT 1,
@@ -60,7 +60,7 @@ class Departamentos extends Model
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ");
             $db->CRUD("
-                CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.asigna_direcciones (
+                CREATE TABLE IF NOT EXISTS estado_cuenta.asigna_direcciones (
                   id INT NOT NULL AUTO_INCREMENT,
                   id_direccion INT NOT NULL,
                   id_departamento_organizacional INT NOT NULL,
@@ -77,11 +77,11 @@ class Departamentos extends Model
             if (false) {
                 $areasSinDireccionPropia = $db->queryAll(
                 "SELECT dorg.id, dorg.id_pais
-                 FROM __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
-                 LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                 FROM estado_cuenta.departamento_organizacional dorg
+                 LEFT JOIN estado_cuenta.asigna_direcciones ad
                    ON ad.id_departamento_organizacional = dorg.id
                   AND COALESCE(ad.activo, 1) = 1
-                 LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                 LEFT JOIN estado_cuenta.direcciones_organizacion dir
                    ON dir.id = ad.id_direccion
                  WHERE ad.id IS NULL
                     OR LOWER(TRIM(COALESCE(dir.nombre, ''))) IN ('Dirección general', 'Dirección general', 'dirección general')
@@ -94,7 +94,7 @@ class Departamentos extends Model
                 if (!isset($contadorPorPais[$idPais])) {
                     $ultimaDireccion = $db->queryOne(
                         "SELECT MAX(CAST(REPLACE(nombre, 'Dirección ', '') AS UNSIGNED)) AS total
-                         FROM __SPARTA_SECRET_REDACTED__.direcciones_organizacion
+                         FROM estado_cuenta.direcciones_organizacion
                          WHERE id_pais = :id_pais AND nombre REGEXP '^Dirección [0-9]+$'",
                         ['id_pais' => $idPais]
                     );
@@ -104,13 +104,13 @@ class Departamentos extends Model
                 $contadorPorPais[$idPais]++;
                 $nombreDireccion = 'Dirección ' . $contadorPorPais[$idPais];
                 $db->CRUD(
-                    "INSERT IGNORE INTO __SPARTA_SECRET_REDACTED__.direcciones_organizacion (nombre, id_pais, activo)
+                    "INSERT IGNORE INTO estado_cuenta.direcciones_organizacion (nombre, id_pais, activo)
                      VALUES (:nombre, :id_pais, 1)",
                     ['nombre' => $nombreDireccion, 'id_pais' => $idPais]
                 );
 
                 $direccion = $db->queryOne(
-                    "SELECT id FROM __SPARTA_SECRET_REDACTED__.direcciones_organizacion
+                    "SELECT id FROM estado_cuenta.direcciones_organizacion
                      WHERE id_pais = :id_pais AND nombre = :nombre
                      LIMIT 1",
                     ['id_pais' => $idPais, 'nombre' => $nombreDireccion]
@@ -120,7 +120,7 @@ class Departamentos extends Model
                 $idArea = (int)($area['id'] ?? 0);
                 if ($idDireccion > 0 && $idArea > 0) {
                     $db->CRUD(
-                        "INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_direcciones (id_direccion, id_departamento_organizacional, activo)
+                        "INSERT INTO estado_cuenta.asigna_direcciones (id_direccion, id_departamento_organizacional, activo)
                          VALUES (:id_direccion, :id_area, 1)
                          ON DUPLICATE KEY UPDATE id_direccion = VALUES(id_direccion), activo = 1, fecha_actualizacion = NOW()",
                         ['id_direccion' => $idDireccion, 'id_area' => $idArea]
@@ -222,12 +222,12 @@ class Departamentos extends Model
                     COALESCE(emp.nombre_comercial, 'MaxiKash') AS nombre_empresa,
                     COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais,
                     COUNT(DISTINCT CASE WHEN COALESCE(d.activo, 1) = 1 THEN d.id END) AS total_areas
-                FROM __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad ON ad.id_departamento_organizacional = dorg.id AND COALESCE(ad.activo, 1) = 1
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir ON dir.id = ad.id_direccion
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.rrhh_empresas emp ON emp.id = COALESCE(dorg.id_empresa, dir.id_empresa, 1)
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.paises pa ON pa.id = dorg.id_pais
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id_departamento_organizacional = dorg.id
+                FROM estado_cuenta.departamento_organizacional dorg
+                LEFT JOIN estado_cuenta.asigna_direcciones ad ON ad.id_departamento_organizacional = dorg.id AND COALESCE(ad.activo, 1) = 1
+                LEFT JOIN estado_cuenta.direcciones_organizacion dir ON dir.id = ad.id_direccion
+                LEFT JOIN estado_cuenta.rrhh_empresas emp ON emp.id = COALESCE(dorg.id_empresa, dir.id_empresa, 1)
+                LEFT JOIN estado_cuenta.paises pa ON pa.id = dorg.id_pais
+                LEFT JOIN estado_cuenta.departamento d ON d.id_departamento_organizacional = dorg.id
                 GROUP BY dorg.id, dorg.nombre, dorg.activo, dorg.id_empresa, dorg.id_pais, dir.id, dir.nombre, dir.activo, dir.id_empresa, emp.nombre_comercial, pa.nombre, pa.codigo_iso
                 ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), nombre_empresa, direccion_nombre, dorg.nombre
                 "
@@ -269,10 +269,10 @@ class Departamentos extends Model
                     COALESCE(dir.id_empresa, 1) AS id_empresa,
                     COALESCE(emp.nombre_comercial, 'MaxiKash') AS nombre_empresa,
                     COUNT(DISTINCT ad.id_departamento_organizacional) AS total_areas
-                FROM __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.rrhh_empresas emp ON emp.id = COALESCE(dir.id_empresa, 1)
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.paises pa ON pa.id = dir.id_pais
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad ON ad.id_direccion = dir.id AND COALESCE(ad.activo, 1) = 1
+                FROM estado_cuenta.direcciones_organizacion dir
+                LEFT JOIN estado_cuenta.rrhh_empresas emp ON emp.id = COALESCE(dir.id_empresa, 1)
+                LEFT JOIN estado_cuenta.paises pa ON pa.id = dir.id_pais
+                LEFT JOIN estado_cuenta.asigna_direcciones ad ON ad.id_direccion = dir.id AND COALESCE(ad.activo, 1) = 1
                 GROUP BY dir.id, dir.nombre, dir.activo, dir.id_empresa, dir.id_pais, emp.nombre_comercial, pa.nombre, pa.codigo_iso
                 ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), nombre_empresa, dir.nombre
                 "
@@ -318,7 +318,7 @@ class Departamentos extends Model
             }
 
             $existe = $db->queryOne(
-                "SELECT id FROM __SPARTA_SECRET_REDACTED__.direcciones_organizacion
+                "SELECT id FROM estado_cuenta.direcciones_organizacion
                  WHERE LOWER(TRIM(nombre)) = LOWER(:nombre) AND id_pais = :id_pais AND COALESCE(id_empresa, 1) = :id_empresa",
                 ['nombre' => $nombre, 'id_pais' => $id_pais, 'id_empresa' => $id_empresa]
             );
@@ -333,7 +333,7 @@ class Departamentos extends Model
             }
 
             $db->CRUD(
-                "INSERT INTO __SPARTA_SECRET_REDACTED__.direcciones_organizacion (nombre, activo, id_pais, id_empresa) VALUES (:nombre, 1, :id_pais, :id_empresa)",
+                "INSERT INTO estado_cuenta.direcciones_organizacion (nombre, activo, id_pais, id_empresa) VALUES (:nombre, 1, :id_pais, :id_empresa)",
                 ['nombre' => $nombre, 'id_pais' => $id_pais, 'id_empresa' => $id_empresa]
             );
 
@@ -368,7 +368,7 @@ class Departamentos extends Model
             $id_direccion = $id_direccion !== null && $id_direccion !== '' ? (int) $id_direccion : 0;
             if ($id_direccion > 0) {
                 $dirEmpresa = $db->queryOne(
-                    "SELECT COALESCE(id_empresa, 1) AS id_empresa FROM __SPARTA_SECRET_REDACTED__.direcciones_organizacion WHERE id = :id LIMIT 1",
+                    "SELECT COALESCE(id_empresa, 1) AS id_empresa FROM estado_cuenta.direcciones_organizacion WHERE id = :id LIMIT 1",
                     ['id' => $id_direccion]
                 );
                 if ($dirEmpresa) $id_empresa = (int)($dirEmpresa['id_empresa'] ?? $id_empresa);
@@ -385,7 +385,7 @@ class Departamentos extends Model
             }
 
             $existe = $db->queryOne(
-                "SELECT id FROM __SPARTA_SECRET_REDACTED__.departamento_organizacional
+                "SELECT id FROM estado_cuenta.departamento_organizacional
                  WHERE LOWER(TRIM(nombre)) = LOWER(:nombre) AND id_pais = :id_pais AND COALESCE(id_empresa, 1) = :id_empresa",
                 ['nombre' => $nombre, 'id_pais' => $id_pais, 'id_empresa' => $id_empresa]
             );
@@ -395,7 +395,7 @@ class Departamentos extends Model
                 if ($idDepartamentoOrganizacional > 0 && $id_direccion > 0) {
                     $asignacion = $db->queryOne(
                         "SELECT id, id_direccion, activo
-                         FROM __SPARTA_SECRET_REDACTED__.asigna_direcciones
+                         FROM estado_cuenta.asigna_direcciones
                          WHERE id_departamento_organizacional = :id_area
                          LIMIT 1",
                         ['id_area' => $idDepartamentoOrganizacional]
@@ -403,7 +403,7 @@ class Departamentos extends Model
 
                     if (!$asignacion || (int)($asignacion['id_direccion'] ?? 0) !== $id_direccion || (int)($asignacion['activo'] ?? 0) !== 1) {
                         $db->CRUD(
-                            "INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_direcciones (id_direccion, id_departamento_organizacional, activo)
+                            "INSERT INTO estado_cuenta.asigna_direcciones (id_direccion, id_departamento_organizacional, activo)
                              VALUES (:id_direccion, :id_area, 1)
                              ON DUPLICATE KEY UPDATE id_direccion = VALUES(id_direccion), activo = 1, fecha_actualizacion = NOW()",
                             ['id_direccion' => $id_direccion, 'id_area' => $idDepartamentoOrganizacional]
@@ -436,14 +436,14 @@ class Departamentos extends Model
             }
 
             $db->CRUD(
-                "INSERT INTO __SPARTA_SECRET_REDACTED__.departamento_organizacional (nombre, activo, id_pais, id_empresa) VALUES (:nombre, 1, :id_pais, :id_empresa)",
+                "INSERT INTO estado_cuenta.departamento_organizacional (nombre, activo, id_pais, id_empresa) VALUES (:nombre, 1, :id_pais, :id_empresa)",
                 ['nombre' => $nombre, 'id_pais' => $id_pais, 'id_empresa' => $id_empresa]
             );
             $idDepartamentoOrganizacional = $db->lastInsertId();
 
             if ($idDepartamentoOrganizacional > 0 && $id_direccion > 0) {
                 $db->CRUD(
-                    "INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_direcciones (id_direccion, id_departamento_organizacional, activo)
+                    "INSERT INTO estado_cuenta.asigna_direcciones (id_direccion, id_departamento_organizacional, activo)
                      VALUES (:id_direccion, :id_area, 1)
                      ON DUPLICATE KEY UPDATE id_direccion = VALUES(id_direccion), activo = 1, fecha_actualizacion = NOW()",
                     ['id_direccion' => $id_direccion, 'id_area' => $idDepartamentoOrganizacional]
@@ -487,7 +487,7 @@ class Departamentos extends Model
                 "
                 SELECT 
                     p.id AS id_puesto, p.nombre AS puesto_nombre, '' AS descripcion, p.departamento_id AS id_departamento
-                FROM __SPARTA_SECRET_REDACTED__.puesto p
+                FROM estado_cuenta.puesto p
                 WHERE p.departamento_id = :id_departamento
                 ORDER BY p.nivel DESC, p.id ASC
             ",
@@ -532,7 +532,7 @@ class Departamentos extends Model
             }
 
             $puesto = $db->queryOne(
-                "SELECT id, departamento_id FROM __SPARTA_SECRET_REDACTED__.puesto WHERE id = :id_puesto LIMIT 1",
+                "SELECT id, departamento_id FROM estado_cuenta.puesto WHERE id = :id_puesto LIMIT 1",
                 ['id_puesto' => $id_puesto]
             );
             $id_departamento = (int) ($puesto['departamento_id'] ?? 0);
@@ -546,7 +546,7 @@ class Departamentos extends Model
             }
 
             $duplicado = $db->queryOne(
-                "SELECT id FROM __SPARTA_SECRET_REDACTED__.puesto
+                "SELECT id FROM estado_cuenta.puesto
                  WHERE departamento_id = :id_departamento
                    AND id <> :id_puesto
                    AND COALESCE(activo, 1) = 1
@@ -565,7 +565,7 @@ class Departamentos extends Model
 
             $clave = self::generarClavePuestoUnica($db, $nombre, $id_departamento, $id_puesto);
             $db->CRUD(
-                "UPDATE __SPARTA_SECRET_REDACTED__.puesto SET nombre = :nombre, clave = :clave WHERE id = :id_puesto",
+                "UPDATE estado_cuenta.puesto SET nombre = :nombre, clave = :clave WHERE id = :id_puesto",
                 ['nombre' => $nombre, 'clave' => $clave, 'id_puesto' => $id_puesto]
             );
             $r = true;
@@ -617,7 +617,7 @@ class Departamentos extends Model
                 if ($id_puesto <= 0) continue;
                 $nivel = max(1, 999 - (int) $pos);
                 $db->CRUD(
-                    "UPDATE __SPARTA_SECRET_REDACTED__.puesto SET nivel = :nivel WHERE id = :id_puesto AND departamento_id = :id_departamento",
+                    "UPDATE estado_cuenta.puesto SET nivel = :nivel WHERE id = :id_puesto AND departamento_id = :id_departamento",
                     ['nivel' => $nivel, 'id_puesto' => $id_puesto, 'id_departamento' => $id_departamento]
                 );
             }
@@ -655,14 +655,14 @@ class Departamentos extends Model
 
             $db = new Database();
             $depEmpresa = $db->queryOne(
-                "SELECT COALESCE(id_empresa, 1) AS id_empresa FROM __SPARTA_SECRET_REDACTED__.departamento WHERE id = :id LIMIT 1",
+                "SELECT COALESCE(id_empresa, 1) AS id_empresa FROM estado_cuenta.departamento WHERE id = :id LIMIT 1",
                 ['id' => $id_departamento]
             );
             $id_empresa = (int)($depEmpresa['id_empresa'] ?? 1);
             if ($id_empresa < 1) $id_empresa = 1;
 
             $duplicado = $db->queryOne(
-                "SELECT id FROM __SPARTA_SECRET_REDACTED__.puesto
+                "SELECT id FROM estado_cuenta.puesto
                  WHERE departamento_id = :id_departamento
                    AND COALESCE(activo, 1) = 1
                    AND LOWER(TRIM(nombre)) = LOWER(TRIM(:nombre))
@@ -682,7 +682,7 @@ class Departamentos extends Model
 
             // Sin columna id: deja que AUTO_INCREMENT asigne (evita fallos con NULL en id en modo estricto).
             $db->CRUD(
-                "INSERT INTO __SPARTA_SECRET_REDACTED__.puesto (clave, nombre, nivel, activo, departamento_id, es_jefe, descripcion, id_empresa) VALUES (:clave, :nombre, 0, 1, :id_departamento, 1, NULL, :id_empresa)",
+                "INSERT INTO estado_cuenta.puesto (clave, nombre, nivel, activo, departamento_id, es_jefe, descripcion, id_empresa) VALUES (:clave, :nombre, 0, 1, :id_departamento, 1, NULL, :id_empresa)",
                 ['clave' => $clave, 'nombre' => $nombre, 'id_departamento' => $id_departamento, 'id_empresa' => $id_empresa]
             );
 
@@ -700,7 +700,7 @@ class Departamentos extends Model
             // Rebalancear niveles: todos los puestos del departamento en rango dept*1000+1 .. dept*1000+999
             // Orden actual: nivel DESC (el nuevo tiene 0, queda último). Asignar 11999, 11998, ... 11001
             $rows = $db->queryAll(
-                "SELECT id FROM __SPARTA_SECRET_REDACTED__.puesto WHERE departamento_id = :id_departamento ORDER BY nivel DESC, id ASC",
+                "SELECT id FROM estado_cuenta.puesto WHERE departamento_id = :id_departamento ORDER BY nivel DESC, id ASC",
                 ['id_departamento' => $id_departamento]
             );
             $ordenes = is_array($rows) ? array_column($rows, 'id') : [];
@@ -708,7 +708,7 @@ class Departamentos extends Model
                 $nivel = max(1, 999 - (int) $pos);
                 $id = (int) $id;
                 $db->CRUD(
-                    "UPDATE __SPARTA_SECRET_REDACTED__.puesto SET nivel = :nivel WHERE id = :id AND departamento_id = :id_departamento",
+                    "UPDATE estado_cuenta.puesto SET nivel = :nivel WHERE id = :id AND departamento_id = :id_departamento",
                     ['nivel' => $nivel, 'id' => $id, 'id_departamento' => $id_departamento]
                 );
             }
@@ -747,7 +747,7 @@ class Departamentos extends Model
                 : null;
             if ($id_departamento_organizacional) {
                 $areaEmpresa = $db->queryOne(
-                    "SELECT COALESCE(id_empresa, 1) AS id_empresa FROM __SPARTA_SECRET_REDACTED__.departamento_organizacional WHERE id = :id LIMIT 1",
+                    "SELECT COALESCE(id_empresa, 1) AS id_empresa FROM estado_cuenta.departamento_organizacional WHERE id = :id LIMIT 1",
                     ['id' => $id_departamento_organizacional]
                 );
                 if ($areaEmpresa) $id_empresa = (int)($areaEmpresa['id_empresa'] ?? $id_empresa);
@@ -773,7 +773,7 @@ class Departamentos extends Model
             }
 
             $existe = $db->queryOne(
-                "SELECT id FROM __SPARTA_SECRET_REDACTED__.departamento 
+                "SELECT id FROM estado_cuenta.departamento
                  WHERE LOWER(TRIM(nombre)) = LOWER(:nombre) AND id_pais = :id_pais AND id_departamento_organizacional = :id_departamento_organizacional AND COALESCE(id_empresa, 1) = :id_empresa",
                 ['nombre' => $nombre, 'id_pais' => $id_pais, 'id_departamento_organizacional' => $id_departamento_organizacional, 'id_empresa' => $id_empresa]
             );
@@ -790,7 +790,7 @@ class Departamentos extends Model
             }
 
             $db->CRUD(
-                "INSERT INTO __SPARTA_SECRET_REDACTED__.departamento (id, nombre, activo, img_url, id_pais, id_departamento_organizacional, id_empresa) VALUES (null, :nombre, 1, NULL, :id_pais, :id_departamento_organizacional, :id_empresa)",
+                "INSERT INTO estado_cuenta.departamento (id, nombre, activo, img_url, id_pais, id_departamento_organizacional, id_empresa) VALUES (null, :nombre, 1, NULL, :id_pais, :id_departamento_organizacional, :id_empresa)",
                 ['nombre' => $nombre, 'id_pais' => $id_pais, 'id_departamento_organizacional' => $id_departamento_organizacional, 'id_empresa' => $id_empresa]
             );
 
@@ -821,7 +821,7 @@ class Departamentos extends Model
             $db = new Database();
             $id_departamento = (int) $id_departamento;
             $db->CRUD(
-                "UPDATE __SPARTA_SECRET_REDACTED__.departamento SET nombre = :nombre WHERE id = :id_departamento",
+                "UPDATE estado_cuenta.departamento SET nombre = :nombre WHERE id = :id_departamento",
                 ['nombre' => $nombre, 'id_departamento' => $id_departamento]
             );
             $r = true;
@@ -877,11 +877,11 @@ class Departamentos extends Model
                 exit;
             }
             // Quitar asignaciones de puestos de este departamento (por si acaso)
-            $db->queryOne("DELETE a FROM __SPARTA_SECRET_REDACTED__.asigna_puesto a INNER JOIN __SPARTA_SECRET_REDACTED__.puesto p ON p.id = a.id_puesto WHERE p.departamento_id = $id");
+            $db->queryOne("DELETE a FROM estado_cuenta.asigna_puesto a INNER JOIN estado_cuenta.puesto p ON p.id = a.id_puesto WHERE p.departamento_id = $id");
             // Borrar puestos del departamento
-            $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.puesto WHERE departamento_id = $id");
+            $db->queryOne("DELETE FROM estado_cuenta.puesto WHERE departamento_id = $id");
             // Borrar departamento
-            $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.departamento WHERE id = $id");
+            $db->queryOne("DELETE FROM estado_cuenta.departamento WHERE id = $id");
             echo json_encode([
                 'success' => true,
                 'mensaje' => 'Departamento eliminado correctamente.',

@@ -176,7 +176,7 @@ class CapHum extends Controller
             $db = new \Core\Database();
             $persona = $db->queryOne("
                 SELECT COALESCE(estatus, '') AS estatus
-                FROM __SPARTA_SECRET_REDACTED__.persona
+                FROM estado_cuenta.persona
                 WHERE id = :id
                 LIMIT 1
             ", ['id' => $idPersona]);
@@ -3613,7 +3613,7 @@ class CapHum extends Controller
                     const eid = String(id || '');
                     const nombreNormalizado = String(nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
                     if (eid === '2' || nombreNormalizado.includes('furia')) return 'Pensionamx S.A.P.I. de C.V';
-                    if (eid === '1' || nombreNormalizado.includes('__SPARTA_SECRET_REDACTED__')) return 'Amigos Efectivo S.A.P.I. de C.V';
+                    if (eid === '1' || nombreNormalizado.includes('estado_cuenta')) return 'Amigos Efectivo S.A.P.I. de C.V';
                     const razon = String(razonSocial || '').trim();
                     if (razon) return razon;
                     return '';
@@ -11904,7 +11904,7 @@ class CapHum extends Controller
                 if (t.indexOf("CONSTANCIA") !== -1 || t.indexOf("FISCAL") !== -1) return "constancia_fiscal";
                 if (t.indexOf("SEGURIDAD SOCIAL") !== -1 || t === "NSS") return "nss";
                 if (t.indexOf("FONACOT") !== -1 || t.indexOf("INFONAVIT") !== -1 || t.indexOf("RETENCION") !== -1) return "hoja_retencion";
-                if (t.indexOf("ESTADO DE CUENTA") !== -1) return "__SPARTA_SECRET_REDACTED__";
+                if (t.indexOf("ESTADO DE CUENTA") !== -1) return "estado_cuenta";
                 return "";
             }
 
@@ -12187,7 +12187,7 @@ class CapHum extends Controller
                 if (esVerificacionMotorV2(v)) {
                     var docs = docsV2(v);
                     var comps = compsV2(v);
-                    var orden = ["solicitud_interna", "cv", "acta_nacimiento", "curp", "identificacion_oficial", "comprobante_domicilio", "constancia_fiscal", "nss", "hoja_retencion", "__SPARTA_SECRET_REDACTED__"];
+                    var orden = ["solicitud_interna", "cv", "acta_nacimiento", "curp", "identificacion_oficial", "comprobante_domicilio", "constancia_fiscal", "nss", "hoja_retencion", "estado_cuenta"];
                     var docsHtml = [];
                     orden.forEach(function(k) {
                         var doc = docs[k];
@@ -15069,12 +15069,12 @@ class CapHum extends Controller
                     p.correo,
                     pu.nombre AS nombre_puesto,
                     COALESCE(dir.id, 0) AS id_direccion
-                 FROM __SPARTA_SECRET_REDACTED__.persona p
-                 INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
-                 INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = ap.id_puesto
-                 LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pu.departamento_id
-                 LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad ON ad.id_departamento_organizacional = d.id_departamento_organizacional AND COALESCE(ad.activo, 1) = 1
-                 LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir ON dir.id = ad.id_direccion
+                 FROM estado_cuenta.persona p
+                 INNER JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                 INNER JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
+                 LEFT JOIN estado_cuenta.departamento d ON d.id = pu.departamento_id
+                 LEFT JOIN estado_cuenta.asigna_direcciones ad ON ad.id_departamento_organizacional = d.id_departamento_organizacional AND COALESCE(ad.activo, 1) = 1
+                 LEFT JOIN estado_cuenta.direcciones_organizacion dir ON dir.id = ad.id_direccion
                  WHERE COALESCE(p.estatus, '') <> 'Baja'
                    AND (
                         UPPER(pu.nombre) LIKE '%GERENTE DIVISIONAL%'
@@ -15139,13 +15139,13 @@ class CapHum extends Controller
                     pu.nombre AS nombre_puesto,
                     COALESCE(dir.id, 0) AS id_direccion,
                     COALESCE(dir.nombre, '') AS nombre_direccion
-                 FROM __SPARTA_SECRET_REDACTED__.puesto pu
-                 LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d
+                 FROM estado_cuenta.puesto pu
+                 LEFT JOIN estado_cuenta.departamento d
                         ON d.id = COALESCE(NULLIF(:id_departamento, 0), pu.departamento_id)
-                 LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                 LEFT JOIN estado_cuenta.asigna_direcciones ad
                         ON ad.id_departamento_organizacional = d.id_departamento_organizacional
                        AND COALESCE(ad.activo, 1) = 1
-                 LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir ON dir.id = ad.id_direccion
+                 LEFT JOIN estado_cuenta.direcciones_organizacion dir ON dir.id = ad.id_direccion
                  WHERE pu.id = :id_puesto
                  LIMIT 1",
                 ['id_puesto' => $idPuesto, 'id_departamento' => $idDepartamento]
@@ -15429,13 +15429,13 @@ class CapHum extends Controller
         // Misma fecha/hora límite que indica el correo: el enlace deja de aceptar subidas después (CDMX 23:59:59).
         CandidatosDAO::actualizarExpiraTokenDocumentos($id, $limiteFinInst->format('Y-m-d H:i:s'));
         $telefono = $c['telefono'] ?? '';
-        // Ruta del logo para incrustar en el correo (cid:) — prioridad: logo_correo.png (sin fondo), luego logo___SPARTA_SECRET_REDACTED__.png
+        // Ruta del logo para incrustar en el correo (cid:) — prioridad: logo_correo.png (sin fondo), luego logo_maxikash.png
         $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
         $rutaLogoInline = null;
         if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
             $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
-        } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
-            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+        } elseif (is_file($dirPublic . '/assets/img/logo_maxikash.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_maxikash.png');
         } elseif (is_file($dirPublic . '/assets/img/Logotipo-Maxikash-Outline.webp')) {
             $rutaLogoInline = realpath($dirPublic . '/assets/img/Logotipo-Maxikash-Outline.webp');
         } elseif (is_file($dirPublic . '/assets/img/logo.svg')) {
@@ -15852,7 +15852,7 @@ class CapHum extends Controller
     public function obtenerPlantillaSolicitudPdf()
     {
         $dirPlantillas = defined('RAIZ') ? (RAIZ . '/storage/plantillas_candidatos') : (__DIR__ . '/../storage/plantillas_candidatos');
-        $archivo = $dirPlantillas . '/solicitud_interna___SPARTA_SECRET_REDACTED___AcroForm.pdf';
+        $archivo = $dirPlantillas . '/solicitud_interna_AcroForm.pdf';
         if (!is_file($archivo)) {
             header('HTTP/1.0 404 Not Found');
             echo 'Plantilla no disponible.';
@@ -15867,7 +15867,7 @@ class CapHum extends Controller
      * Descarga un documento para el candidato (carta no adeudo o solicitud interna prellenada).
      * No requiere login. URL: /CapHum/descargarDocumentoCandidato/{token}/{tipo}
      * tipo = carta_no_adeudo | solicitud_interna | solicitud_llenar
-     * - solicitud_interna: descarga la plantilla en blanco (solicitud_interna___SPARTA_SECRET_REDACTED__.pdf, sin AcroForm)
+     * - solicitud_interna: descarga la plantilla en blanco (solicitud_interna.pdf, sin AcroForm)
      *   para que el candidato la llene como quiera (a mano o en computadora).
      * - solicitud_llenar: abre en el navegador el PDF con AcroForm para llenar en línea (legacy).
      */
@@ -15902,9 +15902,9 @@ class CapHum extends Controller
             return;
         }
 
-        // PDF con AcroForm para llenar en línea en el navegador (solicitud_interna___SPARTA_SECRET_REDACTED___AcroForm.pdf)
+        // PDF con AcroForm para llenar en línea en el navegador (solicitud_interna_AcroForm.pdf)
         if ($tipo === 'solicitud_llenar') {
-            $archivo = $dirPlantillas . '/solicitud_interna___SPARTA_SECRET_REDACTED___AcroForm.pdf';
+            $archivo = $dirPlantillas . '/solicitud_interna_AcroForm.pdf';
             if (!is_file($archivo)) {
                 header('HTTP/1.0 404 Not Found');
                 echo 'Documento no disponible. Contacte al área de Recursos Humanos.';
@@ -15918,7 +15918,7 @@ class CapHum extends Controller
 
         if ($tipo === 'solicitud_interna') {
             // Plantilla en blanco (sin AcroForm): el candidato la llena como quiera (a mano o en computadora)
-            $archivo = $dirPlantillas . '/solicitud_interna___SPARTA_SECRET_REDACTED__.pdf';
+            $archivo = $dirPlantillas . '/solicitud_interna.pdf';
             if (!is_file($archivo)) {
                 header('HTTP/1.0 404 Not Found');
                 echo 'Documento no disponible. Contacte al área de Recursos Humanos.';
@@ -16106,7 +16106,7 @@ class CapHum extends Controller
     /**
      * Rellena el PDF con AcroForm usando los datos del candidato.
      * Usa pdftk si está disponible y config/campos_solicitud_pdf.ini para mapear nombres de campo.
-     * @param string $rutaPdf Ruta absoluta al PDF con formulario (ej. solicitud_interna___SPARTA_SECRET_REDACTED___AcroForm.pdf)
+     * @param string $rutaPdf Ruta absoluta al PDF con formulario (ej. solicitud_interna_AcroForm.pdf)
      * @param array $datosCandidato Array de clave => valor (nombre_completo, email, etc.)
      * @param string $dirConfig Directorio donde está config (para campos_solicitud_pdf.ini)
      * @return string|null PDF binario rellenado o null si falla o pdftk no disponible
@@ -16367,7 +16367,7 @@ class CapHum extends Controller
             $db = new \Core\Database();
             $fechaCarga = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
             $db->CRUD(
-                "INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                "INSERT INTO estado_cuenta.carga_documento_persona
                  (id_persona, id_documento, archivo, fecha_carga, valido)
                  VALUES (:id_persona, :id_documento, :archivo, :fecha_carga, 1)",
                 [
@@ -16431,7 +16431,7 @@ class CapHum extends Controller
             try {
                 $db = new \Core\Database();
                 $row = $db->queryOne(
-                    'SELECT nombre FROM __SPARTA_SECRET_REDACTED__.puesto WHERE id = :id LIMIT 1',
+                    'SELECT nombre FROM estado_cuenta.puesto WHERE id = :id LIMIT 1',
                     ['id' => (int) $candidato['id_puesto']]
                 );
                 if (!empty($row['nombre'])) {
@@ -16473,7 +16473,7 @@ class CapHum extends Controller
             if ($email !== '' || $usuario !== '') {
                 $row = $db->queryOne(
                     "SELECT id
-                     FROM __SPARTA_SECRET_REDACTED__.persona
+                     FROM estado_cuenta.persona
                      WHERE COALESCE(estatus, '') <> 'Baja'
                        AND ((:email <> '' AND correo = :email) OR (:usuario <> '' AND user_name = :usuario))
                      ORDER BY id DESC
@@ -16491,7 +16491,7 @@ class CapHum extends Controller
             $apellidom = trim((string) ($candidato['apellidom'] ?? ''));
             $row = $db->queryOne(
                 "SELECT id
-                 FROM __SPARTA_SECRET_REDACTED__.persona
+                 FROM estado_cuenta.persona
                  WHERE COALESCE(estatus, '') <> 'Baja'
                    AND nombres = :nombres
                    AND COALESCE(segundo_nombre, '') = :segundo
@@ -16522,7 +16522,7 @@ class CapHum extends Controller
             CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
             $db = new \Core\Database();
             $existe = $db->queryOne(
-                "SELECT id FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                "SELECT id FROM estado_cuenta.carga_documento_persona
                  WHERE id_persona = :id_persona AND id_documento = :id_documento
                  LIMIT 1",
                 ['id_persona' => $idPersona, 'id_documento' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR]
@@ -16539,7 +16539,7 @@ class CapHum extends Controller
             }
             $fechaCarga = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
             $db->CRUD(
-                "INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                "INSERT INTO estado_cuenta.carga_documento_persona
                  (id_persona, id_documento, archivo, fecha_carga, valido)
                  VALUES (:id_persona, :id_documento, :archivo, :fecha_carga, 1)",
                 [
@@ -16601,8 +16601,8 @@ class CapHum extends Controller
         $rutaLogoInline = null;
         if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
             $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
-        } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
-            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+        } elseif (is_file($dirPublic . '/assets/img/logo_maxikash.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_maxikash.png');
         }
         $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
         $urlCartaPdf = $this->urlCartaCompromisoGestorPdf();
@@ -16942,7 +16942,7 @@ class CapHum extends Controller
      */
     private function docVerificacionQuitarAdjuntosOpcionalesExpediente(array &$rutasParaValidar): void
     {
-        foreach (['solicitud_interna', 'cv', 'acta_nacimiento', 'curp', 'comprobante_domicilio', 'constancia_fiscal', 'nss', 'hoja_retencion', '__SPARTA_SECRET_REDACTED__'] as $k) {
+        foreach (['solicitud_interna', 'cv', 'acta_nacimiento', 'curp', 'comprobante_domicilio', 'constancia_fiscal', 'nss', 'hoja_retencion', 'estado_cuenta'] as $k) {
             $rutasParaValidar[$k] = null;
         }
     }
@@ -16959,7 +16959,7 @@ class CapHum extends Controller
             'constancia_fiscal' => null,
             'nss' => null,
             'hoja_retencion' => null,
-            '__SPARTA_SECRET_REDACTED__' => null,
+            'estado_cuenta' => null,
         ];
     }
 
@@ -16978,7 +16978,7 @@ class CapHum extends Controller
             7 => 'constancia_fiscal',
             8 => 'nss',
             9 => 'hoja_retencion',
-            10 => '__SPARTA_SECRET_REDACTED__',
+            10 => 'estado_cuenta',
         ];
         $num = $this->tipoDocumentoCandidatoNumero($tipoDocumento);
         if (empty($map[$num])) {
@@ -17680,7 +17680,7 @@ class CapHum extends Controller
         $slugPorTipo = [
             1 => 'solicitud_interna', 2 => 'cv', 3 => 'acta_nacimiento', 4 => 'curp',
             5 => 'identificacion_oficial', 6 => 'comprobante_domicilio', 7 => 'constancia_fiscal',
-            8 => 'nss', 9 => 'hoja_retencion', 10 => '__SPARTA_SECRET_REDACTED__',
+            8 => 'nss', 9 => 'hoja_retencion', 10 => 'estado_cuenta',
         ];
 
         if ($idCandidato <= 0 || !isset($tiposDocumento[$tipoNum])) {
@@ -18354,8 +18354,8 @@ class CapHum extends Controller
                 $rutaLogoInlineDel = null;
                 if (is_file($dirPublicDel . '/assets/img/logo_correo.png')) {
                     $rutaLogoInlineDel = realpath($dirPublicDel . '/assets/img/logo_correo.png');
-                } elseif (is_file($dirPublicDel . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
-                    $rutaLogoInlineDel = realpath($dirPublicDel . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+                } elseif (is_file($dirPublicDel . '/assets/img/logo_maxikash.png')) {
+                    $rutaLogoInlineDel = realpath($dirPublicDel . '/assets/img/logo_maxikash.png');
                 } elseif (is_file($dirPublicDel . '/assets/img/Logotipo-Maxikash-Outline.webp')) {
                     $rutaLogoInlineDel = realpath($dirPublicDel . '/assets/img/Logotipo-Maxikash-Outline.webp');
                 } elseif (is_file($dirPublicDel . '/assets/img/logo.svg')) {
@@ -18804,8 +18804,8 @@ class CapHum extends Controller
         $rutaLogoInline = null;
         if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
             $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
-        } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
-            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+        } elseif (is_file($dirPublic . '/assets/img/logo_maxikash.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_maxikash.png');
         } elseif (is_file($dirPublic . '/assets/img/Logotipo-Maxikash-Outline.webp')) {
             $rutaLogoInline = realpath($dirPublic . '/assets/img/Logotipo-Maxikash-Outline.webp');
         } elseif (is_file($dirPublic . '/assets/img/logo.svg')) {
@@ -19199,7 +19199,7 @@ class CapHum extends Controller
             $db = new \Core\Database();
             $existe = static function (string $usuario) use ($db): bool {
                 $row = $db->queryOne(
-                    'SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE user_name = :usuario LIMIT 1',
+                    'SELECT id FROM estado_cuenta.persona WHERE user_name = :usuario LIMIT 1',
                     ['usuario' => $usuario]
                 );
                 return !empty($row);
@@ -19319,7 +19319,7 @@ class CapHum extends Controller
             try {
                 $dbNumero = new \Core\Database();
                 $rowNumero = $dbNumero->queryOne(
-                    'SELECT numero_empleado FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id LIMIT 1',
+                    'SELECT numero_empleado FROM estado_cuenta.persona WHERE id = :id LIMIT 1',
                     ['id' => $id_persona]
                 );
                 $numeroEmpleadoFinal = trim((string) ($rowNumero['numero_empleado'] ?? ''));
@@ -19379,8 +19379,8 @@ class CapHum extends Controller
         $rutaLogoInline = null;
         if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
             $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
-        } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
-            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+        } elseif (is_file($dirPublic . '/assets/img/logo_maxikash.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_maxikash.png');
         }
         $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
         $urlPlataforma = rtrim($base, '/') . '/';
@@ -19668,7 +19668,7 @@ class CapHum extends Controller
                     TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre,
                     correo,
                     user_name
-                 FROM __SPARTA_SECRET_REDACTED__.persona
+                 FROM estado_cuenta.persona
                  WHERE UPPER(user_name) IN (" . implode(',', $placeholders) . ")
                    AND COALESCE(estatus, '') <> 'Baja'",
                 $params
@@ -20040,7 +20040,7 @@ class CapHum extends Controller
 
             try {
                 $db->CRUD(
-                    "INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                    "INSERT INTO estado_cuenta.carga_documento_persona
                      (id_persona, id_documento, archivo, fecha_carga, valido)
                      VALUES (:id_persona, :id_documento, :archivo, :fecha_carga, 1)",
                     [
@@ -21006,8 +21006,8 @@ class CapHum extends Controller
         $rutaLogoInline = null;
         if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
             $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
-        } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
-            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+        } elseif (is_file($dirPublic . '/assets/img/logo_maxikash.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_maxikash.png');
         }
         $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($this->obtenerBaseUrlApp(), '/') . '/assets/img/logo_correo.png');
         $asunto = 'Cierre de proceso de candidato Cobranza - ' . $nombreCompleto;
@@ -21104,9 +21104,9 @@ class CapHum extends Controller
                     TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre,
                     p.correo,
                     COALESCE(MAX(pu.nombre), '') AS nombre_puesto
-                 FROM __SPARTA_SECRET_REDACTED__.persona p
-                 LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
-                 LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = ap.id_puesto
+                 FROM estado_cuenta.persona p
+                 LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                 LEFT JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
                  WHERE p.id = :id
                    AND COALESCE(p.estatus, '') <> 'Baja'
                  GROUP BY p.id, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.correo
@@ -21172,9 +21172,9 @@ class CapHum extends Controller
                     TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre,
                     p.correo,
                     pu.nombre AS nombre_puesto
-                 FROM __SPARTA_SECRET_REDACTED__.persona p
-                 INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
-                 INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = ap.id_puesto
+                 FROM estado_cuenta.persona p
+                 INNER JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                 INNER JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
                  WHERE pu.departamento_id = :id_departamento
                    AND UPPER(pu.nombre) LIKE 'GERENTE DIVISIONAL%'
                    AND UPPER(pu.nombre) NOT LIKE '%PRUEBA%'
@@ -21380,7 +21380,7 @@ class CapHum extends Controller
                 $persona = $db->queryOne(
                     "SELECT TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre,
                             correo
-                       FROM __SPARTA_SECRET_REDACTED__.persona
+                       FROM estado_cuenta.persona
                       WHERE id = :id
                       LIMIT 1",
                     ['id' => $idPersona]
@@ -21397,7 +21397,7 @@ class CapHum extends Controller
 
                 $correosAdicionales = $db->queryAll(
                     "SELECT correo, tipo, estatus
-                       FROM __SPARTA_SECRET_REDACTED__.correos_persona
+                       FROM estado_cuenta.correos_persona
                       WHERE id_persona = :id
                         AND COALESCE(estatus, 'Activo') <> 'Inactivo'
                       ORDER BY
@@ -21507,7 +21507,7 @@ class CapHum extends Controller
             'constancia_fiscal' => 'constancia_fiscal',
             'documento_nss' => 'nss',
             'hoja_retencion' => 'hoja_retencion',
-            '__SPARTA_SECRET_REDACTED__' => '__SPARTA_SECRET_REDACTED__',
+            'estado_cuenta' => 'estado_cuenta',
         ];
         foreach ($pdfKeys as $formKey => $pathKey) {
             if (!empty($rutas[$pathKey]) && is_file($rutas[$pathKey])) {
@@ -21571,7 +21571,7 @@ class CapHum extends Controller
             'constancia_fiscal' => 'constancia_fiscal',
             'documento_nss' => 'nss',
             'hoja_retencion' => 'hoja_retencion',
-            '__SPARTA_SECRET_REDACTED__' => '__SPARTA_SECRET_REDACTED__',
+            'estado_cuenta' => 'estado_cuenta',
         ];
         foreach ($pdfKeys as $formKey => $pathKey) {
             if (!empty($rutas[$pathKey]) && is_file($rutas[$pathKey])) {
@@ -22063,7 +22063,7 @@ class CapHum extends Controller
             7 => 'constancia_fiscal',
             8 => 'nss',
             9 => 'hoja_retencion',
-            10 => '__SPARTA_SECRET_REDACTED__',
+            10 => 'estado_cuenta',
         ];
         $esperados = [];
         foreach ($documentos as $d) {
@@ -22109,7 +22109,7 @@ class CapHum extends Controller
                 7 => 'constancia_fiscal',
                 8 => 'nss',
                 9 => 'hoja_retencion',
-                10 => '__SPARTA_SECRET_REDACTED__',
+                10 => 'estado_cuenta',
             ];
             $key = $map[$numTipo] ?? null;
             if (!$key) {
@@ -22997,7 +22997,7 @@ class CapHum extends Controller
         $slugPorTipo = [
             1 => 'solicitud_interna', 2 => 'cv', 3 => 'acta_nacimiento', 4 => 'curp',
             5 => 'identificacion_frente', 6 => 'comprobante_domicilio', 7 => 'constancia_fiscal',
-            8 => 'nss', 9 => 'hoja_retencion', 10 => '__SPARTA_SECRET_REDACTED__',
+            8 => 'nss', 9 => 'hoja_retencion', 10 => 'estado_cuenta',
         ];
 
         $dirBase = defined('RAIZ') ? (RAIZ . '/storage/candidatos') : (__DIR__ . '/../storage/candidatos');

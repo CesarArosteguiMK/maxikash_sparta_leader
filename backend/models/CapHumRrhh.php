@@ -123,7 +123,7 @@ class CapHumRrhh extends Model
     {
         CapHum::asegurarTablaTrayectoriaPuesto($db);
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_datos_rrhh (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS estado_cuenta.persona_datos_rrhh (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             id_persona INT NOT NULL,
             registro_patronal VARCHAR(120) NULL,
@@ -173,7 +173,7 @@ class CapHumRrhh extends Model
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         self::asegurarColumnasDatosRrhh($db);
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.telefonos_persona (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS estado_cuenta.telefonos_persona (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             id_persona INT NOT NULL,
             numero VARCHAR(30) NOT NULL,
@@ -184,7 +184,7 @@ class CapHumRrhh extends Model
             KEY idx_telefonos_persona_numero (numero)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.correos_persona (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS estado_cuenta.correos_persona (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             id_persona INT NOT NULL,
             correo VARCHAR(160) NOT NULL,
@@ -195,7 +195,7 @@ class CapHumRrhh extends Model
             KEY idx_correos_persona_correo (correo)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.domicilio_persona (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS estado_cuenta.domicilio_persona (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             id_persona INT NOT NULL,
             domicilio_texto VARCHAR(500) NOT NULL,
@@ -207,7 +207,7 @@ class CapHumRrhh extends Model
             KEY idx_domicilio_persona_estatus (estatus)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS estado_cuenta.persona_cuenta_bancaria (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             id_persona INT NOT NULL,
             clabe VARCHAR(30) NULL,
@@ -221,7 +221,7 @@ class CapHumRrhh extends Model
             KEY idx_cuenta_bancaria_cuenta (numero_cuenta)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_credito_laboral (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS estado_cuenta.persona_credito_laboral (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             id_persona INT NOT NULL,
             tipo_credito VARCHAR(80) NULL,
@@ -232,7 +232,7 @@ class CapHumRrhh extends Model
             KEY idx_credito_laboral_persona (id_persona)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.contacto_persona_emergencia (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS estado_cuenta.contacto_persona_emergencia (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             id_persona INT NOT NULL,
             nombre_contacto VARCHAR(220) NOT NULL,
@@ -243,7 +243,7 @@ class CapHumRrhh extends Model
             KEY idx_contacto_emergencia_persona (id_persona)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_beneficiario_fallecimiento (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS estado_cuenta.persona_beneficiario_fallecimiento (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             id_persona INT NOT NULL,
             nombre_beneficiario VARCHAR(220) NOT NULL,
@@ -255,7 +255,7 @@ class CapHumRrhh extends Model
             KEY idx_beneficiario_persona (id_persona)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.catalogo_observacion_persona (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS estado_cuenta.catalogo_observacion_persona (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             nombre VARCHAR(160) NOT NULL,
             activo TINYINT(1) NOT NULL DEFAULT 1,
@@ -263,7 +263,7 @@ class CapHumRrhh extends Model
             UNIQUE KEY uq_catalogo_observacion_nombre (nombre)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_observacion (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS estado_cuenta.persona_observacion (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             id_persona INT NOT NULL,
             id_catalogo_observacion INT NULL,
@@ -274,7 +274,7 @@ class CapHumRrhh extends Model
             KEY idx_persona_observacion_catalogo (id_catalogo_observacion)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_actualizacion_info (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS estado_cuenta.persona_actualizacion_info (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             id_persona INT NOT NULL,
             id_solicita INT NULL,
@@ -292,7 +292,7 @@ class CapHumRrhh extends Model
             KEY idx_actualizacion_info_enviado_app (enviado_app)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_actualizacion_info_detalle (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS estado_cuenta.persona_actualizacion_info_detalle (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             id_solicitud INT NOT NULL,
             campo VARCHAR(80) NOT NULL,
@@ -308,7 +308,7 @@ class CapHumRrhh extends Model
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         self::asegurarColumnasActualizacionInfoDetalle($db);
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_actualizacion_info_respuesta (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS estado_cuenta.persona_actualizacion_info_respuesta (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             id_solicitud INT NOT NULL,
             id_detalle INT NOT NULL,
@@ -330,10 +330,10 @@ class CapHumRrhh extends Model
 
     private static function asegurarEstatusActualizacionInfo(Database $db): void
     {
-        $columna = $db->queryOne("SHOW COLUMNS FROM __SPARTA_SECRET_REDACTED__.persona_actualizacion_info LIKE 'estatus'");
+        $columna = $db->queryOne("SHOW COLUMNS FROM estado_cuenta.persona_actualizacion_info LIKE 'estatus'");
         $tipo = strtolower((string)($columna['Type'] ?? $columna['type'] ?? ''));
         if ($tipo && strpos($tipo, 'respondida') === false) {
-            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.persona_actualizacion_info
+            $db->CRUD("ALTER TABLE estado_cuenta.persona_actualizacion_info
                 MODIFY estatus ENUM('Pendiente','Enviada','Respondida','EnRevision','Aprobada','Rechazada','Procesada','Cancelada','Error')
                 NOT NULL DEFAULT 'Pendiente'");
         }
@@ -348,11 +348,11 @@ class CapHumRrhh extends Model
         ];
 
         foreach ($columnas as $nombre => $definicion) {
-            $existe = $db->queryOne("SHOW COLUMNS FROM __SPARTA_SECRET_REDACTED__.persona_actualizacion_info_detalle LIKE :columna", [
+            $existe = $db->queryOne("SHOW COLUMNS FROM estado_cuenta.persona_actualizacion_info_detalle LIKE :columna", [
                 'columna' => $nombre,
             ]);
             if (!$existe) {
-                $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.persona_actualizacion_info_detalle ADD COLUMN {$nombre} {$definicion}");
+                $db->CRUD("ALTER TABLE estado_cuenta.persona_actualizacion_info_detalle ADD COLUMN {$nombre} {$definicion}");
             }
         }
     }
@@ -380,11 +380,11 @@ class CapHumRrhh extends Model
         ];
 
         foreach ($columnas as $nombre => $definicion) {
-            $existe = $db->queryOne("SHOW COLUMNS FROM __SPARTA_SECRET_REDACTED__.persona_datos_rrhh LIKE :columna", [
+            $existe = $db->queryOne("SHOW COLUMNS FROM estado_cuenta.persona_datos_rrhh LIKE :columna", [
                 'columna' => $nombre,
             ]);
             if (!$existe) {
-                $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.persona_datos_rrhh ADD COLUMN {$nombre} {$definicion}");
+                $db->CRUD("ALTER TABLE estado_cuenta.persona_datos_rrhh ADD COLUMN {$nombre} {$definicion}");
             }
         }
     }
@@ -443,7 +443,7 @@ class CapHumRrhh extends Model
     {
         $row = $db->queryOne(
             "SELECT COALESCE(MAX(CAST(numero_empleado AS UNSIGNED)), 0) AS mx
-             FROM __SPARTA_SECRET_REDACTED__.persona
+             FROM estado_cuenta.persona
              WHERE TRIM(numero_empleado) <> ''
                AND TRIM(numero_empleado) REGEXP '^[0-9]+$'"
         );
@@ -452,7 +452,7 @@ class CapHumRrhh extends Model
         for ($i = 0; $i < 100000; $i++) {
             $candidate = (string) $next;
             $existe = $db->queryOne(
-                'SELECT 1 AS ok FROM __SPARTA_SECRET_REDACTED__.persona WHERE numero_empleado = :numero LIMIT 1',
+                'SELECT 1 AS ok FROM estado_cuenta.persona WHERE numero_empleado = :numero LIMIT 1',
                 ['numero' => $candidate]
             );
             if (!$existe) {
@@ -559,7 +559,7 @@ class CapHumRrhh extends Model
             'observaciones' => self::texto($GLOBALS['rrhh_observaciones_actual'] ?? '', 5000),
         ];
 
-        $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_datos_rrhh
+        $db->CRUD("INSERT INTO estado_cuenta.persona_datos_rrhh
             (id_persona, registro_patronal, codigo_contpaq, fecha_contpaq, fecha_imss_alta, id_departamento, id_area,
              id_puesto, id_jefe, puesto_texto, departamento_texto, area_texto, direccion_organizacional,
              ubicacion_laboral, municipio_laboral, jefe_directo_texto, sueldo_neto, sueldo_quincenal, sueldo_bruto,
@@ -609,13 +609,13 @@ class CapHumRrhh extends Model
             'persona_beneficiario_fallecimiento',
             'persona_observacion',
         ] as $tabla) {
-            $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.{$tabla} WHERE id_persona = :id_persona", ['id_persona' => $idPersona]);
+            $db->CRUD("DELETE FROM estado_cuenta.{$tabla} WHERE id_persona = :id_persona", ['id_persona' => $idPersona]);
         }
 
         foreach ($datos['telefonos'] as $tel) {
             $numero = self::texto($tel['numero'] ?? '', 30);
             if (!$numero) continue;
-            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.telefonos_persona (id_persona, numero, tipo, estatus) VALUES (:id_persona, :numero, :tipo, :estatus)", [
+            $db->CRUD("INSERT INTO estado_cuenta.telefonos_persona (id_persona, numero, tipo, estatus) VALUES (:id_persona, :numero, :tipo, :estatus)", [
                 'id_persona' => $idPersona,
                 'numero' => $numero,
                 'tipo' => self::texto($tel['tipo'] ?? 'Personal', 40),
@@ -626,7 +626,7 @@ class CapHumRrhh extends Model
         foreach ($datos['correos'] as $mail) {
             $correo = self::texto($mail['correo'] ?? '', 160);
             if (!$correo) continue;
-            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.correos_persona (id_persona, correo, tipo, estatus) VALUES (:id_persona, :correo, :tipo, :estatus)", [
+            $db->CRUD("INSERT INTO estado_cuenta.correos_persona (id_persona, correo, tipo, estatus) VALUES (:id_persona, :correo, :tipo, :estatus)", [
                 'id_persona' => $idPersona,
                 'correo' => $correo,
                 'tipo' => self::texto($mail['tipo'] ?? 'Personal', 40),
@@ -637,7 +637,7 @@ class CapHumRrhh extends Model
         foreach ($datos['domicilios'] as $dom) {
             $domicilio = self::texto($dom['domicilio_texto'] ?? '', 500);
             if (!$domicilio) continue;
-            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.domicilio_persona (id_persona, domicilio_texto, codigo_postal, tipo, estatus) VALUES (:id_persona, :domicilio_texto, :codigo_postal, :tipo, :estatus)", [
+            $db->CRUD("INSERT INTO estado_cuenta.domicilio_persona (id_persona, domicilio_texto, codigo_postal, tipo, estatus) VALUES (:id_persona, :domicilio_texto, :codigo_postal, :tipo, :estatus)", [
                 'id_persona' => $idPersona,
                 'domicilio_texto' => $domicilio,
                 'codigo_postal' => self::texto($dom['codigo_postal'] ?? '', 12),
@@ -648,7 +648,7 @@ class CapHumRrhh extends Model
 
         foreach ($datos['cuentas'] as $cuenta) {
             if (!self::texto($cuenta['clabe'] ?? '') && !self::texto($cuenta['numero_cuenta'] ?? '') && !self::texto($cuenta['nombre_banco'] ?? '')) continue;
-            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria (id_persona, clabe, numero_cuenta, id_banco, nombre_banco, estatus) VALUES (:id_persona, :clabe, :numero_cuenta, :id_banco, :nombre_banco, :estatus)", [
+            $db->CRUD("INSERT INTO estado_cuenta.persona_cuenta_bancaria (id_persona, clabe, numero_cuenta, id_banco, nombre_banco, estatus) VALUES (:id_persona, :clabe, :numero_cuenta, :id_banco, :nombre_banco, :estatus)", [
                 'id_persona' => $idPersona,
                 'clabe' => self::texto($cuenta['clabe'] ?? '', 30),
                 'numero_cuenta' => self::texto($cuenta['numero_cuenta'] ?? '', 40),
@@ -662,7 +662,7 @@ class CapHumRrhh extends Model
         $numeroCredito = self::texto($datos['nomina']['no_credito'] ?? '', 80);
         $montoDescontar = self::decimal($datos['nomina']['monto_descontar'] ?? null);
         if ($tipoCredito || $numeroCredito || $montoDescontar !== null) {
-            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_credito_laboral (id_persona, tipo_credito, numero_credito, monto_descontar, estatus) VALUES (:id_persona, :tipo_credito, :numero_credito, :monto_descontar, 'Activo')", [
+            $db->CRUD("INSERT INTO estado_cuenta.persona_credito_laboral (id_persona, tipo_credito, numero_credito, monto_descontar, estatus) VALUES (:id_persona, :tipo_credito, :numero_credito, :monto_descontar, 'Activo')", [
                 'id_persona' => $idPersona,
                 'tipo_credito' => $tipoCredito,
                 'numero_credito' => $numeroCredito,
@@ -673,7 +673,7 @@ class CapHumRrhh extends Model
         foreach ($datos['contactos'] as $contacto) {
             $nombre = self::texto($contacto['nombre_contacto'] ?? '', 220);
             if (!$nombre) continue;
-            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.contacto_persona_emergencia (id_persona, nombre_contacto, parentesco, numero, estatus) VALUES (:id_persona, :nombre_contacto, :parentesco, :numero, :estatus)", [
+            $db->CRUD("INSERT INTO estado_cuenta.contacto_persona_emergencia (id_persona, nombre_contacto, parentesco, numero, estatus) VALUES (:id_persona, :nombre_contacto, :parentesco, :numero, :estatus)", [
                 'id_persona' => $idPersona,
                 'nombre_contacto' => $nombre,
                 'parentesco' => self::texto($contacto['parentesco'] ?? '', 80),
@@ -685,7 +685,7 @@ class CapHumRrhh extends Model
         foreach ($datos['beneficiarios'] as $beneficiario) {
             $nombre = self::texto($beneficiario['nombre_beneficiario'] ?? '', 220);
             if (!$nombre) continue;
-            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_beneficiario_fallecimiento (id_persona, nombre_beneficiario, parentesco, numero, porcentaje, estatus) VALUES (:id_persona, :nombre_beneficiario, :parentesco, :numero, :porcentaje, :estatus)", [
+            $db->CRUD("INSERT INTO estado_cuenta.persona_beneficiario_fallecimiento (id_persona, nombre_beneficiario, parentesco, numero, porcentaje, estatus) VALUES (:id_persona, :nombre_beneficiario, :parentesco, :numero, :porcentaje, :estatus)", [
                 'id_persona' => $idPersona,
                 'nombre_beneficiario' => $nombre,
                 'parentesco' => self::texto($beneficiario['parentesco'] ?? '', 80),
@@ -697,9 +697,9 @@ class CapHumRrhh extends Model
 
         $observacion = self::texto($GLOBALS['rrhh_observaciones_actual'] ?? '', 5000);
         if ($observacion) {
-            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.catalogo_observacion_persona (nombre, activo) VALUES ('Observacion general', 1) ON DUPLICATE KEY UPDATE activo = 1");
-            $cat = $db->queryOne("SELECT id FROM __SPARTA_SECRET_REDACTED__.catalogo_observacion_persona WHERE nombre = 'Observacion general' LIMIT 1");
-            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_observacion (id_persona, id_catalogo_observacion, observacion, estatus) VALUES (:id_persona, :id_catalogo_observacion, :observacion, 'Activo')", [
+            $db->CRUD("INSERT INTO estado_cuenta.catalogo_observacion_persona (nombre, activo) VALUES ('Observacion general', 1) ON DUPLICATE KEY UPDATE activo = 1");
+            $cat = $db->queryOne("SELECT id FROM estado_cuenta.catalogo_observacion_persona WHERE nombre = 'Observacion general' LIMIT 1");
+            $db->CRUD("INSERT INTO estado_cuenta.persona_observacion (id_persona, id_catalogo_observacion, observacion, estatus) VALUES (:id_persona, :id_catalogo_observacion, :observacion, 'Activo')", [
                 'id_persona' => $idPersona,
                 'id_catalogo_observacion' => $cat['id'] ?? null,
                 'observacion' => $observacion,
@@ -713,7 +713,7 @@ class CapHumRrhh extends Model
         if ($idPuesto > 0) {
             if (empty($rrhh['departamento_id'])) {
                 $puesto = $db->queryOne(
-                    "SELECT departamento_id FROM __SPARTA_SECRET_REDACTED__.puesto WHERE id = :id_puesto LIMIT 1",
+                    "SELECT departamento_id FROM estado_cuenta.puesto WHERE id = :id_puesto LIMIT 1",
                     ['id_puesto' => $idPuesto]
                 );
                 if (!empty($puesto['departamento_id'])) {
@@ -738,7 +738,7 @@ class CapHumRrhh extends Model
         if ($whereDepartamento !== '') {
             $puesto = $db->queryOne(
                 "SELECT id, departamento_id
-                 FROM __SPARTA_SECRET_REDACTED__.puesto
+                 FROM estado_cuenta.puesto
                  WHERE activo = 1
                    AND LOWER(TRIM(nombre)) = :puesto
                    {$whereDepartamento}
@@ -749,7 +749,7 @@ class CapHumRrhh extends Model
         } else {
             $coincidencias = $db->queryAll(
                 "SELECT id, departamento_id
-                 FROM __SPARTA_SECRET_REDACTED__.puesto
+                 FROM estado_cuenta.puesto
                  WHERE activo = 1
                    AND LOWER(TRIM(nombre)) = :puesto
                  ORDER BY id DESC
@@ -775,14 +775,14 @@ class CapHumRrhh extends Model
         $puestosAntes = CapHum::puestosActivosTrayectoria($db, $idPersona);
 
         if ($idPuesto) {
-            $existe = $db->queryOne("SELECT id FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = :id_persona AND id_puesto = :id_puesto AND activo = 1 LIMIT 1", [
+            $existe = $db->queryOne("SELECT id FROM estado_cuenta.asigna_puesto WHERE id_persona = :id_persona AND id_puesto = :id_puesto AND activo = 1 LIMIT 1", [
                 'id_persona' => $idPersona,
                 'id_puesto' => $idPuesto,
             ]);
             if (!$existe) {
                 $fechaAsignacionCdmx = CapHum::fechaHoraCdmx();
-                $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto SET activo = 0 WHERE id_persona = :id_persona AND activo = 1", ['id_persona' => $idPersona]);
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto (id, id_persona, id_puesto, fecha_asignacion, activo) VALUES (DEFAULT, :id_persona, :id_puesto, :fecha_asignacion, 1)", [
+                $db->CRUD("UPDATE estado_cuenta.asigna_puesto SET activo = 0 WHERE id_persona = :id_persona AND activo = 1", ['id_persona' => $idPersona]);
+                $db->CRUD("INSERT INTO estado_cuenta.asigna_puesto (id, id_persona, id_puesto, fecha_asignacion, activo) VALUES (DEFAULT, :id_persona, :id_puesto, :fecha_asignacion, 1)", [
                     'id_persona' => $idPersona,
                     'id_puesto' => $idPuesto,
                     'fecha_asignacion' => $fechaAsignacionCdmx,
@@ -800,12 +800,12 @@ class CapHumRrhh extends Model
         );
 
         if ($idJefe || $idVacanteJefe) {
-            $actual = $db->queryOne("SELECT id_jefe, id_vacante_jefe FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_persona = :id_persona ORDER BY id DESC LIMIT 1", ['id_persona' => $idPersona]);
+            $actual = $db->queryOne("SELECT id_jefe, id_vacante_jefe FROM estado_cuenta.asigna_jefe WHERE id_persona = :id_persona ORDER BY id DESC LIMIT 1", ['id_persona' => $idPersona]);
             $mismo = $actual
                 && (int)($actual['id_jefe'] ?? 0) === (int)($idJefe ?? 0)
                 && (int)($actual['id_vacante_jefe'] ?? 0) === (int)($idVacanteJefe ?? 0);
             if (!$mismo) {
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_jefe (id, id_persona, id_jefe, id_vacante_jefe, fecha_inicio, fecha_fin) VALUES (DEFAULT, :id_persona, :id_jefe, :id_vacante_jefe, NOW(), NOW())", [
+                $db->CRUD("INSERT INTO estado_cuenta.asigna_jefe (id, id_persona, id_jefe, id_vacante_jefe, fecha_inicio, fecha_fin) VALUES (DEFAULT, :id_persona, :id_jefe, :id_vacante_jefe, NOW(), NOW())", [
                     'id_persona' => $idPersona,
                     'id_jefe' => $idJefe,
                     'id_vacante_jefe' => $idVacanteJefe,
@@ -851,12 +851,12 @@ class CapHumRrhh extends Model
             $numeroEmpleado = self::texto($persona['numero_empleado'] ?? '', 40);
             if (!$numeroEmpleado || strcasecmp($numeroEmpleado, 'PEND') === 0 || strcasecmp($numeroEmpleado, 'PENDIENTE') === 0) {
                 $numeroEmpleado = self::siguienteNumeroEmpleadoLibre($db);
-            } elseif ($db->queryOne('SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE numero_empleado = :numero LIMIT 1', ['numero' => $numeroEmpleado])) {
+            } elseif ($db->queryOne('SELECT id FROM estado_cuenta.persona WHERE numero_empleado = :numero LIMIT 1', ['numero' => $numeroEmpleado])) {
                 return self::resultado(false, 'Ya existe una persona con ese numero de empleado.');
             }
 
             $usuario = self::texto($persona['usuario'] ?? '', 40);
-            if ($usuario && $db->queryOne('SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE user_name = :usuario LIMIT 1', ['usuario' => $usuario])) {
+            if ($usuario && $db->queryOne('SELECT id FROM estado_cuenta.persona WHERE user_name = :usuario LIMIT 1', ['usuario' => $usuario])) {
                 return self::resultado(false, 'Ya existe una persona con ese usuario.');
             }
 
@@ -866,7 +866,7 @@ class CapHumRrhh extends Model
             $cpPrincipal = self::texto($domicilios[0]['codigo_postal'] ?? $persona['codigo_postal'] ?? '', 12);
 
             $db->beginTransaction();
-            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona
+            $db->CRUD("INSERT INTO estado_cuenta.persona
                 (nombres, segundo_nombre, apellidop, apellidom, numero_empleado, codigo_contpac, correo, telefono_uno, telefono_dos,
                  estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, domicilio_calle_texto, codigo_postal, curp)
                 VALUES
@@ -908,7 +908,7 @@ class CapHumRrhh extends Model
             $fechaNacimiento = self::fecha($persona['fecha_nacimiento'] ?? '');
             [$anioNacimiento, $mesNacimiento, $diaNacimiento] = self::partesFechaNacimiento($fechaNacimiento);
 
-            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_datos_rrhh
+            $db->CRUD("INSERT INTO estado_cuenta.persona_datos_rrhh
                 (id_persona, registro_patronal, codigo_contpaq, fecha_contpaq, fecha_imss_alta, id_departamento, id_area,
                  id_puesto, id_jefe, puesto_texto, departamento_texto,
                  area_texto, direccion_organizacional,
@@ -970,7 +970,7 @@ class CapHumRrhh extends Model
 
             if ($idPuesto) {
                 $fechaAsignacionCdmx = CapHum::fechaHoraCdmx();
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto
+                $db->CRUD("INSERT INTO estado_cuenta.asigna_puesto
                     (id, id_persona, id_puesto, fecha_asignacion, activo)
                     VALUES (DEFAULT, :id_persona, :id_puesto, :fecha_asignacion, 1)", [
                     'id_persona' => $idPersona,
@@ -988,7 +988,7 @@ class CapHumRrhh extends Model
             }
 
             if ($idJefe || $idVacanteJefe) {
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_jefe
+                $db->CRUD("INSERT INTO estado_cuenta.asigna_jefe
                     (id, id_persona, id_jefe, id_vacante_jefe, fecha_inicio, fecha_fin)
                     VALUES (DEFAULT, :id_persona, :id_jefe, :id_vacante_jefe, NOW(), NOW())", [
                     'id_persona' => $idPersona,
@@ -1000,7 +1000,7 @@ class CapHumRrhh extends Model
             foreach ($telefonos as $tel) {
                 $numero = self::texto($tel['numero'] ?? '', 30);
                 if (!$numero) continue;
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.telefonos_persona (id_persona, numero, tipo, estatus) VALUES (:id_persona, :numero, :tipo, :estatus)", [
+                $db->CRUD("INSERT INTO estado_cuenta.telefonos_persona (id_persona, numero, tipo, estatus) VALUES (:id_persona, :numero, :tipo, :estatus)", [
                     'id_persona' => $idPersona,
                     'numero' => $numero,
                     'tipo' => self::texto($tel['tipo'] ?? 'Personal', 40),
@@ -1011,7 +1011,7 @@ class CapHumRrhh extends Model
             foreach ($correos as $mail) {
                 $correo = self::texto($mail['correo'] ?? '', 160);
                 if (!$correo) continue;
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.correos_persona (id_persona, correo, tipo, estatus) VALUES (:id_persona, :correo, :tipo, :estatus)", [
+                $db->CRUD("INSERT INTO estado_cuenta.correos_persona (id_persona, correo, tipo, estatus) VALUES (:id_persona, :correo, :tipo, :estatus)", [
                     'id_persona' => $idPersona,
                     'correo' => $correo,
                     'tipo' => self::texto($mail['tipo'] ?? 'Personal', 40),
@@ -1022,7 +1022,7 @@ class CapHumRrhh extends Model
             foreach ($domicilios as $dom) {
                 $domicilio = self::texto($dom['domicilio_texto'] ?? '', 500);
                 if (!$domicilio) continue;
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.domicilio_persona (id_persona, domicilio_texto, codigo_postal, tipo, estatus) VALUES (:id_persona, :domicilio_texto, :codigo_postal, :tipo, :estatus)", [
+                $db->CRUD("INSERT INTO estado_cuenta.domicilio_persona (id_persona, domicilio_texto, codigo_postal, tipo, estatus) VALUES (:id_persona, :domicilio_texto, :codigo_postal, :tipo, :estatus)", [
                     'id_persona' => $idPersona,
                     'domicilio_texto' => $domicilio,
                     'codigo_postal' => self::texto($dom['codigo_postal'] ?? '', 12),
@@ -1032,7 +1032,7 @@ class CapHumRrhh extends Model
             }
 
             foreach ($cuentas as $cuenta) {
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria (id_persona, clabe, numero_cuenta, id_banco, nombre_banco, estatus) VALUES (:id_persona, :clabe, :numero_cuenta, :id_banco, :nombre_banco, :estatus)", [
+                $db->CRUD("INSERT INTO estado_cuenta.persona_cuenta_bancaria (id_persona, clabe, numero_cuenta, id_banco, nombre_banco, estatus) VALUES (:id_persona, :clabe, :numero_cuenta, :id_banco, :nombre_banco, :estatus)", [
                     'id_persona' => $idPersona,
                     'clabe' => self::texto($cuenta['clabe'] ?? '', 30),
                     'numero_cuenta' => self::texto($cuenta['numero_cuenta'] ?? '', 40),
@@ -1046,7 +1046,7 @@ class CapHumRrhh extends Model
             $numeroCredito = self::texto($nomina['no_credito'] ?? '', 80);
             $montoDescontar = self::decimal($nomina['monto_descontar'] ?? null);
             if ($tipoCredito || $numeroCredito || $montoDescontar !== null) {
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_credito_laboral (id_persona, tipo_credito, numero_credito, monto_descontar, estatus) VALUES (:id_persona, :tipo_credito, :numero_credito, :monto_descontar, 'Activo')", [
+                $db->CRUD("INSERT INTO estado_cuenta.persona_credito_laboral (id_persona, tipo_credito, numero_credito, monto_descontar, estatus) VALUES (:id_persona, :tipo_credito, :numero_credito, :monto_descontar, 'Activo')", [
                     'id_persona' => $idPersona,
                     'tipo_credito' => $tipoCredito,
                     'numero_credito' => $numeroCredito,
@@ -1057,7 +1057,7 @@ class CapHumRrhh extends Model
             foreach ($contactos as $contacto) {
                 $nombre = self::texto($contacto['nombre_contacto'] ?? '', 220);
                 if (!$nombre) continue;
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.contacto_persona_emergencia (id_persona, nombre_contacto, parentesco, numero, estatus) VALUES (:id_persona, :nombre_contacto, :parentesco, :numero, :estatus)", [
+                $db->CRUD("INSERT INTO estado_cuenta.contacto_persona_emergencia (id_persona, nombre_contacto, parentesco, numero, estatus) VALUES (:id_persona, :nombre_contacto, :parentesco, :numero, :estatus)", [
                     'id_persona' => $idPersona,
                     'nombre_contacto' => $nombre,
                     'parentesco' => self::texto($contacto['parentesco'] ?? '', 80),
@@ -1069,7 +1069,7 @@ class CapHumRrhh extends Model
             foreach ($beneficiarios as $beneficiario) {
                 $nombre = self::texto($beneficiario['nombre_beneficiario'] ?? '', 220);
                 if (!$nombre) continue;
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_beneficiario_fallecimiento (id_persona, nombre_beneficiario, parentesco, numero, porcentaje, estatus) VALUES (:id_persona, :nombre_beneficiario, :parentesco, :numero, :porcentaje, :estatus)", [
+                $db->CRUD("INSERT INTO estado_cuenta.persona_beneficiario_fallecimiento (id_persona, nombre_beneficiario, parentesco, numero, porcentaje, estatus) VALUES (:id_persona, :nombre_beneficiario, :parentesco, :numero, :porcentaje, :estatus)", [
                     'id_persona' => $idPersona,
                     'nombre_beneficiario' => $nombre,
                     'parentesco' => self::texto($beneficiario['parentesco'] ?? '', 80),
@@ -1081,9 +1081,9 @@ class CapHumRrhh extends Model
 
             $observacion = self::texto($data['observaciones'] ?? '', 5000);
             if ($observacion) {
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.catalogo_observacion_persona (nombre, activo) VALUES ('Observación general', 1) ON DUPLICATE KEY UPDATE activo = 1");
-                $cat = $db->queryOne("SELECT id FROM __SPARTA_SECRET_REDACTED__.catalogo_observacion_persona WHERE nombre = 'Observación general' LIMIT 1");
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_observacion (id_persona, id_catalogo_observacion, observacion, estatus) VALUES (:id_persona, :id_catalogo_observacion, :observacion, 'Activo')", [
+                $db->CRUD("INSERT INTO estado_cuenta.catalogo_observacion_persona (nombre, activo) VALUES ('Observación general', 1) ON DUPLICATE KEY UPDATE activo = 1");
+                $cat = $db->queryOne("SELECT id FROM estado_cuenta.catalogo_observacion_persona WHERE nombre = 'Observación general' LIMIT 1");
+                $db->CRUD("INSERT INTO estado_cuenta.persona_observacion (id_persona, id_catalogo_observacion, observacion, estatus) VALUES (:id_persona, :id_catalogo_observacion, :observacion, 'Activo')", [
                     'id_persona' => $idPersona,
                     'id_catalogo_observacion' => $cat['id'] ?? null,
                     'observacion' => $observacion,
@@ -1124,8 +1124,8 @@ class CapHumRrhh extends Model
                        p.domicilio_calle_texto, p.codigo_postal, p.curp,
                        r.rfc, r.nss, r.entidad_federativa_rfc, r.anio, r.mes, r.dia,
                        r.fecha_nacimiento, r.sexo
-                FROM __SPARTA_SECRET_REDACTED__.persona p
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona_datos_rrhh r ON r.id_persona = p.id
+                FROM estado_cuenta.persona p
+                LEFT JOIN estado_cuenta.persona_datos_rrhh r ON r.id_persona = p.id
                 WHERE p.id = :id_persona
                 LIMIT 1
             ", ['id_persona' => $idPersona]);
@@ -1142,7 +1142,7 @@ class CapHumRrhh extends Model
                        jefe_directo_texto, tipo_sangre, alergias, enfermedades_cronicas,
                        enfermedades_hereditarias, medicamentos_actuales, discapacidad_condicion,
                        observaciones_medicas, carta_no_credito, carta_no_nomina_bbva, observaciones
-                FROM __SPARTA_SECRET_REDACTED__.persona_datos_rrhh
+                FROM estado_cuenta.persona_datos_rrhh
                 WHERE id_persona = :id_persona
                 LIMIT 1
             ", ['id_persona' => $idPersona]) ?: [];
@@ -1159,15 +1159,15 @@ class CapHumRrhh extends Model
                     dir.nombre AS direccion_texto,
                     COALESCE(dep.id_empresa, dorg.id_empresa, dir.id_empresa, 1) AS empresa_id,
                     COALESCE(emp.nombre_comercial, 'MaxiKash') AS empresa_texto
-                FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-                INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = ap.id_puesto
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = pu.departamento_id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg ON dorg.id = dep.id_departamento_organizacional
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                FROM estado_cuenta.asigna_puesto ap
+                INNER JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
+                LEFT JOIN estado_cuenta.departamento dep ON dep.id = pu.departamento_id
+                LEFT JOIN estado_cuenta.departamento_organizacional dorg ON dorg.id = dep.id_departamento_organizacional
+                LEFT JOIN estado_cuenta.asigna_direcciones ad
                        ON ad.id_departamento_organizacional = dep.id_departamento_organizacional
                       AND COALESCE(ad.activo, 1) = 1
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir ON dir.id = ad.id_direccion
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.rrhh_empresas emp
+                LEFT JOIN estado_cuenta.direcciones_organizacion dir ON dir.id = ad.id_direccion
+                LEFT JOIN estado_cuenta.rrhh_empresas emp
                        ON emp.id = COALESCE(dep.id_empresa, dorg.id_empresa, dir.id_empresa, 1)
                 WHERE ap.id_persona = :id_persona
                   AND COALESCE(ap.activo, 1) = 1
@@ -1193,7 +1193,7 @@ class CapHumRrhh extends Model
 
             $jefe = $db->queryOne("
                 SELECT id_jefe, id_vacante_jefe
-                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                FROM estado_cuenta.asigna_jefe
                 WHERE id_persona = :id_persona
                 ORDER BY id DESC
                 LIMIT 1
@@ -1208,7 +1208,7 @@ class CapHumRrhh extends Model
 
             $credito = $db->queryOne("
                 SELECT tipo_credito AS credito_infonavit_fonacot, numero_credito AS no_credito, monto_descontar
-                FROM __SPARTA_SECRET_REDACTED__.persona_credito_laboral
+                FROM estado_cuenta.persona_credito_laboral
                 WHERE id_persona = :id_persona
                 ORDER BY id DESC
                 LIMIT 1
@@ -1216,7 +1216,7 @@ class CapHumRrhh extends Model
 
             $observacion = $db->queryOne("
                 SELECT observacion
-                FROM __SPARTA_SECRET_REDACTED__.persona_observacion
+                FROM estado_cuenta.persona_observacion
                 WHERE id_persona = :id_persona
                 ORDER BY id DESC
                 LIMIT 1
@@ -1249,12 +1249,12 @@ class CapHumRrhh extends Model
                 ],
                 'rrhh' => $rrhh,
                 'nomina' => $credito,
-                'telefonos' => $db->queryAll("SELECT numero, tipo, estatus FROM __SPARTA_SECRET_REDACTED__.telefonos_persona WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
-                'correos' => $db->queryAll("SELECT correo, tipo, estatus FROM __SPARTA_SECRET_REDACTED__.correos_persona WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
-                'domicilios' => $db->queryAll("SELECT domicilio_texto, codigo_postal, tipo, estatus FROM __SPARTA_SECRET_REDACTED__.domicilio_persona WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
-                'cuentas_bancarias' => $db->queryAll("SELECT id_banco, nombre_banco, numero_cuenta, clabe, estatus FROM __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
-                'contactos_emergencia' => $db->queryAll("SELECT nombre_contacto, parentesco, numero, estatus FROM __SPARTA_SECRET_REDACTED__.contacto_persona_emergencia WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
-                'beneficiarios' => $db->queryAll("SELECT nombre_beneficiario, parentesco, numero, porcentaje, estatus FROM __SPARTA_SECRET_REDACTED__.persona_beneficiario_fallecimiento WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
+                'telefonos' => $db->queryAll("SELECT numero, tipo, estatus FROM estado_cuenta.telefonos_persona WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
+                'correos' => $db->queryAll("SELECT correo, tipo, estatus FROM estado_cuenta.correos_persona WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
+                'domicilios' => $db->queryAll("SELECT domicilio_texto, codigo_postal, tipo, estatus FROM estado_cuenta.domicilio_persona WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
+                'cuentas_bancarias' => $db->queryAll("SELECT id_banco, nombre_banco, numero_cuenta, clabe, estatus FROM estado_cuenta.persona_cuenta_bancaria WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
+                'contactos_emergencia' => $db->queryAll("SELECT nombre_contacto, parentesco, numero, estatus FROM estado_cuenta.contacto_persona_emergencia WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
+                'beneficiarios' => $db->queryAll("SELECT nombre_beneficiario, parentesco, numero, porcentaje, estatus FROM estado_cuenta.persona_beneficiario_fallecimiento WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
                 'salario_sensible' => [
                     'tiene_salario' => CapHum::personaTieneSalarioSensible($idPersona),
                 ],
@@ -1302,14 +1302,14 @@ class CapHumRrhh extends Model
                        r.medicamentos_actuales, r.discapacidad_condicion, r.observaciones_medicas,
                        (
                            SELECT t.numero
-                           FROM __SPARTA_SECRET_REDACTED__.telefonos_persona t
+                           FROM estado_cuenta.telefonos_persona t
                            WHERE t.id_persona = p.id AND t.estatus = 'Activo'
                            ORDER BY t.id ASC
                            LIMIT 1
                        ) AS telefono_lista,
                        (
                            SELECT d.domicilio_texto
-                           FROM __SPARTA_SECRET_REDACTED__.domicilio_persona d
+                           FROM estado_cuenta.domicilio_persona d
                            WHERE d.id_persona = p.id AND d.estatus = 'Activo'
                            ORDER BY CASE d.tipo
                                WHEN 'Actual' THEN 1
@@ -1324,7 +1324,7 @@ class CapHumRrhh extends Model
                        ) AS domicilio_lista,
                        (
                            SELECT d.codigo_postal
-                           FROM __SPARTA_SECRET_REDACTED__.domicilio_persona d
+                           FROM estado_cuenta.domicilio_persona d
                            WHERE d.id_persona = p.id AND d.estatus = 'Activo'
                            ORDER BY CASE d.tipo
                                WHEN 'Actual' THEN 1
@@ -1339,13 +1339,13 @@ class CapHumRrhh extends Model
                        ) AS codigo_postal_lista,
                        (
                            SELECT CONCAT_WS(' / ', c.nombre_contacto, c.parentesco, c.numero)
-                           FROM __SPARTA_SECRET_REDACTED__.contacto_persona_emergencia c
+                           FROM estado_cuenta.contacto_persona_emergencia c
                            WHERE c.id_persona = p.id AND c.estatus = 'Activo'
                            ORDER BY c.id ASC
                            LIMIT 1
                        ) AS contacto_emergencia_texto
-                FROM __SPARTA_SECRET_REDACTED__.persona p
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona_datos_rrhh r ON r.id_persona = p.id
+                FROM estado_cuenta.persona p
+                LEFT JOIN estado_cuenta.persona_datos_rrhh r ON r.id_persona = p.id
                 WHERE p.id = :id_persona
                 LIMIT 1
             ", ['id_persona' => $idPersona]);
@@ -1429,14 +1429,14 @@ class CapHumRrhh extends Model
                        r.medicamentos_actuales, r.discapacidad_condicion, r.observaciones_medicas,
                        (
                            SELECT t.numero
-                           FROM __SPARTA_SECRET_REDACTED__.telefonos_persona t
+                           FROM estado_cuenta.telefonos_persona t
                            WHERE t.id_persona = p.id AND t.estatus = 'Activo'
                            ORDER BY t.id ASC
                            LIMIT 1
                        ) AS telefono_lista,
                        (
                            SELECT d.domicilio_texto
-                           FROM __SPARTA_SECRET_REDACTED__.domicilio_persona d
+                           FROM estado_cuenta.domicilio_persona d
                            WHERE d.id_persona = p.id AND d.estatus = 'Activo'
                            ORDER BY CASE d.tipo
                                WHEN 'Actual' THEN 1
@@ -1451,7 +1451,7 @@ class CapHumRrhh extends Model
                        ) AS domicilio_lista,
                        (
                            SELECT d.codigo_postal
-                           FROM __SPARTA_SECRET_REDACTED__.domicilio_persona d
+                           FROM estado_cuenta.domicilio_persona d
                            WHERE d.id_persona = p.id AND d.estatus = 'Activo'
                            ORDER BY CASE d.tipo
                                WHEN 'Actual' THEN 1
@@ -1466,13 +1466,13 @@ class CapHumRrhh extends Model
                        ) AS codigo_postal_lista,
                        (
                            SELECT CONCAT_WS(' / ', c.nombre_contacto, c.parentesco, c.numero)
-                           FROM __SPARTA_SECRET_REDACTED__.contacto_persona_emergencia c
+                           FROM estado_cuenta.contacto_persona_emergencia c
                            WHERE c.id_persona = p.id AND c.estatus = 'Activo'
                            ORDER BY c.id ASC
                            LIMIT 1
                        ) AS contacto_emergencia_texto
-                FROM __SPARTA_SECRET_REDACTED__.persona p
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona_datos_rrhh r ON r.id_persona = p.id
+                FROM estado_cuenta.persona p
+                LEFT JOIN estado_cuenta.persona_datos_rrhh r ON r.id_persona = p.id
                 WHERE p.id IN (" . implode(',', $placeholders) . ")
             ", $params);
 
@@ -1564,7 +1564,7 @@ class CapHumRrhh extends Model
                     id,
                     TRIM(COALESCE(numero_empleado, '')) AS numero_empleado,
                     CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom) AS nombre_persona
-                FROM __SPARTA_SECRET_REDACTED__.persona
+                FROM estado_cuenta.persona
                 WHERE id = :id_persona
                 LIMIT 1", [
                 'id_persona' => $idPersona,
@@ -1574,7 +1574,7 @@ class CapHumRrhh extends Model
             }
 
             $db->beginTransaction();
-            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_actualizacion_info
+            $db->CRUD("INSERT INTO estado_cuenta.persona_actualizacion_info
                 (id_persona, id_solicita, origen, estatus, observaciones, enviado_app)
                 VALUES (:id_persona, :id_solicita, 'gestion_personal', 'Pendiente', :observaciones, 0)", [
                 'id_persona' => $idPersona,
@@ -1584,7 +1584,7 @@ class CapHumRrhh extends Model
             $idSolicitud = $db->lastInsertId();
 
             foreach ($campos as $campo) {
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_actualizacion_info_detalle
+                $db->CRUD("INSERT INTO estado_cuenta.persona_actualizacion_info_detalle
                     (id_solicitud, campo, etiqueta, tipo_campo, grupo, servicio_catalogo, valor_anterior, valor_nuevo)
                     VALUES (:id_solicitud, :campo, :etiqueta, :tipo_campo, :grupo, :servicio_catalogo, :valor_anterior, :valor_nuevo)", [
                     'id_solicitud' => $idSolicitud,
@@ -1643,10 +1643,10 @@ class CapHumRrhh extends Model
                     r.comentario,
                     r.estatus AS estatus_respuesta,
                     r.recibido_app_at
-                FROM __SPARTA_SECRET_REDACTED__.persona_actualizacion_info_respuesta r
-                INNER JOIN __SPARTA_SECRET_REDACTED__.persona_actualizacion_info s ON s.id = r.id_solicitud
-                INNER JOIN __SPARTA_SECRET_REDACTED__.persona_actualizacion_info_detalle d ON d.id = r.id_detalle
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = s.id_persona
+                FROM estado_cuenta.persona_actualizacion_info_respuesta r
+                INNER JOIN estado_cuenta.persona_actualizacion_info s ON s.id = r.id_solicitud
+                INNER JOIN estado_cuenta.persona_actualizacion_info_detalle d ON d.id = r.id_detalle
+                LEFT JOIN estado_cuenta.persona p ON p.id = s.id_persona
                 WHERE r.estatus = 'EnRevision'
                 ORDER BY r.recibido_app_at DESC, s.id DESC, d.id ASC");
 
@@ -1709,13 +1709,13 @@ class CapHumRrhh extends Model
             self::asegurarTablas($db);
             self::completarPuestoRrhhDesdeTexto($db, $rrhh);
 
-            $existePersona = $db->queryOne("SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id_persona LIMIT 1", ['id_persona' => $idPersona]);
+            $existePersona = $db->queryOne("SELECT id FROM estado_cuenta.persona WHERE id = :id_persona LIMIT 1", ['id_persona' => $idPersona]);
             if (!$existePersona) {
                 return self::resultado(false, 'No se encontro la persona solicitada.');
             }
 
             $usuario = self::texto($persona['usuario'] ?? '', 40);
-            if ($usuario && $db->queryOne('SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE user_name = :usuario AND id <> :id_persona LIMIT 1', ['usuario' => $usuario, 'id_persona' => $idPersona])) {
+            if ($usuario && $db->queryOne('SELECT id FROM estado_cuenta.persona WHERE user_name = :usuario AND id <> :id_persona LIMIT 1', ['usuario' => $usuario, 'id_persona' => $idPersona])) {
                 return self::resultado(false, 'Ya existe otra persona con ese usuario.');
             }
 
@@ -1749,7 +1749,7 @@ class CapHumRrhh extends Model
             }
 
             $db->beginTransaction();
-            $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.persona
+            $db->CRUD("UPDATE estado_cuenta.persona
                 SET nombres = :nombres, segundo_nombre = :segundo_nombre, apellidop = :apellidop,
                     apellidom = :apellidom, correo = :correo, telefono_uno = :telefono_uno,
                     telefono_dos = :telefono_dos, codigo_contpac = :codigo_contpac, user_name = :user_name, fecha_ingreso = :fecha_ingreso,
