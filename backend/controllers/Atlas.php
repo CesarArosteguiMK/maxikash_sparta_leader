@@ -589,6 +589,7 @@ class Atlas extends Controller
             'Duplicadas' => (int)($resumen['duplicados'] ?? 0),
             'Extras' => (int)($resumen['extras'] ?? 0),
             'Faltantes' => (int)($resumen['faltantes'] ?? 0),
+            'Asesores con error' => (int)($resumen['errores_asignacion'] ?? 0),
         ];
 
         $cards = '';
@@ -622,6 +623,7 @@ class Atlas extends Controller
         $html .= $this->tablaResumenImportacionPdf('Sucursales extra del Excel', 'Estas filas venian en el Excel, pero no existen en el template esperado y no se cargaron.', $resumen['detalle_extras'] ?? [], true);
         $html .= $this->tablaResumenImportacionPdf('Sucursales faltantes del template', 'Estas sucursales existen en el template esperado, pero no llegaron en el Excel.', $resumen['detalle_faltantes'] ?? [], false);
         $html .= $this->tablaResumenImportacionPdf('Sucursales duplicadas', 'Estas sucursales venian repetidas. Para cargar se tomo el ultimo registro encontrado por FK.', $resumen['detalle_duplicados'] ?? [], true);
+        $html .= $this->tablaErroresAsignacionPresupuestoPdf('Errores de asignacion de asesor', 'Estas filas se cargaron al presupuesto, pero no actualizaron la asignacion operativa porque el asesor del Excel no se pudo ligar contra persona.', $resumen['detalle_errores_asignacion'] ?? []);
         $html .= '</body></html>';
         return $html;
     }
@@ -645,6 +647,29 @@ class Atlas extends Controller
             $html .= '<td>' . $this->ePdf((string)($row['fk_sucursal'] ?? '')) . '</td>';
             $html .= '<td>' . $this->ePdf((string)($row['sucursal'] ?? 'Sin nombre en archivo')) . '</td>';
             $html .= '<td>' . $this->ePdf((string)($row['distribuidor'] ?? '')) . '</td>';
+            $html .= '</tr>';
+        }
+        $html .= '</tbody></table>';
+        return $html;
+    }
+
+    private function tablaErroresAsignacionPresupuestoPdf(string $titulo, string $descripcion, $rows): string
+    {
+        if (!is_array($rows) || !$rows) {
+            return '';
+        }
+        $html = '<h2>' . $this->ePdf($titulo) . '</h2><div class="muted">' . $this->ePdf($descripcion) . '</div>';
+        $html .= '<table class="detalle"><thead><tr><th>Fila Excel</th><th>FK Sucursal</th><th>Sucursal</th><th>Asesor Excel</th><th>Falla</th></tr></thead><tbody>';
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $html .= '<tr>';
+            $html .= '<td>' . $this->ePdf((string)($row['fila'] ?? '')) . '</td>';
+            $html .= '<td>' . $this->ePdf((string)($row['fk_sucursal'] ?? '')) . '</td>';
+            $html .= '<td>' . $this->ePdf((string)($row['sucursal'] ?? 'Sin nombre en archivo')) . '</td>';
+            $html .= '<td>' . $this->ePdf((string)($row['asesor_excel'] ?? '')) . '</td>';
+            $html .= '<td>' . $this->ePdf((string)($row['falla'] ?? 'No se pudo ligar contra persona.')) . '</td>';
             $html .= '</tr>';
         }
         $html .= '</tbody></table>';
@@ -1032,33 +1057,27 @@ class Atlas extends Controller
 
     public function guardarDivision()
     {
-        $this->json(AtlasDAO::guardarDivision($this->payload()));
+        $this->json(['success' => false, 'mensaje' => 'El catalogo de divisiones ya no esta vigente. Asigna responsables directamente en sucursales.']);
     }
 
     public function eliminarDivision()
     {
-        $payload = $this->payload();
-        $payload['_usuario_id'] = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
-        $this->json(AtlasDAO::eliminarDivision($payload));
+        $this->json(['success' => false, 'mensaje' => 'El catalogo de divisiones ya no esta vigente.']);
     }
 
     public function fusionarDivisiones()
     {
-        $payload = $this->payload();
-        $payload['_usuario_id'] = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
-        $this->json(AtlasDAO::fusionarDivisiones($payload));
+        $this->json(['success' => false, 'mensaje' => 'El catalogo de divisiones ya no esta vigente.']);
     }
 
     public function guardarAsignacionDivision()
     {
-        $payload = $this->payload();
-        $payload['_usuario_id'] = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
-        $this->json(AtlasDAO::guardarAsignacionDivision($payload));
+        $this->json(['success' => false, 'mensaje' => 'La asignacion por division ya no esta vigente. Asigna responsables directamente en sucursales.']);
     }
 
     public function getActualizacionesDivisionales()
     {
-        $this->json(AtlasDAO::getActualizacionesDivisionales());
+        $this->json(['success' => true, 'mensaje' => 'Sin actualizaciones pendientes.', 'datos' => [], 'total' => 0]);
     }
 
     public function crearDivisionalDesdePersona()

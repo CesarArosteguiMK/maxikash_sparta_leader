@@ -264,8 +264,10 @@ function getMenu(): string
             'subItems' => [
                 ['label' => 'Rutas y seguimiento', 'url' => '/Atlas/rutasGestores', 'modulos' => [132]],
                 ['label' => 'Presupuestos', 'url' => '/Atlas/presupuestos', 'modulos' => [135]],
+                ['label' => 'Sucursales', 'url' => '/Atlas/sucursales', 'modulos' => [133]],
+                ['label' => 'Distribuidores', 'url' => '/Atlas/distribuidores', 'modulos' => [133]],
+                ['label' => 'Clasificaciones', 'url' => '/Atlas/clasificaciones', 'modulos' => [133]],
                 ['label' => 'Créditos en operación', 'url' => '/Atlas/creditosOperacion', 'modulos' => [139]],
-                ['label' => 'Catálogos Operativos', 'url' => '/Atlas/catalogos', 'modulos' => [133]],
                 ['label' => 'Catálogos Comerciales', 'url' => '/Atlas/catalogosComerciales', 'modulos' => [134]],
                 ['label' => 'Notificaciones App', 'url' => '/Atlas/notificacionesApp', 'modulos' => [136]],
                 ['label' => 'Accesos Atlas', 'url' => '/Atlas/accesosAtlas', 'modulos' => [137]],

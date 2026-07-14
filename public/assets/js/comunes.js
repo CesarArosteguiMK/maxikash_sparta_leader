@@ -420,7 +420,11 @@ const showWait = (mensaje = null) => {
         imageUrl: "/assets/img/wait.svg",
         allowOutsideClick: false,
         allowEscapeKey: false,
-        showConfirmButton: false
+        showConfirmButton: false,
+        didOpen: () => {
+            const loader = document.querySelector(".swal2-loader");
+            if (loader) loader.style.display = "none";
+        }
     }
     return tipoMensaje(mensaje, null, config)
 }

@@ -801,7 +801,7 @@
         },
 
         usaJerarquiaRuta() {
-            return !this.contextoRutas().combo_gestor_completo;
+            return false;
         },
 
         esDivisionalRuta() {
@@ -827,21 +827,12 @@
         },
 
         sucursalesParaSupervisores() {
-            let sucursales = this.catalogos.sucursales || [];
-            const regionalId = this.value('atlasRutaRegional');
-            if (regionalId) {
-                sucursales = sucursales.filter(s => String(s.regional_id || '') === String(regionalId));
-            }
-            return sucursales;
+            return this.catalogos.sucursales || [];
         },
 
         sucursalesParaGestores() {
             let sucursales = this.catalogos.sucursales || [];
-            const regionalId = this.value('atlasRutaRegional');
             const supervisorId = this.value('atlasRutaSupervisor');
-            if (regionalId) {
-                sucursales = sucursales.filter(s => String(s.regional_id || '') === String(regionalId));
-            }
             if (supervisorId) {
                 sucursales = sucursales.filter(s => String(s.supervisor_id || '') === String(supervisorId));
             }
@@ -852,17 +843,8 @@
             const wrap = document.querySelector('[data-atlas-ruta-regional-wrap]');
             const select = document.getElementById('atlasRutaRegional');
             if (!wrap || !select) return;
-            const mostrar = this.esDivisionalRuta();
-            wrap.classList.toggle('d-none', !mostrar);
-            if (!mostrar) {
-                select.innerHTML = '<option value="">Todos los regionales</option>';
-                return;
-            }
-            const opciones = this.opcionesUnicasSucursales(this.catalogos.sucursales || [], 'regional_id', 'regional_nombre');
-            select.innerHTML = '<option value="">Selecciona regional</option>' + opciones.map(o => {
-                return `<option value="${this.escape(o.id)}">${this.escape(o.nombre + ' - ' + o.total_sucursales + ' suc.')}</option>`;
-            }).join('');
-            if (!opciones.length) select.innerHTML += '<option value="" disabled>No hay regionales disponibles</option>';
+            wrap.classList.add('d-none');
+            select.innerHTML = '<option value="">Sin regional</option>';
             this.refrescarSelectBuscador('atlasRutaRegional');
         },
 
@@ -870,9 +852,8 @@
             const wrap = document.querySelector('[data-atlas-ruta-supervisor-wrap]');
             const select = document.getElementById('atlasRutaSupervisor');
             if (!wrap || !select) return;
-            const puedeMostrar = this.esRegionalRuta() || (this.esDivisionalRuta() && !!this.value('atlasRutaRegional'));
             const opciones = this.opcionesUnicasSucursales(this.sucursalesParaSupervisores(), 'supervisor_id', 'supervisor_nombre');
-            const mostrar = puedeMostrar && opciones.length > 0;
+            const mostrar = false;
             wrap.classList.toggle('d-none', !mostrar);
             if (!mostrar) {
                 select.innerHTML = '<option value="">Sin supervisor disponible</option>';
@@ -910,9 +891,7 @@
             const base = sucursales || this.catalogos.sucursales || [];
             const prioridad = [
                 [{ tipo: 'asesor', id: 'asesor_id', nombre: 'asesor_nombre', etiqueta: 'Gestor' }],
-                [{ tipo: 'supervisor', id: 'supervisor_id', nombre: 'supervisor_nombre', etiqueta: 'Supervisor' }],
-                [{ tipo: 'regional', id: 'regional_id', nombre: 'regional_nombre', etiqueta: 'Regional' }],
-                [{ tipo: 'divisional', id: 'divisional_id', nombre: 'divisional_nombre', etiqueta: 'Divisional' }]
+                [{ tipo: 'supervisor', id: 'supervisor_id', nombre: 'supervisor_nombre', etiqueta: 'Supervisor' }]
             ];
             const roles = prioridad.find(grupo => grupo.some(role => {
                 return base.some(s => {
@@ -970,15 +949,7 @@
             const campo = gestor.tipo + '_id';
             const sucursal = (this.catalogos.sucursales || []).find(s => String(s[campo] || '') === String(gestor.id));
             if (!sucursal) return;
-            if (this.esDivisionalRuta() && sucursal.regional_id) {
-                this.setValue('atlasRutaRegional', sucursal.regional_id);
-                this.sincronizarSelectBuscador('atlasRutaRegional');
-            }
             this.renderSelectSupervisores();
-            if ((this.esRegionalRuta() || this.esDivisionalRuta()) && sucursal.supervisor_id) {
-                this.setValue('atlasRutaSupervisor', sucursal.supervisor_id);
-                this.sincronizarSelectBuscador('atlasRutaSupervisor');
-            }
             this.renderSelectGestores();
         },
 
@@ -1017,12 +988,6 @@
             }
             if (gestor.tipo === 'supervisor') {
                 return (this.catalogos.sucursales || []).filter(s => String(s.supervisor_id || '') === String(gestor.id));
-            }
-            if (gestor.tipo === 'regional') {
-                return (this.catalogos.sucursales || []).filter(s => String(s.regional_id || '') === String(gestor.id));
-            }
-            if (gestor.tipo === 'divisional') {
-                return (this.catalogos.sucursales || []).filter(s => String(s.divisional_id || '') === String(gestor.id));
             }
             return [];
         },
@@ -2241,7 +2206,7 @@
                                 <div>
                                     <div class="atlas-rutas-mini-title">${this.escape(s.sucursal || '')}</div>
                                     <div class="atlas-rutas-mini-meta">FK ${this.escape(s.fk_sucursal || '')} · ${this.escape(s.direccion || 'Sin dirección')}</div>
-                                    <div class="atlas-rutas-mini-meta">${this.escape(s.numero_telefono || 'Sin teléfono')} · ${this.escape(s.division_nombre || 'Sin división')}${Number(s.total_gestiones || 0) > 0 ? ' · ' + Number(s.total_gestiones || 0) + ' gestión(es)' : ''}</div>
+                                    <div class="atlas-rutas-mini-meta">${this.escape(s.numero_telefono || 'Sin teléfono')}${Number(s.total_gestiones || 0) > 0 ? ' · ' + Number(s.total_gestiones || 0) + ' gestión(es)' : ''}</div>
                                     <div class="atlas-rutas-mini-meta"><span class="atlas-rutas-meta-chip">${this.escape(this.metaRutaSucursalTexto(s))}</span></div>
                                 </div>
                             </div>

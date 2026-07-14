@@ -2,11 +2,25 @@
 
 <script>
 window.ATLAS_PERMISOS_SUCURSAL = <?= json_encode($atlas_permisos_sucursal ?? ['paso1' => false, 'paso2' => false], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+window.ATLAS_CATALOGOS_MODO = <?= json_encode($atlas_vista_catalogos ?? 'sucursales', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 </script>
 
 <?php
+$atlasVistaCatalogos = (string)($atlas_vista_catalogos ?? 'sucursales');
+$atlasEsCatalogosOperativos = $atlasVistaCatalogos === 'operativos';
+$atlasEsSucursales = $atlasVistaCatalogos === 'sucursales';
+$atlasEsDistribuidores = in_array($atlasVistaCatalogos, ['operativos', 'distribuidores'], true);
+$atlasEsClasificaciones = in_array($atlasVistaCatalogos, ['operativos', 'clasificaciones'], true);
 $atlasPermisosSucursalVista = is_array($atlas_permisos_sucursal ?? null) ? $atlas_permisos_sucursal : ['paso1' => false, 'paso2' => false];
 $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
+$atlasTitulosVista = [
+    'sucursales' => ['titulo' => 'Sucursales', 'icono' => 'fa-solid fa-map-location-dot'],
+    'distribuidores' => ['titulo' => 'Distribuidores', 'icono' => 'fa-solid fa-building'],
+    'clasificaciones' => ['titulo' => 'Clasificaciones', 'icono' => 'fa-solid fa-tags'],
+    'operativos' => ['titulo' => 'Catálogos Operativos', 'icono' => 'fa-solid fa-layer-group'],
+];
+$atlasTituloVista = $atlasTitulosVista[$atlasVistaCatalogos]['titulo'] ?? 'Sucursales';
+$atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-solid fa-map-location-dot';
 ?>
 
 <div class="container-fluid py-3 atlas-page">
@@ -377,8 +391,8 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
     <div class="atlas-head">
         <div>
             <h4 class="atlas-title">
-                <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
-                <span>Catálogos Operativos</span>
+                <i class="<?= htmlspecialchars($atlasIconoVista, ENT_QUOTES, 'UTF-8') ?>" aria-hidden="true"></i>
+                <span><?= htmlspecialchars($atlasTituloVista, ENT_QUOTES, 'UTF-8') ?></span>
             </h4>
         </div>
         <button type="button" class="btn btn-sm btn-outline-primary" id="atlas-btn-recargar">
@@ -388,14 +402,15 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
 
     <div class="card atlas-shell">
         <div class="card-body">
+            <?php if ($atlasEsCatalogosOperativos): ?>
             <ul class="nav atlas-tabs" id="atlas-tabs" role="tablist">
-                <li class="nav-item" role="presentation"><button class="nav-link active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-sucursales"><i class="fa-solid fa-store me-1"></i>Sucursales</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-divisiones"><i class="fa-solid fa-diagram-project me-1"></i>Divisiones</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-distribuidores"><i class="fa-solid fa-building me-1"></i>Distribuidores</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-distribuidores"><i class="fa-solid fa-building me-1"></i>Distribuidores</button></li>
                 <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-clasificaciones"><i class="fa-solid fa-tags me-1"></i>Clasificaciones</button></li>
             </ul>
+            <?php endif; ?>
 
             <div class="tab-content p-0">
+                <?php if ($atlasEsSucursales): ?>
                 <div class="tab-pane fade show active" id="atlas-tab-sucursales" role="tabpanel">
             <div class="atlas-kpis">
                 <div class="atlas-kpi"><span><i class="fa-solid fa-store"></i>Total</span><strong id="atlas-kpi-total">0</strong></div>
@@ -419,52 +434,9 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
                 </table>
             </div>
                 </div>
-                <div class="tab-pane fade" id="atlas-tab-divisiones" role="tabpanel">
-            <div class="atlas-subtabs-wrap" aria-label="Opciones de divisiones">
-                <ul class="nav atlas-subtabs" id="atlas-divisiones-subtabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-subtab-divisiones-asigna" aria-selected="true">
-                            <i class="fa-solid fa-user-check"></i>Asigna divisiones
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-subtab-divisiones-catalogo" aria-selected="false">
-                            <i class="fa-solid fa-layer-group"></i>Catálogo de divisiones
-                        </button>
-                    </li>
-                </ul>
-            </div>
-            <div class="tab-content p-0">
-                <div class="tab-pane fade show active" id="atlas-subtab-divisiones-asigna" role="tabpanel">
-            <div class="atlas-kpis">
-                <button type="button" class="atlas-kpi atlas-kpi-danger atlas-error-card" id="atlas-divisiones-error-card" style="display:none;">
-                    <span><i class="fa-solid fa-triangle-exclamation"></i>Errores</span>
-                    <strong id="atlas-divisiones-error-total">0 errores</strong>
-                    <span class="atlas-error-card-sub">Ver divisionales repetidos</span>
-                </button>
-                <button type="button" class="atlas-kpi atlas-kpi-info atlas-error-card" id="atlas-divisiones-actualizaciones-card">
-                    <span><i class="fa-solid fa-arrows-rotate"></i>Actualizaciones</span>
-                    <strong id="atlas-divisiones-actualizaciones-total">0 pendientes</strong>
-                    <span class="atlas-error-card-sub">Agregar o sacar divisionales</span>
-                </button>
-            </div>
-            <div class="atlas-panel-head"><button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="asigna_division"><i class="fa fa-user-check icon-sm me-sm-1"></i><span>Asigna división</span></button></div>
-            <div class="card-datatable table-responsive atlas-table-wrap atlas-loading" data-atlas-table-loader="asigna_divisiones" data-atlas-loading-label="Cargando asignaciones...">
-                <table id="atlasTablaAsignaDivisiones" class="dt-responsive table border-top"><thead><tr><th>División</th><th>Divisional activo</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
-            </div>
-                </div>
-                <div class="tab-pane fade" id="atlas-subtab-divisiones-catalogo" role="tabpanel">
-            <div class="atlas-panel-head d-flex justify-content-end gap-2 flex-wrap">
-                <button type="button" class="btn btn-info text-white btn-action-size" data-atlas-fusionar-divisiones><i class="fa-solid fa-code-merge icon-sm me-sm-1"></i><span>Fusionar sucursales</span></button>
-                <button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="division"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar división</span></button>
-            </div>
-            <div class="card-datatable table-responsive atlas-table-wrap atlas-loading" data-atlas-table-loader="divisiones" data-atlas-loading-label="Cargando divisiones...">
-                <table id="atlasTablaDivisiones" class="dt-responsive table border-top"><thead><tr><th>División</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
-            </div>
-                </div>
-            </div>
-                </div>
-                <div class="tab-pane fade" id="atlas-tab-distribuidores" role="tabpanel">
+                <?php endif; ?>
+                <?php if ($atlasEsDistribuidores): ?>
+                <div class="tab-pane fade <?= (!$atlasEsCatalogosOperativos || $atlasVistaCatalogos === 'operativos') ? 'show active' : '' ?>" id="atlas-tab-distribuidores" role="tabpanel">
             <div class="atlas-panel-head d-flex justify-content-end gap-2 flex-wrap">
                 <button type="button" class="btn text-white btn-action-size" style="background-color:#0047bb;border-color:#0047bb;" id="atlas-btn-template-distribuidores"><i class="fa fa-download icon-sm me-sm-1"></i><span>Plantilla</span></button>
                 <button type="button" class="btn btn-info text-white btn-action-size" id="atlas-btn-importar-distribuidores"><i class="fa fa-file-excel icon-sm me-sm-1"></i><span>Cargar layout</span></button>
@@ -474,12 +446,15 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
                 <table id="atlasTablaDistribuidores" class="dt-responsive table border-top"><thead><tr><th>Distribuidor</th><th>Presencia</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
             </div>
                 </div>
-                <div class="tab-pane fade" id="atlas-tab-clasificaciones" role="tabpanel">
+                <?php endif; ?>
+                <?php if ($atlasEsClasificaciones): ?>
+                <div class="tab-pane fade <?= (!$atlasEsCatalogosOperativos && $atlasVistaCatalogos === 'clasificaciones') ? 'show active' : '' ?>" id="atlas-tab-clasificaciones" role="tabpanel">
             <div class="atlas-panel-head"><button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="clasificacion"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar clasificación</span></button></div>
             <div class="card-datatable table-responsive atlas-table-wrap atlas-loading" data-atlas-table-loader="clasificaciones" data-atlas-loading-label="Cargando clasificaciones...">
                 <table id="atlasTablaClasificaciones" class="dt-responsive table border-top"><thead><tr><th></th><th>Orden</th><th>Clasificación</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
             </div>
             </div>
+                <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -525,10 +500,10 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
                         <div><label class="form-label atlas-required">Longitud</label><input type="text" class="form-control" name="longitud" readonly required maxlength="16" placeholder="Longitud"></div>
                     </div>
                     <div class="atlas-step-section-title"><span class="atlas-step-dot">2</span>Asignación operativa</div>
-                    <div class="atlas-step-permission-note" id="atlas-sucursal-paso2-note">Completa estos campos cuando la sucursal ya tenga asignación de gestores.</div>
-                    <div><label class="form-label">División</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="division_id" id="atlas-sucursal-division"></select><button type="button" class="btn btn-icon btn-outline-primary atlas-combo-add" data-atlas-quick-add="division" data-atlas-target="division_id" title="Agregar división" aria-label="Agregar división"><i class="fa-solid fa-plus"></i></button></div><span class="atlas-cascade-help">Primero selecciona la división operativa de la sucursal.</span></div>
-                    <div><label class="form-label">Divisional</label><select class="form-select js-atlas-select-buscador" name="divisional_id" id="atlas-sucursal-divisional"></select><span class="atlas-cascade-help">Se asigna automáticamente según la división.</span></div>
-                    <div><label class="form-label">Regional</label><select class="form-select js-atlas-select-buscador" name="regional_id" id="atlas-sucursal-regional"></select><span class="atlas-cascade-help">Se habilita después de seleccionar una división.</span></div>
+                    <div class="atlas-step-permission-note" id="atlas-sucursal-paso2-note">Asigna directamente los colaboradores responsables de esta sucursal.</div>
+                    <input type="hidden" name="division_id" value="">
+                    <input type="hidden" name="divisional_id" value="">
+                    <input type="hidden" name="regional_id" value="">
                     <div><label class="form-label">Supervisor</label><select class="form-select js-atlas-select-buscador" name="supervisor_id" id="atlas-sucursal-supervisor"></select></div>
                     <div><label class="form-label">Asesor</label><select class="form-select js-atlas-select-buscador" name="asesor_id" id="atlas-sucursal-asesor"></select></div>
                     <input type="hidden" name="coordenadas">
@@ -820,7 +795,10 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
     const btnConfirmarDireccion = document.getElementById('atlas-direccion-confirmar');
     const tablaSelector = '#atlasTablaSucursales';
     const permisosSucursal = window.ATLAS_PERMISOS_SUCURSAL || { paso1: false, paso2: false };
-    const atlasTabStorageKey = 'atlas_catalogos_tab_activa';
+    const atlasCatalogosModo = window.ATLAS_CATALOGOS_MODO || 'sucursales';
+    const atlasEsOperativos = atlasCatalogosModo === 'operativos';
+    const atlasEsSucursalesModo = atlasCatalogosModo === 'sucursales';
+    const atlasTabStorageKey = 'atlas_catalogos_tab_activa_' + atlasCatalogosModo;
     let atlasConfiguracionCalidad = { sin_telefono_es_error: 0 };
     const atlasIconosClasificacion = [
         'fa-solid fa-gem','fa-solid fa-medal','fa-solid fa-award','fa-solid fa-certificate','fa-solid fa-lightbulb','fa-solid fa-star','fa-solid fa-crown','fa-solid fa-trophy',
@@ -949,16 +927,14 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
                 atlasCalidadAddIssue(issuesById, row, { codigo: 'coordenadas_fuera_mx', severidad: 'warning', icono: 'fa-solid fa-globe', titulo: 'Coordenadas fuera de México', detalle: 'La ubicación parece estar fuera del rango operativo de México.' });
             }
             [
-                ['distribuidor_id', 'Sin distribuidor'],
-                ['clasificacion_id', 'Sin clasificación'],
-                ['divisional_id', 'Sin divisional'],
-                ['division_id', 'Sin división'],
-                ['regional_id', 'Sin regional'],
-                ['supervisor_id', 'Sin supervisor'],
-                ['asesor_id', 'Sin asesor']
+                ['distribuidor_id', '', 'Sin distribuidor'],
+                ['clasificacion_id', '', 'Sin clasificación'],
+                ['asesor_id', 'asesor_persona_id', 'Sin asesor']
             ].forEach(pair => {
-                if (!String(row[pair[0]] || '').trim()) {
-                    atlasCalidadAddIssue(issuesById, row, { codigo: pair[0], severidad: 'warning', icono: 'fa-solid fa-diagram-project', titulo: pair[1], detalle: 'Falta una asignación del catálogo operativo.' });
+                const tieneCatalogo = String(row[pair[0]] || '').trim();
+                const tienePersona = pair[1] ? String(row[pair[1]] || '').trim() : '';
+                if (!tieneCatalogo && !tienePersona) {
+                    atlasCalidadAddIssue(issuesById, row, { codigo: pair[0], severidad: 'warning', icono: 'fa-solid fa-diagram-project', titulo: pair[2], detalle: 'Falta una asignación operativa directa.' });
                 }
             });
             if (!String(row.numero_telefono || '').trim()) {
@@ -1097,7 +1073,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         if (wrap) { if (texto) wrap.setAttribute('data-atlas-loading-label', texto); wrap.classList.toggle('atlas-loading', !!loading); }
         if (!loading) atlasOcultarLoaderGlobal();
     }
-    function atlasSetCatalogosLoading(loading) { ['divisiones','asigna_divisiones','distribuidores','clasificaciones','sucursales_pendientes'].forEach(key => atlasSetTablaLoading(key, loading)); }
+    function atlasSetCatalogosLoading(loading) { ['distribuidores','clasificaciones','sucursales_pendientes'].forEach(key => atlasSetTablaLoading(key, loading)); }
     function destruirSelectBuscador(el) { if (window.jQuery && jQuery.fn.select2 && jQuery(el).hasClass('select2-hidden-accessible')) jQuery(el).select2('destroy'); }
     function inicializarSelectBuscador(el) {
         if (!window.jQuery || !jQuery.fn.select2 || !el) return;
@@ -1110,7 +1086,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         }
         if (jQuery(el).hasClass('select2-hidden-accessible')) jQuery(el).select2('destroy');
         jQuery(el).select2(config);
-        if (formSucursal && el.form === formSucursal && ['division_id','divisional_id','regional_id','supervisor_id'].includes(el.name)) {
+        if (formSucursal && el.form === formSucursal && ['supervisor_id','asesor_id'].includes(el.name)) {
             jQuery(el)
                 .off('change.atlasSucursalCascade select2:select.atlasSucursalCascade select2:close.atlasSucursalCascade')
                 .on('change.atlasSucursalCascade select2:select.atlasSucursalCascade select2:close.atlasSucursalCascade', function (ev) {
@@ -1161,9 +1137,9 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         return '<div class="atlas-field-row"><a class="atlas-badge atlas-badge-ok" href="' + esc(url) + '" target="_blank" rel="noopener"><i class="fa-solid fa-file-circle-check"></i>Constancia cargada</a><span class="atlas-muted">' + esc(row.constancia_fiscal_at_fmt || row.constancia_fiscal_nombre || '') + '</span></div>';
     }
     function renderEstadoCuentaDistribuidor(row) {
-        const url = String(row && row.__SPARTA_SECRET_REDACTED___url || '').trim();
+        const url = String(row && row.estado_cuenta_url || '').trim();
         if (!url) return '<span class="atlas-badge atlas-badge-warn"><i class="fa-solid fa-file-circle-exclamation"></i>Sin estado de cuenta</span>';
-        return '<div class="atlas-field-row"><a class="atlas-badge atlas-badge-ok" href="' + esc(url) + '" target="_blank" rel="noopener"><i class="fa-solid fa-file-circle-check"></i>Estado de cuenta cargado</a><span class="atlas-muted">' + esc(row.__SPARTA_SECRET_REDACTED___at_fmt || row.__SPARTA_SECRET_REDACTED___nombre || '') + '</span></div>';
+        return '<div class="atlas-field-row"><a class="atlas-badge atlas-badge-ok" href="' + esc(url) + '" target="_blank" rel="noopener"><i class="fa-solid fa-file-circle-check"></i>Estado de cuenta cargado</a><span class="atlas-muted">' + esc(row.estado_cuenta_at_fmt || row.estado_cuenta_nombre || '') + '</span></div>';
     }
     function renderErrorDivision(row) {
         return Number(row && row.divisional_duplicado || 0) === 1
@@ -1509,10 +1485,6 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
             document.querySelectorAll('#atlas-tabs + .tab-content > .tab-pane').forEach(el => el.classList.toggle('show', el === pane));
             document.querySelectorAll('#atlas-tabs + .tab-content > .tab-pane').forEach(el => el.classList.toggle('active', el === pane));
         }
-        if (target === '#atlas-tab-divisiones') {
-            setTimeout(activarAsignaDivisiones, 0);
-            setTimeout(activarAsignaDivisiones, 120);
-        }
     }
     function clasificacionOportunidadDefaultId() {
         const row = (catalogos.clasificaciones || []).find(item => {
@@ -1689,63 +1661,25 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
     }
     function opcionesAsignacionRol(rol, parentKey, parentValue, catalogoKey) {
         const parent = String(parentValue || '');
-        const parentInfo = infoAsignacionSeleccionada(parent, parentKey, catalogoKey);
         const desdeCatalogo = (catalogos[catalogoKey] || [])
             .filter(row => !parentKey || String(row[parentKey] || '') === parent)
             .filter(row => String(row.tipo_asignacion || 'persona').toLowerCase() === 'vacante' || String(row.persona_id || '').trim() !== '')
             .map(row => normalizarOpcionAsignacion(row, rol));
         const personas = personasComercialPorRol(rol);
-        const personasFiltradas = parentInfo
-            ? personas.filter(row => {
-                if (parentInfo.persona_id) return String(row.jefe_persona_id || '') === String(parentInfo.persona_id);
-                if (parentInfo.vacante_personal_id) return String(row.jefe_vacante_id || '') === String(parentInfo.vacante_personal_id);
-                return true;
-            })
-            : personas;
-        if (!parent) return desdeCatalogo.concat(personasFiltradas);
+        if (!parent) return desdeCatalogo.concat(personas);
         const idsPersonaConCatalogo = new Set(desdeCatalogo.map(row => String(row.persona_id || '')).filter(Boolean));
-        return desdeCatalogo.concat(personasFiltradas.filter(row => !idsPersonaConCatalogo.has(String(row.persona_id || ''))));
-    }
-    function infoAsignacionSeleccionada(value, parentKey, catalogoKey) {
-        const val = String(value || '');
-        if (!val) return null;
-        if (val.indexOf('persona:') === 0) return { persona_id: val.replace('persona:', ''), vacante_personal_id: '' };
-        const mapa = { division_id: 'divisiones', regional_id: 'regionales', supervisor_id: 'supervisores', divisional_id: 'divisionales' };
-        const key = mapa[parentKey] || catalogoKey || '';
-        const row = key ? findCatalogo(key, val) : null;
-        if (!row) return null;
-        return {
-            persona_id: row.persona_id || row.divisional_persona_id || '',
-            vacante_personal_id: row.vacante_personal_id || ''
-        };
+        return desdeCatalogo.concat(personas.filter(row => !idsPersonaConCatalogo.has(String(row.persona_id || ''))));
     }
     function valoresSucursalActuales() {
         return {
             distribuidor_id: getFormValue(formSucursal, 'distribuidor_id'), clasificacion_id: getFormValue(formSucursal, 'clasificacion_id'),
-            divisional_id: getFormValue(formSucursal, 'divisional_id'), division_id: getFormValue(formSucursal, 'division_id'), regional_id: getFormValue(formSucursal, 'regional_id'), supervisor_id: getFormValue(formSucursal, 'supervisor_id'), asesor_id: getFormValue(formSucursal, 'asesor_id')
+            divisional_id: '', division_id: '', regional_id: '', supervisor_id: getFormValue(formSucursal, 'supervisor_id'), asesor_id: getFormValue(formSucursal, 'asesor_id')
         };
     }
     function resolverJerarquiaSucursal(values) {
         const out = Object.assign({}, values || {});
-        const asesor = findCatalogo('asesores', out.asesor_id); if (asesor && !out.supervisor_id) out.supervisor_id = asesor.supervisor_id;
-        const supervisor = findCatalogo('supervisores', out.supervisor_id); if (supervisor && !out.regional_id) out.regional_id = supervisor.regional_id;
-        const regional = findCatalogo('regionales', out.regional_id); if (regional && !out.division_id) out.division_id = regional.division_id;
-        const division = findCatalogo('divisiones', out.division_id); if (division) out.divisional_id = division.divisional_id || '';
+        out.division_id = '';
         return out;
-    }
-    function opcionesDivisionalAsignadoDivision(divisionId) {
-        const division = findCatalogo('divisiones', divisionId);
-        if (!division) return [];
-        const divisionalId = String(division.divisional_id || '');
-        if (!divisionalId) return [];
-        const base = findCatalogo('divisionales', divisionalId);
-        if (base) return [base];
-        const tipo = String(division.tipo_asignacion || '').toLowerCase();
-        const nombreVacante = String(division.nombre_vacante || '').trim();
-        const nombre = tipo === 'vacante'
-            ? ('Vacante: ' + (nombreVacante || division.divisional_nombre || 'Sin nombre'))
-            : (division.divisional_nombre || nombreVacante || 'Divisional asignado');
-        return [{ id: divisionalId, nombre: nombre, label: nombre, persona_id: division.divisional_persona_id || '', vacante_personal_id: division.vacante_personal_id || '' }];
     }
     function valorSeleccionAsignacion(catalogoKey, id, personaId) {
         const actual = String(id || '');
@@ -1755,30 +1689,18 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
     }
     function actualizarCascadaSucursal(values) {
         const v = resolverJerarquiaSucursal(values || valoresSucursalActuales());
-        const divisionalId = valorSeleccionAsignacion('divisionales', v.divisional_id, v.divisional_persona_id);
-        const divisionId = String(v.division_id || '');
-        const regionalId = valorSeleccionAsignacion('regionales', v.regional_id, v.regional_persona_id);
         const supervisorId = valorSeleccionAsignacion('supervisores', v.supervisor_id, v.supervisor_persona_id);
         const asesorId = valorSeleccionAsignacion('asesores', v.asesor_id, v.asesor_persona_id);
-        const divisiones = (catalogos.divisiones || []).filter(row => Number(row.activo ?? 1) === 1);
-        const divisionalAsignado = opcionesDivisionalAsignadoDivision(divisionId);
-        const regionales = divisionId ? opcionesAsignacionRol('regional', 'division_id', divisionId, 'regionales') : [];
-        const supervisores = regionalId ? opcionesAsignacionRol('supervisor', 'regional_id', regionalId, 'supervisores') : [];
-        const asesores = supervisorId ? opcionesAsignacionRol('asesor', 'supervisor_id', supervisorId, 'asesores') : [];
-        llenarSelectCascada('atlas-sucursal-division', divisiones, 'Selecciona división', divisiones.some(row => String(row.id || '') === divisionId) ? divisionId : '', false);
-        llenarSelectCascada('atlas-sucursal-divisional', divisionalAsignado, divisionId ? 'Sin divisional asignado' : 'Selecciona división primero', divisionalId, true);
-        llenarSelectCascada('atlas-sucursal-regional', regionales, divisionId ? 'Selecciona regional' : 'Primero selecciona división', regionales.some(row => String(row.value || row.id || '') === regionalId) ? regionalId : '', !divisionId);
-        llenarSelectCascada('atlas-sucursal-supervisor', supervisores, regionalId ? 'Selecciona supervisor' : 'Primero selecciona regional', supervisores.some(row => String(row.value || row.id || '') === supervisorId) ? supervisorId : '', !regionalId);
-        llenarSelectCascada('atlas-sucursal-asesor', asesores, supervisorId ? 'Selecciona asesor' : 'Primero selecciona supervisor', asesores.some(row => String(row.value || row.id || '') === asesorId) ? asesorId : '', !supervisorId);
+        const supervisores = opcionesAsignacionRol('supervisor', '', '', 'supervisores');
+        const asesores = opcionesAsignacionRol('asesor', '', '', 'asesores');
+        llenarSelectCascada('atlas-sucursal-supervisor', supervisores, 'Selecciona supervisor', supervisorId, false);
+        llenarSelectCascada('atlas-sucursal-asesor', asesores, 'Selecciona asesor', asesorId, false);
     }
     function manejarCambioCascadaSucursal(name, value) {
         setTimeout(function () {
             const values = valoresSucursalActuales();
             if (value != null && name) values[name] = String(value || '');
-            if (name === 'division_id') { values.divisional_id = ''; values.regional_id = ''; values.supervisor_id = ''; values.asesor_id = ''; }
-            if (name === 'divisional_id') { values.divisional_id = ''; }
-            if (name === 'regional_id') { values.supervisor_id = ''; values.asesor_id = ''; }
-            if (name === 'supervisor_id') values.asesor_id = '';
+            values.division_id = '';
             actualizarCascadaSucursal(values);
         }, 0);
     }
@@ -1801,7 +1723,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         return data;
     }
     async function subirEstadoCuentaDistribuidor(id) {
-        const input = formCatalogo ? formCatalogo.querySelector('input[name="__SPARTA_SECRET_REDACTED__"]') : null;
+        const input = formCatalogo ? formCatalogo.querySelector('input[name="estado_cuenta"]') : null;
         const file = input && input.files && input.files[0] ? input.files[0] : null;
         if (!file) return null;
         const fd = new FormData();
@@ -1907,10 +1829,10 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
             + '</div>';
     }
     function asignacionSucursalCompleta() {
-        return ['divisional_id','division_id','regional_id','supervisor_id','asesor_id'].every(name => !!getFormValue(formSucursal, name));
+        return ['supervisor_id','asesor_id'].every(name => !!getFormValue(formSucursal, name));
     }
     function asignacionSucursalIniciada() {
-        return ['divisional_id','division_id','regional_id','supervisor_id','asesor_id'].some(name => !!getFormValue(formSucursal, name));
+        return ['supervisor_id','asesor_id'].some(name => !!getFormValue(formSucursal, name));
     }
     function campoWrapperSucursal(name) {
         const el = formSucursal && formSucursal.elements[name] ? formSucursal.elements[name] : null;
@@ -1933,7 +1855,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         const wrap = campoWrapperSucursal(name);
         if (wrap) wrap.classList.toggle('atlas-modal-hidden', !visible);
         const el = formSucursal && formSucursal.elements[name] ? formSucursal.elements[name] : null;
-        if (el) el.disabled = !visible || name === 'divisional_id';
+        if (el) el.disabled = !visible;
     }
     function aplicarPermisosSucursalModal() {
         if (!formSucursal) return;
@@ -1941,7 +1863,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         const puedePaso2 = !!permisosSucursal.paso2;
         const soloPaso2 = !puedePaso1 && puedePaso2;
         const camposPaso1 = ['fk_sucursal','sucursal','distribuidor_id','clasificacion_id','activo','direccion_sucursal','calle','numero_exterior','numero_interior','estado','municipio','localidad','colonia','codigo_postal','latitud','longitud'];
-        const camposPaso2 = ['divisional_id','division_id','regional_id','supervisor_id','asesor_id'];
+        const camposPaso2 = ['supervisor_id','asesor_id'];
         camposPaso1.forEach(name => {
             setCampoVisibleSucursal(name, true);
             setCampoSoloLectura(name, soloPaso2);
@@ -1967,7 +1889,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
             nota.classList.toggle('atlas-modal-hidden', !puedePaso2);
             nota.textContent = soloPaso2
                 ? 'Datos base solo como referencia. Captura únicamente la asignación operativa.'
-                : 'Completa estos campos cuando la sucursal ya tenga asignación de gestores.';
+                : 'Asigna directamente los colaboradores responsables de esta sucursal.';
         }
     }
     function columnasAtlas() {
@@ -1992,7 +1914,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
 
     function renderAsignacionSucursal(row, renderType) {
         if (renderType !== 'display') {
-            return textoPlano(row, ['distribuidor_nombre','divisional_nombre','regional_nombre','supervisor_nombre','asesor_nombre','activo']);
+            return textoPlano(row, ['asesor_nombre','asesor_persona_id','asesor_id']);
         }
         const item = function (icono, etiqueta, valor) {
             return '<div class="atlas-assignment-row">'
@@ -2001,10 +1923,6 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
                 + '</div>';
         };
         return '<div class="atlas-assignment-box">'
-            + item('fa-solid fa-building', 'Distribuidor', row.distribuidor_nombre)
-            + item('fa-solid fa-user-tie', 'Divisional', row.divisional_nombre)
-            + item('fa-solid fa-map-location-dot', 'Regional', row.regional_nombre)
-            + item('fa-solid fa-user-check', 'Supervisor', row.supervisor_nombre)
             + item('fa-solid fa-user', 'Asesor', row.asesor_nombre)
             + '</div>';
     }
@@ -2163,6 +2081,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
     }
     function initDataTable(selector, columns, order) {
         if (!window.jQuery || !jQuery.fn.DataTable) return null;
+        if (!document.querySelector(selector)) return null;
         if (jQuery.fn.DataTable.isDataTable(selector)) jQuery(selector).DataTable().destroy();
         return jQuery(selector).DataTable({ pageLength: 10, lengthMenu: [[10,40,-1],[10,40,'Todos']], order: order || [], autoWidth: false, responsive: { details: { type: 'inline', target: 'tr' } }, columns: columns, language: { emptyTable: 'No hay datos disponibles', info: 'Mostrando de _START_ a _END_ de _TOTAL_ registros', infoEmpty: 'Sin registros para mostrar', zeroRecords: 'No se encontraron registros', lengthMenu: 'Mostrar _MENU_ registros', search: 'Buscar:', paginate: { first: '&laquo;', last: '&raquo;', next: '&rsaquo;', previous: '&lsaquo;' } }, destroy: true });
     }
@@ -2175,6 +2094,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         });
     }
     function renderTabla() {
+        if (!document.querySelector(tablaSelector)) return;
         if (!atlasTabla && body) body.innerHTML = '';
         if (!atlasTabla) atlasTabla = initDataTable(tablaSelector, columnasAtlas(), [[1,'asc']]);
         if (atlasTabla) {
@@ -2187,8 +2107,12 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         atlasSetTablaLoading('sucursales', false);
     }
     function renderCatalogos() {
-        const mapa = { divisiones: '#atlasTablaDivisiones', asigna_divisiones: '#atlasTablaAsignaDivisiones', distribuidores: '#atlasTablaDistribuidores', clasificaciones: '#atlasTablaClasificaciones', sucursales_pendientes: '#atlasTablaSucursalesPendientes' };
+        const mapa = { distribuidores: '#atlasTablaDistribuidores', clasificaciones: '#atlasTablaClasificaciones', sucursales_pendientes: '#atlasTablaSucursalesPendientes' };
         Object.keys(mapa).forEach(tipo => {
+            if (!document.querySelector(mapa[tipo])) {
+                atlasSetTablaLoading(tipo, false);
+                return;
+            }
             if (!tablasCatalogo[tipo]) tablasCatalogo[tipo] = initDataTable(mapa[tipo], columnasCatalogo(tipo), tipo === 'clasificaciones' ? [[1,'asc']] : [[0,'asc']]);
             const tabla = tablasCatalogo[tipo];
             const datos = tipo === 'asigna_divisiones' ? (catalogos.divisiones || []) : (catalogos[tipo] || []);
@@ -2201,6 +2125,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         setTimeout(initOrdenClasificaciones, 50);
     }
     async function cargarSucursales() {
+        if (!document.querySelector(tablaSelector)) return;
         atlasSetTablaLoading('sucursales', true, 'Cargando sucursales...');
         try {
             const res = await fetch('/Atlas/getSucursales', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
@@ -2245,12 +2170,12 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         atlasMostrarLoaderGlobal();
         try {
             await atlasDelay(80);
-            await Promise.all([
-                cargarCatalogos(),
-                cargarSucursales(),
-                cargarActualizacionesDivisionalesData(true),
-                atlasDelay(650)
-            ]);
+            const tareas = [cargarCatalogos(), atlasDelay(650)];
+            if (atlasEsSucursalesModo) {
+                tareas.push(cargarSucursales());
+                tareas.push(cargarActualizacionesDivisionalesData(true));
+            }
+            await Promise.all(tareas);
         } catch (err) {
             if (typeof Swal !== 'undefined') {
                 Swal.fire({ icon: 'error', title: 'No se pudo cargar Atlas', text: err.message || 'Error' });
@@ -2641,7 +2566,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
                 + '<div><label class="form-label">Titular de la cuenta</label><input type="text" class="form-control" name="titular_deposito" maxlength="180" placeholder="Titular de la cuenta" value="' + esc(row.titular_deposito || '') + '"></div>'
                 + '<div><label class="form-label">Cuenta</label><input type="text" class="form-control" name="cuenta_deposito" inputmode="numeric" maxlength="20" pattern="[0-9]{6,20}" title="Cuenta de 6 a 20 dígitos" placeholder="Cuenta bancaria" value="' + esc(row.cuenta_deposito || '') + '"></div>'
                 + '<div><label class="form-label">CLABE</label><input type="text" class="form-control" name="clabe_deposito" inputmode="numeric" maxlength="18" pattern="[0-9]{18}" title="CLABE a 18 dígitos" placeholder="18 dígitos" value="' + esc(row.clabe_deposito || '') + '"></div>'
-                + '<div class="atlas-field-wide"><label class="form-label">Estado de cuenta</label>' + (row.__SPARTA_SECRET_REDACTED___url ? '<div class="mb-2">' + renderEstadoCuentaDistribuidor(row) + '</div>' : '') + '<input type="file" class="form-control" name="__SPARTA_SECRET_REDACTED__" accept=".pdf,.jpg,.jpeg,.png"><span class="atlas-cascade-help">PDF, JPG o PNG. Máximo 10 MB.</span></div>'
+                + '<div class="atlas-field-wide"><label class="form-label">Estado de cuenta</label>' + (row.estado_cuenta_url ? '<div class="mb-2">' + renderEstadoCuentaDistribuidor(row) + '</div>' : '') + '<input type="file" class="form-control" name="estado_cuenta" accept=".pdf,.jpg,.jpeg,.png"><span class="atlas-cascade-help">PDF, JPG o PNG. Máximo 10 MB.</span></div>'
                 + '</div></div>'
                 + '<div class="tab-pane fade" id="atlas-dist-tab-presencia"><div class="atlas-form-grid">'
                 + '<div><label class="form-label atlas-required">Presencia física</label><select class="form-select js-atlas-select-buscador" name="presencia_fisica" required><option value="1"' + (presencia ? ' selected' : '') + '>Sí tiene presencia física</option><option value="0"' + (!presencia ? ' selected' : '') + '>Sin presencia física</option></select></div>'
@@ -2712,16 +2637,6 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         if (duplicada) {
             throw new Error('Ya existe una división con ese nombre: ' + (duplicada.nombre || 'sin nombre') + '.');
         }
-    }
-    function actualizarDivisionalesAsignacion() {
-        if (!formCatalogo || getFormValue(formCatalogo, 'tipo') !== 'asigna_division') return;
-        const divisionId = getFormValue(formCatalogo, 'division_id');
-        const select = formCatalogo.querySelector('select[name="divisional_id"]');
-        if (!select) return;
-        const actual = select.value || '';
-        destruirSelectBuscador(select);
-        select.innerHTML = optionsCatalogo(divisionalesDisponiblesDivision(divisionId), actual, 'Selecciona divisional');
-        inicializarSelectBuscador(select);
     }
     function actualizarTipoAsignacionDivision() {
         if (!formCatalogo || getFormValue(formCatalogo, 'tipo') !== 'asigna_division') return;
@@ -3535,33 +3450,16 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
             if (row) setTimeout(() => abrirCatalogo('asigna_division', row, { prefill: { division_id: divisionId, tipo_asignacion: 'persona' } }), 180);
         });
     }
-    if (btnRecargar) btnRecargar.addEventListener('click', function () { Promise.all([cargarCatalogos(), cargarSucursales()]).catch(() => {}); });
-    function activarAsignaDivisiones() {
-        const btnAsigna = document.querySelector('#atlas-divisiones-subtabs [data-bs-target="#atlas-subtab-divisiones-asigna"]');
-        const paneCatalogo = document.getElementById('atlas-subtab-divisiones-catalogo');
-        const paneAsigna = document.getElementById('atlas-subtab-divisiones-asigna');
-        if (!btnAsigna || !paneCatalogo || !paneAsigna) return;
-        document.querySelectorAll('#atlas-divisiones-subtabs .nav-link').forEach(btn => {
-            const activo = btn === btnAsigna;
-            btn.classList.toggle('active', activo);
-            btn.setAttribute('aria-selected', activo ? 'true' : 'false');
-            if (activo) btn.removeAttribute('tabindex');
-            else btn.setAttribute('tabindex', '-1');
-        });
-        paneAsigna.classList.add('show', 'active');
-        paneCatalogo.classList.remove('show', 'active');
-    }
+    if (btnRecargar) btnRecargar.addEventListener('click', function () {
+        const tareas = [cargarCatalogos()];
+        if (atlasEsSucursalesModo) tareas.push(cargarSucursales());
+        Promise.all(tareas).catch(() => {});
+    });
     document.querySelectorAll('#atlas-tabs [data-bs-toggle="tab"]').forEach(btn => {
         btn.addEventListener('shown.bs.tab', function () {
             guardarAtlasTabActivo(btn.getAttribute('data-bs-target') || '');
-            if ((btn.getAttribute('data-bs-target') || '') === '#atlas-tab-divisiones') {
-                activarAsignaDivisiones();
-            }
             setTimeout(ajustarTablasAtlas, 80);
         });
-    });
-    document.querySelectorAll('#atlas-divisiones-subtabs [data-bs-toggle="tab"]').forEach(btn => {
-        btn.addEventListener('shown.bs.tab', function () { setTimeout(ajustarTablasAtlas, 80); });
     });
     window.addEventListener('resize', function () { setTimeout(ajustarTablasAtlas, 80); });
     if (modalCatalogoEl) {
@@ -3579,7 +3477,6 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
     if (formImportarDistribuidores) formImportarDistribuidores.addEventListener('submit', importarDistribuidoresSubmit);
     if (formCatalogo) {
         formCatalogo.addEventListener('change', function (ev) {
-            if (ev.target && ev.target.name === 'division_id') actualizarDivisionalesAsignacion();
             if (ev.target && ev.target.name === 'tipo_asignacion') actualizarTipoAsignacionDivision();
         });
         formCatalogo.addEventListener('submit', async function (ev) {

@@ -283,9 +283,9 @@ class Atlas extends Model
         self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'titular_deposito', "VARCHAR(180) NULL");
         self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'cuenta_deposito', "VARCHAR(40) NULL");
         self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'clabe_deposito', "VARCHAR(18) NULL");
-        self::asegurarColumna($db, 'atlas_catalogo_distribuidores', '__SPARTA_SECRET_REDACTED___url', "TEXT NULL");
-        self::asegurarColumna($db, 'atlas_catalogo_distribuidores', '__SPARTA_SECRET_REDACTED___nombre', "VARCHAR(220) NULL");
-        self::asegurarColumna($db, 'atlas_catalogo_distribuidores', '__SPARTA_SECRET_REDACTED___at', "DATETIME NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'estado_cuenta_url', "TEXT NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'estado_cuenta_nombre', "VARCHAR(220) NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'estado_cuenta_at', "DATETIME NULL");
         self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'tipo_motos', "VARCHAR(120) NULL");
         self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'canal_venta', "VARCHAR(120) NULL");
         self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'horario_atencion', "VARCHAR(180) NULL");
@@ -805,80 +805,14 @@ class Atlas extends Model
         try {
             $db = new Database();
             self::asegurarDistribuidoresAtlas($db);
-            self::asegurarDivisionalesPersonaAtlas($db);
             self::asegurarResponsablesPersonaAtlas($db);
             return [
                 'success' => true,
                 'mensaje' => 'CatÃƒÂ¡logos obtenidos.',
                 'datos' => [
-                    'divisionales' => $db->queryAll("
-                        SELECT
-                            dvl.id,
-                            COALESCE(dvl.tipo_asignacion, CASE WHEN dvl.persona_id IS NULL THEN 'vacante' ELSE 'persona' END) AS tipo_asignacion,
-                            dvl.nombre_vacante,
-                            dvl.vacante_personal_id,
-                            dvl.persona_id,
-                            dvl.nombre,
-                            au.numero_empleado,
-                            au.puesto,
-                            au.area,
-                            au.direccion,
-                    p.estatus AS persona_estatus,
-                    aj.id_jefe AS jefe_persona_id,
-                    aj.id_vacante_jefe AS jefe_vacante_id,
-                    dvl.activo,
-                            dvl.fecha_alta,
-                            dvl.fecha_actualizacion
-                        FROM atlas_catalogo_divisionales dvl
-                        INNER JOIN atlas_acceso_usuarios au
-                                ON au.persona_id = dvl.persona_id
-                               AND au.activo = 1
-                               AND au.excluido_operativo = 0
-                        INNER JOIN persona p
-                                ON p.id = dvl.persona_id
-                               AND p.estatus <> 'Baja'
-                        LEFT JOIN (
-                            SELECT a.id_persona, a.id_jefe, a.id_vacante_jefe
-                            FROM asigna_jefe a
-                            INNER JOIN (
-                                SELECT id_persona, MAX(id) AS id_ultimo
-                                FROM asigna_jefe
-                                GROUP BY id_persona
-                            ) ult ON ult.id_persona = a.id_persona AND ult.id_ultimo = a.id
-                        ) aj ON aj.id_persona = dvl.persona_id
-                        WHERE dvl.activo = 1
-                        ORDER BY nombre ASC, id ASC
-                    "),
-                    'regionales' => $db->queryAll("
-                        SELECT
-                            reg.id,
-                            reg.division_id,
-                            reg.persona_id,
-                            COALESCE(reg.tipo_asignacion, 'persona') AS tipo_asignacion,
-                            reg.nombre_vacante,
-                            reg.vacante_personal_id,
-                            reg.nombre,
-                            p.estatus AS persona_estatus,
-                            aj.id_jefe AS jefe_persona_id,
-                            aj.id_vacante_jefe AS jefe_vacante_id,
-                            reg.activo,
-                            reg.fecha_alta,
-                            reg.fecha_actualizacion
-                        FROM atlas_catalogo_regionales reg
-                        LEFT JOIN persona p
-                               ON p.id = reg.persona_id
-                        LEFT JOIN (
-                            SELECT a.id_persona, a.id_jefe, a.id_vacante_jefe
-                            FROM asigna_jefe a
-                            INNER JOIN (
-                                SELECT id_persona, MAX(id) AS id_ultimo
-                                FROM asigna_jefe
-                                GROUP BY id_persona
-                            ) ult ON ult.id_persona = a.id_persona AND ult.id_ultimo = a.id
-                        ) aj ON aj.id_persona = reg.persona_id
-                        WHERE reg.activo = 1
-                        ORDER BY reg.nombre ASC, reg.id ASC
-                    "),
+                    'divisiones' => [],
+                    'divisionales' => [],
+                    'regionales' => [],
                     'supervisores' => $db->queryAll("
                         SELECT
                             sup.id,
@@ -977,9 +911,9 @@ class Atlas extends Model
                             titular_deposito,
                             cuenta_deposito,
                             clabe_deposito,
-                            __SPARTA_SECRET_REDACTED___url,
-                            __SPARTA_SECRET_REDACTED___nombre,
-                            DATE_FORMAT(__SPARTA_SECRET_REDACTED___at, '%d/%m/%Y %H:%i') AS __SPARTA_SECRET_REDACTED___at_fmt,
+                            estado_cuenta_url,
+                            estado_cuenta_nombre,
+                            DATE_FORMAT(estado_cuenta_at, '%d/%m/%Y %H:%i') AS estado_cuenta_at_fmt,
                             icon_font,
                             activo,
                             fecha_alta,
@@ -1212,7 +1146,7 @@ class Atlas extends Model
                 'numero_exterior' => self::nullableStr($input['numero_exterior'] ?? null),
                 'numero_interior' => self::nullableStr($input['numero_interior'] ?? null),
                 'divisional_id' => null,
-                'division_id' => self::nullableInt($input['division_id'] ?? null),
+                'division_id' => null,
                 'regional_id' => null,
                 'supervisor_id' => self::nullableInt($input['supervisor_id'] ?? null),
                 'asesor_id' => self::nullableInt($input['asesor_id'] ?? null),
@@ -1279,6 +1213,8 @@ class Atlas extends Model
     }
     public static function guardarDivision(array $input): array
     {
+        return ['success' => false, 'mensaje' => 'El catalogo de divisiones ya no esta vigente. Asigna responsables directamente en sucursales.'];
+
         try {
             $db = new Database();
             self::asegurarDivisionalesPersonaAtlas($db);
@@ -1337,6 +1273,8 @@ class Atlas extends Model
 
     public static function fusionarDivisiones(array $input): array
     {
+        return ['success' => false, 'mensaje' => 'El catalogo de divisiones ya no esta vigente.'];
+
         $destinoId = self::intVal($input['division_destino_id'] ?? 0);
         $origenesRaw = $input['division_origen_ids'] ?? [];
         if (is_string($origenesRaw)) {
@@ -1570,6 +1508,8 @@ class Atlas extends Model
 
     public static function eliminarDivision(array $input): array
     {
+        return ['success' => false, 'mensaje' => 'El catalogo de divisiones ya no esta vigente.'];
+
         $id = self::intVal($input['id'] ?? 0);
         if ($id <= 0) {
             return ['success' => false, 'mensaje' => 'Selecciona una division.'];
@@ -1681,8 +1621,6 @@ class Atlas extends Model
     private static function resolverPersonasAsignacionSucursal(Database $db, array &$datos, array $input = []): array
     {
         $tokens = [
-            'divisional' => self::parseTokenPersonaAsignacion($input['divisional_id'] ?? null),
-            'regional' => self::parseTokenPersonaAsignacion($input['regional_id'] ?? null),
             'supervisor' => self::parseTokenPersonaAsignacion($input['supervisor_id'] ?? null),
             'asesor' => self::parseTokenPersonaAsignacion($input['asesor_id'] ?? null),
         ];
@@ -1692,8 +1630,8 @@ class Atlas extends Model
             }
         }
         return [
-            'divisional_persona_id' => $tokens['divisional'] ?? self::personaIdDesdeCatalogoAsignacion($db, 'atlas_catalogo_divisionales', self::nullableInt($datos['divisional_id'] ?? null)),
-            'regional_persona_id' => $tokens['regional'] ?? self::personaIdDesdeCatalogoAsignacion($db, 'atlas_catalogo_regionales', self::nullableInt($datos['regional_id'] ?? null)),
+            'divisional_persona_id' => null,
+            'regional_persona_id' => null,
             'supervisor_persona_id' => $tokens['supervisor'] ?? self::personaIdDesdeCatalogoAsignacion($db, 'atlas_catalogo_supervisores', self::nullableInt($datos['supervisor_id'] ?? null)),
             'asesor_persona_id' => $tokens['asesor'] ?? self::personaIdDesdeCatalogoAsignacion($db, 'atlas_catalogo_asesores', self::nullableInt($datos['asesor_id'] ?? null)),
         ];
@@ -1774,9 +1712,11 @@ class Atlas extends Model
 
     public static function guardarAsignacionDivision(array $input): array
     {
+        return ['success' => false, 'mensaje' => 'La asignacion por division ya no esta vigente. Asigna responsables directamente en sucursales.'];
+
         $divisionId = self::nullableInt($input['division_id'] ?? null);
         if ($divisionId === null) {
-            return ['success' => false, 'mensaje' => 'Selecciona una divisiÃ³n.'];
+            return ['success' => false, 'mensaje' => 'Selecciona una divisiÃƒÂ³n.'];
         }
 
         $tipo = strtolower(self::strVal($input['tipo_asignacion'] ?? 'persona'));
@@ -1801,13 +1741,13 @@ class Atlas extends Model
                 LIMIT 1
             ", ['id' => $divisionId]);
             if (!$division) {
-                return ['success' => false, 'mensaje' => 'La divisiÃ³n seleccionada no existe o estÃ¡ inactiva.'];
+                return ['success' => false, 'mensaje' => 'La divisiÃƒÂ³n seleccionada no existe o estÃƒÂ¡ inactiva.'];
             }
 
             if ($tipo === 'persona') {
                 $divisionalId = self::nullableInt($input['divisional_id'] ?? null);
                 if ($divisionalId === null) {
-                    return ['success' => false, 'mensaje' => 'Selecciona un colaborador para la divisiÃ³n.'];
+                    return ['success' => false, 'mensaje' => 'Selecciona un colaborador para la divisiÃƒÂ³n.'];
                 }
                 $nuevo = $db->queryOne("
                     SELECT dvl.id, dvl.tipo_asignacion, dvl.persona_id, dvl.nombre
@@ -1825,7 +1765,7 @@ class Atlas extends Model
                     LIMIT 1
                 ", ['id' => $divisionalId]);
                 if (!$nuevo) {
-                    return ['success' => false, 'mensaje' => 'El colaborador seleccionado no estÃ¡ disponible en Accesos Atlas o Capital Humano ya lo dio de baja.'];
+                    return ['success' => false, 'mensaje' => 'El colaborador seleccionado no estÃƒÂ¡ disponible en Accesos Atlas o Capital Humano ya lo dio de baja.'];
                 }
             } else {
                 $nombreVacante = self::strVal($input['nombre_vacante'] ?? '');
@@ -1845,7 +1785,7 @@ class Atlas extends Model
                 LIMIT 1
             ", ['divisional_id' => $divisionalId, 'division_id' => $divisionId]);
             if ($ocupada) {
-                return ['success' => false, 'mensaje' => 'Ese responsable ya estÃ¡ asignado a la divisiÃ³n ' . ($ocupada['nombre'] ?? '') . '.'];
+                return ['success' => false, 'mensaje' => 'Ese responsable ya estÃƒÂ¡ asignado a la divisiÃƒÂ³n ' . ($ocupada['nombre'] ?? '') . '.'];
             }
 
             $anteriorId = self::nullableInt($division['divisional_id'] ?? null);
@@ -1871,17 +1811,19 @@ class Atlas extends Model
             }
             $db->commit();
 
-            return ['success' => true, 'mensaje' => $cambio ? 'AsignaciÃ³n actualizada.' : 'AsignaciÃ³n sin cambios.', 'id' => $divisionId];
+            return ['success' => true, 'mensaje' => $cambio ? 'AsignaciÃƒÂ³n actualizada.' : 'AsignaciÃƒÂ³n sin cambios.', 'id' => $divisionId];
         } catch (\Throwable $e) {
             if (isset($db) && $db->inTransaction()) {
                 $db->rollback();
             }
-            return ['success' => false, 'mensaje' => 'No se pudo guardar la asignaciÃ³n de divisiÃ³n.', 'error' => $e->getMessage()];
+            return ['success' => false, 'mensaje' => 'No se pudo guardar la asignaciÃƒÂ³n de divisiÃƒÂ³n.', 'error' => $e->getMessage()];
         }
     }
 
     public static function getActualizacionesDivisionales(): array
     {
+        return ['success' => true, 'mensaje' => 'Sin actualizaciones pendientes.', 'datos' => ['disponibles' => [], 'sin_uso' => []]];
+
         try {
             $db = new Database();
             self::asegurarDivisionalesPersonaAtlas($db);
@@ -1951,6 +1893,8 @@ class Atlas extends Model
 
     public static function crearDivisionalDesdePersona(array $input): array
     {
+        return ['success' => false, 'mensaje' => 'El catalogo de divisionales ya no esta vigente.'];
+
         $personaId = self::nullableInt($input['persona_id'] ?? null);
         if ($personaId === null) {
             return ['success' => false, 'mensaje' => 'Selecciona un colaborador.'];
@@ -1973,7 +1917,7 @@ class Atlas extends Model
                 LIMIT 1
             ", ['persona_id' => $personaId]);
             if (!$usuario) {
-                return ['success' => false, 'mensaje' => 'El colaborador no estÃ¡ disponible en Accesos Atlas o Capital Humano ya lo dio de baja.'];
+                return ['success' => false, 'mensaje' => 'El colaborador no estÃƒÂ¡ disponible en Accesos Atlas o Capital Humano ya lo dio de baja.'];
             }
 
             $activo = $db->queryOne("
@@ -1990,7 +1934,7 @@ class Atlas extends Model
 
             $nombre = self::strVal($usuario['nombre'] ?? '');
             if ($nombre === '') {
-                return ['success' => false, 'mensaje' => 'El colaborador no tiene nombre vÃ¡lido.'];
+                return ['success' => false, 'mensaje' => 'El colaborador no tiene nombre vÃƒÂ¡lido.'];
             }
 
             $conflicto = $db->queryOne("
@@ -2001,7 +1945,7 @@ class Atlas extends Model
                 LIMIT 1
             ", ['nombre' => $nombre, 'persona_id' => $personaId]);
             if ($conflicto) {
-                return ['success' => false, 'mensaje' => 'Ya existe otro divisional con ese nombre. Revisa el catÃ¡logo antes de agregarlo.'];
+                return ['success' => false, 'mensaje' => 'Ya existe otro divisional con ese nombre. Revisa el catÃƒÂ¡logo antes de agregarlo.'];
             }
 
             $inactivo = $db->queryOne("
@@ -2040,6 +1984,8 @@ class Atlas extends Model
 
     public static function desactivarDivisional(array $input): array
     {
+        return ['success' => false, 'mensaje' => 'El catalogo de divisionales ya no esta vigente.'];
+
         $id = self::nullableInt($input['id'] ?? null);
         if ($id === null) {
             return ['success' => false, 'mensaje' => 'Selecciona un divisional.'];
@@ -2060,7 +2006,7 @@ class Atlas extends Model
                 LIMIT 1
             ", ['id' => $id]);
             if (!$divisional || (int)($divisional['activo'] ?? 0) !== 1) {
-                return ['success' => false, 'mensaje' => 'El divisional no existe o ya estÃ¡ inactivo.'];
+                return ['success' => false, 'mensaje' => 'El divisional no existe o ya estÃƒÂ¡ inactivo.'];
             }
 
             $uso = $db->queryOne("
@@ -2070,7 +2016,7 @@ class Atlas extends Model
                   AND activo = 1
             ", ['id' => $id]);
             if ((int)($uso['total'] ?? 0) > 0) {
-                return ['success' => false, 'mensaje' => 'No se puede sacar: todavÃ­a estÃ¡ asignado a una divisiÃ³n activa.'];
+                return ['success' => false, 'mensaje' => 'No se puede sacar: todavÃƒÂ­a estÃƒÂ¡ asignado a una divisiÃƒÂ³n activa.'];
             }
 
             $db->CRUD("
@@ -2082,7 +2028,7 @@ class Atlas extends Model
                 WHERE id = :id
             ", ['id' => $id, 'motivo_baja' => $motivo]);
 
-            return ['success' => true, 'mensaje' => 'Divisional sacado del catÃ¡logo.'];
+            return ['success' => true, 'mensaje' => 'Divisional sacado del catÃƒÂ¡logo.'];
         } catch (\Throwable $e) {
             return ['success' => false, 'mensaje' => 'No se pudo sacar el divisional.', 'error' => $e->getMessage()];
         }
@@ -2195,7 +2141,7 @@ class Atlas extends Model
             $id = self::intVal($input['id'] ?? 0);
             $nombreComercial = self::strVal($input['nombre_comercial'] ?? $input['nombre'] ?? '');
             $razonSocial = self::strVal($input['razon_social'] ?? '');
-            $rfc = strtoupper(preg_replace('/[^A-Z0-9Ã‘&]/u', '', self::strVal($input['rfc'] ?? '')));
+            $rfc = strtoupper(preg_replace('/[^A-Z0-9Ãƒâ€˜&]/u', '', self::strVal($input['rfc'] ?? '')));
             $tipoDistribuidor = self::strVal($input['tipo_distribuidor'] ?? '');
             $estatus = strtolower(self::strVal($input['estatus'] ?? 'activo'));
             $nombreContacto = self::strVal($input['nombre_contacto'] ?? '');
@@ -2235,7 +2181,7 @@ class Atlas extends Model
             if (!filter_var($emailContacto, FILTER_VALIDATE_EMAIL)) {
                 return ['success' => false, 'mensaje' => 'Captura un correo de contacto valido.'];
             }
-            if (!preg_match('/^[A-ZÃ‘&]{3,4}[0-9]{6}[A-Z0-9]{3}$/u', $rfc)) {
+            if (!preg_match('/^[A-ZÃƒâ€˜&]{3,4}[0-9]{6}[A-Z0-9]{3}$/u', $rfc)) {
                 return ['success' => false, 'mensaje' => 'Captura un RFC valido.'];
             }
             if (!preg_match('/^[0-9]{10}$/', $telefonoContacto)) {
@@ -2577,7 +2523,7 @@ class Atlas extends Model
                 return $row;
             }
         }
-        $rfc = strtoupper(preg_replace('/[^A-Z0-9Ñ&]/u', '', self::strVal($fila['rfc'] ?? '')));
+        $rfc = strtoupper(preg_replace('/[^A-Z0-9Ã‘&]/u', '', self::strVal($fila['rfc'] ?? '')));
         if ($rfc !== '') {
             $row = $db->queryOne("SELECT * FROM atlas_catalogo_distribuidores WHERE rfc = :rfc LIMIT 1", ['rfc' => $rfc]);
             if ($row) {
@@ -2621,7 +2567,7 @@ class Atlas extends Model
             'nombre' => $nombre,
             'nombre_comercial' => $nombre,
             'razon_social' => self::strVal($pick('razon_social', $nombre)),
-            'rfc' => strtoupper(preg_replace('/[^A-Z0-9Ñ&]/u', '', self::strVal($pick('rfc', '')))),
+            'rfc' => strtoupper(preg_replace('/[^A-Z0-9Ã‘&]/u', '', self::strVal($pick('rfc', '')))),
             'tipo_persona' => $tipoPersona,
             'tipo_distribuidor' => self::strVal($pick('tipo_distribuidor', '')),
             'estatus' => $estatus,
@@ -2653,7 +2599,7 @@ class Atlas extends Model
     private static function boolLayout($value): int
     {
         $v = strtolower(trim((string)$value));
-        return in_array($v, ['1', 'si', 'sí', 's', 'yes', 'activo', 'true'], true) ? 1 : 0;
+        return in_array($v, ['1', 'si', 'sÃ­', 's', 'yes', 'activo', 'true'], true) ? 1 : 0;
     }
 
     private static function validarDatosDistribuidorLayout(array $datos): ?string
@@ -2677,7 +2623,7 @@ class Atlas extends Model
         if (!filter_var($datos['email_contacto'], FILTER_VALIDATE_EMAIL)) {
             return 'Correo principal invalido.';
         }
-        if (!preg_match('/^[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3}$/u', $datos['rfc'])) {
+        if (!preg_match('/^[A-ZÃ‘&]{3,4}[0-9]{6}[A-Z0-9]{3}$/u', $datos['rfc'])) {
             return 'RFC invalido.';
         }
         if (!preg_match('/^[0-9]{10}$/', $datos['telefono_contacto'])) {
@@ -3000,7 +2946,7 @@ class Atlas extends Model
                 return ['success' => false, 'mensaje' => 'El estado de cuenta debe pesar maximo 10 MB.'];
             }
 
-            $original = basename((string)($archivo['name'] ?? '__SPARTA_SECRET_REDACTED__'));
+            $original = basename((string)($archivo['name'] ?? 'estado_cuenta'));
             $ext = strtolower(pathinfo($original, PATHINFO_EXTENSION));
             $permitidos = ['pdf', 'jpg', 'jpeg', 'png'];
             if (!in_array($ext, $permitidos, true)) {
@@ -3021,9 +2967,9 @@ class Atlas extends Model
             }
 
             $nombreLimpio = preg_replace('/[^A-Za-z0-9._-]+/', '_', pathinfo($original, PATHINFO_FILENAME));
-            $nombreArchivo = '__SPARTA_SECRET_REDACTED___dist_' . $id . '_' . date('Ymd_His') . '_' . substr(sha1($original . microtime(true)), 0, 8) . '.' . $ext;
+            $nombreArchivo = 'estado_cuenta_dist_' . $id . '_' . date('Ymd_His') . '_' . substr(sha1($original . microtime(true)), 0, 8) . '.' . $ext;
             if ($nombreLimpio !== '') {
-                $nombreArchivo = '__SPARTA_SECRET_REDACTED___dist_' . $id . '_' . date('Ymd_His') . '_' . substr($nombreLimpio, 0, 40) . '.' . $ext;
+                $nombreArchivo = 'estado_cuenta_dist_' . $id . '_' . date('Ymd_His') . '_' . substr($nombreLimpio, 0, 40) . '.' . $ext;
             }
 
             $destino = rtrim($dir, DIRECTORY_SEPARATOR . '/\\') . DIRECTORY_SEPARATOR . $nombreArchivo;
@@ -3038,9 +2984,9 @@ class Atlas extends Model
 
             $db->CRUD("
                 UPDATE atlas_catalogo_distribuidores
-                SET __SPARTA_SECRET_REDACTED___url = :url,
-                    __SPARTA_SECRET_REDACTED___nombre = :nombre,
-                    __SPARTA_SECRET_REDACTED___at = NOW()
+                SET estado_cuenta_url = :url,
+                    estado_cuenta_nombre = :nombre,
+                    estado_cuenta_at = NOW()
                 WHERE id = :id
             ", [
                 'url' => $urlPublica,
@@ -3379,7 +3325,6 @@ class Atlas extends Model
     private static function asegurarResponsablesPersonaAtlas(Database $db): void
     {
         $tablas = [
-            'atlas_catalogo_regionales' => 'regionales',
             'atlas_catalogo_supervisores' => 'supervisores',
             'atlas_catalogo_asesores' => 'asesores',
         ];
@@ -3560,7 +3505,6 @@ class Atlas extends Model
             WHERE estatus <> 'Baja'
         ");
         $catalogos = [
-            'atlas_catalogo_regionales',
             'atlas_catalogo_supervisores',
             'atlas_catalogo_asesores',
         ];
@@ -3849,8 +3793,8 @@ class Atlas extends Model
                     s.latitud,
                     s.longitud,
                     COALESCE(tel.numero_telefono, '') AS numero_telefono,
-                    COALESCE(divi.nombre, 'Sin division') AS division_nombre,
-                    COALESCE(reg.nombre, 'Sin regional') AS regional_nombre,
+                    '' AS division_nombre,
+                    '' AS regional_nombre,
                     COALESCE(cls.nombre, 'Sin clasificacion') AS clasificacion_nombre,
                     COALESCE(gest.gestores_asignados, 'Sin gestor') AS gestores_asignados,
                     COALESCE(gest.total_gestores, 0) AS total_gestores,
@@ -3872,8 +3816,6 @@ class Atlas extends Model
                        ON tel.fk_sucursal = s.fk_sucursal
                       AND tel.activo = 1
                       AND tel.es_principal = 1
-                LEFT JOIN atlas_catalogo_divisiones divi ON divi.id = s.division_id
-                LEFT JOIN atlas_catalogo_regionales reg ON reg.id = s.regional_id
                 LEFT JOIN atlas_catalogo_clasificaciones cls ON cls.id = s.clasificacion_id
                 LEFT JOIN atlas_presupuesto_sucursal_detalle pdet
                        ON pdet.fk_sucursal = s.fk_sucursal
@@ -3950,15 +3892,13 @@ class Atlas extends Model
                     s.latitud,
                     s.longitud,
                     COALESCE(tel.numero_telefono, '') AS numero_telefono,
-                    COALESCE(divi.nombre, 'Sin division') AS division_nombre,
-                    COALESCE(reg.nombre, 'Sin regional') AS regional_nombre
+                    '' AS division_nombre,
+                    '' AS regional_nombre
                 FROM atlas_catalogo_sucursales s
                 LEFT JOIN atlas_asigna_telefono_sucursal tel
                        ON tel.fk_sucursal = s.fk_sucursal
                       AND tel.activo = 1
                       AND tel.es_principal = 1
-                LEFT JOIN atlas_catalogo_divisiones divi ON divi.id = s.division_id
-                LEFT JOIN atlas_catalogo_regionales reg ON reg.id = s.regional_id
                 WHERE s.fk_sucursal = :fk
                 LIMIT 1
             ", ['fk' => $fkSucursal]);
@@ -4033,16 +3973,11 @@ class Atlas extends Model
                 fk_sucursal INT NOT NULL,
                 sucursal VARCHAR(180) NULL,
                 distribuidor VARCHAR(180) NULL,
-                divisional VARCHAR(180) NULL,
-                regional VARCHAR(180) NULL,
-                supervisor VARCHAR(180) NULL,
                 asesor VARCHAR(180) NULL,
-                estado VARCHAR(120) NULL,
-                promedio_creditos DECIMAL(14,2) NULL,
-                clasificacion VARCHAR(120) NULL,
+                asesor_persona_id INT NULL,
+                clasificacion_id BIGINT NULL,
                 meta_creditos DECIMAL(14,2) NOT NULL DEFAULT 0,
                 meta_cash DECIMAL(16,2) NOT NULL DEFAULT 0,
-                observaciones TEXT NULL,
                 activo TINYINT(1) NOT NULL DEFAULT 1,
                 updated_by INT NULL,
                 fecha_alta DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -4085,6 +4020,8 @@ class Atlas extends Model
         self::asegurarColumna($db, 'atlas_presupuesto_bitacora', 'meta_creditos_nueva', 'DECIMAL(14,2) NULL');
         self::asegurarColumna($db, 'atlas_presupuesto_bitacora', 'meta_cash_anterior', 'DECIMAL(16,2) NULL');
         self::asegurarColumna($db, 'atlas_presupuesto_bitacora', 'meta_cash_nueva', 'DECIMAL(16,2) NULL');
+        self::asegurarColumna($db, 'atlas_presupuesto_sucursal_detalle', 'clasificacion_id', 'BIGINT NULL AFTER asesor');
+        self::asegurarColumna($db, 'atlas_presupuesto_sucursal_detalle', 'asesor_persona_id', 'INT NULL AFTER asesor');
     }
 
     private static function registrarBitacoraPresupuesto(Database $db, array $datos): void
@@ -4207,23 +4144,25 @@ class Atlas extends Model
             $detalles = $db->queryAll("
                 SELECT
                     d.*,
+                    d.clasificacion_id AS clasificacion_catalogo_id,
                     COALESCE(cls.nombre, '') AS clasificacion_catalogo,
+                    COALESCE(cls.icon_font, '') AS clasificacion_icon_font,
+                    COALESCE(cls.color_hex, '') AS clasificacion_color_hex,
                     DATE_FORMAT(d.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt
                 FROM atlas_presupuesto_sucursal_detalle d
-                LEFT JOIN atlas_catalogo_sucursales s
-                       ON s.fk_sucursal = d.fk_sucursal
                 LEFT JOIN atlas_catalogo_clasificaciones cls
-                       ON cls.id = s.clasificacion_id
+                       ON cls.id = d.clasificacion_id
                 WHERE d.presupuesto_id = :id
                   AND d.activo = 1
                 ORDER BY d.sucursal ASC, d.fk_sucursal ASC
             ", ['id' => $id]);
 
             foreach ($detalles as &$detalle) {
-                $detalle['clasificacion_presupuesto'] = $detalle['clasificacion'] ?? '';
-                if (trim((string)($detalle['clasificacion_catalogo'] ?? '')) !== '') {
-                    $detalle['clasificacion'] = $detalle['clasificacion_catalogo'];
-                }
+                $detalle['clasificacion_presupuesto'] = '';
+                $detalle['clasificacion_id'] = (int)($detalle['clasificacion_catalogo_id'] ?? 0);
+                $detalle['clasificacion'] = trim((string)($detalle['clasificacion_catalogo'] ?? '')) !== ''
+                    ? $detalle['clasificacion_catalogo']
+                    : 'Sin clasificacion';
             }
             unset($detalle);
 
@@ -4292,16 +4231,17 @@ class Atlas extends Model
                     d.fk_sucursal,
                     d.sucursal,
                     d.distribuidor,
-                    COALESCE(cls.nombre, d.clasificacion, '') AS clasificacion,
+                    d.clasificacion_id AS clasificacion_id,
+                    COALESCE(cls.nombre, 'Sin clasificacion') AS clasificacion,
+                    COALESCE(cls.icon_font, '') AS clasificacion_icon_font,
+                    COALESCE(cls.color_hex, '') AS clasificacion_color_hex,
                     d.meta_creditos,
                     d.meta_cash,
                     0 AS creditos_vendidos,
                     0 AS cash_vendido
                 FROM atlas_presupuesto_sucursal_detalle d
-                LEFT JOIN atlas_catalogo_sucursales s
-                       ON s.fk_sucursal = d.fk_sucursal
                 LEFT JOIN atlas_catalogo_clasificaciones cls
-                       ON cls.id = s.clasificacion_id
+                       ON cls.id = d.clasificacion_id
                 WHERE d.presupuesto_id = :id
                   AND d.activo = 1
                 ORDER BY d.meta_cash DESC, d.sucursal ASC
@@ -4679,19 +4619,11 @@ class Atlas extends Model
             return [];
         }
 
-        $rol = (string)($contexto['rol_rutas'] ?? '');
-        $campoJerarquia = match ($rol) {
-            'divisional' => 'divisional_id',
-            'regional' => 'regional_id',
-            'supervisor' => 'supervisor_id',
-            default => 'asesor_id',
-        };
-
-        return array_values(array_filter($sucursales, static function ($sucursal) use ($campoJerarquia, $usuarioId) {
+        return array_values(array_filter($sucursales, static function ($sucursal) use ($usuarioId) {
             if ((int)($sucursal['asesor_id'] ?? 0) === $usuarioId) {
                 return true;
             }
-            return $campoJerarquia !== 'asesor_id' && (int)($sucursal[$campoJerarquia] ?? 0) === $usuarioId;
+            return (int)($sucursal['supervisor_id'] ?? 0) === $usuarioId;
         }));
     }
 
@@ -4716,25 +4648,20 @@ class Atlas extends Model
                     s.longitud,
                     s.estadia_sugerida,
                     s.clasificacion_id,
-                    COALESCE(s.divisional_persona_id, s.divisional_id) AS divisional_id,
-                    s.division_id,
-                    COALESCE(s.regional_persona_id, s.regional_id) AS regional_id,
+                    NULL AS divisional_id,
+                    NULL AS division_id,
+                    NULL AS regional_id,
                     COALESCE(s.supervisor_persona_id, s.supervisor_id) AS supervisor_id,
                     COALESCE(s.asesor_persona_id, s.asesor_id) AS asesor_id,
-                    COALESCE(NULLIF(TRIM(CONCAT_WS(' ', pdvl.nombres, pdvl.segundo_nombre, pdvl.apellidop, pdvl.apellidom)), ''), dvl.nombre) AS divisional_nombre,
-                    divi.nombre AS division_nombre,
-                    COALESCE(NULLIF(TRIM(CONCAT_WS(' ', preg.nombres, preg.segundo_nombre, preg.apellidop, preg.apellidom)), ''), reg.nombre) AS regional_nombre,
+                    '' AS divisional_nombre,
+                    '' AS division_nombre,
+                    '' AS regional_nombre,
                     COALESCE(NULLIF(TRIM(CONCAT_WS(' ', psup.nombres, psup.segundo_nombre, psup.apellidop, psup.apellidom)), ''), sup.nombre) AS supervisor_nombre,
                     COALESCE(NULLIF(TRIM(CONCAT_WS(' ', pase.nombres, pase.segundo_nombre, pase.apellidop, pase.apellidom)), ''), ase.nombre) AS asesor_nombre,
                     COALESCE(cls.nombre, '') AS clasificacion_nombre,
                     COALESCE(NULLIF(cls.icon_font, ''), 'fa-solid fa-location-dot') AS clasificacion_icon_font,
                     COALESCE(NULLIF(cls.color_hex, ''), '#2563EB') AS clasificacion_color_hex
                 FROM atlas_catalogo_sucursales s
-                LEFT JOIN atlas_catalogo_divisionales dvl ON dvl.id = s.divisional_id
-                LEFT JOIN persona pdvl ON pdvl.id = s.divisional_persona_id
-                LEFT JOIN atlas_catalogo_divisiones divi ON divi.id = s.division_id
-                LEFT JOIN atlas_catalogo_regionales reg ON reg.id = s.regional_id
-                LEFT JOIN persona preg ON preg.id = s.regional_persona_id
                 LEFT JOIN atlas_catalogo_supervisores sup ON sup.id = s.supervisor_id
                 LEFT JOIN persona psup ON psup.id = s.supervisor_persona_id
                 LEFT JOIN atlas_catalogo_asesores ase ON ase.id = s.asesor_id
@@ -5231,7 +5158,7 @@ class Atlas extends Model
             $sucursales = $db->queryAll("
                 SELECT rs.*, s.sucursal,
                        COALESCE(NULLIF(s.direccion_sucursal, ''), TRIM(CONCAT_WS(', ', NULLIF(s.calle, ''), NULLIF(s.numero_exterior, ''), NULLIF(s.colonia, ''), NULLIF(s.municipio, ''), NULLIF(s.estado, '')))) AS direccion,
-                       s.latitud, s.longitud, divi.nombre AS division_nombre,
+                       s.latitud, s.longitud, '' AS division_nombre,
                        COALESCE(tel.numero_telefono, '') AS numero_telefono,
                        COALESCE(pdet.meta_creditos, 0) AS meta_creditos,
                        COALESCE(pdet.meta_cash, 0) AS meta_cash,
@@ -5240,7 +5167,6 @@ class Atlas extends Model
                        CASE WHEN COALESCE(gest.total_gestiones, 0) > 0 THEN 1 ELSE 0 END AS tiene_gestion
                 FROM atlas_ruta_sucursales rs
                 LEFT JOIN atlas_catalogo_sucursales s ON s.fk_sucursal = rs.fk_sucursal
-                LEFT JOIN atlas_catalogo_divisiones divi ON divi.id = s.division_id
                 LEFT JOIN atlas_asigna_telefono_sucursal tel
                        ON tel.fk_sucursal = s.fk_sucursal
                       AND tel.activo = 1
@@ -5327,22 +5253,21 @@ class Atlas extends Model
                     s.codigo_postal,
                     s.latitud,
                     s.longitud,
-                    divi.nombre AS division_nombre,
-                    COALESCE(cls.nombre, pdet.clasificacion, '') AS clasificacion_nombre,
+                    '' AS division_nombre,
+                    COALESCE(cls.nombre, '') AS clasificacion_nombre,
                     COALESCE(NULLIF(cls.icon_font, ''), 'fa-solid fa-location-dot') AS clasificacion_icon_font,
                     COALESCE(NULLIF(cls.color_hex, ''), '#2563EB') AS clasificacion_color_hex,
                     COALESCE(tel.numero_telefono, '') AS numero_telefono,
                     COALESCE(tel.nombre_contacto, '') AS contacto_telefono,
                     COALESCE(pdet.meta_creditos, 0) AS meta_creditos,
                     COALESCE(pdet.meta_cash, 0) AS meta_cash,
-                    COALESCE(pdet.promedio_creditos, 0) AS promedio_creditos,
-                    COALESCE(pdet.observaciones, '') AS presupuesto_observaciones,
+                    0 AS promedio_creditos,
+                    '' AS presupuesto_observaciones,
                     0 AS total_creditos,
                     0 AS cash_detenido_operativo
                 FROM atlas_ruta_sucursales rs
                 LEFT JOIN atlas_catalogo_sucursales s ON s.fk_sucursal = rs.fk_sucursal
                 LEFT JOIN atlas_catalogo_distribuidores d ON d.id = s.distribuidor_id
-                LEFT JOIN atlas_catalogo_divisiones divi ON divi.id = s.division_id
                 LEFT JOIN atlas_catalogo_clasificaciones cls ON cls.id = s.clasificacion_id
                 LEFT JOIN atlas_asigna_telefono_sucursal tel
                        ON tel.fk_sucursal = s.fk_sucursal
@@ -5429,7 +5354,7 @@ class Atlas extends Model
             $personaId = self::intVal($input['persona_id'] ?? 0);
             if ($personaId <= 0) return ['success' => false, 'mensaje' => 'Selecciona una persona.'];
             $existe = $db->queryOne("SELECT id FROM atlas_gestores_operativos WHERE persona_id = :persona_id AND activo = 1 AND id <> :id LIMIT 1", ['persona_id' => $personaId, 'id' => $id]);
-            if ($existe) return ['success' => true, 'mensaje' => 'El gestor ya estÃ¡ activo.', 'id' => (int)$existe['id']];
+            if ($existe) return ['success' => true, 'mensaje' => 'El gestor ya estÃƒÂ¡ activo.', 'id' => (int)$existe['id']];
             if ($id > 0) {
                 $db->CRUD("
                     UPDATE atlas_gestores_operativos
@@ -5637,7 +5562,7 @@ class Atlas extends Model
 
     public static function guardarRutaCredito(array $input): array
     {
-        return ['success' => true, 'mensaje' => 'Los crÃ©ditos se calculan automÃ¡ticamente por sucursal pendiente operativa.'];
+        return ['success' => true, 'mensaje' => 'Los crÃƒÂ©ditos se calculan automÃƒÂ¡ticamente por sucursal pendiente operativa.'];
     }
 
     public static function guardarOrdenRutaSucursales(array $input): array
@@ -5683,7 +5608,7 @@ class Atlas extends Model
     public static function importarPresupuestoMensual(int $anio, int $mes, string $archivoOriginal, array $filas, int $usuarioId = 0): array
     {
         if ($anio < 2000 || $mes < 1 || $mes > 12) {
-            return ['success' => false, 'mensaje' => 'Selecciona un aÃ±o y mes validos.'];
+            return ['success' => false, 'mensaje' => 'Selecciona un aÃƒÂ±o y mes validos.'];
         }
         if (!$filas) {
             return ['success' => false, 'mensaje' => 'El Excel no contiene registros.'];
@@ -5753,6 +5678,7 @@ class Atlas extends Model
 
             $sucursalesEsperadas = self::getSucursalesTemplatePresupuesto();
             $clasificacionesPorNombre = self::getClasificacionesAtlasPorNombre($db);
+            $personasPorNombre = self::getPersonasPresupuestoPorNombre($db);
             $esperadasPorFk = [];
             foreach ($sucursalesEsperadas as $sucursalEsperada) {
                 $fkEsperada = (int)($sucursalEsperada['fk_sucursal'] ?? 0);
@@ -5804,14 +5730,54 @@ class Atlas extends Model
                 }
             }
 
+            $erroresAsignacion = [];
+            foreach ($filasUnicas as $fkSucursal => $fila) {
+                $asesorExcel = self::strVal($fila['asesor'] ?? '');
+                $excelRow = (int)($fila['_excel_row'] ?? 0);
+                if ($asesorExcel === '') {
+                    $erroresAsignacion[] = [
+                        'fila' => $excelRow,
+                        'fk_sucursal' => (int)$fkSucursal,
+                        'sucursal' => self::strVal($fila['sucursal'] ?? ''),
+                        'asesor_excel' => '',
+                        'falla' => 'El Excel no trae asesor asignado para esta sucursal.',
+                    ];
+                    continue;
+                }
+
+                $firmaAsesor = self::firmaNombrePersonaPresupuesto($asesorExcel);
+                $coincidencias = $firmaAsesor !== '' ? ($personasPorNombre[$firmaAsesor] ?? []) : [];
+                if (count($coincidencias) !== 1) {
+                    $erroresAsignacion[] = [
+                        'fila' => $excelRow,
+                        'fk_sucursal' => (int)$fkSucursal,
+                        'sucursal' => self::strVal($fila['sucursal'] ?? ''),
+                        'asesor_excel' => $asesorExcel,
+                        'falla' => count($coincidencias) > 1
+                            ? 'El asesor existe mas de una vez en persona; se requiere corregir duplicidad o asignar manualmente.'
+                            : 'No se encontro el asesor en persona usando el nombre del Excel.',
+                        'coincidencias' => array_slice($coincidencias, 0, 5),
+                    ];
+                    continue;
+                }
+
+                $persona = $coincidencias[0];
+                $filasUnicas[$fkSucursal]['_asesor_persona_id'] = (int)$persona['id'];
+                $filasUnicas[$fkSucursal]['_asesor_persona_nombre'] = $persona['nombre'];
+                $filasUnicas[$fkSucursal]['_asesor_numero_empleado'] = $persona['numero_empleado'];
+                $filasUnicas[$fkSucursal]['_asesor_user_name'] = $persona['user_name'];
+            }
+
             $importadas = 0;
             $catalogoClasificacionActualizado = 0;
+            $catalogoAsesorActualizado = 0;
             $cambiosRegistrados = 0;
             $altasRegistradas = 0;
             foreach ($filasUnicas as $fkSucursal => $fila) {
                 $sucursalEsperada = $esperadasPorFk[$fkSucursal] ?? [];
                 $clasificacionExcel = self::strVal($fila['clasificacion'] ?? '');
                 $clasificacionOficial = self::strVal($sucursalEsperada['clasificacion'] ?? '');
+                $clasificacionId = null;
 
                 if ($clasificacionExcel !== '') {
                     $clasificacionKey = self::normalizarNombreCatalogoParaComparar($clasificacionExcel);
@@ -5850,13 +5816,9 @@ class Atlas extends Model
                     'fk_sucursal' => (int)$fkSucursal,
                     'sucursal' => self::strVal($fila['sucursal'] ?? ''),
                     'distribuidor' => self::strVal($fila['distribuidor'] ?? ''),
-                    'divisional' => self::strVal($fila['divisional'] ?? ''),
-                    'regional' => self::strVal($fila['regional'] ?? ''),
-                    'supervisor' => self::strVal($fila['supervisor'] ?? ''),
                     'asesor' => self::strVal($fila['asesor'] ?? ''),
-                    'estado' => self::strVal($fila['estado'] ?? ''),
-                    'promedio_creditos' => self::decimalPresupuesto($fila['promedio_creditos'] ?? null),
-                    'clasificacion' => $clasificacionOficial,
+                    'asesor_persona_id' => self::nullableInt($fila['_asesor_persona_id'] ?? null),
+                    'clasificacion_id' => $clasificacionId,
                     'meta_creditos' => self::decimalPresupuesto($fila['meta_creditos'] ?? 0),
                     'meta_cash' => self::decimalPresupuesto($fila['meta_cash'] ?? 0),
                     'usuario' => $usuarioId ?: null,
@@ -5882,26 +5844,36 @@ class Atlas extends Model
                     ];
                 }
 
+                if (!empty($datos['asesor_persona_id'])) {
+                    $actualizados = $db->CRUD("
+                        UPDATE atlas_catalogo_sucursales
+                        SET asesor_persona_id = :asesor_persona_id
+                        WHERE fk_sucursal = :fk_sucursal
+                          AND (asesor_persona_id IS NULL OR asesor_persona_id <> :asesor_persona_id_actual)
+                    ", [
+                        'asesor_persona_id' => (int)$datos['asesor_persona_id'],
+                        'asesor_persona_id_actual' => (int)$datos['asesor_persona_id'],
+                        'fk_sucursal' => (int)$fkSucursal,
+                    ]);
+                    if ($actualizados) {
+                        $catalogoAsesorActualizado++;
+                    }
+                }
+
                 $db->CRUD("
                     INSERT INTO atlas_presupuesto_sucursal_detalle (
-                        presupuesto_id, fk_sucursal, sucursal, distribuidor, divisional,
-                        regional, supervisor, asesor, estado, promedio_creditos, clasificacion,
+                        presupuesto_id, fk_sucursal, sucursal, distribuidor, asesor, asesor_persona_id, clasificacion_id,
                         meta_creditos, meta_cash, activo, updated_by
                     ) VALUES (
-                        :presupuesto_id, :fk_sucursal, :sucursal, :distribuidor, :divisional,
-                        :regional, :supervisor, :asesor, :estado, :promedio_creditos, :clasificacion,
+                        :presupuesto_id, :fk_sucursal, :sucursal, :distribuidor, :asesor, :asesor_persona_id, :clasificacion_id,
                         :meta_creditos, :meta_cash, 1, :usuario
                     )
                     ON DUPLICATE KEY UPDATE
                         sucursal = VALUES(sucursal),
                         distribuidor = VALUES(distribuidor),
-                        divisional = VALUES(divisional),
-                        regional = VALUES(regional),
-                        supervisor = VALUES(supervisor),
                         asesor = VALUES(asesor),
-                        estado = VALUES(estado),
-                        promedio_creditos = VALUES(promedio_creditos),
-                        clasificacion = VALUES(clasificacion),
+                        asesor_persona_id = VALUES(asesor_persona_id),
+                        clasificacion_id = VALUES(clasificacion_id),
                         meta_creditos = VALUES(meta_creditos),
                         meta_cash = VALUES(meta_cash),
                         activo = 1,
@@ -5925,6 +5897,8 @@ class Atlas extends Model
                     $metaCashAnterior = $anterior ? self::decimalPresupuesto($anterior['meta_cash'] ?? 0) : null;
                     $metaCreditosNueva = self::decimalPresupuesto($datos['meta_creditos'] ?? 0);
                     $metaCashNueva = self::decimalPresupuesto($datos['meta_cash'] ?? 0);
+                    $clasificacionAnteriorId = $anterior ? self::nullableInt($anterior['clasificacion_id'] ?? null) : null;
+                    $clasificacionNuevaId = self::nullableInt($datos['clasificacion_id'] ?? null);
                     $cambioMeta = !$anterior
                         || abs(($metaCreditosAnterior ?? 0) - $metaCreditosNueva) > 0.0001
                         || abs(($metaCashAnterior ?? 0) - $metaCashNueva) > 0.0001;
@@ -5932,7 +5906,8 @@ class Atlas extends Model
                         self::strVal($anterior['sucursal'] ?? '') !== self::strVal($datos['sucursal'] ?? '')
                         || self::strVal($anterior['distribuidor'] ?? '') !== self::strVal($datos['distribuidor'] ?? '')
                         || self::strVal($anterior['asesor'] ?? '') !== self::strVal($datos['asesor'] ?? '')
-                        || self::strVal($anterior['clasificacion'] ?? '') !== self::strVal($datos['clasificacion'] ?? '')
+                        || self::nullableInt($anterior['asesor_persona_id'] ?? null) !== self::nullableInt($datos['asesor_persona_id'] ?? null)
+                        || $clasificacionAnteriorId !== $clasificacionNuevaId
                     );
 
                     if ($cambioMeta || $cambioDatos) {
@@ -6010,6 +5985,8 @@ class Atlas extends Model
                 'omitidos_invalidos' => $omitidasInvalidas,
                 'total_omitidos' => count($duplicadas) + count($extras) + count($faltantes) + $omitidasInvalidas,
                 'catalogo_clasificacion_actualizado' => $catalogoClasificacionActualizado,
+                'catalogo_asesor_actualizado' => $catalogoAsesorActualizado,
+                'errores_asignacion' => count($erroresAsignacion),
                 'es_recarga' => $esRecarga ? 1 : 0,
                 'cambios_registrados' => $cambiosRegistrados,
                 'altas_registradas' => $altasRegistradas,
@@ -6017,6 +5994,7 @@ class Atlas extends Model
                 'detalle_duplicados' => $duplicadas,
                 'detalle_extras' => $extras,
                 'detalle_faltantes' => $faltantes,
+                'detalle_errores_asignacion' => $erroresAsignacion,
             ];
             self::registrarBitacoraPresupuesto($db, [
                 'presupuesto_id' => $presupuestoId,
@@ -6033,7 +6011,9 @@ class Atlas extends Model
 
             return [
                 'success' => true,
-                'mensaje' => 'Presupuesto mensual importado correctamente.',
+                'mensaje' => $erroresAsignacion
+                    ? 'Presupuesto mensual importado con errores de asignacion. Revisa los asesores que no se pudieron ligar contra persona.'
+                    : 'Presupuesto mensual importado correctamente.',
                 'datos' => [
                     'presupuesto_id' => $presupuestoId,
                     'registros_importados' => $importadas,
@@ -6089,13 +6069,11 @@ class Atlas extends Model
                 UPDATE atlas_presupuesto_sucursal_detalle
                 SET meta_creditos = :meta_creditos,
                     meta_cash = :meta_cash,
-                    observaciones = :observaciones,
                     updated_by = :usuario
                 WHERE id = :id
             ", [
                 'meta_creditos' => $metaCreditosNueva,
                 'meta_cash' => $metaCashNueva,
-                'observaciones' => self::strVal($payload['observaciones'] ?? ''),
                 'usuario' => (int)($payload['usuario_id'] ?? 0) ?: null,
                 'id' => $id,
             ]);
@@ -6193,6 +6171,53 @@ class Atlas extends Model
         return $map;
     }
 
+    private static function firmaNombrePersonaPresupuesto($nombre): string
+    {
+        $texto = self::normalizarNombreCatalogo($nombre);
+        if ($texto === '') {
+            return '';
+        }
+        $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
+        if ($ascii !== false) {
+            $texto = $ascii;
+        }
+        $texto = mb_strtolower($texto, 'UTF-8');
+        $texto = preg_replace('/[^a-z0-9\s]+/u', ' ', $texto) ?? '';
+        $tokens = array_values(array_filter(preg_split('/\s+/', trim($texto)) ?: [], static fn($token) => $token !== ''));
+        sort($tokens, SORT_STRING);
+        return implode('|', $tokens);
+    }
+
+    private static function getPersonasPresupuestoPorNombre(Database $db): array
+    {
+        $rows = $db->queryAll("
+            SELECT
+                id,
+                numero_empleado,
+                user_name,
+                TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre
+            FROM persona
+            WHERE TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) <> ''
+              AND (estatus IS NULL OR estatus = '' OR LOWER(estatus) NOT IN ('baja', 'inactivo'))
+        ") ?: [];
+
+        $map = [];
+        foreach ($rows as $row) {
+            $firma = self::firmaNombrePersonaPresupuesto($row['nombre'] ?? '');
+            if ($firma === '') {
+                continue;
+            }
+            $map[$firma][] = [
+                'id' => (int)($row['id'] ?? 0),
+                'nombre' => self::strVal($row['nombre'] ?? ''),
+                'numero_empleado' => self::strVal($row['numero_empleado'] ?? ''),
+                'user_name' => self::strVal($row['user_name'] ?? ''),
+            ];
+        }
+
+        return $map;
+    }
+
     private static function getDistribuidorSucursalPresupuesto(Database $db, int $fkSucursal): ?array
     {
         if ($fkSucursal <= 0) {
@@ -6248,18 +6273,15 @@ class Atlas extends Model
                     s.fk_sucursal,
                     COALESCE(d.nombre, '') AS distribuidor,
                     COALESCE(s.sucursal, '') AS sucursal,
-                    COALESCE(NULLIF(TRIM(CONCAT_WS(' ', pdvl.nombres, pdvl.segundo_nombre, pdvl.apellidop, pdvl.apellidom)), ''), dvl.nombre, '') AS divisional,
-                    COALESCE(NULLIF(TRIM(CONCAT_WS(' ', preg.nombres, preg.segundo_nombre, preg.apellidop, preg.apellidom)), ''), reg.nombre, '') AS regional,
+                    '' AS divisional,
+                    '' AS regional,
                     COALESCE(NULLIF(TRIM(CONCAT_WS(' ', psup.nombres, psup.segundo_nombre, psup.apellidop, psup.apellidom)), ''), sup.nombre, '') AS supervisor,
+                    s.asesor_persona_id,
                     COALESCE(NULLIF(TRIM(CONCAT_WS(' ', pase.nombres, pase.segundo_nombre, pase.apellidop, pase.apellidom)), ''), ase.nombre, '') AS asesor,
                     COALESCE(s.estado, '') AS estado,
                     COALESCE(cls.nombre, '') AS clasificacion
                 FROM atlas_catalogo_sucursales s
                 LEFT JOIN atlas_catalogo_distribuidores d ON d.id = s.distribuidor_id
-                LEFT JOIN atlas_catalogo_divisionales dvl ON dvl.id = s.divisional_id
-                LEFT JOIN persona pdvl ON pdvl.id = s.divisional_persona_id
-                LEFT JOIN atlas_catalogo_regionales reg ON reg.id = s.regional_id
-                LEFT JOIN persona preg ON preg.id = s.regional_persona_id
                 LEFT JOIN atlas_catalogo_supervisores sup ON sup.id = s.supervisor_id
                 LEFT JOIN persona psup ON psup.id = s.supervisor_persona_id
                 LEFT JOIN atlas_catalogo_asesores ase ON ase.id = s.asesor_id
@@ -7192,7 +7214,7 @@ class Atlas extends Model
                 LEFT JOIN persona pj ON pj.id = COALESCE(aj.id_jefe, vp.id_jefe)
                 WHERE p.estatus = 'Activo'
                   AND (
-                      CONVERT(COALESCE(pa.nombre, '') USING utf8mb4) COLLATE utf8mb4_general_ci IN ('Mexico', 'MÃ©xico')
+                      CONVERT(COALESCE(pa.nombre, '') USING utf8mb4) COLLATE utf8mb4_general_ci IN ('Mexico', 'MÃƒÂ©xico')
                       OR p.id_pais = 1
                   )
             ) base
@@ -7517,7 +7539,7 @@ class Atlas extends Model
                 return '__SKIP__';
             }
             $norm = mb_strtolower($texto, 'UTF-8');
-            return in_array($norm, ['1', 'si', 'sí', 'activo', 'activa', 'true'], true) ? 1 : 0;
+            return in_array($norm, ['1', 'si', 'sÃ­', 'activo', 'activa', 'true'], true) ? 1 : 0;
         }
         if ($campo === 'telefono') {
             return preg_replace('/\D+/', '', $texto);
@@ -7568,7 +7590,7 @@ class Atlas extends Model
 
             return [
                 'success' => true,
-                'mensaje' => $excluir ? 'Usuarios enviados a excluidos.' : 'Usuarios reincorporados a operaciÃ³n.',
+                'mensaje' => $excluir ? 'Usuarios enviados a excluidos.' : 'Usuarios reincorporados a operaciÃƒÂ³n.',
                 'datos' => ['afectados' => count($ids), 'excluido' => $excluir],
             ];
         } catch (\Throwable $e) {

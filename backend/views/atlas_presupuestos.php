@@ -183,7 +183,6 @@
                     <thead>
                         <tr>
                             <th>Sucursal</th>
-                            <th>Equipo</th>
                             <th>Clasificación</th>
                             <th>Meta créditos</th>
                             <th>Meta cash</th>
@@ -265,10 +264,6 @@
                             <div class="col-6">
                                 <label class="form-label fw-bold">Meta cash *</label>
                                 <input class="form-control" name="meta_cash" id="atlasPresEditCash" type="number" min="0" step="0.01" required>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label fw-bold">Observaciones</label>
-                                <textarea class="form-control" name="observaciones" id="atlasPresEditObs" rows="3"></textarea>
                             </div>
                         </div>
                     </div>
@@ -663,11 +658,7 @@
                             <div class="atlas-pres-main mt-1">${this.escape(d.sucursal || 'Sin sucursal')}</div>
                             <div class="atlas-pres-sub">${this.escape(d.distribuidor || 'Sin distribuidor')}</div>
                         </td>
-                        <td>
-                            <div class="atlas-pres-sub"><strong>Divisional</strong><br>${this.escape(d.divisional || 'No capturado')}</div>
-                            <div class="atlas-pres-sub mt-1"><strong>Regional</strong><br>${this.escape(d.regional || 'No capturado')}</div>
-                        </td>
-                        <td><span class="atlas-pres-badge atlas-pres-badge-info">${this.escape(d.clasificacion || 'Sin clasificacion')}</span></td>
+                        <td>${this.renderClasificacionBadge(d)}</td>
                         <td><strong>${this.number(d.meta_creditos)}</strong></td>
                         <td><strong>${this.money(d.meta_cash)}</strong></td>
                         <td class="text-center">
@@ -754,6 +745,21 @@
                 this.detalle = null;
                 this.renderCalendar();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            },
+
+            renderClasificacionBadge(row) {
+                const nombre = row?.clasificacion || 'Sin clasificacion';
+                const color = /^#[0-9a-fA-F]{6}$/.test(String(row?.clasificacion_color_hex || ''))
+                    ? row.clasificacion_color_hex
+                    : '';
+                const icon = /^[a-z0-9\-\s]+$/i.test(String(row?.clasificacion_icon_font || ''))
+                    ? String(row.clasificacion_icon_font || '').trim()
+                    : '';
+                const style = color
+                    ? ` style="border-color:${this.escape(color)}33;color:${this.escape(color)};background:${this.escape(color)}12;"`
+                    : '';
+                const title = row?.clasificacion_id ? ` title="Clasificacion ID ${this.escape(row.clasificacion_id)}"` : '';
+                return `<span class="atlas-pres-badge atlas-pres-badge-info"${style}${title}>${icon ? `<i class="${this.escape(icon)} me-1"></i>` : ''}${this.escape(nombre)}</span>`;
             },
 
             abrirRanking() {
@@ -979,7 +985,6 @@
                 document.getElementById('atlasPresEditSucursal').value = `FK ${row.fk_sucursal} · ${row.sucursal || ''}`;
                 document.getElementById('atlasPresEditCreditos').value = row.meta_creditos || 0;
                 document.getElementById('atlasPresEditCash').value = row.meta_cash || 0;
-                document.getElementById('atlasPresEditObs').value = row.observaciones || '';
                 document.getElementById('atlasPresEditSub').textContent = `${this.detalle.presupuesto.nombre_mes} ${this.detalle.presupuesto.anio}`;
                 this.modalEdit.show();
             },
@@ -1102,11 +1107,13 @@
                 }
                 const resumen = datos.resumen_importacion || {};
                 const omitidos = Number(resumen.total_omitidos || 0);
-                const icon = omitidos > 0 ? 'warning' : 'success';
+                const erroresAsignacion = Number(resumen.errores_asignacion || 0);
+                const observaciones = omitidos + erroresAsignacion;
+                const icon = observaciones > 0 ? 'warning' : 'success';
                 const esRecarga = Number(resumen.es_recarga || 0) === 1;
                 const title = esRecarga
-                    ? (omitidos > 0 ? 'Presupuesto recargado con observaciones' : 'Presupuesto recargado')
-                    : (omitidos > 0 ? 'Presupuesto cargado con observaciones' : 'Presupuesto cargado completo');
+                    ? (observaciones > 0 ? 'Presupuesto recargado con observaciones' : 'Presupuesto recargado')
+                    : (observaciones > 0 ? 'Presupuesto cargado con observaciones' : 'Presupuesto cargado completo');
                 const detalle = [];
                 if (Number(resumen.duplicados || 0) > 0) {
                     detalle.push(`${this.number(resumen.duplicados)} duplicado(s). Se tomó el último registro de cada sucursal.`);
@@ -1121,6 +1128,9 @@
                 }
                 if (Number(resumen.omitidos_invalidos || 0) > 0) {
                     detalle.push(`${this.number(resumen.omitidos_invalidos)} fila(s) omitida(s) por Pk_Sucursal inválido.`);
+                }
+                if (erroresAsignacion > 0) {
+                    detalle.push(`${this.number(erroresAsignacion)} asesor(es) del Excel no se pudieron ligar contra persona. Revisa el detalle de errores.`);
                 }
                 const detalleHtml = this.htmlObservacionesImportacion(resumen);
                 const tieneFaltantes = Number(resumen.faltantes || 0) > 0 && Array.isArray(resumen.detalle_faltantes) && resumen.detalle_faltantes.length > 0;
@@ -1138,6 +1148,8 @@
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Extras</span><span class="atlas-pres-import-result-value">${this.number(resumen.extras || 0)}</span></div>
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Faltantes</span><span class="atlas-pres-import-result-value">${this.number(resumen.faltantes || 0)}</span></div>
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Catalogo actualizado</span><span class="atlas-pres-import-result-value">${this.number(resumen.catalogo_clasificacion_actualizado || 0)}</span></div>
+                            <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Asesores actualizados</span><span class="atlas-pres-import-result-value">${this.number(resumen.catalogo_asesor_actualizado || 0)}</span></div>
+                            <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Asesores con error</span><span class="atlas-pres-import-result-value">${this.number(resumen.errores_asignacion || 0)}</span></div>
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Cambios bitácora</span><span class="atlas-pres-import-result-value">${this.number(resumen.cambios_registrados || 0)}</span></div>
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Altas</span><span class="atlas-pres-import-result-value">${this.number(resumen.altas_registradas || 0)}</span></div>
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Desactivadas</span><span class="atlas-pres-import-result-value">${this.number(resumen.desactivadas_registradas || 0)}</span></div>
@@ -1159,7 +1171,7 @@
                             const successText = document.querySelector('.swal2-html-container .text-success');
                             if (successText) successText.remove();
                         }
-                        const ayuda = ['esperadas', 'leidas', 'cargadas', 'duplicadas', 'extras', 'faltantes', 'catalogo', 'cambios', 'altas', 'desactivadas'];
+                        const ayuda = ['esperadas', 'leidas', 'cargadas', 'duplicadas', 'extras', 'faltantes', 'catalogo', 'asesores_actualizados', 'asesores_error', 'cambios', 'altas', 'desactivadas'];
                         document.querySelectorAll('.atlas-pres-import-result-item').forEach((btn, idx) => {
                             btn.classList.add('atlas-pres-import-result-button');
                             btn.setAttribute('role', 'button');
@@ -1207,6 +1219,14 @@
                 if (Number(resumen.omitidos_invalidos || 0) > 0) {
                     bloques.push(`<div><strong>${this.number(resumen.omitidos_invalidos)} fila(s) omitida(s) por Pk_Sucursal invalido.</strong></div>`);
                 }
+                if (Number(resumen.errores_asignacion || 0) > 0) {
+                    bloques.push(`
+                        <div class="mb-2">
+                            <div><strong>${this.number(resumen.errores_asignacion)} asesor(es) no se pudieron ligar contra persona.</strong></div>
+                            <ul class="atlas-pres-import-warning-list">${(resumen.detalle_errores_asignacion || []).map(x => `<li>${this.detalleErrorAsignacionImportacion(x)}</li>`).join('')}</ul>
+                        </div>
+                    `);
+                }
                 return bloques.length ? `<div class="atlas-pres-import-warnings">${bloques.join('')}</div>` : '';
             },
 
@@ -1219,6 +1239,16 @@
                 return `${fila}FK <strong>${this.escape(fk)}</strong> - ${this.escape(sucursal)}${distribuidor}`;
             },
 
+            detalleErrorAsignacionImportacion(item) {
+                if (!item || typeof item !== 'object') item = {};
+                const fila = item.fila ? `<strong>Fila ${this.escape(item.fila)}</strong> - ` : '';
+                const fk = item.fk_sucursal || 'Sin FK';
+                const sucursal = item.sucursal || 'Sin nombre de sucursal';
+                const asesor = item.asesor_excel || 'Sin asesor';
+                const falla = item.falla || 'No se pudo ligar contra persona.';
+                return `${fila}FK <strong>${this.escape(fk)}</strong> - ${this.escape(sucursal)} · Asesor Excel: <strong>${this.escape(asesor)}</strong> · ${this.escape(falla)}`;
+            },
+
             mostrarAyudaImportacion(tipo) {
                 const textos = {
                     general: 'El presupuesto se cargo, pero el archivo no coincide al 100% con el template esperado. Revisa las observaciones y el PDF descargado.',
@@ -1229,6 +1259,8 @@
                     extras: 'Sucursales que venian en el Excel, pero no existen en el template esperado. No se cargan.',
                     faltantes: 'Sucursales del template oficial que no llegaron en el Excel. Deben revisarse porque quedaron sin cargar.',
                     catalogo: 'Clasificaciones del catalogo de sucursales que fueron actualizadas para empatar con el Excel.',
+                    asesores_actualizados: 'Sucursales cuyo asesor se actualizo automaticamente en el catalogo a partir del nombre recibido en el Excel.',
+                    asesores_error: 'Asesores que venian en el Excel pero no pudieron ligarse contra la tabla persona. El presupuesto se carga, pero esa sucursal conserva su asignacion operativa anterior.',
                     cambios: 'Sucursales que ya existian en el presupuesto y cambiaron meta, cash o datos operativos durante la recarga.',
                     altas: 'Sucursales que no estaban activas en el presupuesto anterior y entraron con la recarga.',
                     desactivadas: 'Sucursales que estaban activas antes, pero ya no vinieron en el Excel de recarga.'
