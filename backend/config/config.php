@@ -12,11 +12,11 @@ if (!defined('TOKEN')) {
 }
 if (!defined('ENDPOINT')) {
     $e = getenv('ENDPOINT');
-    define('ENDPOINT', ($e !== false && $e !== '') ? $e : 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta');
+    define('ENDPOINT', ($e !== false && $e !== '') ? $e : 'https://servicios.s2movil.net/s2maxikash/estadocuenta');
 }
 if (!defined('TICKET_WHATSAPP_API_KEY')) {
     $k = getenv('TICKET_WHATSAPP_API_KEY');
-    define('TICKET_WHATSAPP_API_KEY', ($k !== false && $k !== '') ? $k : 'cambiar_clave_secreta_whatsapp_' . md5('sparta___SPARTA_SECRET_REDACTED__'));
+    define('TICKET_WHATSAPP_API_KEY', ($k !== false && $k !== '') ? $k : 'cambiar_clave_secreta_whatsapp_' . md5('sparta_ledger'));
 }
 
 // --- API keys desde BD (tabla config_api, valor en texto plano). ---

@@ -56,7 +56,7 @@ class Inicio extends Controller
         $mostrarBotonEstadoServicios = $mostrarBotonApiDocOneClick;
         $this->set('mostrarBotonEstadoServicios', $mostrarBotonEstadoServicios);
 
-        self::render("inicio___SPARTA_SECRET_REDACTED___contenido", false);
+        self::render("inicio_maxikash_contenido", false);
     }
 
     /**
