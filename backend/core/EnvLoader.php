@@ -13,8 +13,19 @@ class EnvLoader
         }
         self::$loaded = true;
 
-        $path = getenv('SPARTA_ENV_FILE') ?: 'C:\\xampp\\secure\\sparta_ledger.env';
-        if (!is_file($path) || !is_readable($path)) {
+        $configuredPath = getenv('SPARTA_ENV_FILE') ?: '';
+        $defaultPath = 'C:\\xampp\\secure\\sparta_ledger.env';
+        $paths = array_values(array_unique(array_filter([$configuredPath, $defaultPath])));
+
+        $path = '';
+        foreach ($paths as $candidatePath) {
+            if (is_file($candidatePath) && is_readable($candidatePath)) {
+                $path = $candidatePath;
+                break;
+            }
+        }
+
+        if ($path === '') {
             return;
         }
 
