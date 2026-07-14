@@ -2,6 +2,8 @@
 
 namespace Services;
 
+use Core\Database;
+
 /**
  * Curated, read-only knowledge supplied to Leonidas.
  *
@@ -25,9 +27,61 @@ class LeonidasKnowledgeService
                 'Los reportes deben usar datos autorizados por servidor; Leonidas no inventa resultados ni consulta datos sin una herramienta aprobada.',
             ],
             'modulos_del_sistema' => $this->catalogoModulos(),
+            'catalogo_real_relevante' => $this->buscarModulosReales($pregunta, $modulosUsuario),
             'modulos_disponibles_para_el_usuario' => array_values(array_unique(array_map('intval', $modulosUsuario))),
             'documentacion_relevante' => $this->buscarDocumentacion($pregunta),
         ];
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function buscarModulosReales(string $pregunta, array $modulosUsuario): array
+    {
+        try {
+            $rows = (new Database())->queryAll(
+                "SELECT id, nombre, pestana, descripcion
+                 FROM modulos_web
+                 WHERE COALESCE(activo, 1) = 1
+                 ORDER BY pestana, nombre"
+            );
+        } catch (\Throwable $error) {
+            error_log('[Leonidas] No se pudo leer el catalogo de modulos: ' . $error->getMessage());
+            return [];
+        }
+
+        $terms = $this->terminos($pregunta);
+        $allowed = array_fill_keys(array_map('intval', $modulosUsuario), true);
+        $scored = [];
+        foreach ($rows as $row) {
+            $text = $this->normalizar(implode(' ', [
+                (string) ($row['nombre'] ?? ''),
+                (string) ($row['pestana'] ?? ''),
+                (string) ($row['descripcion'] ?? ''),
+            ]));
+            $score = 0;
+            foreach ($terms as $term) {
+                if (str_contains($text, $term)) {
+                    $score += str_contains($this->normalizar((string) ($row['nombre'] ?? '')), $term) ? 4 : 1;
+                }
+            }
+            if ($terms && $score === 0) {
+                continue;
+            }
+            $id = (int) ($row['id'] ?? 0);
+            $scored[] = [
+                'score' => $score,
+                'id' => $id,
+                'nombre' => (string) ($row['nombre'] ?? ''),
+                'categoria' => (string) ($row['pestana'] ?? 'Otros'),
+                'descripcion' => (string) ($row['descripcion'] ?? ''),
+                'asignado_al_usuario' => isset($allowed[$id]),
+            ];
+        }
+
+        usort($scored, static fn(array $a, array $b): int => $b['score'] <=> $a['score']);
+        return array_map(static function (array $item): array {
+            unset($item['score']);
+            return $item;
+        }, array_slice($scored, 0, 12));
     }
 
     /** @return array<int, array<string, string>> */

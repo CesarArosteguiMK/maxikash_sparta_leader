@@ -103,6 +103,8 @@ class CapHum extends Controller
 
     /** Ãšltimo error de enviarCorreo para mostrarlo en la respuesta JSON */
     private $enviarCorreoUltimoError = '';
+    /** Canal usado en el último envío exitoso: principal, secundario, sendgrid o mail. */
+    private $enviarCorreoUltimoCanal = '';
     private static $modulosSesionRefrescados = false;
 
     private static function tieneModuloWeb(int $moduloId): bool
@@ -5494,6 +5496,7 @@ class CapHum extends Controller
                     if (estadoDocumentoAusencia) estadoDocumentoAusencia.textContent = "";
                     if (archivoDocumentoAusencia) archivoDocumentoAusencia.value = "";
                     limpiarDocumentoAusenciaSeleccionado();
+                    actualizarRestriccionFechaFinAusencia();
                     actualizarEstadoDocumentoAusenciaPorRazon();
 
                     // Cargar catálogo y tabla
@@ -5535,8 +5538,52 @@ class CapHum extends Controller
                         }
                     }
                 };
-                flatpickr(inpInicio, opts);
-                flatpickr(inpFin, opts);
+                flatpickr(inpInicio, {
+                    ...opts,
+                    onChange: function(selectedDates, dateStr, instance) {
+                        if (instance && instance.calendarContainer) {
+                            instance.calendarContainer.classList.add("ausencia-flatpickr-calendar");
+                        }
+                        actualizarRestriccionFechaFinAusencia();
+                    }
+                });
+                flatpickr(inpFin, {
+                    ...opts,
+                    onChange: function(selectedDates, dateStr, instance) {
+                        if (instance && instance.calendarContainer) {
+                            instance.calendarContainer.classList.add("ausencia-flatpickr-calendar");
+                        }
+                        validarRangoFechasAusencia(true);
+                    }
+                });
+                inpInicio.addEventListener('change', actualizarRestriccionFechaFinAusencia);
+                inpFin.addEventListener('change', function () { validarRangoFechasAusencia(true); });
+            }
+
+            function validarRangoFechasAusencia(mostrarMensaje = false) {
+                const inicio = (document.getElementById("fechaInicio")?.value || '').trim();
+                const fin = (document.getElementById("fechaFin")?.value || '').trim();
+                if (!inicio || !fin) return true;
+                if (fin >= inicio) return true;
+
+                const elFin = document.getElementById("fechaFin");
+                if (elFin) {
+                    elFin.value = '';
+                    if (elFin._flatpickr) elFin._flatpickr.clear();
+                }
+                if (mostrarMensaje) {
+                    Swal.fire("Fecha fin invalida", "La fecha fin no puede ser menor que la fecha inicio.", "warning");
+                }
+                return false;
+            }
+
+            function actualizarRestriccionFechaFinAusencia() {
+                const inicio = (document.getElementById("fechaInicio")?.value || '').trim();
+                const elFin = document.getElementById("fechaFin");
+                if (elFin && elFin._flatpickr) {
+                    elFin._flatpickr.set('minDate', inicio || null);
+                }
+                validarRangoFechasAusencia(false);
             }
 
             function fechasAusenciaCompletas() {
@@ -5645,9 +5692,13 @@ class CapHum extends Controller
                 return normalizarTextoAusencia(razon).includes('VACACIONES');
             }
 
+            function esRazonFaltaAusencia(razon) {
+                return normalizarTextoAusencia(razon).includes('FALTA');
+            }
+
             function ausenciaSeleccionadaRequiereDocumento() {
                 const razon = razonAusenciaSeleccionadaTexto();
-                return Boolean(razon && !esRazonVacacionesAusencia(razon));
+                return Boolean(razon && !esRazonVacacionesAusencia(razon) && !esRazonFaltaAusencia(razon));
             }
 
             function razonAusenciaSeleccionadaTexto() {
@@ -5658,19 +5709,21 @@ class CapHum extends Controller
 
             function actualizarEstadoDocumentoAusenciaPorRazon() {
                 const razon = razonAusenciaSeleccionadaTexto();
-                const esVacaciones = esRazonVacacionesAusencia(razon);
+                const noRequiereDocumento = Boolean(razon && !ausenciaSeleccionadaRequiereDocumento());
                 const btnAdjuntar = document.getElementById('btnAdjuntarDocumentoAusencia');
                 const estado = document.getElementById('estadoDocumentoAusencia');
 
                 if (btnAdjuntar) {
-                    btnAdjuntar.classList.toggle('d-none', esVacaciones);
-                    btnAdjuntar.disabled = esVacaciones;
+                    btnAdjuntar.classList.toggle('d-none', noRequiereDocumento);
+                    btnAdjuntar.disabled = noRequiereDocumento;
                 }
 
-                if (esVacaciones) {
+                if (noRequiereDocumento) {
                     limpiarDocumentoAusenciaSeleccionado();
                     if (estado) {
-                        estado.textContent = 'Vacaciones solo requiere fecha inicio y fecha fin.';
+                        estado.textContent = esRazonFaltaAusencia(razon)
+                            ? 'Falta solo requiere fechas y descripcion.'
+                            : 'Vacaciones solo requiere fecha inicio y fecha fin.';
                     }
                 } else if (estado && !documentoAusenciaSeleccionado) {
                     estado.textContent = '';
@@ -5744,8 +5797,8 @@ class CapHum extends Controller
                     const doc = documentoParaAusencia(a);
                     const archivo = doc ? String(doc.archivo || '') : '';
                     const archivoAttr = escaparAtributoJsAusencia(archivo);
-                    const esVacaciones = esRazonVacacionesAusencia(a.razon || '');
-                    const documentoHtml = esVacaciones
+                    const noRequiereDocumento = esRazonVacacionesAusencia(a.razon || '') || esRazonFaltaAusencia(a.razon || '');
+                    const documentoHtml = noRequiereDocumento
                         ? '<span class="badge bg-info text-dark">No requiere documento</span>'
                         : (doc
                         ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="verDocumentoAusenciaSubido('${archivoAttr}')"><i class="fa fa-eye me-1"></i>Ver documento</button>`
@@ -5885,11 +5938,12 @@ class CapHum extends Controller
                 const gestor = (document.getElementById('gestor_ausencia')?.textContent || '')
                     .replace(/^Gestor:\s*/i, '')
                     .trim();
-                if (esRazonVacacionesAusencia(razonAusenciaSeleccionadaTexto())) {
-                    Swal.fire('Documento no requerido', 'Las vacaciones solo necesitan fecha inicio y fecha fin.', 'info');
+                const razonTexto = razonAusenciaSeleccionadaTexto();
+                if (razonTexto && !ausenciaSeleccionadaRequiereDocumento()) {
+                    Swal.fire('Documento no requerido', 'Esta razon de ausencia solo necesita fechas y descripcion.', 'info');
                     return;
                 }
-                const tipoDocumento = tipoDocumentoDesdeRazonAusencia(razonAusenciaSeleccionadaTexto());
+                const tipoDocumento = tipoDocumentoDesdeRazonAusencia(razonTexto);
                 if (!tipoDocumento) {
                     Swal.fire('Atencion', 'Selecciona una razon de ausencia para cargar su documento.', 'warning');
                     return;
@@ -6109,6 +6163,7 @@ class CapHum extends Controller
                     document.getElementById("fechaFin").value = ff;
                     if (document.getElementById("fechaInicio")._flatpickr) document.getElementById("fechaInicio")._flatpickr.setDate(fi, false);
                     if (document.getElementById("fechaFin")._flatpickr) document.getElementById("fechaFin")._flatpickr.setDate(ff, false);
+                    actualizarRestriccionFechaFinAusencia();
 
                     document.getElementById("descripcionAusencia").value = a.descripcion || '';
 
@@ -6134,6 +6189,7 @@ class CapHum extends Controller
                 var elFin = document.getElementById("fechaFin");
                 if (elInicio) { elInicio.value = ''; if (elInicio._flatpickr) elInicio._flatpickr.clear(); }
                 if (elFin) { elFin.value = ''; if (elFin._flatpickr) elFin._flatpickr.clear(); }
+                actualizarRestriccionFechaFinAusencia();
                 document.getElementById("descripcionAusencia").value = '';
                 const estadoDocumentoAusencia = document.getElementById("estadoDocumentoAusencia");
                 const archivoDocumentoAusencia = document.getElementById("archivoDocumentoAusencia");
@@ -6168,6 +6224,9 @@ class CapHum extends Controller
                 }
                 if (!fechaInicio || !fechaFin) {
                     Swal.fire("Fechas requeridas", "Selecciona fecha inicio y fecha fin.", "warning");
+                    return;
+                }
+                if (!validarRangoFechasAusencia(true)) {
                     return;
                 }
                 const requiereDocumento = ausenciaSeleccionadaRequiereDocumento();
@@ -19395,6 +19454,7 @@ class CapHum extends Controller
         $destino = trim($c['email'] ?? '');
         $correoBienvenidaEnviado = false;
         $correoBienvenidaError = null;
+        $correoBienvenidaCanal = null;
         $base = $this->obtenerBaseUrlApp();
         $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
         $rutaLogoInline = null;
@@ -19450,7 +19510,9 @@ class CapHum extends Controller
 </body></html>';
             try {
                 $correoBienvenidaEnviado = $this->enviarCorreo($destino, 'Bienvenido(a) a Maxikash', $cuerpoBienvenida, $nombreCompleto, $rutaLogoInline, $adjuntosBienvenida, [], true);
-                if (!$correoBienvenidaEnviado) {
+                if ($correoBienvenidaEnviado) {
+                    $correoBienvenidaCanal = $this->enviarCorreoUltimoCanal ?: 'principal';
+                } else {
                     $correoBienvenidaError = $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo de bienvenida.';
                 }
             } catch (\Throwable $e) {
@@ -19488,6 +19550,7 @@ class CapHum extends Controller
             'limpieza_reingreso' => $limpiezaReingreso,
             'correo_bienvenida_enviado' => $correoBienvenidaEnviado,
             'correo_bienvenida_error' => $correoBienvenidaError,
+            'correo_bienvenida_canal' => $correoBienvenidaCanal,
             'correo_revision_documental_enviado' => $correoRevision['enviado'],
             'correo_revision_documental_error' => $correoRevision['error'],
             'correo_revision_documental_destinatarios' => $correoRevision['destinatarios'],
@@ -19525,7 +19588,13 @@ class CapHum extends Controller
         if ($nombreCompleto === '') {
             $nombreCompleto = 'Candidato';
         }
-        $bienvenida = !empty($resultado['correo_bienvenida_enviado']) ? 'bienvenida OK' : 'bienvenida fallo';
+        $bienvenida = 'bienvenida fallo';
+        if (!empty($resultado['correo_bienvenida_enviado'])) {
+            $canalBienvenida = (string) ($resultado['correo_bienvenida_canal'] ?? 'principal');
+            $bienvenida = $canalBienvenida === 'secundario'
+                ? 'bienvenida OK con correo secundario'
+                : 'bienvenida OK';
+        }
         $revisionEnviados = (int) ($resultado['correo_revision_documental_enviados'] ?? 0);
         $revisionTotal = (int) ($resultado['correo_revision_documental_total'] ?? 0);
         $divisionalParte = 'jefe divisional no aplica';
@@ -23892,6 +23961,7 @@ class CapHum extends Controller
      */
     private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '', $rutaLogoInline = null, array $adjuntos = [], array $cc = [], bool $permitirFallbackLimiteDiario = false)
     {
+        $this->enviarCorreoUltimoCanal = '';
         $repoRoot = defined('RAIZ') ? dirname(RAIZ) : dirname(__DIR__, 2);
         $autoload = $repoRoot . '/vendor/autoload.php';
         if (!is_file($autoload)) {
@@ -24023,6 +24093,7 @@ class CapHum extends Controller
             }
             if ($httpCode === 202) {
                 $this->enviarCorreoUltimoError = '';
+                $this->enviarCorreoUltimoCanal = 'sendgrid';
                 return true;
             }
             $errBody = is_string($response) ? $response : '';
@@ -24051,6 +24122,7 @@ class CapHum extends Controller
                 return false;
             }
             $this->enviarCorreoUltimoError = '';
+            $this->enviarCorreoUltimoCanal = 'mail';
             return true;
         }
 
@@ -24159,6 +24231,7 @@ class CapHum extends Controller
 
             $mail->send();
             $this->enviarCorreoUltimoError = '';
+            $this->enviarCorreoUltimoCanal = 'principal';
             return true;
         } catch (\Exception $e) {
             $msg = $e->getMessage();
@@ -24235,6 +24308,7 @@ class CapHum extends Controller
 
                     $mail->send();
                     $this->enviarCorreoUltimoError = '';
+                    $this->enviarCorreoUltimoCanal = 'secundario';
                     error_log('CapHum::enviarCorreo: envio realizado con SMTP secundario por limite diario del principal. user=' . $fallbackSmtpUser);
                     return true;
                 } catch (\Exception $fallbackException) {
@@ -28511,6 +28585,22 @@ public function getEstadosMunicipiosMexico()
         }
 
         // ðŸ¹ DAO decide si INSERT o UPDATE
+        $fechaInicio = \DateTime::createFromFormat('!Y-m-d', (string)$data['fechaInicio']);
+        $fechaFin = \DateTime::createFromFormat('!Y-m-d', (string)$data['fechaFin']);
+        if (
+            !$fechaInicio ||
+            !$fechaFin ||
+            $fechaInicio->format('Y-m-d') !== (string)$data['fechaInicio'] ||
+            $fechaFin->format('Y-m-d') !== (string)$data['fechaFin'] ||
+            $fechaFin < $fechaInicio
+        ) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'La fecha fin no puede ser menor que la fecha inicio.'
+            ]);
+            return;
+        }
+
         $resultado = CapHumDAO::guardarAusencia($data);
 
         self::respuestaJSON($resultado);

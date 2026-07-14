@@ -318,20 +318,49 @@ class Reporteria extends Controller
                 exit;
             }
 
-            $usuarios = is_array($resultado['datos'] ?? null) ? $resultado['datos'] : [];
+            $usuariosBase = is_array($resultado['datos'] ?? null) ? $resultado['datos'] : [];
+            $idsPermitidos = [];
+            foreach ($usuariosBase as $usuarioBase) {
+                $idBase = (int)($usuarioBase['id'] ?? 0);
+                if ($idBase > 0) {
+                    $idsPermitidos[$idBase] = true;
+                }
+            }
+
+            $resultadoReporte = \Models\CapHum::getGestoresParaReporte();
+            if (($resultadoReporte['success'] ?? false) && is_array($resultadoReporte['datos'] ?? null)) {
+                $usuarios = array_values(array_filter($resultadoReporte['datos'], static function ($row) use ($idsPermitidos) {
+                    $id = (int)($row['id'] ?? 0);
+                    return $id > 0 && isset($idsPermitidos[$id]);
+                }));
+            } else {
+                $usuarios = $usuariosBase;
+            }
+
             $datos = array_map(function($p) {
                 return [
                     'id' => $p['id'] ?? '',
-                    'numero_empleado' => $p['numero_empleado'] ?? '',
+                    'codigo_contpac' => $p['codigo_contpac'] ?? '',
                     'nombre_jefe' => $p['nombre_jefe'] ?? ($p['nombre_vacante_jefe'] ?? ''),
                     'nombres' => $p['nombres'] ?? '',
                     'segundo_nombre' => $p['segundo_nombre'] ?? '',
                     'apellidop' => $p['apellidop'] ?? '',
                     'apellidom' => $p['apellidom'] ?? '',
                     'nombre_departamento' => $p['nombre_departamento'] ?? '',
+                    'nombre_empresa' => $p['nombre_empresa'] ?? '',
+                    'nombre_direccion' => $p['nombre_direccion'] ?? '',
+                    'nombre_area' => $p['nombre_area'] ?? '',
                     'nombre_puesto' => $p['nombre_puesto'] ?? '',
                     'id_puesto' => $p['id_puesto'] ?? null,
                     'id_departamento' => $p['id_departamento'] ?? null,
+                    'curp' => $p['curp'] ?? '',
+                    'rfc' => $p['rfc'] ?? '',
+                    'nss' => $p['nss'] ?? '',
+                    'fecha_nacimiento' => $p['fecha_nacimiento'] ?? '',
+                    'sexo' => $p['sexo'] ?? '',
+                    'estado_civil' => $p['estado_civil'] ?? '',
+                    'beneficiarios' => $p['beneficiarios'] ?? '',
+                    'beneficiarios_porcentaje' => $p['beneficiarios_porcentaje'] ?? '',
                     'estatus' => $p['estatus'] ?? '',
                     'usuario' => $p['usuario'] ?? ($p['user_name'] ?? ''),
                 ];
@@ -595,6 +624,9 @@ class Reporteria extends Controller
         try {
             // Obtener filtros de GET
             $filtros = [
+                'empresa' => $_GET['empresa'] ?? null,
+                'direccion' => $_GET['direccion'] ?? null,
+                'area' => $_GET['area'] ?? null,
                 'departamento' => $_GET['departamento'] ?? null,
                 'puesto' => $_GET['puesto'] ?? null,
                 'estatus' => $_GET['estatus'] ?? null,
@@ -646,11 +678,23 @@ class Reporteria extends Controller
                 }
 
                 $data[] = [
-                    'numero_empleado' => $u['numero_empleado'] ?? '',
+                    'codigo_contpac' => $u['codigo_contpac'] ?? '',
                     'nombre_completo' => $nombreCompleto,
                     'telefono' => $u['telefono'] ?? '',
+                    'correo' => $u['correo'] ?? '',
+                    'curp' => $u['curp'] ?? '',
+                    'rfc' => $u['rfc'] ?? '',
+                    'nss' => $u['nss'] ?? '',
+                    'fecha_nacimiento' => $u['fecha_nacimiento'] ?? '',
+                    'sexo' => $u['sexo'] ?? '',
+                    'estado_civil' => $u['estado_civil'] ?? '',
+                    'nombre_empresa' => $u['nombre_empresa'] ?? '',
+                    'nombre_direccion' => $u['nombre_direccion'] ?? '',
+                    'nombre_area' => $u['nombre_area'] ?? '',
                     'departamento' => $u['nombre_departamento'] ?? 'N/A',
                     'puesto' => $u['nombre_puesto'] ?? 'N/A',
+                    'beneficiarios' => $u['beneficiarios'] ?? '',
+                    'beneficiarios_porcentaje' => $u['beneficiarios_porcentaje'] ?? '',
                     'estatus' => $u['estatus'] ?? 'N/A',
                     'usuario' => $u['usuario'] ?? 'N/A',
                     'jefe' => $u['nombre_jefe'] ?? 'N/A',
@@ -661,11 +705,23 @@ class Reporteria extends Controller
 
             // Columnas para Excel
             $columnas = [
-                \PHPSpreadsheet::ColumnaExcel('numero_empleado', 'NÚMERO DE EMPLEADO'),
+                \PHPSpreadsheet::ColumnaExcel('codigo_contpac', 'CODIGO CONTPAQ'),
                 \PHPSpreadsheet::ColumnaExcel('nombre_completo', 'NOMBRE COMPLETO'),
                 \PHPSpreadsheet::ColumnaExcel('telefono', 'TELÉFONO'),
+                \PHPSpreadsheet::ColumnaExcel('correo', 'CORREO'),
+                \PHPSpreadsheet::ColumnaExcel('curp', 'CURP'),
+                \PHPSpreadsheet::ColumnaExcel('rfc', 'RFC'),
+                \PHPSpreadsheet::ColumnaExcel('nss', 'NSS'),
+                \PHPSpreadsheet::ColumnaExcel('fecha_nacimiento', 'FECHA NACIMIENTO'),
+                \PHPSpreadsheet::ColumnaExcel('sexo', 'SEXO'),
+                \PHPSpreadsheet::ColumnaExcel('estado_civil', 'ESTADO CIVIL'),
+                \PHPSpreadsheet::ColumnaExcel('nombre_empresa', 'EMPRESA'),
+                \PHPSpreadsheet::ColumnaExcel('nombre_direccion', 'DIRECCION'),
+                \PHPSpreadsheet::ColumnaExcel('nombre_area', 'AREA'),
                 \PHPSpreadsheet::ColumnaExcel('departamento', 'DEPARTAMENTO'),
                 \PHPSpreadsheet::ColumnaExcel('puesto', 'PUESTO'),
+                \PHPSpreadsheet::ColumnaExcel('beneficiarios', 'BENEFICIARIOS'),
+                \PHPSpreadsheet::ColumnaExcel('beneficiarios_porcentaje', 'PORCENTAJE BENEFICIARIOS'),
                 \PHPSpreadsheet::ColumnaExcel('estatus', 'ESTATUS'),
                 \PHPSpreadsheet::ColumnaExcel('usuario', 'USUARIO'),
                 \PHPSpreadsheet::ColumnaExcel('jefe', 'JEFE INMEDIATO'),
@@ -674,27 +730,17 @@ class Reporteria extends Controller
             ];
 
             // Nombre del archivo
-            $nombreArchivo = "Plantilla_Gestores";
+            $nombreArchivo = "Reporte_Personal";
+            foreach (['empresa', 'direccion', 'area', 'departamento', 'puesto', 'multipuesto', 'estatus'] as $filtroNombre) {
+                $valorFiltro = trim((string)($filtros[$filtroNombre] ?? ''));
+                if ($valorFiltro !== '') {
+                    $nombreArchivo .= "_" . preg_replace('/[^A-Za-z0-9_-]+/', '_', $valorFiltro);
+                }
+            }
 
-    // Agregar departamento si existe
-    if (!empty($departamento)) {
-        $nombreArchivo .= "_" . str_replace(' ', '_', $departamento);
-    }
-
-    // Agregar puesto si existe
-    if (!empty($puesto)) {
-        $nombreArchivo .= "_" . str_replace(' ', '_', $puesto);
-    }
-
-    // Agregar estatus si existe
-    if (!empty($estatus)) {
-        $nombreArchivo .= "_" . $estatus;
-    }
-
-    // Agregar fecha y hora
-    $fecha = date('Y-m-d');
-    $hora = date('His');
-    $nombreArchivo .= "_{$fecha}_{$hora}";
+            $fecha = date('Y-m-d');
+            $hora = date('His');
+            $nombreArchivo .= "_{$fecha}_{$hora}";
 
             // Generar workbook y aplicar colores de fila según estado actual
             $libro = \PHPSpreadsheet::GeneraExcel(
@@ -1887,9 +1933,13 @@ class Reporteria extends Controller
             unset($tokensPlantilla[$tokenPlantilla]);
             $_SESSION['rrhh_plantilla_gestores_tokens'] = $tokensPlantilla;
 
-            $filtroDepartamento = $_REQUEST['departamento'] ?? '';
-            $filtroPuesto = $_REQUEST['puesto'] ?? '';
-            $filtroEstatus = $_REQUEST['estatus'] ?? '';
+            $filtroEmpresa = trim((string)($_REQUEST['empresa'] ?? ''));
+            $filtroDireccion = trim((string)($_REQUEST['direccion'] ?? ''));
+            $filtroArea = trim((string)($_REQUEST['area'] ?? ''));
+            $filtroDepartamento = trim((string)($_REQUEST['departamento'] ?? ''));
+            $filtroPuesto = trim((string)($_REQUEST['puesto'] ?? ''));
+            $filtroMultipuesto = trim((string)($_REQUEST['multipuesto'] ?? ''));
+            $filtroEstatus = trim((string)($_REQUEST['estatus'] ?? ''));
             $columnasSolicitadas = $_REQUEST['columnas'] ?? [];
             if (!is_array($columnasSolicitadas)) {
                 $columnasSolicitadas = [];
@@ -1914,17 +1964,23 @@ class Reporteria extends Controller
                 'nss' => 'NSS',
                 'fecha_nacimiento' => 'FECHA NACIMIENTO',
                 'sexo' => 'SEXO',
+                'estado_civil' => 'ESTADO CIVIL',
                 'fecha_ingreso' => 'FECHA INGRESO',
                 'fecha_registro' => 'FECHA REGISTRO',
                 'registro_patronal' => 'REGISTRO PATRONAL',
                 'codigo_contpaq_rrhh' => 'CODIGO CONTPAQ RRHH',
                 'fecha_contpaq' => 'FECHA CONTPAQ',
                 'fecha_imss_alta' => 'FECHA IMSS ALTA',
+                'nombre_empresa' => 'EMPRESA',
                 'direccion_organizacional' => 'DIRECCION',
                 'area_texto' => 'AREA',
                 'nombre_departamento' => 'DEPARTAMENTO',
                 'nombre_puesto' => 'PUESTO',
+                'puestos_total' => 'TOTAL PUESTOS',
+                'puestos_detalle' => 'DETALLE PUESTOS',
                 'nombre_jefe' => 'JEFE INMEDIATO',
+                'beneficiarios' => 'BENEFICIARIOS',
+                'beneficiarios_porcentaje' => 'PORCENTAJE BENEFICIARIOS',
                 'ubicacion_laboral' => 'UBICACION LABORAL',
                 'municipio_laboral' => 'MUNICIPIO LABORAL',
                 'domicilio' => 'DOMICILIO',
@@ -1937,7 +1993,25 @@ class Reporteria extends Controller
                 return array_key_exists($columna, $columnasDisponibles);
             }));
             if (empty($columnasSeleccionadas)) {
-                $columnasSeleccionadas = ['numero_empleado', 'nombre_completo', 'nombre_departamento', 'nombre_puesto', 'nombre_jefe', 'estatus'];
+                $columnasSeleccionadas = [
+                    'numero_empleado',
+                    'nombre_completo',
+                    'curp',
+                    'rfc',
+                    'nss',
+                    'fecha_nacimiento',
+                    'sexo',
+                    'estado_civil',
+                    'fecha_ingreso',
+                    'nombre_empresa',
+                    'direccion_organizacional',
+                    'area_texto',
+                    'nombre_departamento',
+                    'nombre_puesto',
+                    'nombre_jefe',
+                    'beneficiarios',
+                    'estatus'
+                ];
             }
             $incluyeSalario = in_array('salario_sensible', $columnasSeleccionadas, true);
             if ($incluyeSalario && !in_array(153, $modulosSesion, true)) {
@@ -1954,14 +2028,83 @@ class Reporteria extends Controller
             }
 
             $datos = $resultado['datos'];
+            $conteoPuestosPorPersona = [];
+            $detallePuestosPorPersona = [];
+            $idsDepartamentos = [];
+            foreach ($datos as $gestorTmp) {
+                $idPersonaTmp = (int)($gestorTmp['id'] ?? 0);
+                if ($idPersonaTmp > 0) {
+                    $conteoPuestosPorPersona[$idPersonaTmp] = ($conteoPuestosPorPersona[$idPersonaTmp] ?? 0) + (!empty($gestorTmp['id_puesto']) ? 1 : 0);
+                    $depTmp = trim((string)($gestorTmp['nombre_departamento'] ?? ''));
+                    $pstTmp = trim((string)($gestorTmp['nombre_puesto'] ?? ''));
+                    if ($depTmp !== '' || $pstTmp !== '') {
+                        $detallePuestosPorPersona[$idPersonaTmp][] = trim($depTmp . ' / ' . $pstTmp, ' /');
+                    }
+                }
+                $idDeptoTmp = (int)($gestorTmp['id_departamento'] ?? 0);
+                if ($idDeptoTmp > 0) {
+                    $idsDepartamentos[$idDeptoTmp] = true;
+                }
+            }
+
+            $estructuraPorDepartamento = [];
+            if (!empty($idsDepartamentos)) {
+                $dbEstructura = new \Core\Database();
+                $paramsDeptos = [];
+                $placeholdersDeptos = [];
+                foreach (array_keys($idsDepartamentos) as $idx => $idDepto) {
+                    $key = 'dep' . $idx;
+                    $placeholdersDeptos[] = ':' . $key;
+                    $paramsDeptos[$key] = $idDepto;
+                }
+                $rowsEstructura = $dbEstructura->queryAll("
+                    SELECT
+                        d.id AS id_departamento,
+                        COALESCE(d.id_empresa, dorg.id_empresa, dir.id_empresa, 1) AS id_empresa,
+                        COALESCE(emp.nombre_comercial, 'MaxiKash') AS nombre_empresa,
+                        COALESCE(dir.nombre, '') AS direccion,
+                        COALESCE(dorg.nombre, '') AS area
+                    FROM estado_cuenta.departamento d
+                    LEFT JOIN estado_cuenta.departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+                    LEFT JOIN estado_cuenta.direccion dir ON dir.id = dorg.id_direccion
+                    LEFT JOIN estado_cuenta.rrhh_empresas emp ON emp.id = COALESCE(d.id_empresa, dorg.id_empresa, dir.id_empresa, 1)
+                    WHERE d.id IN (" . implode(',', $placeholdersDeptos) . ")
+                ", $paramsDeptos);
+                foreach ($rowsEstructura as $rowEstructura) {
+                    $estructuraPorDepartamento[(int)($rowEstructura['id_departamento'] ?? 0)] = $rowEstructura;
+                }
+            }
 
             // Aplicar filtros si existen
-            $datosFiltrados = array_filter($datos, function($gestor) use ($filtroDepartamento, $filtroPuesto, $filtroEstatus) {
+            $datosFiltrados = array_filter($datos, function($gestor) use (
+                $filtroEmpresa,
+                $filtroDireccion,
+                $filtroArea,
+                $filtroDepartamento,
+                $filtroPuesto,
+                $filtroMultipuesto,
+                $filtroEstatus,
+                $estructuraPorDepartamento,
+                $conteoPuestosPorPersona
+            ) {
+                $idPersona = (int)($gestor['id'] ?? 0);
+                $idDepto = (int)($gestor['id_departamento'] ?? 0);
+                $estructura = $estructuraPorDepartamento[$idDepto] ?? [];
+                $cumpleEmpresa = $filtroEmpresa === '' || (string)($estructura['id_empresa'] ?? '') === $filtroEmpresa;
+                $cumpleDireccion = $filtroDireccion === '' || (string)($estructura['direccion'] ?? '') === $filtroDireccion;
+                $cumpleArea = $filtroArea === '' || (string)($estructura['area'] ?? '') === $filtroArea;
                 $cumpleDepartamento = empty($filtroDepartamento) || ($gestor['nombre_departamento'] ?? '') === $filtroDepartamento;
                 $cumplePuesto = empty($filtroPuesto) || ($gestor['nombre_puesto'] ?? '') === $filtroPuesto;
                 $cumpleEstatus = empty($filtroEstatus) || ($gestor['estatus'] ?? '') === $filtroEstatus;
+                $cantidadPuestos = (int)($conteoPuestosPorPersona[$idPersona] ?? 0);
+                $cumpleMultipuesto = true;
+                if ($filtroMultipuesto === 'multiples') {
+                    $cumpleMultipuesto = $cantidadPuestos > 1;
+                } elseif ($filtroMultipuesto === 'unico') {
+                    $cumpleMultipuesto = $cantidadPuestos <= 1;
+                }
 
-                return $cumpleDepartamento && $cumplePuesto && $cumpleEstatus;
+                return $cumpleEmpresa && $cumpleDireccion && $cumpleArea && $cumpleDepartamento && $cumplePuesto && $cumpleMultipuesto && $cumpleEstatus;
             });
 
             // Validar que haya datos después del filtro
@@ -2001,6 +2144,7 @@ class Reporteria extends Controller
                         COALESCE(r.nss, '') AS nss,
                         COALESCE(r.fecha_nacimiento, '') AS fecha_nacimiento,
                         COALESCE(r.sexo, '') AS sexo,
+                        COALESCE(r.estado_civil, '') AS estado_civil,
                         COALESCE(r.registro_patronal, '') AS registro_patronal,
                         COALESCE(r.codigo_contpaq, '') AS codigo_contpaq_rrhh,
                         COALESCE(r.fecha_contpaq, '') AS fecha_contpaq,
@@ -2012,7 +2156,9 @@ class Reporteria extends Controller
                         COALESCE(r.jefe_directo_texto, '') AS jefe_directo_texto,
                         COALESCE(tel.telefonos, '') AS telefonos_extra,
                         COALESCE(dom.domicilio, '') AS domicilio_extra,
-                        COALESCE(dom.codigo_postal, '') AS codigo_postal_extra
+                        COALESCE(dom.codigo_postal, '') AS codigo_postal_extra,
+                        COALESCE(ben.beneficiarios, '') AS beneficiarios,
+                        COALESCE(ben.porcentaje_total, 0) AS beneficiarios_porcentaje
                     FROM __SPARTA_SECRET_REDACTED__.persona p
                     LEFT JOIN __SPARTA_SECRET_REDACTED__.persona_datos_rrhh r ON r.id_persona = p.id
                     LEFT JOIN (
@@ -2029,6 +2175,26 @@ class Reporteria extends Controller
                         WHERE estatus = 'Activo'
                         GROUP BY id_persona
                     ) dom ON dom.id_persona = p.id
+                    LEFT JOIN (
+                        SELECT
+                            id_persona,
+                            GROUP_CONCAT(
+                                TRIM(BOTH ' - ' FROM CONCAT_WS(' - ',
+                                    NULLIF(nombre_beneficiario, ''),
+                                    NULLIF(parentesco, ''),
+                                    NULLIF(numero, ''),
+                                    CASE
+                                        WHEN porcentaje IS NULL THEN NULL
+                                        ELSE CONCAT(FORMAT(porcentaje, 2), '%')
+                                    END
+                                ))
+                                ORDER BY id ASC SEPARATOR ' | '
+                            ) AS beneficiarios,
+                            SUM(COALESCE(porcentaje, 0)) AS porcentaje_total
+                        FROM estado_cuenta.persona_beneficiario_fallecimiento
+                        WHERE estatus = 'Activo'
+                        GROUP BY id_persona
+                    ) ben ON ben.id_persona = p.id
                     WHERE p.id IN (" . implode(',', $placeholders) . ")
                 ", $paramsIds);
                 foreach ($extras as $extra) {
@@ -2041,6 +2207,8 @@ class Reporteria extends Controller
             foreach ($datosFiltrados as $gestor) {
                 $idPersona = (int)($gestor['id'] ?? 0);
                 $extra = $extrasPorPersona[$idPersona] ?? [];
+                $idDepto = (int)($gestor['id_departamento'] ?? 0);
+                $estructura = $estructuraPorDepartamento[$idDepto] ?? [];
                 $nombreCompleto = trim(implode(' ', array_filter([
                     $gestor['nombres'] ?? '',
                     $gestor['segundo_nombre'] ?? '',
@@ -2063,6 +2231,10 @@ class Reporteria extends Controller
                         $salario = $resSalario['datos']['salario'] ?? '';
                     }
                 }
+                $puestosDetalle = implode(' | ', array_values(array_unique(array_filter($detallePuestosPorPersona[$idPersona] ?? []))));
+                $cantidadPuestos = (int)($conteoPuestosPorPersona[$idPersona] ?? 0);
+                $direccionEstructura = trim((string)($estructura['direccion'] ?? ''));
+                $areaEstructura = trim((string)($estructura['area'] ?? ''));
 
                 $filaCompleta = [
                     'numero_empleado' => $gestor['numero_empleado'] ?? '',
@@ -2080,17 +2252,23 @@ class Reporteria extends Controller
                     'nss' => $extra['nss'] ?? '',
                     'fecha_nacimiento' => $extra['fecha_nacimiento'] ?? '',
                     'sexo' => $extra['sexo'] ?? '',
+                    'estado_civil' => $extra['estado_civil'] ?? '',
                     'fecha_ingreso' => $gestor['fecha_ingreso'] ?? '',
                     'fecha_registro' => $gestor['fecha_registro'] ?? '',
                     'registro_patronal' => $extra['registro_patronal'] ?? '',
                     'codigo_contpaq_rrhh' => $extra['codigo_contpaq_rrhh'] ?? '',
                     'fecha_contpaq' => $extra['fecha_contpaq'] ?? '',
                     'fecha_imss_alta' => $extra['fecha_imss_alta'] ?? '',
-                    'direccion_organizacional' => $extra['direccion_organizacional'] ?? '',
-                    'area_texto' => $extra['area_texto'] ?? '',
+                    'nombre_empresa' => $estructura['nombre_empresa'] ?? '',
+                    'direccion_organizacional' => $direccionEstructura ?: ($extra['direccion_organizacional'] ?? ''),
+                    'area_texto' => $areaEstructura ?: ($extra['area_texto'] ?? ''),
                     'nombre_departamento' => $gestor['nombre_departamento'] ?? '',
                     'nombre_puesto' => $gestor['nombre_puesto'] ?? '',
+                    'puestos_total' => $cantidadPuestos,
+                    'puestos_detalle' => $puestosDetalle,
                     'nombre_jefe' => ($extra['jefe_directo_texto'] ?? '') ?: ($gestor['nombre_jefe'] ?? ''),
+                    'beneficiarios' => $extra['beneficiarios'] ?? '',
+                    'beneficiarios_porcentaje' => $extra['beneficiarios_porcentaje'] ?? '',
                     'ubicacion_laboral' => $extra['ubicacion_laboral'] ?? '',
                     'municipio_laboral' => $extra['municipio_laboral'] ?? '',
                     'domicilio' => $domicilio,
@@ -2121,14 +2299,26 @@ class Reporteria extends Controller
 
             // Nombre del archivo con timestamp y filtros aplicados
             $fechaActual = date('Y-m-d_His');
-            $nombreArchivo = "Plantilla_Gestores";
+            $nombreArchivo = "Reporte_Personal";
 
             // Agregar filtros al nombre del archivo
+            if ($filtroEmpresa) {
+                $nombreArchivo .= "_Empresa_" . preg_replace('/[^A-Za-z0-9_-]+/', '_', $filtroEmpresa);
+            }
+            if ($filtroDireccion) {
+                $nombreArchivo .= "_Direccion_" . str_replace(' ', '_', $filtroDireccion);
+            }
+            if ($filtroArea) {
+                $nombreArchivo .= "_Area_" . str_replace(' ', '_', $filtroArea);
+            }
             if ($filtroDepartamento) {
                 $nombreArchivo .= "_" . str_replace(' ', '_', $filtroDepartamento);
             }
             if ($filtroPuesto) {
                 $nombreArchivo .= "_" . str_replace(' ', '_', $filtroPuesto);
+            }
+            if ($filtroMultipuesto) {
+                $nombreArchivo .= "_" . $filtroMultipuesto;
             }
             if ($filtroEstatus) {
                 $nombreArchivo .= "_" . $filtroEstatus;
@@ -2139,8 +2329,8 @@ class Reporteria extends Controller
             // Descargar Excel
             \PHPSpreadsheet::DescargaExcel(
                 $nombreArchivo,
-                "Plantilla de Gestores",
-                "Gestores",
+                "Reporte de Personal",
+                "Personal",
                 $columnas,
                 $datosFormateados
             );

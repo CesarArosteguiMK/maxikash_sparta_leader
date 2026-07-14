@@ -2626,12 +2626,31 @@ class CapHum extends Model
         $puesto = $filtros['puesto'] ?? null;
         $estatus = $filtros['estatus'] ?? null;
         $multipuesto = $filtros['multipuesto'] ?? null;
+        $empresa = $filtros['empresa'] ?? null;
+        $direccion = $filtros['direccion'] ?? null;
+        $area = $filtros['area'] ?? null;
 
         $params = [];
         $whereConditions = [
             "p.estatus != 'Baja'",
             UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p'),
         ];
+
+        // Filtro por departamento
+        if (!empty($empresa)) {
+            $whereConditions[] = "COALESCE(emp.nombre_comercial, 'MaxiKash') = :empresa";
+            $params['empresa'] = $empresa;
+        }
+
+        if (!empty($direccion)) {
+            $whereConditions[] = "COALESCE(dir.nombre, '') = :direccion";
+            $params['direccion'] = $direccion;
+        }
+
+        if (!empty($area)) {
+            $whereConditions[] = "COALESCE(dorg.nombre, '') = :area";
+            $params['area'] = $area;
+        }
 
         // Filtro por departamento
         if (!empty($departamento)) {
@@ -2665,6 +2684,7 @@ class CapHum extends Model
         SELECT
             p.id,
             p.numero_empleado,
+            p.codigo_contpac,
             p.nombres,
             p.segundo_nombre,
             p.apellidop,
@@ -2675,12 +2695,26 @@ class CapHum extends Model
             COALESCE(p.correo, '') AS correo,
             COALESCE(p.domicilio_calle_texto, '') AS domicilio_calle_texto,
             COALESCE(p.codigo_postal, '') AS codigo_postal,
+            COALESCE(p.curp, '') AS curp,
+            COALESCE(r.rfc, '') AS rfc,
+            COALESCE(r.nss, '') AS nss,
+            COALESCE(r.fecha_nacimiento, '') AS fecha_nacimiento,
+            COALESCE(r.sexo, '') AS sexo,
+            COALESCE(r.estado_civil, '') AS estado_civil,
+            COALESCE(r.fecha_imss_alta, '') AS fecha_imss_alta,
+            COALESCE(r.registro_patronal, '') AS registro_patronal,
+            COALESCE(r.codigo_contpaq, '') AS codigo_contpaq_rrhh,
+            COALESCE(ben.beneficiarios, '') AS beneficiarios,
+            COALESCE(ben.porcentaje_total, 0) AS beneficiarios_porcentaje,
 
             pp.id AS id_puesto,
             COALESCE(pp.nombre, 'Sin puesto') AS nombre_puesto,
 
             d.id AS id_departamento,
             COALESCE(d.nombre, 'Sin departamento') AS nombre_departamento,
+            COALESCE(emp.nombre_comercial, 'MaxiKash') AS nombre_empresa,
+            COALESCE(NULLIF(dir.nombre, ''), NULLIF(r.direccion_organizacional, ''), '') AS nombre_direccion,
+            COALESCE(NULLIF(dorg.nombre, ''), NULLIF(r.area_texto, ''), '') AS nombre_area,
 
             COALESCE(
                 CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom),
@@ -2716,6 +2750,31 @@ class CapHum extends Model
         LEFT JOIN asigna_puesto ap ON p.id = ap.id_persona AND COALESCE(ap.activo, 1) = 1
         LEFT JOIN puesto pp ON pp.id = ap.id_puesto
         LEFT JOIN departamento d ON d.id = pp.departamento_id
+        LEFT JOIN persona_datos_rrhh r ON r.id_persona = p.id
+        LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+        LEFT JOIN asigna_direcciones ad ON ad.id_departamento_organizacional = d.id_departamento_organizacional AND COALESCE(ad.activo, 1) = 1
+        LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
+        LEFT JOIN rrhh_empresas emp ON emp.id = COALESCE(d.id_empresa, dorg.id_empresa, dir.id_empresa, 1)
+        LEFT JOIN (
+            SELECT
+                id_persona,
+                GROUP_CONCAT(
+                    TRIM(BOTH ' - ' FROM CONCAT_WS(' - ',
+                        NULLIF(nombre_beneficiario, ''),
+                        NULLIF(parentesco, ''),
+                        NULLIF(numero, ''),
+                        CASE
+                            WHEN porcentaje IS NULL THEN NULL
+                            ELSE CONCAT(FORMAT(porcentaje, 2), '%')
+                        END
+                    ))
+                    ORDER BY id ASC SEPARATOR ' | '
+                ) AS beneficiarios,
+                SUM(COALESCE(porcentaje, 0)) AS porcentaje_total
+            FROM persona_beneficiario_fallecimiento
+            WHERE estatus = 'Activo'
+            GROUP BY id_persona
+        ) ben ON ben.id_persona = p.id
 
         LEFT JOIN (
             SELECT a.id_persona, a.id_jefe

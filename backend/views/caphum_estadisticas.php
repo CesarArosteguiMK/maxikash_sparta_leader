@@ -561,6 +561,33 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
         if (el) el.textContent = txt;
     }
 
+    function chEstNombreCatalogo(nombre) {
+        var texto = String(nombre == null ? '' : nombre).replace(/\s+/g, ' ').trim();
+        if (!texto) return texto;
+
+        // Los filtros conservan el id de la base; solo normalizamos la etiqueta visible.
+        var clave = texto
+            .toLocaleUpperCase('es-MX')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+        var etiquetas = {
+            'ADMINISTRACION Y FINANZAS': 'Administración y Finanzas',
+            'AUDITORIA': 'Auditoría',
+            'AUTOMATIZACION E INNOVACION IA': 'Automatización e Innovación IA',
+            'COBRANZA': 'Cobranza',
+            'COMERCIAL': 'Comercial',
+            'DIRECCION GENERAL': 'Dirección General',
+            'INVERSIONES Y MERCADO': 'Inversiones y Mercado',
+            'LEGAL': 'Legal',
+            'MARKETING': 'Marketing',
+            'NOMINA': 'Nómina',
+            'OPERACIONES': 'Operaciones',
+            'RIESGO': 'Riesgo',
+            'TI': 'TI'
+        };
+        return etiquetas[clave] || texto;
+    }
+
     function chEstSetSelectOptions(selectId, rows, placeholder) {
         var el = document.getElementById(selectId);
         if (!el) return;
@@ -569,7 +596,7 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
             var id = (r && r.id != null) ? String(r.id) : '';
             var nombre = (r && r.nombre != null) ? String(r.nombre) : '';
             if (!id) return;
-            html += '<option value="' + chEscHtml(id) + '">' + chEscHtml(nombre || ('#' + id)) + '</option>';
+            html += '<option value="' + chEscHtml(id) + '">' + chEscHtml(chEstNombreCatalogo(nombre) || ('#' + id)) + '</option>';
         });
         el.innerHTML = html;
     }

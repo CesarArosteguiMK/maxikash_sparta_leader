@@ -18,10 +18,9 @@ class CapHumEstadisticas extends Model
     private static function sqlExcluirPersonaExterna(string $aliasPersona = 'p'): string
     {
         $alias = preg_replace('/[^A-Za-z0-9_]/', '', $aliasPersona) ?: 'p';
-        return " AND NOT (
-            TRIM(COALESCE({$alias}.codigo_contpac, '')) = ''
-            AND TRIM(COALESCE({$alias}.numero_empleado, '')) <> ''
-        )";
+        // El código CONTPAQ puede asignarse después del alta. La fuente válida para
+        // excluir prestadores externos es el indicador explícito de la persona.
+        return " AND COALESCE({$alias}.es_externo, 0) = 0";
     }
 
     /** @return array<string, mixed> */
