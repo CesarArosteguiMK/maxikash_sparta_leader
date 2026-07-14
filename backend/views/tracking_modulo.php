@@ -11206,6 +11206,121 @@ function _trkOtpCellHtml(det) {
         </div>`;
 }
 
+function _trkAlmacenOtpCellHtml(det) {
+    const idUnidad = Number(det?.id_unidad || 0);
+    const idCredito = Number(det?.id_credito || 0);
+    const idDetalle = Number(det?.id_detalle || 0);
+    const folio = String(det?.folio_unidad || '');
+    const estatus = String(det?.estatus_inventario || '').trim().toLowerCase();
+    const recolectada = ['recolectada', 'recolectado', 'completado', 'completada']
+        .includes(String(det?.estatus_recoleccion || '').trim().toLowerCase());
+    if (!recolectada) {
+        return '<span class="text-muted small">Disponible al recolectar</span>';
+    }
+    if (idUnidad && !['pendiente_entrega_cedis', 'pendiente_evidencias', 'incidencia_evidencias'].includes(estatus)) {
+        const etiqueta = estatus ? estatus.replaceAll('_', ' ') : 'etapa no disponible';
+        return `<div class="small text-muted">
+            <i class="fa-solid fa-shield-halved me-1"></i>${_trkChatEscapeHtml(etiqueta)}
+        </div>`;
+    }
+    return `<button type="button" class="btn btn-sm btn-dark btn-generar-otp-almacen"
+        data-id-unidad="${idUnidad}"
+        data-id-credito="${idCredito}"
+        data-id-detalle="${idDetalle}"
+        data-folio="${_trkChatEscapeHtml(folio)}">
+        <i class="fa-solid fa-shield-halved me-1"></i>Generar OTP entrega
+    </button>`;
+}
+
+function _trkAlmacenOtpMensajeError(r) {
+    const detalle = r?.detail?.mensaje || r?.detail?.message || r?.mensaje?.mensaje
+        || r?.mensaje?.message || r?.mensaje || r?.message || r?.error || '';
+    return typeof detalle === 'string' && detalle
+        ? detalle
+        : 'No se pudo generar el OTP de entrega.';
+}
+
+async function _trkGenerarOtpEntregaAlmacen({ idUnidad, idCredito, idDetalle, folio }) {
+    if (!idUnidad && !idCredito) return;
+    const confirmar = await _trkSwalConFocoModalRuta({
+        icon: 'warning',
+        title: 'Generar OTP de entrega',
+        html: `<div class="text-start small">
+            <p class="mb-2">Se generara el codigo que el transportista capturara en MotoTrack al llegar al CEDIS.</p>
+            <div class="border rounded p-2 bg-light">
+                <b>${_trkChatEscapeHtml(folio || (idUnidad ? `Unidad #${idUnidad}` : 'Unidad recolectada'))}</b><br>
+                <span class="text-muted">Credito #${_trkChatEscapeHtml(idCredito || 'N/A')}</span>
+            </div>
+            <p class="text-danger fw-semibold mt-2 mb-0">Comparte el codigo solo con el transportista asignado a esta ruta.</p>
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Generar codigo',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#172033',
+        reverseButtons: true,
+    });
+    if (!confirmar.isConfirmed) return;
+
+    Swal.fire({
+        title: 'Generando OTP de entrega...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+    });
+    try {
+        const r = await trkFetch('/TrackingRecoleccion/trackingGenerarOtpAlmacen', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_unidad: idUnidad, id_credito: idCredito, id_detalle: idDetalle }),
+        });
+        if (!r?.success) {
+            Swal.fire({
+                icon: 'error',
+                title: 'No se pudo generar el OTP',
+                text: _trkAlmacenOtpMensajeError(r),
+                confirmButtonText: 'Aceptar',
+            });
+            return;
+        }
+
+        const otp = r.otp || r.datos?.otp || {};
+        const codigo = String(otp.codigo || '').replace(/\D+/g, '').slice(0, 6);
+        const unidadOtp = Number(otp.id_unidad || idUnidad || 0);
+        if (!/^\d{6}$/.test(codigo)) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Codigo incompatible',
+                text: 'La API no devolvio un OTP numerico de 6 digitos.',
+                confirmButtonText: 'Aceptar',
+            });
+            return;
+        }
+
+        Swal.fire({
+            icon: 'success',
+            title: 'OTP listo para el transportista',
+            html: `<div class="text-center">
+                <div class="small text-muted mb-2">El transportista debe capturar este codigo en MotoTrack dentro del CEDIS.</div>
+                <div class="display-5 fw-bold" style="letter-spacing:.2em;">${_trkChatEscapeHtml(codigo)}</div>
+                <div class="small text-muted mt-2">${_trkChatEscapeHtml(_trkOtpExpiraInfo(otp.expira_at).texto)}</div>
+                <div class="small text-muted mt-1">Unidad ${_trkChatEscapeHtml(folio || (unidadOtp ? `#${unidadOtp}` : `credito #${idCredito}`))}</div>
+                <div class="alert alert-warning py-2 px-3 mt-3 mb-0 small text-start">
+                    Codigo de un solo uso. No lo compartas fuera de esta entrega.
+                </div>
+            </div>`,
+            confirmButtonText: 'Entendido',
+        });
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de conexion',
+            text: error?.message || 'No se pudo generar el OTP de entrega.',
+            confirmButtonText: 'Aceptar',
+        });
+    }
+}
+
 function _trkOtpInlineHtml(det) {
     const idDetalle = Number(det?.id_detalle || 0);
     const estatus = String(det?.estatus_recoleccion || '').toLowerCase();

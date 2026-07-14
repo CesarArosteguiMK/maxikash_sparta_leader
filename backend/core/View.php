@@ -935,6 +935,23 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
 
     <!-- Main JS -->
     <script src="/assets/js/main.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var layoutMenu = document.getElementById('layout-menu');
+        if (!layoutMenu || layoutMenu.dataset.fallbackToggleBound === '1') return;
+        layoutMenu.dataset.fallbackToggleBound = '1';
+
+        layoutMenu.addEventListener('click', function (event) {
+            if (window.Helpers && window.Helpers.mainMenu) return;
+            var toggle = event.target && event.target.closest ? event.target.closest('.menu-link.menu-toggle') : null;
+            if (!toggle || !layoutMenu.contains(toggle)) return;
+            var item = toggle.closest('.menu-item');
+            if (!item || !item.querySelector(':scope > .menu-sub')) return;
+            event.preventDefault();
+            item.classList.toggle('open');
+        });
+    });
+    </script>
 
     <!-- Page JS -->
     <script src="/assets/js/comunes.js"></script>

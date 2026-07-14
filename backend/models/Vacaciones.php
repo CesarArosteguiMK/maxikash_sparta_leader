@@ -23,7 +23,7 @@ class Vacaciones extends Model
         $db = new Database();
 
         $db->CRUD("
-            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes (
+            CREATE TABLE IF NOT EXISTS estado_cuenta.vacaciones_solicitudes (
                 id INT NOT NULL AUTO_INCREMENT,
                 id_persona INT NOT NULL,
                 periodo_inicio DATE NOT NULL,
@@ -66,7 +66,7 @@ class Vacaciones extends Model
         self::asegurarIndice($db, 'vacaciones_solicitudes', 'idx_vac_sol_fuente', 'fuente, fuente_ref');
 
         $db->CRUD("
-            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.vacaciones_solicitud_dias (
+            CREATE TABLE IF NOT EXISTS estado_cuenta.vacaciones_solicitud_dias (
                 id INT NOT NULL AUTO_INCREMENT,
                 id_solicitud INT NOT NULL,
                 fecha DATE NOT NULL,
@@ -76,13 +76,13 @@ class Vacaciones extends Model
                 UNIQUE KEY uq_vac_sol_dia (id_solicitud, fecha),
                 KEY idx_vac_dia_fecha (fecha),
                 CONSTRAINT fk_vac_dias_solicitud
-                    FOREIGN KEY (id_solicitud) REFERENCES __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes(id)
+                    FOREIGN KEY (id_solicitud) REFERENCES estado_cuenta.vacaciones_solicitudes(id)
                     ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
 
         $db->CRUD("
-            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.vacaciones_dias_no_laborales (
+            CREATE TABLE IF NOT EXISTS estado_cuenta.vacaciones_dias_no_laborales (
                 fecha DATE NOT NULL,
                 descripcion VARCHAR(255) NULL,
                 activo TINYINT(1) NOT NULL DEFAULT 1,
@@ -92,7 +92,7 @@ class Vacaciones extends Model
         ");
 
         $db->CRUD("
-            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.vacaciones_excel_saldos (
+            CREATE TABLE IF NOT EXISTS estado_cuenta.vacaciones_excel_saldos (
                 id INT NOT NULL AUTO_INCREMENT,
                 fuente VARCHAR(40) NOT NULL,
                 id_persona INT NOT NULL,
@@ -112,7 +112,7 @@ class Vacaciones extends Model
         ");
 
         $db->CRUD("
-            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.vacaciones_excel_resumen_raw (
+            CREATE TABLE IF NOT EXISTS estado_cuenta.vacaciones_excel_resumen_raw (
                 id INT NOT NULL AUTO_INCREMENT,
                 fuente VARCHAR(40) NOT NULL,
                 fila_resumen INT NOT NULL,
@@ -262,7 +262,7 @@ class Vacaciones extends Model
 
             $db->beginTransaction();
             $db->CRUD("
-                INSERT INTO __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes
+                INSERT INTO estado_cuenta.vacaciones_solicitudes
                     (id_persona, periodo_inicio, periodo_fin, fecha_inicio, fecha_fin, modo_fechas, dias_solicitados, estatus, comentario, firma_colaborador, firma_colaborador_fecha, creado_por)
                 VALUES
                     (:id_persona, :periodo_inicio, :periodo_fin, :fecha_inicio, :fecha_fin, :modo_fechas, :dias_solicitados, 'pendiente', :comentario, :firma_colaborador, NOW(), :creado_por)
@@ -281,7 +281,7 @@ class Vacaciones extends Model
             $idSolicitud = $db->lastInsertId();
             foreach ($dias as $fecha) {
                 $db->CRUD("
-                    INSERT INTO __SPARTA_SECRET_REDACTED__.vacaciones_solicitud_dias (id_solicitud, fecha, cuenta, tipo)
+                    INSERT INTO estado_cuenta.vacaciones_solicitud_dias (id_solicitud, fecha, cuenta, tipo)
                     VALUES (:id_solicitud, :fecha, 1, 'laboral')
                 ", ['id_solicitud' => $idSolicitud, 'fecha' => $fecha]);
             }
@@ -350,21 +350,21 @@ class Vacaciones extends Model
                     d.nombre AS departamento,
                     dorg.nombre AS area,
                     responsable_area.id_responsable_area
-                FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes s
-                INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = s.id_persona
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+                FROM estado_cuenta.vacaciones_solicitudes s
+                INNER JOIN estado_cuenta.persona p ON p.id = s.id_persona
+                LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                LEFT JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
+                LEFT JOIN estado_cuenta.departamento d ON d.id = pp.departamento_id
+                LEFT JOIN estado_cuenta.departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
                 LEFT JOIN (
                     SELECT aj.id_persona, COALESCE(aj.id_jefe, vj.id_jefe) AS id_responsable_area
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+                    FROM estado_cuenta.asigna_jefe aj
                     INNER JOIN (
                         SELECT id_persona, MAX(id) AS mid
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        FROM estado_cuenta.asigna_jefe
                         GROUP BY id_persona
                     ) ult ON ult.id_persona = aj.id_persona AND ult.mid = aj.id
-                    LEFT JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
+                    LEFT JOIN estado_cuenta.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
                 ) responsable_area ON responsable_area.id_persona = s.id_persona
                 WHERE COALESCE(s.fuente, '') = ''
                   {$filtroResponsable}
@@ -424,29 +424,29 @@ class Vacaciones extends Model
                     d.nombre AS departamento,
                     dorg.nombre AS area,
                     responsable_area.id_responsable_area
-                FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes s
-                INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = s.id_persona
+                FROM estado_cuenta.vacaciones_solicitudes s
+                INNER JOIN estado_cuenta.persona p ON p.id = s.id_persona
                 LEFT JOIN (
                     SELECT id, CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom) AS nombre_resuelve
-                    FROM __SPARTA_SECRET_REDACTED__.persona
+                    FROM estado_cuenta.persona
                 ) rrhh ON rrhh.id = s.rrhh_id_persona
                 LEFT JOIN (
                     SELECT id, CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom) AS nombre_resuelve
-                    FROM __SPARTA_SECRET_REDACTED__.persona
+                    FROM estado_cuenta.persona
                 ) jefe ON jefe.id = s.jefe_id_persona
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+                LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                LEFT JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
+                LEFT JOIN estado_cuenta.departamento d ON d.id = pp.departamento_id
+                LEFT JOIN estado_cuenta.departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
                 LEFT JOIN (
                     SELECT aj.id_persona, COALESCE(aj.id_jefe, vj.id_jefe) AS id_responsable_area
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+                    FROM estado_cuenta.asigna_jefe aj
                     INNER JOIN (
                         SELECT id_persona, MAX(id) AS mid
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        FROM estado_cuenta.asigna_jefe
                         GROUP BY id_persona
                     ) ult ON ult.id_persona = aj.id_persona AND ult.mid = aj.id
-                    LEFT JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
+                    LEFT JOIN estado_cuenta.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
                 ) responsable_area ON responsable_area.id_persona = s.id_persona
                 WHERE s.id = :id_solicitud
                   {$filtroResponsable}
@@ -473,7 +473,7 @@ class Vacaciones extends Model
 
             $dias = $db->queryAll("
                 SELECT fecha, cuenta, tipo
-                FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitud_dias
+                FROM estado_cuenta.vacaciones_solicitud_dias
                 WHERE id_solicitud = :id_solicitud
                 ORDER BY fecha ASC
             ", ['id_solicitud' => $idSolicitud]);
@@ -512,7 +512,7 @@ class Vacaciones extends Model
 
             $sol = $db->queryOne("
                 SELECT id, id_persona, estatus, rrhh_estatus, jefe_estatus, fecha_inicio, fecha_fin
-                FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes
+                FROM estado_cuenta.vacaciones_solicitudes
                 WHERE id = :id_solicitud
                 LIMIT 1
             ", ['id_solicitud' => $idSolicitud]);
@@ -559,7 +559,7 @@ class Vacaciones extends Model
             $colFirmaFecha = $etapa . '_firma_fecha';
 
             $db->CRUD("
-                UPDATE __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes
+                UPDATE estado_cuenta.vacaciones_solicitudes
                 SET
                     {$colEstatus} = :accion,
                     {$colComentario} = :comentario,
@@ -625,7 +625,7 @@ class Vacaciones extends Model
         int $filaResumen
     ): void {
         $db->CRUD("
-            INSERT INTO __SPARTA_SECRET_REDACTED__.vacaciones_excel_saldos
+            INSERT INTO estado_cuenta.vacaciones_excel_saldos
                 (fuente, id_persona, nombre_excel, fecha_ingreso_excel, anio, dias_tomados, dias_otorgados, dias_restantes, fila_resumen)
             VALUES
                 (:fuente, :id_persona, :nombre_excel, :fecha_ingreso_excel, :anio, :dias_tomados, :dias_otorgados, :dias_restantes, :fila_resumen)
@@ -664,7 +664,7 @@ class Vacaciones extends Model
         float $diasRestantes
     ): void {
         $db->CRUD("
-            INSERT INTO __SPARTA_SECRET_REDACTED__.vacaciones_excel_resumen_raw
+            INSERT INTO estado_cuenta.vacaciones_excel_resumen_raw
                 (fuente, fila_resumen, id_persona, nombre_excel, nombre_normalizado, fecha_ingreso_excel, anio, dias_tomados, dias_otorgados, dias_restantes)
             VALUES
                 (:fuente, :fila_resumen, :id_persona, :nombre_excel, :nombre_normalizado, :fecha_ingreso_excel, :anio, :dias_tomados, :dias_otorgados, :dias_restantes)
@@ -698,14 +698,14 @@ class Vacaciones extends Model
 
         $existente = $db->queryOne("
             SELECT id
-            FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes
+            FROM estado_cuenta.vacaciones_solicitudes
             WHERE fuente = :fuente AND fuente_ref = :fuente_ref
             LIMIT 1
         ", ['fuente' => $fuente, 'fuente_ref' => $fuenteRef]);
 
         if (empty($fechas)) {
             if ($existente) {
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes WHERE id = :id", ['id' => (int) $existente['id']]);
+                $db->CRUD("DELETE FROM estado_cuenta.vacaciones_solicitudes WHERE id = :id", ['id' => (int) $existente['id']]);
             }
             return 0;
         }
@@ -719,7 +719,7 @@ class Vacaciones extends Model
         if ($existente) {
             $idSolicitud = (int) $existente['id'];
             $db->CRUD("
-                UPDATE __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes
+                UPDATE estado_cuenta.vacaciones_solicitudes
                 SET
                     periodo_inicio = :periodo_inicio,
                     periodo_fin = :periodo_fin,
@@ -741,10 +741,10 @@ class Vacaciones extends Model
                 'comentario' => 'Importado desde plantilla de vacaciones ' . $anio,
                 'id' => $idSolicitud,
             ]);
-            $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitud_dias WHERE id_solicitud = :id", ['id' => $idSolicitud]);
+            $db->CRUD("DELETE FROM estado_cuenta.vacaciones_solicitud_dias WHERE id_solicitud = :id", ['id' => $idSolicitud]);
         } else {
             $db->CRUD("
-                INSERT INTO __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes
+                INSERT INTO estado_cuenta.vacaciones_solicitudes
                     (id_persona, periodo_inicio, periodo_fin, fecha_inicio, fecha_fin, modo_fechas, dias_solicitados, estatus,
                      rrhh_estatus, jefe_estatus, comentario, creado_por, fuente, fuente_ref)
                 VALUES
@@ -766,7 +766,7 @@ class Vacaciones extends Model
 
         foreach ($fechas as $fecha) {
             $db->CRUD("
-                INSERT INTO __SPARTA_SECRET_REDACTED__.vacaciones_solicitud_dias (id_solicitud, fecha, cuenta, tipo)
+                INSERT INTO estado_cuenta.vacaciones_solicitud_dias (id_solicitud, fecha, cuenta, tipo)
                 VALUES (:id_solicitud, :fecha, 1, 'laboral')
             ", ['id_solicitud' => $idSolicitud, 'fecha' => $fecha]);
         }
@@ -786,11 +786,11 @@ class Vacaciones extends Model
                 pp.nombre AS puesto,
                 d.nombre AS departamento,
                 dorg.nombre AS area
-            FROM __SPARTA_SECRET_REDACTED__.persona p
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+            FROM estado_cuenta.persona p
+            LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+            LEFT JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
+            LEFT JOIN estado_cuenta.departamento d ON d.id = pp.departamento_id
+            LEFT JOIN estado_cuenta.departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
             WHERE p.id = :id_persona
             LIMIT 1
         ", ['id_persona' => $idPersona]);
@@ -819,13 +819,13 @@ class Vacaciones extends Model
 
         $rows = $db->queryAll("
             SELECT DISTINCT COALESCE(aj.id_jefe, vj.id_jefe) AS id_responsable_area
-            FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+            FROM estado_cuenta.asigna_jefe aj
             INNER JOIN (
                 SELECT id_persona, MAX(id) AS mid
-                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                FROM estado_cuenta.asigna_jefe
                 GROUP BY id_persona
             ) ult ON ult.id_persona = aj.id_persona AND ult.mid = aj.id
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
+            LEFT JOIN estado_cuenta.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
             WHERE aj.id_persona = :id_persona
         ", ['id_persona' => $idPersona]) ?: [];
 
@@ -865,11 +865,11 @@ class Vacaciones extends Model
         $filtroPuestos = self::filtroPuestosAutorizaRrhh('pu', $params);
         $rows = $db->queryAll("
             SELECT DISTINCT p.id
-            FROM __SPARTA_SECRET_REDACTED__.persona p
-            INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+            FROM estado_cuenta.persona p
+            INNER JOIN estado_cuenta.asigna_puesto ap
                 ON ap.id_persona = p.id
                AND COALESCE(ap.activo, 1) = 1
-            INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu
+            INNER JOIN estado_cuenta.puesto pu
                 ON pu.id = ap.id_puesto
             WHERE p.id > 0
               AND COALESCE(p.estatus, '') <> 'Baja'
@@ -897,11 +897,11 @@ class Vacaciones extends Model
         $filtroPuestos = self::filtroPuestosAutorizaRrhh('pu', $params);
         $row = $db->queryOne("
             SELECT 1
-            FROM __SPARTA_SECRET_REDACTED__.persona p
-            INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+            FROM estado_cuenta.persona p
+            INNER JOIN estado_cuenta.asigna_puesto ap
                 ON ap.id_persona = p.id
                AND COALESCE(ap.activo, 1) = 1
-            INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu
+            INNER JOIN estado_cuenta.puesto pu
                 ON pu.id = ap.id_puesto
             WHERE p.id = :id_persona
               AND COALESCE(p.estatus, '') <> 'Baja'
@@ -947,7 +947,7 @@ class Vacaciones extends Model
     {
         $row = $db->queryOne("
             SELECT fecha_ingreso_excel, fila_resumen
-            FROM __SPARTA_SECRET_REDACTED__.vacaciones_excel_resumen_raw
+            FROM estado_cuenta.vacaciones_excel_resumen_raw
             WHERE id_persona = :id_persona
             ORDER BY anio DESC, fila_resumen ASC
             LIMIT 1
@@ -963,7 +963,7 @@ class Vacaciones extends Model
 
         return $db->queryOne("
             SELECT fecha_ingreso_excel, fila_resumen
-            FROM __SPARTA_SECRET_REDACTED__.vacaciones_excel_resumen_raw
+            FROM estado_cuenta.vacaciones_excel_resumen_raw
             WHERE nombre_normalizado = :nombre
             ORDER BY anio DESC, fila_resumen ASC
             LIMIT 1
@@ -1034,8 +1034,8 @@ class Vacaciones extends Model
             SELECT
                 COALESCE(SUM(CASE WHEN s.estatus IN ('aprobada', 'tomada') THEN d.cuenta ELSE 0 END), 0) AS aprobados,
                 COALESCE(SUM(CASE WHEN s.estatus = 'pendiente' THEN d.cuenta ELSE 0 END), 0) AS pendientes
-            FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes s
-            INNER JOIN __SPARTA_SECRET_REDACTED__.vacaciones_solicitud_dias d ON d.id_solicitud = s.id
+            FROM estado_cuenta.vacaciones_solicitudes s
+            INNER JOIN estado_cuenta.vacaciones_solicitud_dias d ON d.id_solicitud = s.id
             WHERE s.id_persona = :id_persona
               AND d.fecha BETWEEN :periodo_inicio AND :periodo_fin
               AND s.estatus NOT IN ('cancelada', 'rechazada')
@@ -1085,8 +1085,8 @@ class Vacaciones extends Model
                 s.creado_en,
                 s.fecha_autorizacion,
                 s.comentario_autorizacion
-            FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes s
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.vacaciones_solicitud_dias d
+            FROM estado_cuenta.vacaciones_solicitudes s
+            LEFT JOIN estado_cuenta.vacaciones_solicitud_dias d
                 ON d.id_solicitud = s.id
                 {$filtroDiasPeriodo}
             WHERE s.id_persona = :id_persona
@@ -1116,8 +1116,8 @@ class Vacaciones extends Model
 
         $row = $db->queryOne("
             SELECT s.id
-            FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes s
-            INNER JOIN __SPARTA_SECRET_REDACTED__.vacaciones_solicitud_dias d ON d.id_solicitud = s.id
+            FROM estado_cuenta.vacaciones_solicitudes s
+            INNER JOIN estado_cuenta.vacaciones_solicitud_dias d ON d.id_solicitud = s.id
             WHERE s.id_persona = :id_persona
               AND s.estatus NOT IN ('cancelada', 'rechazada')
               AND d.fecha IN (" . implode(',', $placeholders) . ")
@@ -1132,7 +1132,7 @@ class Vacaciones extends Model
         $feriados = [];
         foreach ($db->queryAll("
             SELECT fecha
-            FROM __SPARTA_SECRET_REDACTED__.vacaciones_dias_no_laborales
+            FROM estado_cuenta.vacaciones_dias_no_laborales
             WHERE activo = 1
               AND fecha BETWEEN :fecha_inicio AND :fecha_fin
         ", ['fecha_inicio' => $fechaInicio, 'fecha_fin' => $fechaFin]) as $row) {
@@ -1185,7 +1185,7 @@ class Vacaciones extends Model
         ", ['tabla' => $tabla, 'columna' => $columna]);
 
         if (!$row) {
-            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.$tabla ADD COLUMN $columna $definicion");
+            $db->CRUD("ALTER TABLE estado_cuenta.$tabla ADD COLUMN $columna $definicion");
         }
     }
 
@@ -1201,7 +1201,7 @@ class Vacaciones extends Model
         ", ['tabla' => $tabla, 'indice' => $indice]);
 
         if (!$row) {
-            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.$tabla ADD INDEX $indice ($columnas)");
+            $db->CRUD("ALTER TABLE estado_cuenta.$tabla ADD INDEX $indice ($columnas)");
         }
     }
 

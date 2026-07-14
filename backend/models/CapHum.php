@@ -515,12 +515,12 @@ class CapHum extends Model
                     'activo' => 1,
                 ];
                 $existe = $db->queryOne(
-                    'SELECT id FROM __SPARTA_SECRET_REDACTED__.documento WHERE id = :id OR clave = :clave LIMIT 1',
+                    'SELECT id FROM estado_cuenta.documento WHERE id = :id OR clave = :clave LIMIT 1',
                     ['id' => $datos['id'], 'clave' => $datos['clave']]
                 );
                 if ($existe) {
                     $db->CRUD(
-                        'UPDATE __SPARTA_SECRET_REDACTED__.documento
+                        'UPDATE estado_cuenta.documento
                             SET clave = :clave,
                                 nombre = :nombre,
                                 obligatorio = :obligatorio,
@@ -537,7 +537,7 @@ class CapHum extends Model
                     continue;
                 }
                 $db->CRUD(
-                    'INSERT INTO __SPARTA_SECRET_REDACTED__.documento (id, clave, nombre, obligatorio, activo)
+                    'INSERT INTO estado_cuenta.documento (id, clave, nombre, obligatorio, activo)
                      VALUES (:id, :clave, :nombre, :obligatorio, :activo)',
                     $datos
                 );
@@ -558,7 +558,7 @@ class CapHum extends Model
             return;
         }
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS estado_cuenta.persona_puesto_trayectoria (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             id_persona INT NOT NULL,
             accion VARCHAR(60) NOT NULL,
@@ -590,11 +590,11 @@ class CapHum extends Model
     private static function asegurarColumnaTrayectoriaPuesto(Database $db, string $columna, string $definicion): void
     {
         $existe = $db->queryOne(
-            "SHOW COLUMNS FROM __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria LIKE :columna",
+            "SHOW COLUMNS FROM estado_cuenta.persona_puesto_trayectoria LIKE :columna",
             ['columna' => $columna]
         );
         if (!$existe) {
-            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria ADD COLUMN {$columna} {$definicion}");
+            $db->CRUD("ALTER TABLE estado_cuenta.persona_puesto_trayectoria ADD COLUMN {$columna} {$definicion}");
         }
     }
 
@@ -613,9 +613,9 @@ class CapHum extends Model
                 pu.departamento_id AS id_departamento,
                 dep.nombre AS nombre_departamento,
                 COALESCE(pu.nivel, 0) AS nivel
-            FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-            INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = ap.id_puesto
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = pu.departamento_id
+            FROM estado_cuenta.asigna_puesto ap
+            INNER JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
+            LEFT JOIN estado_cuenta.departamento dep ON dep.id = pu.departamento_id
             WHERE ap.id_persona = :id_persona
               AND COALESCE(ap.activo, 1) = 1
             ORDER BY COALESCE(pu.nivel, 0) DESC, ap.id ASC
@@ -651,7 +651,7 @@ class CapHum extends Model
         self::asegurarTablaTrayectoriaPuesto($db);
         $fechaCdmx = self::fechaHoraCdmx();
         $db->CRUD("
-            INSERT INTO __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria
+            INSERT INTO estado_cuenta.persona_puesto_trayectoria
                 (id_persona, accion, id_puesto_anterior, fecha_asignacion_anterior, id_puesto_nuevo, fecha_asignacion_nueva,
                  nombre_puesto_anterior, nombre_puesto_nuevo,
                  id_departamento_anterior, id_departamento_nuevo,
@@ -767,7 +767,7 @@ class CapHum extends Model
         self::asegurarTablaTrayectoriaPuesto($db);
         $fechaCdmx = self::fechaHoraCdmx();
         return $db->CRUD("
-            INSERT INTO __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria
+            INSERT INTO estado_cuenta.persona_puesto_trayectoria
                 (id_persona, accion, id_puesto_anterior, fecha_asignacion_anterior, id_puesto_nuevo, fecha_asignacion_nueva,
                  nombre_puesto_anterior, nombre_puesto_nuevo,
                  id_departamento_anterior, id_departamento_nuevo,
@@ -778,8 +778,8 @@ class CapHum extends Model
                 CASE
                     WHEN NOT EXISTS (
                         SELECT 1
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap2
-                        INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu2 ON pu2.id = ap2.id_puesto
+                        FROM estado_cuenta.asigna_puesto ap2
+                        INNER JOIN estado_cuenta.puesto pu2 ON pu2.id = ap2.id_puesto
                         WHERE ap2.id_persona = ap.id_persona
                           AND COALESCE(ap2.activo, 1) = 1
                           AND (
@@ -805,8 +805,8 @@ class CapHum extends Model
                 CASE
                     WHEN NOT EXISTS (
                         SELECT 1
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap3
-                        INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu3 ON pu3.id = ap3.id_puesto
+                        FROM estado_cuenta.asigna_puesto ap3
+                        INNER JOIN estado_cuenta.puesto pu3 ON pu3.id = ap3.id_puesto
                         WHERE ap3.id_persona = ap.id_persona
                           AND COALESCE(ap3.activo, 1) = 1
                           AND (
@@ -820,15 +820,15 @@ class CapHum extends Model
                 'semilla_estado_actual' AS origen,
                 :creado_por AS creado_por,
                 COALESCE(ap.fecha_asignacion, :fecha_cdmx) AS creado_at
-            FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-            INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = ap.id_persona
-            INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = ap.id_puesto
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = pu.departamento_id
+            FROM estado_cuenta.asigna_puesto ap
+            INNER JOIN estado_cuenta.persona p ON p.id = ap.id_persona
+            INNER JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
+            LEFT JOIN estado_cuenta.departamento dep ON dep.id = pu.departamento_id
             WHERE COALESCE(ap.activo, 1) = 1
               AND p.estatus != 'Baja'
               AND NOT EXISTS (
                   SELECT 1
-                  FROM __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria t
+                  FROM estado_cuenta.persona_puesto_trayectoria t
                   WHERE t.id_persona = ap.id_persona
               )
         ", [
@@ -841,13 +841,13 @@ class CapHum extends Model
     {
         self::asegurarTablaTrayectoriaPuesto($db);
         return $db->CRUD("
-            UPDATE __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria t
+            UPDATE estado_cuenta.persona_puesto_trayectoria t
             SET
                 t.fecha_asignacion_nueva = COALESCE(
                     t.fecha_asignacion_nueva,
                     (
                         SELECT ap.fecha_asignacion
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                        FROM estado_cuenta.asigna_puesto ap
                         WHERE ap.id_persona = t.id_persona
                           AND ap.id_puesto = t.id_puesto_nuevo
                         ORDER BY COALESCE(ap.activo, 0) DESC, ap.id DESC
@@ -858,7 +858,7 @@ class CapHum extends Model
                     t.fecha_asignacion_anterior,
                     (
                         SELECT ap2.fecha_asignacion
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap2
+                        FROM estado_cuenta.asigna_puesto ap2
                         WHERE ap2.id_persona = t.id_persona
                           AND ap2.id_puesto = t.id_puesto_anterior
                         ORDER BY COALESCE(ap2.activo, 0) DESC, ap2.id DESC
@@ -897,8 +897,8 @@ class CapHum extends Model
                         ELSE t.creado_at
                     END AS fecha_movimiento,
                     CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS responsable_nombre
-                FROM __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria t
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = t.creado_por
+                FROM estado_cuenta.persona_puesto_trayectoria t
+                LEFT JOIN estado_cuenta.persona p ON p.id = t.creado_por
                 WHERE t.id_persona = :id_persona
                 ORDER BY t.creado_at DESC, t.id DESC
             ", ['id_persona' => $idPersona]);
@@ -977,7 +977,7 @@ class CapHum extends Model
             p.es_externo,
             EXISTS(
                 SELECT 1
-                FROM __SPARTA_SECRET_REDACTED__.reingresos r_reingreso
+                FROM estado_cuenta.reingresos r_reingreso
                 WHERE r_reingreso.id_persona = p.id
                 LIMIT 1
             ) AS tiene_reingreso,
@@ -1090,7 +1090,7 @@ class CapHum extends Model
                 p.es_externo,
                 EXISTS(
                     SELECT 1
-                    FROM __SPARTA_SECRET_REDACTED__.reingresos r_reingreso
+                    FROM estado_cuenta.reingresos r_reingreso
                     WHERE r_reingreso.id_persona = p.id
                     LIMIT 1
                 ) AS tiene_reingreso,
@@ -1154,7 +1154,7 @@ class CapHum extends Model
                 p2.es_externo,
                 EXISTS(
                     SELECT 1
-                    FROM __SPARTA_SECRET_REDACTED__.reingresos r_reingreso2
+                    FROM estado_cuenta.reingresos r_reingreso2
                     WHERE r_reingreso2.id_persona = p2.id
                     LIMIT 1
                 ) AS tiene_reingreso,
@@ -1237,9 +1237,9 @@ class CapHum extends Model
                     pp.nombre AS nombre_puesto,
                     pp.departamento_id,
                     d.nombre AS nombre_departamento
-                FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-                INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
+                FROM estado_cuenta.asigna_puesto ap
+                INNER JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
+                LEFT JOIN estado_cuenta.departamento d ON d.id = pp.departamento_id
                 WHERE ap.id_persona = :id
                   AND COALESCE(ap.activo, 1) = 1
                 ORDER BY pp.nivel DESC, ap.id DESC
@@ -1253,11 +1253,11 @@ class CapHum extends Model
                     CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
                     COALESCE(pp.nombre, 'Sin puesto') AS nombre_puesto,
                     COALESCE(d.nombre, 'Sin departamento') AS nombre_departamento
-                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
-                INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = aj.id_persona
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
+                FROM estado_cuenta.asigna_jefe aj
+                INNER JOIN estado_cuenta.persona p ON p.id = aj.id_persona
+                LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                LEFT JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
+                LEFT JOIN estado_cuenta.departamento d ON d.id = pp.departamento_id
                 WHERE aj.id_jefe = :id
                   AND p.estatus != 'Baja'
                 ORDER BY nombre_completo ASC
@@ -1270,10 +1270,10 @@ class CapHum extends Model
                     CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
                     COALESCE(pp.nombre, 'Sin puesto') AS nombre_puesto,
                     COALESCE(d.nombre, 'Sin departamento') AS nombre_departamento
-                FROM __SPARTA_SECRET_REDACTED__.persona p
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
+                FROM estado_cuenta.persona p
+                LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                LEFT JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
+                LEFT JOIN estado_cuenta.departamento d ON d.id = pp.departamento_id
                 WHERE p.estatus != 'Baja'
                   AND p.id <> :id
                 ORDER BY nombre_completo ASC
@@ -1318,10 +1318,10 @@ class CapHum extends Model
                         pp.nombre AS nombre_puesto,
                         d.nombre AS nombre_departamento,
                         CONCAT_WS(' ', jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom) AS nombre_jefe
-                    FROM __SPARTA_SECRET_REDACTED__.vacantes_personal v
-                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = v.id_puesto
-                    LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = v.id_departamento
-                    LEFT JOIN __SPARTA_SECRET_REDACTED__.persona jefe ON jefe.id = v.id_jefe
+                    FROM estado_cuenta.vacantes_personal v
+                    INNER JOIN estado_cuenta.puesto pp ON pp.id = v.id_puesto
+                    LEFT JOIN estado_cuenta.departamento d ON d.id = v.id_departamento
+                    LEFT JOIN estado_cuenta.persona jefe ON jefe.id = v.id_jefe
                     WHERE v.estatus = 'Activa'
                       AND (" . implode(' OR ', $condicionesVacante) . ")
                     ORDER BY v.fecha_creacion ASC
@@ -1344,7 +1344,7 @@ class CapHum extends Model
     private static function asegurarTablaVacantesPersonal(Database $db): void
     {
         $db->CRUD("
-            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.vacantes_personal (
+            CREATE TABLE IF NOT EXISTS estado_cuenta.vacantes_personal (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 id_departamento INT NOT NULL,
                 id_puesto INT NOT NULL,
@@ -1374,8 +1374,8 @@ class CapHum extends Model
             LIMIT 1
         ");
         if (!$columnaCubre) {
-            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.vacantes_personal ADD COLUMN id_persona_cubre INT NULL AFTER id_persona_baja");
-            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.vacantes_personal ADD INDEX idx_vacantes_personal_persona_cubre (id_persona_cubre)");
+            $db->CRUD("ALTER TABLE estado_cuenta.vacantes_personal ADD COLUMN id_persona_cubre INT NULL AFTER id_persona_baja");
+            $db->CRUD("ALTER TABLE estado_cuenta.vacantes_personal ADD INDEX idx_vacantes_personal_persona_cubre (id_persona_cubre)");
         }
 
         $columnaNombreVacante = $db->queryOne("
@@ -1387,7 +1387,7 @@ class CapHum extends Model
             LIMIT 1
         ");
         if (!$columnaNombreVacante) {
-            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.vacantes_personal ADD COLUMN nombre_vacante VARCHAR(180) NULL AFTER id_puesto");
+            $db->CRUD("ALTER TABLE estado_cuenta.vacantes_personal ADD COLUMN nombre_vacante VARCHAR(180) NULL AFTER id_puesto");
         }
     }
 
@@ -1403,7 +1403,7 @@ class CapHum extends Model
         ");
 
         if ($columna && strtoupper((string)$columna['IS_NULLABLE']) !== 'YES') {
-            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.asigna_jefe MODIFY id_jefe INT NULL");
+            $db->CRUD("ALTER TABLE estado_cuenta.asigna_jefe MODIFY id_jefe INT NULL");
         }
 
         $columnaVacante = $db->queryOne("
@@ -1416,8 +1416,8 @@ class CapHum extends Model
         ");
 
         if (!$columnaVacante) {
-            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.asigna_jefe ADD COLUMN id_vacante_jefe INT NULL AFTER id_jefe");
-            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.asigna_jefe ADD INDEX idx_vacante_jefe (id_vacante_jefe)");
+            $db->CRUD("ALTER TABLE estado_cuenta.asigna_jefe ADD COLUMN id_vacante_jefe INT NULL AFTER id_jefe");
+            $db->CRUD("ALTER TABLE estado_cuenta.asigna_jefe ADD INDEX idx_vacante_jefe (id_vacante_jefe)");
         }
     }
 
@@ -1526,7 +1526,7 @@ class CapHum extends Model
             }
 
             $db->CRUD("
-                INSERT INTO __SPARTA_SECRET_REDACTED__.vacantes_personal
+                INSERT INTO estado_cuenta.vacantes_personal
                     (id_departamento, id_puesto, id_jefe, id_persona_baja, origen, estatus, creado_por)
                 VALUES
                     (:id_departamento, :id_puesto, :id_jefe, :id_persona_baja, :origen, 'Activa', :creado_por)
@@ -1572,12 +1572,12 @@ class CapHum extends Model
                     d.nombre AS nombre_departamento,
                     CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom) AS nombre_jefe,
                     COUNT(DISTINCT ps.id) AS subordinados
-                FROM __SPARTA_SECRET_REDACTED__.vacantes_personal v
-                INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = v.id_puesto
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = v.id_departamento
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona pj ON pj.id = v.id_jefe
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_jefe ajv ON ajv.id_vacante_jefe = v.id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona ps ON ps.id = ajv.id_persona AND ps.estatus != 'Baja'
+                FROM estado_cuenta.vacantes_personal v
+                INNER JOIN estado_cuenta.puesto pp ON pp.id = v.id_puesto
+                LEFT JOIN estado_cuenta.departamento d ON d.id = v.id_departamento
+                LEFT JOIN estado_cuenta.persona pj ON pj.id = v.id_jefe
+                LEFT JOIN estado_cuenta.asigna_jefe ajv ON ajv.id_vacante_jefe = v.id
+                LEFT JOIN estado_cuenta.persona ps ON ps.id = ajv.id_persona AND ps.estatus != 'Baja'
                 WHERE v.id_departamento = :id_departamento
                   AND v.id_puesto = :id_puesto
                   AND UPPER(TRIM(v.estatus)) = 'ACTIVA'
@@ -1612,7 +1612,7 @@ class CapHum extends Model
                 $whereNivel = "
                     AND pp.nivel > (
                         SELECT nivel
-                        FROM __SPARTA_SECRET_REDACTED__.puesto
+                        FROM estado_cuenta.puesto
                         WHERE id = :id_puesto_ref
                         LIMIT 1
                     )
@@ -1630,11 +1630,11 @@ class CapHum extends Model
                     pp.nombre AS nombre_puesto_base,
                     d.nombre AS nombre_departamento,
                     COUNT(DISTINCT ps.id) AS subordinados
-                FROM __SPARTA_SECRET_REDACTED__.vacantes_personal v
-                INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = v.id_puesto
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = v.id_departamento
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_jefe ajv ON ajv.id_vacante_jefe = v.id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona ps ON ps.id = ajv.id_persona AND ps.estatus != 'Baja'
+                FROM estado_cuenta.vacantes_personal v
+                INNER JOIN estado_cuenta.puesto pp ON pp.id = v.id_puesto
+                LEFT JOIN estado_cuenta.departamento d ON d.id = v.id_departamento
+                LEFT JOIN estado_cuenta.asigna_jefe ajv ON ajv.id_vacante_jefe = v.id
+                LEFT JOIN estado_cuenta.persona ps ON ps.id = ajv.id_persona AND ps.estatus != 'Baja'
                 WHERE v.id_departamento = :id_departamento
                   AND UPPER(TRIM(v.estatus)) = 'ACTIVA'
                   $whereNivel
@@ -1663,7 +1663,7 @@ class CapHum extends Model
 
             $vacante = $db->queryOne("
                 SELECT id, id_departamento, id_puesto, id_jefe, estatus
-                FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
+                FROM estado_cuenta.vacantes_personal
                 WHERE id = :id
                 LIMIT 1
             ", ['id' => $idVacante]);
@@ -1674,7 +1674,7 @@ class CapHum extends Model
 
             $jefe = $db->queryOne("
                 SELECT p.id
-                FROM __SPARTA_SECRET_REDACTED__.persona p
+                FROM estado_cuenta.persona p
                 WHERE p.id = :id_jefe
                   AND COALESCE(p.estatus, '') != 'Baja'
                 LIMIT 1
@@ -1685,7 +1685,7 @@ class CapHum extends Model
             }
 
             $db->CRUD("
-                UPDATE __SPARTA_SECRET_REDACTED__.vacantes_personal
+                UPDATE estado_cuenta.vacantes_personal
                 SET id_jefe = :id_jefe
                 WHERE id = :id_vacante
                 LIMIT 1
@@ -1725,7 +1725,7 @@ class CapHum extends Model
 
             $vacante = $db->queryOne("
                 SELECT id, estatus
-                FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
+                FROM estado_cuenta.vacantes_personal
                 WHERE id = :id
                 LIMIT 1
             ", ['id' => $idVacante]);
@@ -1735,7 +1735,7 @@ class CapHum extends Model
             }
 
             $db->CRUD("
-                UPDATE __SPARTA_SECRET_REDACTED__.vacantes_personal
+                UPDATE estado_cuenta.vacantes_personal
                 SET nombre_vacante = :nombre_vacante
                 WHERE id = :id_vacante
                 LIMIT 1
@@ -1775,8 +1775,8 @@ class CapHum extends Model
             $vacante = $db->queryOne("
                 SELECT v.id, v.id_jefe, v.id_departamento, v.id_puesto, v.estatus,
                        COALESCE(NULLIF(TRIM(v.nombre_vacante), ''), pp.nombre) AS nombre_puesto
-                FROM __SPARTA_SECRET_REDACTED__.vacantes_personal v
-                INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = v.id_puesto
+                FROM estado_cuenta.vacantes_personal v
+                INNER JOIN estado_cuenta.puesto pp ON pp.id = v.id_puesto
                 WHERE v.id = :id
                 LIMIT 1
             ", ['id' => $idVacante]);
@@ -1792,7 +1792,7 @@ class CapHum extends Model
 
             $jefe = $db->queryOne("
                 SELECT id
-                FROM __SPARTA_SECRET_REDACTED__.persona
+                FROM estado_cuenta.persona
                 WHERE id = :id_jefe
                   AND COALESCE(estatus, '') != 'Baja'
                 LIMIT 1
@@ -1804,13 +1804,13 @@ class CapHum extends Model
 
             $subordinadosDirectos = $db->queryAll("
                 SELECT aj.id_persona
-                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+                FROM estado_cuenta.asigna_jefe aj
                 INNER JOIN (
                     SELECT id_persona, MAX(id) AS mid
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                    FROM estado_cuenta.asigna_jefe
                     GROUP BY id_persona
                 ) ult ON ult.id_persona = aj.id_persona AND ult.mid = aj.id
-                INNER JOIN __SPARTA_SECRET_REDACTED__.persona p
+                INNER JOIN estado_cuenta.persona p
                         ON p.id = aj.id_persona
                        AND COALESCE(p.estatus, '') != 'Baja'
                 WHERE aj.id_vacante_jefe = :id_vacante
@@ -1824,12 +1824,12 @@ class CapHum extends Model
 
             $db->beginTransaction();
             $subordinadosMovidos = $db->CRUD("
-                UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+                UPDATE estado_cuenta.asigna_jefe aj
                 INNER JOIN (
                     SELECT ult.mid
                     FROM (
                         SELECT id_persona, MAX(id) AS mid
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        FROM estado_cuenta.asigna_jefe
                         GROUP BY id_persona
                     ) ult
                 ) vigente ON vigente.mid = aj.id
@@ -1842,7 +1842,7 @@ class CapHum extends Model
             ]);
 
             $db->CRUD("
-                UPDATE __SPARTA_SECRET_REDACTED__.vacantes_personal
+                UPDATE estado_cuenta.vacantes_personal
                 SET estatus = 'Eliminada',
                     fecha_cierre = NOW()
                 WHERE id = :id_vacante
@@ -1894,7 +1894,7 @@ class CapHum extends Model
 
             $persona = $db->queryOne("
                 SELECT id
-                FROM __SPARTA_SECRET_REDACTED__.persona
+                FROM estado_cuenta.persona
                 WHERE id = :id_persona
                   AND COALESCE(estatus, '') != 'Baja'
                 LIMIT 1
@@ -1907,7 +1907,7 @@ class CapHum extends Model
             if ($idJefe > 0) {
                 $jefe = $db->queryOne("
                     SELECT id
-                    FROM __SPARTA_SECRET_REDACTED__.persona
+                    FROM estado_cuenta.persona
                     WHERE id = :id_jefe
                       AND COALESCE(estatus, '') != 'Baja'
                     LIMIT 1
@@ -1928,7 +1928,7 @@ class CapHum extends Model
 
                     $rel = $db->queryOne("
                         SELECT id_jefe, id_vacante_jefe
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        FROM estado_cuenta.asigna_jefe
                         WHERE id_persona = :id_persona
                         ORDER BY id DESC
                         LIMIT 1
@@ -1942,7 +1942,7 @@ class CapHum extends Model
                     if (!empty($rel['id_vacante_jefe'])) {
                         $vacJefe = $db->queryOne("
                             SELECT id_jefe
-                            FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
+                            FROM estado_cuenta.vacantes_personal
                             WHERE id = :id_vacante
                             LIMIT 1
                         ", ['id_vacante' => (int)$rel['id_vacante_jefe']]);
@@ -1954,7 +1954,7 @@ class CapHum extends Model
             } else {
                 $vacante = $db->queryOne("
                     SELECT id
-                    FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
+                    FROM estado_cuenta.vacantes_personal
                     WHERE id = :id_vacante
                       AND UPPER(TRIM(COALESCE(estatus, ''))) = 'ACTIVA'
                     LIMIT 1
@@ -1967,7 +1967,7 @@ class CapHum extends Model
 
             $asignacion = $db->queryOne("
                 SELECT id
-                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                FROM estado_cuenta.asigna_jefe
                 WHERE id_persona = :id_persona
                 ORDER BY id DESC
                 LIMIT 1
@@ -1975,7 +1975,7 @@ class CapHum extends Model
 
             if ($asignacion) {
                 $db->CRUD("
-                    UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                    UPDATE estado_cuenta.asigna_jefe
                     SET id_jefe = :id_jefe,
                         id_vacante_jefe = :id_vacante_jefe
                     WHERE id = :id
@@ -1987,7 +1987,7 @@ class CapHum extends Model
                 ]);
             } else {
                 $db->CRUD("
-                    INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_jefe (id_persona, id_jefe, id_vacante_jefe)
+                    INSERT INTO estado_cuenta.asigna_jefe (id_persona, id_jefe, id_vacante_jefe)
                     VALUES (:id_persona, :id_jefe, :id_vacante_jefe)
                 ", [
                     'id_persona' => $idPersona,
@@ -2025,7 +2025,7 @@ class CapHum extends Model
 
             $persona = $db->queryOne("
                 SELECT id, estatus
-                FROM __SPARTA_SECRET_REDACTED__.persona
+                FROM estado_cuenta.persona
                 WHERE id = :id_persona
                 LIMIT 1
             ", ['id_persona' => $idPersona]);
@@ -2039,8 +2039,8 @@ class CapHum extends Model
 
             $subordinados = $db->queryAll("
                 SELECT aj.id_persona
-                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
-                INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = aj.id_persona
+                FROM estado_cuenta.asigna_jefe aj
+                INNER JOIN estado_cuenta.persona p ON p.id = aj.id_persona
                 WHERE aj.id_jefe = :id_persona
                   AND COALESCE(p.estatus, '') != 'Baja'
             ", ['id_persona' => $idPersona]);
@@ -2056,7 +2056,7 @@ class CapHum extends Model
 
                 $sustituto = $db->queryOne("
                     SELECT id
-                    FROM __SPARTA_SECRET_REDACTED__.persona
+                    FROM estado_cuenta.persona
                     WHERE id = :id_sustituto
                       AND COALESCE(estatus, '') != 'Baja'
                     LIMIT 1
@@ -2073,8 +2073,8 @@ class CapHum extends Model
             if (!empty($subordinados) && $modoReasignacion === 'vacante') {
                 $puestoVacante = $db->queryOne("
                     SELECT ap.id_puesto, pp.departamento_id
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                    FROM estado_cuenta.asigna_puesto ap
+                    INNER JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
                     WHERE ap.id_persona = :id_persona
                       AND COALESCE(ap.activo, 1) = 1
                     ORDER BY pp.nivel DESC, ap.id ASC
@@ -2084,8 +2084,8 @@ class CapHum extends Model
                 if (empty($puestoVacante['id_puesto']) || empty($puestoVacante['departamento_id'])) {
                     $puestoVacante = $db->queryOne("
                         SELECT ap.id_puesto, pp.departamento_id
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-                        INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                        FROM estado_cuenta.asigna_puesto ap
+                        INNER JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
                         WHERE ap.id_persona = :id_persona
                         ORDER BY COALESCE(ap.activo, 0) DESC, pp.nivel DESC, ap.id DESC
                         LIMIT 1
@@ -2098,7 +2098,7 @@ class CapHum extends Model
 
                 $jefeVacante = $db->queryOne("
                     SELECT id_jefe
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                    FROM estado_cuenta.asigna_jefe
                     WHERE id_persona = :id_persona
                     ORDER BY id DESC
                     LIMIT 1
@@ -2107,7 +2107,7 @@ class CapHum extends Model
 
                 $vacanteActiva = $db->queryOne("
                     SELECT id
-                    FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
+                    FROM estado_cuenta.vacantes_personal
                     WHERE id_puesto = :id_puesto
                       AND id_departamento = :id_departamento
                       AND UPPER(TRIM(COALESCE(estatus, ''))) = 'ACTIVA'
@@ -2128,7 +2128,7 @@ class CapHum extends Model
             if (!empty($subordinados)) {
                 if ($modoReasignacion === 'sustituto') {
                     $db->CRUD("
-                        UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        UPDATE estado_cuenta.asigna_jefe
                         SET id_jefe = :id_sustituto,
                             id_vacante_jefe = NULL
                         WHERE id_jefe = :id_persona
@@ -2139,7 +2139,7 @@ class CapHum extends Model
                 } else {
                     if (!$vacanteDestinoId) {
                         $db->CRUD("
-                            INSERT INTO __SPARTA_SECRET_REDACTED__.vacantes_personal
+                            INSERT INTO estado_cuenta.vacantes_personal
                                 (id_departamento, id_puesto, id_jefe, id_persona_baja, origen, estatus, creado_por)
                             VALUES
                                 (:id_departamento, :id_puesto, :id_jefe, :id_persona_baja, 'organigrama_baja', 'Activa', :creado_por)
@@ -2154,7 +2154,7 @@ class CapHum extends Model
                     }
 
                     $db->CRUD("
-                        UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        UPDATE estado_cuenta.asigna_jefe
                         SET id_jefe = NULL,
                             id_vacante_jefe = :id_vacante_jefe
                         WHERE id_jefe = :id_persona
@@ -2166,14 +2166,14 @@ class CapHum extends Model
             }
 
             $db->CRUD("
-                UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto
+                UPDATE estado_cuenta.asigna_puesto
                 SET activo = 0
                 WHERE id_persona = :id_persona
                   AND COALESCE(activo, 1) = 1
             ", ['id_persona' => $idPersona]);
 
             $db->CRUD("
-                DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                DELETE FROM estado_cuenta.asigna_jefe
                 WHERE id_persona = :id_persona
             ", ['id_persona' => $idPersona]);
 
@@ -2228,11 +2228,11 @@ class CapHum extends Model
                         a.fecha_inicio,
                         a.fecha_fin,
                         COALESCE(a.descripcion, '') AS descripcion
-                    FROM __SPARTA_SECRET_REDACTED__.ausencia a
-                    INNER JOIN __SPARTA_SECRET_REDACTED__.razon_ausencia ra ON ra.id = a.id_razon
+                    FROM estado_cuenta.ausencia a
+                    INNER JOIN estado_cuenta.razon_ausencia ra ON ra.id = a.id_razon
                     INNER JOIN (
                         SELECT id_persona, MAX(id) AS max_id
-                        FROM __SPARTA_SECRET_REDACTED__.ausencia
+                        FROM estado_cuenta.ausencia
                         WHERE activo = 1
                           AND DATE(fecha_inicio) <= :hoy_cdmx
                           AND DATE(fecha_fin) >= :hoy_cdmx
@@ -2262,8 +2262,8 @@ class CapHum extends Model
                             cdp.id_documento,
                             COALESCE(d.nombre, 'Documento de ausencia') AS documento_nombre,
                             DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
-                        FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
-                        LEFT JOIN __SPARTA_SECRET_REDACTED__.documento d ON d.id = cdp.id_documento
+                        FROM estado_cuenta.carga_documento_persona cdp
+                        LEFT JOIN estado_cuenta.documento d ON d.id = cdp.id_documento
                         WHERE cdp.id_persona IN (" . implode(',', $docPh) . ")
                           AND cdp.id_documento IN (34, 35, 36)
                         ORDER BY cdp.fecha_carga DESC, cdp.id DESC
@@ -2320,9 +2320,9 @@ class CapHum extends Model
                     COALESCE(NULLIF(TRIM(v.nombre_vacante), ''), pp.nombre) AS nombre_puesto,
                     pp.nombre AS nombre_puesto_base,
                     d.nombre AS nombre_departamento
-                FROM __SPARTA_SECRET_REDACTED__.vacantes_personal v
-                INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = v.id_puesto
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = v.id_departamento
+                FROM estado_cuenta.vacantes_personal v
+                INNER JOIN estado_cuenta.puesto pp ON pp.id = v.id_puesto
+                LEFT JOIN estado_cuenta.departamento d ON d.id = v.id_departamento
                 WHERE v.estatus = 'Activa'
                 $whereDepto
                 ORDER BY v.fecha_creacion ASC
@@ -2336,26 +2336,26 @@ class CapHum extends Model
                     COALESCE(pp.nombre, 'Sin puesto') AS nombre_puesto
                 FROM (
                     SELECT a.id_persona, a.id_jefe, a.id_vacante_jefe
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe a
+                    FROM estado_cuenta.asigna_jefe a
                     INNER JOIN (
                         SELECT id_persona, MAX(id) AS mid
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        FROM estado_cuenta.asigna_jefe
                         GROUP BY id_persona
                     ) m ON m.id_persona = a.id_persona AND m.mid = a.id
                 ) aj
-                INNER JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal v
+                INNER JOIN estado_cuenta.vacantes_personal v
                         ON v.id = aj.id_vacante_jefe
                        AND v.estatus = 'Activa'
-                INNER JOIN __SPARTA_SECRET_REDACTED__.persona p
+                INNER JOIN estado_cuenta.persona p
                         ON p.id = aj.id_persona
                        AND p.estatus != 'Baja'
                 LEFT JOIN (
                     SELECT ap.id_persona, MIN(ap.id_puesto) AS id_puesto
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                    FROM estado_cuenta.asigna_puesto ap
                     WHERE COALESCE(ap.activo, 1) = 1
                     GROUP BY ap.id_persona
                 ) ap_sel ON ap_sel.id_persona = p.id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp
+                LEFT JOIN estado_cuenta.puesto pp
                        ON pp.id = ap_sel.id_puesto
                 WHERE aj.id_vacante_jefe IS NOT NULL
                   $whereDepto
@@ -2375,7 +2375,7 @@ class CapHum extends Model
     private static function asegurarTablaPermisosPuesto(Database $db): void
     {
         $db->CRUD("
-            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.permisos_puesto (
+            CREATE TABLE IF NOT EXISTS estado_cuenta.permisos_puesto (
                 id INT NOT NULL AUTO_INCREMENT,
                 id_puesto INT NOT NULL,
                 modulo_web_id INT NOT NULL,
@@ -2406,15 +2406,15 @@ class CapHum extends Model
                     COALESCE(d.nombre, 'Sin departamento') AS departamento,
                     COALESCE(dorg.nombre, 'Sin area') AS area,
                     COALESCE(dir.nombre, 'Sin direccion') AS direccion
-                FROM __SPARTA_SECRET_REDACTED__.puesto p
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d
+                FROM estado_cuenta.puesto p
+                LEFT JOIN estado_cuenta.departamento d
                     ON d.id = p.departamento_id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                LEFT JOIN estado_cuenta.departamento_organizacional dorg
                     ON dorg.id = d.id_departamento_organizacional
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                LEFT JOIN estado_cuenta.asigna_direcciones ad
                     ON ad.id_departamento_organizacional = d.id_departamento_organizacional
                    AND COALESCE(ad.activo, 1) = 1
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                LEFT JOIN estado_cuenta.direcciones_organizacion dir
                     ON dir.id = ad.id_direccion
                 WHERE COALESCE(p.activo, 1) = 1
                   AND COALESCE(d.activo, 1) = 1
@@ -2427,7 +2427,7 @@ class CapHum extends Model
                     CASE WHEN m.id = 27 THEN 'Panel Admin' ELSE m.nombre END AS modulo_nombre,
                     COALESCE(NULLIF(TRIM(m.pestana), ''), m.nombre) AS pestana,
                     COALESCE(NULLIF(TRIM(m.descripcion), ''), '') AS descripcion
-                FROM __SPARTA_SECRET_REDACTED__.modulos_web m
+                FROM estado_cuenta.modulos_web m
                 WHERE COALESCE(m.activo, 1) = 1
                   AND m.id NOT IN (25)
                   AND LOWER(TRIM(COALESCE(m.pestana, ''))) <> 'permisos especiales'
@@ -2485,7 +2485,7 @@ class CapHum extends Model
             }
 
             $puesto = $db->queryOne(
-                "SELECT id FROM __SPARTA_SECRET_REDACTED__.puesto WHERE id = :id AND COALESCE(activo, 1) = 1 LIMIT 1",
+                "SELECT id FROM estado_cuenta.puesto WHERE id = :id AND COALESCE(activo, 1) = 1 LIMIT 1",
                 ['id' => $idPuesto]
             );
             if (!$puesto) {
@@ -2507,7 +2507,7 @@ class CapHum extends Model
                 }
                 $rows = $db->queryAll(
                     "SELECT id
-                       FROM __SPARTA_SECRET_REDACTED__.modulos_web
+                       FROM estado_cuenta.modulos_web
                       WHERE COALESCE(activo, 1) = 1
                         AND LOWER(TRIM(COALESCE(pestana, ''))) <> 'permisos especiales'
                         AND id IN (" . implode(',', $placeholders) . ")",
@@ -2518,13 +2518,13 @@ class CapHum extends Model
 
             $db->beginTransaction();
             $db->CRUD(
-                "UPDATE __SPARTA_SECRET_REDACTED__.permisos_puesto SET activo = 0 WHERE id_puesto = :id_puesto",
+                "UPDATE estado_cuenta.permisos_puesto SET activo = 0 WHERE id_puesto = :id_puesto",
                 ['id_puesto' => $idPuesto]
             );
 
             foreach ($modulosValidos as $moduloId) {
                 $db->CRUD(
-                    "INSERT INTO __SPARTA_SECRET_REDACTED__.permisos_puesto (id_puesto, modulo_web_id, activo)
+                    "INSERT INTO estado_cuenta.permisos_puesto (id_puesto, modulo_web_id, activo)
                      VALUES (:id_puesto, :modulo_web_id, 1)
                      ON DUPLICATE KEY UPDATE activo = 1, actualizado_en = NOW()",
                     ['id_puesto' => $idPuesto, 'modulo_web_id' => $moduloId]
@@ -2549,8 +2549,8 @@ class CapHum extends Model
     {
         $rows = $db->queryAll(
             "SELECT pp.modulo_web_id
-               FROM __SPARTA_SECRET_REDACTED__.permisos_puesto pp
-               INNER JOIN __SPARTA_SECRET_REDACTED__.modulos_web mw
+               FROM estado_cuenta.permisos_puesto pp
+               INNER JOIN estado_cuenta.modulos_web mw
                    ON mw.id = pp.modulo_web_id
                   AND COALESCE(mw.activo, 1) = 1
                   AND LOWER(TRIM(COALESCE(mw.pestana, ''))) <> 'permisos especiales'
@@ -2579,7 +2579,7 @@ class CapHum extends Model
         foreach ($modulos as $moduloId) {
             $existe = $db->queryOne(
                 "SELECT id
-                   FROM __SPARTA_SECRET_REDACTED__.asigna_modulo_web
+                   FROM estado_cuenta.asigna_modulo_web
                   WHERE usuario_id = :usuario_id
                     AND modulo_web_id = :modulo_web_id
                   LIMIT 1",
@@ -2591,7 +2591,7 @@ class CapHum extends Model
             }
 
             $db->CRUD(
-                "INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_modulo_web (usuario_id, modulo_web_id)
+                "INSERT INTO estado_cuenta.asigna_modulo_web (usuario_id, modulo_web_id)
                  VALUES (:usuario_id, :modulo_web_id)",
                 ['usuario_id' => $idPersona, 'modulo_web_id' => $moduloId]
             );
@@ -2600,7 +2600,7 @@ class CapHum extends Model
 
         if ($insertados > 0) {
             $db->CRUD(
-                "UPDATE __SPARTA_SECRET_REDACTED__.persona
+                "UPDATE estado_cuenta.persona
                     SET session_version = COALESCE(session_version, 1) + 1
                   WHERE id = :id",
                 ['id' => $idPersona]
@@ -2813,8 +2813,8 @@ class CapHum extends Model
                 s.id_persona,
                 COALESCE(MIN(d.fecha), s.fecha_inicio) AS fecha_inicio,
                 COALESCE(MAX(d.fecha), s.fecha_fin) AS fecha_fin
-            FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes s
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.vacaciones_solicitud_dias d ON d.id_solicitud = s.id
+            FROM estado_cuenta.vacaciones_solicitudes s
+            LEFT JOIN estado_cuenta.vacaciones_solicitud_dias d ON d.id_solicitud = s.id
             WHERE s.estatus IN ('aprobada', 'tomada')
               AND (
                   CURDATE() BETWEEN DATE(s.fecha_inicio) AND DATE(s.fecha_fin)
@@ -2868,16 +2868,16 @@ class CapHum extends Model
                     p.fecha_ingreso,
                     COALESCE(GROUP_CONCAT(DISTINCT pp.nombre ORDER BY pp.nombre SEPARATOR ', '), 'Sin puesto') AS nombre_puesto,
                     COALESCE(GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', '), 'Sin departamento') AS nombre_departamento
-                FROM __SPARTA_SECRET_REDACTED__.persona p
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
+                FROM estado_cuenta.persona p
+                LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                LEFT JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
+                LEFT JOIN estado_cuenta.departamento d ON d.id = pp.departamento_id
                 WHERE {$excluir}
                   AND (
                     (CAST(p.fecha_ingreso AS CHAR) <> '0000-00-00' AND CAST(p.fecha_ingreso AS CHAR) <= :fecha_corte)
                     OR EXISTS (
                         SELECT 1
-                        FROM __SPARTA_SECRET_REDACTED__.reingresos rpx
+                        FROM estado_cuenta.reingresos rpx
                         WHERE rpx.id_persona = p.id
                           AND DATE(rpx.fecha_reingreso) <= :fecha_corte
                     )
@@ -2917,14 +2917,14 @@ class CapHum extends Model
             $idsSql = implode(',', array_map('intval', $ids));
             $bajasRows = $db->queryAll("
                 SELECT id_persona, fecha_baja
-                FROM __SPARTA_SECRET_REDACTED__.baja_persona
+                FROM estado_cuenta.baja_persona
                 WHERE id_persona IN ({$idsSql})
                   AND DATE(fecha_baja) <= :fecha_corte
                 ORDER BY id_persona ASC, fecha_baja ASC, id ASC
             ", ['fecha_corte' => $finSql]);
             $reingresosRows = $db->queryAll("
                 SELECT id_persona, fecha_reingreso
-                FROM __SPARTA_SECRET_REDACTED__.reingresos
+                FROM estado_cuenta.reingresos
                 WHERE id_persona IN ({$idsSql})
                   AND DATE(fecha_reingreso) <= :fecha_corte
                 ORDER BY id_persona ASC, fecha_reingreso ASC, id ASC
@@ -3199,7 +3199,7 @@ class CapHum extends Model
             // Primero obtener el id_persona desde baja_persona
             $baja = $db->queryOne("
                 SELECT id_persona
-                FROM __SPARTA_SECRET_REDACTED__.baja_persona
+                FROM estado_cuenta.baja_persona
                 WHERE id = :registro_baja
             ", ['registro_baja' => $registro_baja]);
 
@@ -3216,7 +3216,7 @@ class CapHum extends Model
                     cdp.id,
                     cdp.archivo,
                     DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
-                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                FROM estado_cuenta.carga_documento_persona cdp
                 WHERE cdp.id_persona = :id_persona
                 AND cdp.id_documento = :id_documento
                 ORDER BY cdp.fecha_carga DESC
@@ -3243,7 +3243,7 @@ class CapHum extends Model
             // Obtener el id_persona desde baja_persona
             $baja = $db->queryOne("
                 SELECT id_persona
-                FROM __SPARTA_SECRET_REDACTED__.baja_persona
+                FROM estado_cuenta.baja_persona
                 WHERE id = :registro_baja
             ", ['registro_baja' => $registro_baja]);
 
@@ -3260,7 +3260,7 @@ class CapHum extends Model
                 $archivoEsc = addslashes($nombreArchivo);
 
                 $db->queryOne("
-                    INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                    INSERT INTO estado_cuenta.carga_documento_persona
                     (id_persona, id_documento, archivo, fecha_carga)
                     VALUES
                     (:id_persona, :id_documento, :archivo, NOW())
@@ -3291,7 +3291,7 @@ class CapHum extends Model
             // Primero obtener el nombre del archivo para eliminarlo físicamente
             $documento = $db->queryOne("
                 SELECT archivo
-                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                FROM estado_cuenta.carga_documento_persona
                 WHERE id = :id
             ", ['id' => $id_documento_carga]);
 
@@ -3303,7 +3303,7 @@ class CapHum extends Model
 
             // Eliminar de la base de datos
             $db->queryOne("
-                DELETE FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                DELETE FROM estado_cuenta.carga_documento_persona
                 WHERE id = :id
             ", ['id' => $id_documento_carga]);
 
@@ -3333,7 +3333,7 @@ class CapHum extends Model
             // Obtener documentos activos desde la base de datos
             $documentos = $db->queryAll("
                 SELECT id, nombre, clave
-                FROM __SPARTA_SECRET_REDACTED__.documento
+                FROM estado_cuenta.documento
                 WHERE activo = 1
                   AND id NOT IN (" . implode(',', self::DOCUMENTOS_EXCLUIDOS_RRHH) . ")
                 ORDER BY nombre
@@ -3350,7 +3350,7 @@ class CapHum extends Model
     {
         $otros = $db->queryOne("
             SELECT id, activo
-            FROM __SPARTA_SECRET_REDACTED__.documento
+            FROM estado_cuenta.documento
             WHERE clave = 'OTROS'
                OR LOWER(TRIM(nombre)) = 'otros'
             LIMIT 1
@@ -3359,7 +3359,7 @@ class CapHum extends Model
         if ($otros) {
             if ((int) ($otros['activo'] ?? 0) !== 1) {
                 $db->CRUD("
-                    UPDATE __SPARTA_SECRET_REDACTED__.documento
+                    UPDATE estado_cuenta.documento
                     SET activo = 1
                     WHERE id = :id
                 ", ['id' => (int) $otros['id']]);
@@ -3368,7 +3368,7 @@ class CapHum extends Model
         }
 
         $db->CRUD("
-            INSERT INTO __SPARTA_SECRET_REDACTED__.documento (clave, nombre, obligatorio, activo)
+            INSERT INTO estado_cuenta.documento (clave, nombre, obligatorio, activo)
             VALUES ('OTROS', 'Otros', 0, 1)
         ");
     }
@@ -3388,13 +3388,13 @@ class CapHum extends Model
                     p.curp,
                     COALESCE(p.estatus, '') AS estatus,
                     DATE_FORMAT(bp.fecha_baja, '%Y-%m-%d') AS fecha_baja
-                FROM __SPARTA_SECRET_REDACTED__.persona p
+                FROM estado_cuenta.persona p
                 LEFT JOIN (
                     SELECT id_persona, MAX(id) AS id_ultima_baja
-                    FROM __SPARTA_SECRET_REDACTED__.baja_persona
+                    FROM estado_cuenta.baja_persona
                     GROUP BY id_persona
                 ) ub ON ub.id_persona = p.id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON bp.id = ub.id_ultima_baja
+                LEFT JOIN estado_cuenta.baja_persona bp ON bp.id = ub.id_ultima_baja
                 ORDER BY
                     CASE WHEN p.estatus = 'Baja' THEN 1 ELSE 0 END,
                     p.nombres ASC,
@@ -3431,13 +3431,13 @@ class CapHum extends Model
                     COALESCE(p.estatus, '') AS estatus,
                     DATE_FORMAT(bp.fecha_baja, '%Y-%m-%d') AS fecha_baja,
                     TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo
-                FROM __SPARTA_SECRET_REDACTED__.persona p
+                FROM estado_cuenta.persona p
                 LEFT JOIN (
                     SELECT id_persona, MAX(id) AS id_ultima_baja
-                    FROM __SPARTA_SECRET_REDACTED__.baja_persona
+                    FROM estado_cuenta.baja_persona
                     GROUP BY id_persona
                 ) ub ON ub.id_persona = p.id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON bp.id = ub.id_ultima_baja
+                LEFT JOIN estado_cuenta.baja_persona bp ON bp.id = ub.id_ultima_baja
                 WHERE p.id = :id_persona
                 LIMIT 1
             ", ['id_persona' => $idPersona]);
@@ -3459,7 +3459,7 @@ class CapHum extends Model
             self::asegurarDocumentoOtros($db);
             $documentos = $db->queryAll("
                 SELECT id, clave, nombre
-                FROM __SPARTA_SECRET_REDACTED__.documento
+                FROM estado_cuenta.documento
                 WHERE activo = 1
                   AND id NOT IN (" . implode(',', self::DOCUMENTOS_EXCLUIDOS_RRHH) . ")
                 ORDER BY id ASC
@@ -3490,7 +3490,7 @@ class CapHum extends Model
             $db = new Database();
             $rows = $db->queryAll("
                 SELECT id, id_persona, id_documento, archivo, fecha_carga
-                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                FROM estado_cuenta.carga_documento_persona
                 WHERE id_persona IN (" . implode(',', $placeholders) . ")
             ", $params);
 
@@ -3531,7 +3531,7 @@ class CapHum extends Model
             // Primero intentar búsqueda exacta (más rápida y precisa)
             $documento = $db->queryOne("
                 SELECT id
-                FROM __SPARTA_SECRET_REDACTED__.documento
+                FROM estado_cuenta.documento
                 WHERE nombre = :nombre
                 AND activo = 1
                 LIMIT 1
@@ -3544,7 +3544,7 @@ class CapHum extends Model
             // Si no se encuentra, intentar búsqueda case-insensitive con trim
             $documento = $db->queryOne("
                 SELECT id
-                FROM __SPARTA_SECRET_REDACTED__.documento
+                FROM estado_cuenta.documento
                 WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(:nombre))
                 AND activo = 1
                 LIMIT 1
@@ -3577,8 +3577,8 @@ class CapHum extends Model
                     cdp.id_documento,
                     d.nombre AS documento_nombre,
                     DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
-                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.documento d ON d.id = cdp.id_documento
+                FROM estado_cuenta.carga_documento_persona cdp
+                LEFT JOIN estado_cuenta.documento d ON d.id = cdp.id_documento
                 WHERE cdp.id_persona = :id_persona
             ";
 
@@ -3624,7 +3624,7 @@ class CapHum extends Model
                         WHEN vj.id IS NOT NULL THEN CONCAT('Vacante #', vj.id, ' - ', COALESCE(pvj.nombre, 'Sin puesto'))
                         ELSE 'Sin jefe asignado'
                     END AS jefe
-                FROM __SPARTA_SECRET_REDACTED__.persona p
+                FROM estado_cuenta.persona p
                 INNER JOIN (
                     SELECT
                         ap.id_persona,
@@ -3633,18 +3633,18 @@ class CapHum extends Model
                         GROUP_CONCAT(DISTINCT dorg.nombre ORDER BY dorg.nombre SEPARATOR ', ') AS areas,
                         GROUP_CONCAT(DISTINCT dir.nombre ORDER BY dir.nombre SEPARATOR ', ') AS direcciones,
                         MAX(CASE WHEN UPPER(COALESCE(pp.nombre, '')) LIKE '%GESTOR%' THEN 1 ELSE 0 END) AS tiene_gestor
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp
+                    FROM estado_cuenta.asigna_puesto ap
+                    INNER JOIN estado_cuenta.puesto pp
                         ON pp.id = ap.id_puesto
                        AND COALESCE(pp.activo, 1) = 1
-                    LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d
+                    LEFT JOIN estado_cuenta.departamento d
                         ON d.id = pp.departamento_id
-                    LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                    LEFT JOIN estado_cuenta.departamento_organizacional dorg
                         ON dorg.id = d.id_departamento_organizacional
-                    LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                    LEFT JOIN estado_cuenta.asigna_direcciones ad
                         ON ad.id_departamento_organizacional = d.id_departamento_organizacional
                        AND COALESCE(ad.activo, 1) = 1
-                    LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                    LEFT JOIN estado_cuenta.direcciones_organizacion dir
                         ON dir.id = ad.id_direccion
                     WHERE COALESCE(ap.activo, 1) = 1
                     GROUP BY ap.id_persona
@@ -3653,21 +3653,21 @@ class CapHum extends Model
                    AND org.tiene_gestor = 1
                 LEFT JOIN (
                     SELECT aj1.id_persona, aj1.id_jefe, aj1.id_vacante_jefe
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj1
+                    FROM estado_cuenta.asigna_jefe aj1
                     INNER JOIN (
                         SELECT id_persona, MAX(id) AS id_max
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        FROM estado_cuenta.asigna_jefe
                         WHERE fecha_fin IS NULL OR fecha_fin >= CURDATE()
                         GROUP BY id_persona
                     ) ult ON ult.id_persona = aj1.id_persona AND ult.id_max = aj1.id
                 ) aj ON aj.id_persona = p.id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona pj ON pj.id = aj.id_jefe
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pvj ON pvj.id = vj.id_puesto
+                LEFT JOIN estado_cuenta.persona pj ON pj.id = aj.id_jefe
+                LEFT JOIN estado_cuenta.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
+                LEFT JOIN estado_cuenta.puesto pvj ON pvj.id = vj.id_puesto
                 WHERE COALESCE(p.estatus, '') <> 'Baja'
                   AND NOT EXISTS (
                       SELECT 1
-                      FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                      FROM estado_cuenta.carga_documento_persona cdp
                       WHERE cdp.id_persona = p.id
                         AND cdp.id_documento = :id_documento
                       LIMIT 1
@@ -3684,7 +3684,7 @@ class CapHum extends Model
     private static function asegurarTablaSeguimientoCartaCompromisoGestor(Database $db): void
     {
         $db->CRUD("
-            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.carta_compromiso_gestor_correo (
+            CREATE TABLE IF NOT EXISTS estado_cuenta.carta_compromiso_gestor_correo (
                 id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 id_persona INT NOT NULL,
                 correo VARCHAR(180) NOT NULL,
@@ -3705,7 +3705,7 @@ class CapHum extends Model
             $db = new Database();
             self::asegurarTablaSeguimientoCartaCompromisoGestor($db);
             $db->CRUD(
-                "INSERT INTO __SPARTA_SECRET_REDACTED__.carta_compromiso_gestor_correo
+                "INSERT INTO estado_cuenta.carta_compromiso_gestor_correo
                  (id_persona, correo, enviado_por, fecha_envio)
                  VALUES (:id_persona, :correo, :enviado_por, :fecha_envio)",
                 [
@@ -3751,7 +3751,7 @@ class CapHum extends Model
                     mail.correo AS correo_envio,
                     DATE_FORMAT(mail.fecha_envio, '%Y-%m-%d %H:%i') AS fecha_correo_enviado,
                     TRIM(CONCAT_WS(' ', pu.nombres, pu.segundo_nombre, pu.apellidop, pu.apellidom)) AS correo_enviado_por
-                FROM __SPARTA_SECRET_REDACTED__.persona p
+                FROM estado_cuenta.persona p
                 INNER JOIN (
                     SELECT
                         ap.id_persona,
@@ -3760,18 +3760,18 @@ class CapHum extends Model
                         GROUP_CONCAT(DISTINCT dorg.nombre ORDER BY dorg.nombre SEPARATOR ', ') AS areas,
                         GROUP_CONCAT(DISTINCT dir.nombre ORDER BY dir.nombre SEPARATOR ', ') AS direcciones,
                         MAX(CASE WHEN UPPER(COALESCE(pp.nombre, '')) LIKE '%GESTOR%' THEN 1 ELSE 0 END) AS tiene_gestor
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp
+                    FROM estado_cuenta.asigna_puesto ap
+                    INNER JOIN estado_cuenta.puesto pp
                         ON pp.id = ap.id_puesto
                        AND COALESCE(pp.activo, 1) = 1
-                    LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d
+                    LEFT JOIN estado_cuenta.departamento d
                         ON d.id = pp.departamento_id
-                    LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                    LEFT JOIN estado_cuenta.departamento_organizacional dorg
                         ON dorg.id = d.id_departamento_organizacional
-                    LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                    LEFT JOIN estado_cuenta.asigna_direcciones ad
                         ON ad.id_departamento_organizacional = d.id_departamento_organizacional
                        AND COALESCE(ad.activo, 1) = 1
-                    LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                    LEFT JOIN estado_cuenta.direcciones_organizacion dir
                         ON dir.id = ad.id_direccion
                     WHERE COALESCE(ap.activo, 1) = 1
                     GROUP BY ap.id_persona
@@ -3783,33 +3783,33 @@ class CapHum extends Model
                         cdp.id_persona,
                         SUBSTRING_INDEX(GROUP_CONCAT(cdp.archivo ORDER BY cdp.fecha_carga DESC, cdp.id DESC), ',', 1) AS archivo,
                         MAX(cdp.fecha_carga) AS fecha_carga
-                    FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                    FROM estado_cuenta.carga_documento_persona cdp
                     WHERE cdp.id_documento = :id_documento
                     GROUP BY cdp.id_persona
                 ) doc ON doc.id_persona = p.id
                 LEFT JOIN (
                     SELECT m1.id_persona, m1.correo, m1.fecha_envio, m1.enviado_por
-                    FROM __SPARTA_SECRET_REDACTED__.carta_compromiso_gestor_correo m1
+                    FROM estado_cuenta.carta_compromiso_gestor_correo m1
                     INNER JOIN (
                         SELECT id_persona, MAX(id) AS id_max
-                        FROM __SPARTA_SECRET_REDACTED__.carta_compromiso_gestor_correo
+                        FROM estado_cuenta.carta_compromiso_gestor_correo
                         GROUP BY id_persona
                     ) mx ON mx.id_persona = m1.id_persona AND mx.id_max = m1.id
                 ) mail ON mail.id_persona = p.id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona pu ON pu.id = mail.enviado_por
+                LEFT JOIN estado_cuenta.persona pu ON pu.id = mail.enviado_por
                 LEFT JOIN (
                     SELECT aj1.id_persona, aj1.id_jefe, aj1.id_vacante_jefe
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj1
+                    FROM estado_cuenta.asigna_jefe aj1
                     INNER JOIN (
                         SELECT id_persona, MAX(id) AS id_max
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        FROM estado_cuenta.asigna_jefe
                         WHERE fecha_fin IS NULL OR fecha_fin >= CURDATE()
                         GROUP BY id_persona
                     ) ult ON ult.id_persona = aj1.id_persona AND ult.id_max = aj1.id
                 ) aj ON aj.id_persona = p.id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona pj ON pj.id = aj.id_jefe
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pvj ON pvj.id = vj.id_puesto
+                LEFT JOIN estado_cuenta.persona pj ON pj.id = aj.id_jefe
+                LEFT JOIN estado_cuenta.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
+                LEFT JOIN estado_cuenta.puesto pvj ON pvj.id = vj.id_puesto
                 WHERE COALESCE(p.estatus, '') <> 'Baja'
                 ORDER BY nombre_completo ASC
             ", ['id_documento' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR]);
@@ -3893,24 +3893,24 @@ class CapHum extends Model
                     CASE
                         WHEN EXISTS (
                             SELECT 1
-                            FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                            FROM estado_cuenta.carga_documento_persona cdp
                             WHERE cdp.id_persona = p.id
                               AND cdp.id_documento = :id_documento
                             LIMIT 1
                         ) THEN 1 ELSE 0
                     END AS carta_subida
-                FROM __SPARTA_SECRET_REDACTED__.persona p
+                FROM estado_cuenta.persona p
                 INNER JOIN (
                     SELECT
                         ap.id_persona,
                         GROUP_CONCAT(DISTINCT pp.nombre ORDER BY COALESCE(pp.nivel, 999), pp.nombre SEPARATOR ', ') AS puestos,
                         GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', ') AS departamentos,
                         MAX(CASE WHEN UPPER(COALESCE(pp.nombre, '')) LIKE '%GESTOR%' THEN 1 ELSE 0 END) AS tiene_gestor
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp
+                    FROM estado_cuenta.asigna_puesto ap
+                    INNER JOIN estado_cuenta.puesto pp
                         ON pp.id = ap.id_puesto
                        AND COALESCE(pp.activo, 1) = 1
-                    LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d
+                    LEFT JOIN estado_cuenta.departamento d
                         ON d.id = pp.departamento_id
                     WHERE COALESCE(ap.activo, 1) = 1
                     GROUP BY ap.id_persona
@@ -3973,7 +3973,7 @@ class CapHum extends Model
                     TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
                     p.correo,
                     COALESCE(p.estatus, '') AS estatus
-                FROM __SPARTA_SECRET_REDACTED__.persona p
+                FROM estado_cuenta.persona p
                 WHERE p.id = :id_persona
                 LIMIT 1
             ", ['id_persona' => $id_persona]);
@@ -3984,7 +3984,7 @@ class CapHum extends Model
 
             $tipos = $db->queryAll("
                 SELECT id, nombre, clave, obligatorio
-                FROM __SPARTA_SECRET_REDACTED__.documento
+                FROM estado_cuenta.documento
                 WHERE activo = 1
                   AND id NOT IN (15, 16, " . implode(',', self::DOCUMENTOS_EXCLUIDOS_RRHH) . ")
                   AND clave <> 'OTROS'
@@ -4001,7 +4001,7 @@ class CapHum extends Model
                     COUNT(*) AS total_archivos,
                     MAX(cdp.fecha_carga) AS ultima_fecha,
                     GROUP_CONCAT(cdp.archivo ORDER BY cdp.fecha_carga DESC SEPARATOR '||') AS archivos
-                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                FROM estado_cuenta.carga_documento_persona cdp
                 WHERE cdp.id_persona = :id_persona
                   AND cdp.id_documento IN (" . implode(',', $idsConsulta) . ")
                 GROUP BY cdp.id_documento
@@ -4082,7 +4082,7 @@ class CapHum extends Model
 
             $tipos = $db->queryAll("
                 SELECT id, nombre, clave, obligatorio
-                FROM __SPARTA_SECRET_REDACTED__.documento
+                FROM estado_cuenta.documento
                 WHERE activo = 1
                   AND id NOT IN (15, 16, " . implode(',', self::DOCUMENTOS_EXCLUIDOS_RRHH) . ")
                   AND clave <> 'OTROS'
@@ -4099,13 +4099,13 @@ class CapHum extends Model
                     COALESCE(p.estatus, '') AS estatus,
                     GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', ') AS departamentos,
                     GROUP_CONCAT(DISTINCT pp.nombre ORDER BY pp.nombre SEPARATOR ', ') AS puestos
-                FROM __SPARTA_SECRET_REDACTED__.persona p
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                FROM estado_cuenta.persona p
+                LEFT JOIN estado_cuenta.asigna_puesto ap
                     ON ap.id_persona = p.id
                    AND COALESCE(ap.activo, 1) = 1
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp
+                LEFT JOIN estado_cuenta.puesto pp
                     ON pp.id = ap.id_puesto
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d
+                LEFT JOIN estado_cuenta.departamento d
                     ON d.id = pp.departamento_id
                 WHERE p.estatus != 'Baja'
                 GROUP BY p.id, p.numero_empleado, p.codigo_contpac, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.correo, p.estatus
@@ -4123,7 +4123,7 @@ class CapHum extends Model
                         cdp.id_documento,
                         COUNT(*) AS total_archivos,
                         MAX(cdp.fecha_carga) AS ultima_fecha
-                    FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                    FROM estado_cuenta.carga_documento_persona cdp
                     WHERE cdp.id_documento IN (" . implode(',', $idsConsulta) . ")
                     GROUP BY cdp.id_persona, cdp.id_documento
                 ");
@@ -4285,8 +4285,8 @@ class CapHum extends Model
                     TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
                     p.numero_empleado,
                     DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
-                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = cdp.id_persona
+                FROM estado_cuenta.carga_documento_persona cdp
+                LEFT JOIN estado_cuenta.persona p ON p.id = cdp.id_persona
                 WHERE cdp.id IN (" . implode(',', $placeholders) . ")
                 ORDER BY cdp.fecha_carga DESC, cdp.id DESC
             ", $params);
@@ -4315,8 +4315,8 @@ class CapHum extends Model
                     TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
                     p.numero_empleado,
                     DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
-                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = cdp.id_persona
+                FROM estado_cuenta.carga_documento_persona cdp
+                LEFT JOIN estado_cuenta.persona p ON p.id = cdp.id_persona
                 WHERE cdp.archivo = :archivo
                 ORDER BY cdp.id DESC
                 LIMIT 1
@@ -4338,7 +4338,7 @@ class CapHum extends Model
             $db = new Database();
             self::asegurarAuditoriaDocumentosSensibles($db);
             $db->CRUD("
-                INSERT INTO __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh
+                INSERT INTO estado_cuenta.auditoria_documentos_sensibles_rrhh
                     (id_usuario, usuario_nombre, id_persona, persona_nombre, id_documento_carga, id_documento, documento_nombre, archivo, accion, resultado, ip, user_agent, fecha_hora, detalle)
                 VALUES
                     (:id_usuario, :usuario_nombre, :id_persona, :persona_nombre, :id_documento_carga, :id_documento, :documento_nombre, :archivo, :accion, :resultado, :ip, :user_agent, :fecha_hora, :detalle)
@@ -4366,7 +4366,7 @@ class CapHum extends Model
     private static function asegurarAuditoriaDocumentosSensibles(Database $db): void
     {
         $db->CRUD("
-            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh (
+            CREATE TABLE IF NOT EXISTS estado_cuenta.auditoria_documentos_sensibles_rrhh (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 id_usuario INT NULL,
                 usuario_nombre VARCHAR(191) NULL,
@@ -4393,7 +4393,7 @@ class CapHum extends Model
             'documento_nombre' => 'VARCHAR(191) NULL AFTER id_documento',
         ] as $columna => $definicion) {
             try {
-                $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh ADD COLUMN {$columna} {$definicion}");
+                $db->CRUD("ALTER TABLE estado_cuenta.auditoria_documentos_sensibles_rrhh ADD COLUMN {$columna} {$definicion}");
             } catch (\Throwable $e) {
                 // La columna ya existe o el motor no permite ALTER; la auditoria operativa no debe romperse.
             }
@@ -4411,7 +4411,7 @@ class CapHum extends Model
             self::asegurarTotpDocumentosSensibles($db);
             $registro = $db->queryOne("
                 SELECT id_persona, secret, confirmado, creado_en, actualizado_en, ultimo_uso_en
-                FROM __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                FROM estado_cuenta.rrhh_documentos_sensibles_totp
                 WHERE id_persona = :id_persona
                 LIMIT 1
             ", ['id_persona' => $idPersona]);
@@ -4420,14 +4420,14 @@ class CapHum extends Model
                 $secretPlano = self::descifrarSecretoTotp((string)$registro['secret']);
                 if ($secretPlano === '') {
                     $db->CRUD("
-                        DELETE FROM __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                        DELETE FROM estado_cuenta.rrhh_documentos_sensibles_totp
                         WHERE id_persona = :id_persona
                     ", ['id_persona' => $idPersona]);
                     return self::resultado(true, 'Segundo paso reiniciado por clave ilegible.', null);
                 }
                 if (!self::esSecretoTotpCifrado((string)$registro['secret'])) {
                     $db->CRUD("
-                        UPDATE __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                        UPDATE estado_cuenta.rrhh_documentos_sensibles_totp
                         SET secret = :secret,
                             actualizado_en = NOW()
                         WHERE id_persona = :id_persona
@@ -4456,7 +4456,7 @@ class CapHum extends Model
             self::asegurarTotpDocumentosSensibles($db);
             $secretCifrado = self::cifrarSecretoTotp(trim($secret));
             $db->CRUD("
-                INSERT INTO __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                INSERT INTO estado_cuenta.rrhh_documentos_sensibles_totp
                     (id_persona, secret, confirmado, creado_en, actualizado_en)
                 VALUES
                     (:id_persona, :secret, :confirmado, NOW(), NOW())
@@ -4486,7 +4486,7 @@ class CapHum extends Model
             $db = new Database();
             self::asegurarTotpDocumentosSensibles($db);
             $db->CRUD("
-                UPDATE __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                UPDATE estado_cuenta.rrhh_documentos_sensibles_totp
                 SET confirmado = 1,
                     actualizado_en = NOW(),
                     ultimo_uso_en = NOW()
@@ -4509,7 +4509,7 @@ class CapHum extends Model
             $db = new Database();
             self::asegurarTotpDocumentosSensibles($db);
             $db->CRUD("
-                DELETE FROM __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                DELETE FROM estado_cuenta.rrhh_documentos_sensibles_totp
                 WHERE id_persona = :id_persona
             ", ['id_persona' => $idPersona]);
 
@@ -4527,12 +4527,12 @@ class CapHum extends Model
                 SELECT DISTINCT
                     p.id,
                     TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo
-                FROM __SPARTA_SECRET_REDACTED__.persona p
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona_datos_rrhh pdr ON pdr.id_persona = p.id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND ap.activo = 1
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = COALESCE(pdr.id_puesto, ap.id_puesto)
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = COALESCE(pdr.id_departamento, pu.departamento_id)
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg ON dorg.id = COALESCE(pdr.id_area, dep.id_departamento_organizacional)
+                FROM estado_cuenta.persona p
+                LEFT JOIN estado_cuenta.persona_datos_rrhh pdr ON pdr.id_persona = p.id
+                LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND ap.activo = 1
+                LEFT JOIN estado_cuenta.puesto pu ON pu.id = COALESCE(pdr.id_puesto, ap.id_puesto)
+                LEFT JOIN estado_cuenta.departamento dep ON dep.id = COALESCE(pdr.id_departamento, pu.departamento_id)
+                LEFT JOIN estado_cuenta.departamento_organizacional dorg ON dorg.id = COALESCE(pdr.id_area, dep.id_departamento_organizacional)
                 WHERE p.id > 0
                   AND UPPER(COALESCE(NULLIF(TRIM(p.estatus), ''), 'ACTIVO')) NOT IN ('BAJA', 'INACTIVO')
                   AND (
@@ -4566,7 +4566,7 @@ class CapHum extends Model
             self::asegurarSalariosSensiblesRrhh($db);
             $registro = $db->queryOne("
                 SELECT id_persona, salario_cifrado, moneda, creado_en, actualizado_en, id_usuario_actualizacion
-                FROM __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles
+                FROM estado_cuenta.rrhh_salarios_sensibles
                 WHERE id_persona = :id_persona
                 LIMIT 1
             ", ['id_persona' => $idPersona]);
@@ -4607,7 +4607,7 @@ class CapHum extends Model
             self::asegurarSalariosSensiblesRrhh($db);
             $row = $db->queryOne("
                 SELECT 1 AS ok
-                FROM __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles
+                FROM estado_cuenta.rrhh_salarios_sensibles
                 WHERE id_persona = :id_persona
                 LIMIT 1
             ", ['id_persona' => $idPersona]);
@@ -4634,7 +4634,7 @@ class CapHum extends Model
 
             if ($salarioNormalizado === null) {
                 $db->CRUD("
-                    DELETE FROM __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles
+                    DELETE FROM estado_cuenta.rrhh_salarios_sensibles
                     WHERE id_persona = :id_persona
                 ", ['id_persona' => $idPersona]);
                 return self::resultado(true, 'Salario sensible eliminado.', [
@@ -4645,7 +4645,7 @@ class CapHum extends Model
             }
 
             $db->CRUD("
-                INSERT INTO __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles
+                INSERT INTO estado_cuenta.rrhh_salarios_sensibles
                     (id_persona, salario_cifrado, moneda, creado_en, actualizado_en, id_usuario_actualizacion)
                 VALUES
                     (:id_persona, :salario_cifrado, 'MXN', NOW(), NOW(), :id_usuario)
@@ -4706,7 +4706,7 @@ class CapHum extends Model
                 $personas = $db->queryAll("
                     SELECT id,
                            TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre
-                    FROM __SPARTA_SECRET_REDACTED__.persona
+                    FROM estado_cuenta.persona
                     WHERE UPPER(TRIM(curp)) = :curp
                 ", ['curp' => $curp]);
 
@@ -4724,7 +4724,7 @@ class CapHum extends Model
 
                 $idPersona = (int)$personas[0]['id'];
                 $db->CRUD("
-                    INSERT INTO __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles
+                    INSERT INTO estado_cuenta.rrhh_salarios_sensibles
                         (id_persona, salario_cifrado, moneda, creado_en, actualizado_en, id_usuario_actualizacion)
                     VALUES
                         (:id_persona, :salario_cifrado, 'MXN', NOW(), NOW(), :id_usuario)
@@ -4740,7 +4740,7 @@ class CapHum extends Model
                 ]);
 
                 $db->CRUD("
-                    INSERT INTO __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh
+                    INSERT INTO estado_cuenta.auditoria_salarios_sensibles_rrhh
                         (id_usuario, usuario_nombre, id_persona, persona_nombre, accion, resultado, ip, user_agent, detalle, fecha_hora)
                     VALUES
                         (:id_usuario, :usuario_nombre, :id_persona, :persona_nombre, :accion, :resultado, :ip, :user_agent, :detalle, :fecha_hora)
@@ -4917,7 +4917,7 @@ class CapHum extends Model
                         codigo_postal,
                         domicilio_calle_texto,
                         TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre
-                    FROM __SPARTA_SECRET_REDACTED__.persona
+                    FROM estado_cuenta.persona
                     WHERE UPPER(REPLACE(TRIM(curp), ' ', '')) IN (" . implode(',', $placeholders) . ")
                 ", $params) ?: [];
                 foreach ($personas as $personaEncontrada) {
@@ -4956,7 +4956,7 @@ class CapHum extends Model
                 }
                 $rrhhFilas = $db->queryAll("
                     SELECT *
-                    FROM __SPARTA_SECRET_REDACTED__.persona_datos_rrhh
+                    FROM estado_cuenta.persona_datos_rrhh
                     WHERE id_persona IN (" . implode(',', $placeholders) . ")
                 ", $params) ?: [];
                 foreach ($rrhhFilas as $rrhhFila) {
@@ -4965,10 +4965,10 @@ class CapHum extends Model
 
                 $cuentasFilas = $db->queryAll("
                     SELECT pcb.id, pcb.id_persona, pcb.clabe, pcb.numero_cuenta, pcb.nombre_banco
-                    FROM __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria pcb
+                    FROM estado_cuenta.persona_cuenta_bancaria pcb
                     INNER JOIN (
                         SELECT id_persona, MAX(id) AS id
-                        FROM __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria
+                        FROM estado_cuenta.persona_cuenta_bancaria
                         WHERE COALESCE(estatus, 'Activo') = 'Activo'
                           AND id_persona IN (" . implode(',', $placeholders) . ")
                         GROUP BY id_persona
@@ -5111,7 +5111,7 @@ class CapHum extends Model
                         $params["p_{$campo}"] = $valor;
                     }
                     if ($sets) {
-                        $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.persona SET " . implode(', ', $sets) . " WHERE id = :id_persona", $params);
+                        $db->CRUD("UPDATE estado_cuenta.persona SET " . implode(', ', $sets) . " WHERE id = :id_persona", $params);
                     }
                 }
 
@@ -5127,7 +5127,7 @@ class CapHum extends Model
                         $params["r_{$campo}"] = $valor;
                     }
                     $db->CRUD("
-                        INSERT INTO __SPARTA_SECRET_REDACTED__.persona_datos_rrhh
+                        INSERT INTO estado_cuenta.persona_datos_rrhh
                             (" . implode(', ', $columnas) . ")
                         VALUES
                             (" . implode(', ', $valores) . ")
@@ -5147,11 +5147,11 @@ class CapHum extends Model
                             $params["b_{$campo}"] = $valor;
                         }
                         if ($sets) {
-                            $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria SET " . implode(', ', $sets) . " WHERE id = :id", $params);
+                            $db->CRUD("UPDATE estado_cuenta.persona_cuenta_bancaria SET " . implode(', ', $sets) . " WHERE id = :id", $params);
                         }
                     } else {
                         $db->CRUD("
-                            INSERT INTO __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria
+                            INSERT INTO estado_cuenta.persona_cuenta_bancaria
                                 (id_persona, clabe, numero_cuenta, nombre_banco, estatus)
                             VALUES
                                 (:id_persona, :clabe, :numero_cuenta, :nombre_banco, 'Activo')
@@ -5167,13 +5167,13 @@ class CapHum extends Model
                 if (!empty($personaUpdates['telefono_uno'])) {
                     $existeTel = $db->queryOne("
                         SELECT 1 AS ok
-                        FROM __SPARTA_SECRET_REDACTED__.telefonos_persona
+                        FROM estado_cuenta.telefonos_persona
                         WHERE id_persona = :id_persona AND numero = :numero
                         LIMIT 1
                     ", ['id_persona' => $idPersona, 'numero' => $personaUpdates['telefono_uno']]);
                     if (!$existeTel) {
                         $db->CRUD("
-                            INSERT INTO __SPARTA_SECRET_REDACTED__.telefonos_persona (id_persona, numero, tipo, estatus)
+                            INSERT INTO estado_cuenta.telefonos_persona (id_persona, numero, tipo, estatus)
                             VALUES (:id_persona, :numero, 'Personal', 'Activo')
                         ", ['id_persona' => $idPersona, 'numero' => $personaUpdates['telefono_uno']]);
                     }
@@ -5182,13 +5182,13 @@ class CapHum extends Model
                 if (!empty($personaUpdates['correo']) && filter_var($personaUpdates['correo'], FILTER_VALIDATE_EMAIL)) {
                     $existeCorreo = $db->queryOne("
                         SELECT 1 AS ok
-                        FROM __SPARTA_SECRET_REDACTED__.correos_persona
+                        FROM estado_cuenta.correos_persona
                         WHERE id_persona = :id_persona AND correo = :correo
                         LIMIT 1
                     ", ['id_persona' => $idPersona, 'correo' => $personaUpdates['correo']]);
                     if (!$existeCorreo) {
                         $db->CRUD("
-                            INSERT INTO __SPARTA_SECRET_REDACTED__.correos_persona (id_persona, correo, tipo, estatus)
+                            INSERT INTO estado_cuenta.correos_persona (id_persona, correo, tipo, estatus)
                             VALUES (:id_persona, :correo, 'Personal', 'Activo')
                         ", ['id_persona' => $idPersona, 'correo' => $personaUpdates['correo']]);
                     }
@@ -5197,13 +5197,13 @@ class CapHum extends Model
                 if (!empty($personaUpdates['domicilio_calle_texto'])) {
                     $existeDomicilio = $db->queryOne("
                         SELECT 1 AS ok
-                        FROM __SPARTA_SECRET_REDACTED__.domicilio_persona
+                        FROM estado_cuenta.domicilio_persona
                         WHERE id_persona = :id_persona AND domicilio_texto = :domicilio
                         LIMIT 1
                     ", ['id_persona' => $idPersona, 'domicilio' => $personaUpdates['domicilio_calle_texto']]);
                     if (!$existeDomicilio) {
                         $db->CRUD("
-                            INSERT INTO __SPARTA_SECRET_REDACTED__.domicilio_persona (id_persona, domicilio_texto, codigo_postal, tipo, estatus)
+                            INSERT INTO estado_cuenta.domicilio_persona (id_persona, domicilio_texto, codigo_postal, tipo, estatus)
                             VALUES (:id_persona, :domicilio, :codigo_postal, 'Particular', 'Activo')
                         ", [
                             'id_persona' => $idPersona,
@@ -5550,7 +5550,7 @@ class CapHum extends Model
     {
         $rows = $db->queryAll("
             SELECT id, numero_empleado, nombres, segundo_nombre, apellidop, apellidom, estatus
-            FROM __SPARTA_SECRET_REDACTED__.persona
+            FROM estado_cuenta.persona
             WHERE TRIM(COALESCE(numero_empleado, '')) <> ''
         ");
         $out = [];
@@ -5568,7 +5568,7 @@ class CapHum extends Model
     {
         $rows = $db->queryAll("
             SELECT id, numero_empleado, nombres, segundo_nombre, apellidop, apellidom, estatus
-            FROM __SPARTA_SECRET_REDACTED__.persona
+            FROM estado_cuenta.persona
             WHERE COALESCE(estatus, '') <> 'Baja'
         ");
         $out = [];
@@ -5594,8 +5594,8 @@ class CapHum extends Model
                 pu.nombre AS nombre_puesto,
                 dep.id AS id_departamento,
                 dep.nombre AS nombre_departamento
-            FROM __SPARTA_SECRET_REDACTED__.puesto pu
-            INNER JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = pu.departamento_id
+            FROM estado_cuenta.puesto pu
+            INNER JOIN estado_cuenta.departamento dep ON dep.id = pu.departamento_id
             WHERE COALESCE(pu.activo, 1) = 1
               AND COALESCE(dep.activo, 1) = 1
         ");
@@ -5706,8 +5706,8 @@ class CapHum extends Model
             SELECT
                 aj.id_jefe,
                 TRIM(CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom)) AS nombre
-            FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.persona pj ON pj.id = aj.id_jefe
+            FROM estado_cuenta.asigna_jefe aj
+            LEFT JOIN estado_cuenta.persona pj ON pj.id = aj.id_jefe
             WHERE aj.id_persona = :id_persona
             ORDER BY aj.id DESC
             LIMIT 1
@@ -5720,7 +5720,7 @@ class CapHum extends Model
         $fechaAsignacion = self::fechaHoraCdmx();
 
         $db->CRUD(
-            "UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto
+            "UPDATE estado_cuenta.asigna_puesto
              SET activo = 0
              WHERE id_persona = :id_persona",
             ['id_persona' => $idPersona]
@@ -5728,7 +5728,7 @@ class CapHum extends Model
 
         $existente = $db->queryOne(
             "SELECT id
-             FROM __SPARTA_SECRET_REDACTED__.asigna_puesto
+             FROM estado_cuenta.asigna_puesto
              WHERE id_persona = :id_persona
                AND id_puesto = :id_puesto
              ORDER BY id DESC
@@ -5738,7 +5738,7 @@ class CapHum extends Model
 
         if ($existente) {
             $db->CRUD(
-                "UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto
+                "UPDATE estado_cuenta.asigna_puesto
                  SET activo = 1,
                      fecha_asignacion = :fecha_asignacion
                  WHERE id = :id",
@@ -5746,7 +5746,7 @@ class CapHum extends Model
             );
         } else {
             $db->CRUD(
-                "INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto (id_persona, id_puesto, fecha_asignacion, activo)
+                "INSERT INTO estado_cuenta.asigna_puesto (id_persona, id_puesto, fecha_asignacion, activo)
                  VALUES (:id_persona, :id_puesto, :fecha_asignacion, 1)",
                 ['id_persona' => $idPersona, 'id_puesto' => $idPuesto, 'fecha_asignacion' => $fechaAsignacion]
             );
@@ -5768,7 +5768,7 @@ class CapHum extends Model
 
         $persona = $db->queryOne("
             SELECT id
-            FROM __SPARTA_SECRET_REDACTED__.persona
+            FROM estado_cuenta.persona
             WHERE id = :id_persona
               AND COALESCE(estatus, '') <> 'Baja'
             LIMIT 1
@@ -5779,7 +5779,7 @@ class CapHum extends Model
 
         $jefe = $db->queryOne("
             SELECT id
-            FROM __SPARTA_SECRET_REDACTED__.persona
+            FROM estado_cuenta.persona
             WHERE id = :id_jefe
               AND COALESCE(estatus, '') <> 'Baja'
             LIMIT 1
@@ -5801,7 +5801,7 @@ class CapHum extends Model
 
             $rel = $db->queryOne("
                 SELECT id_jefe
-                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                FROM estado_cuenta.asigna_jefe
                 WHERE id_persona = :id_persona
                 ORDER BY id DESC
                 LIMIT 1
@@ -5811,7 +5811,7 @@ class CapHum extends Model
 
         $asignacion = $db->queryOne("
             SELECT id
-            FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+            FROM estado_cuenta.asigna_jefe
             WHERE id_persona = :id_persona
             ORDER BY id DESC
             LIMIT 1
@@ -5819,7 +5819,7 @@ class CapHum extends Model
 
         if ($asignacion) {
             $db->CRUD("
-                UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                UPDATE estado_cuenta.asigna_jefe
                 SET id_jefe = :id_jefe,
                     id_vacante_jefe = NULL
                 WHERE id = :id
@@ -5827,7 +5827,7 @@ class CapHum extends Model
             ", ['id_jefe' => $idJefe, 'id' => (int)$asignacion['id']]);
         } else {
             $db->CRUD("
-                INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_jefe (id_persona, id_jefe, id_vacante_jefe)
+                INSERT INTO estado_cuenta.asigna_jefe (id_persona, id_jefe, id_vacante_jefe)
                 VALUES (:id_persona, :id_jefe, NULL)
             ", ['id_persona' => $idPersona, 'id_jefe' => $idJefe]);
         }
@@ -5896,7 +5896,7 @@ class CapHum extends Model
             $db = new Database();
             self::asegurarSalariosSensiblesRrhh($db);
             $db->CRUD("
-                INSERT INTO __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh
+                INSERT INTO estado_cuenta.auditoria_salarios_sensibles_rrhh
                     (id_usuario, usuario_nombre, id_persona, persona_nombre, accion, resultado, ip, user_agent, detalle, fecha_hora)
                 VALUES
                     (:id_usuario, :usuario_nombre, :id_persona, :persona_nombre, :accion, :resultado, :ip, :user_agent, :detalle, :fecha_hora)
@@ -5962,7 +5962,7 @@ class CapHum extends Model
                     a.resultado,
                     a.ip,
                     a.detalle
-                FROM __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh a
+                FROM estado_cuenta.auditoria_salarios_sensibles_rrhh a
                 LEFT JOIN persona u ON u.id = a.id_usuario
                 LEFT JOIN persona p ON p.id = a.id_persona
                 ORDER BY a.fecha_hora DESC, a.id DESC
@@ -6074,7 +6074,7 @@ class CapHum extends Model
                     DATE_FORMAT(t.creado_en, '%Y-%m-%d %H:%i:%s') AS creado_en,
                     DATE_FORMAT(t.actualizado_en, '%Y-%m-%d %H:%i:%s') AS actualizado_en,
                     DATE_FORMAT(t.ultimo_uso_en, '%Y-%m-%d %H:%i:%s') AS ultimo_uso_en
-                FROM __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp t
+                FROM estado_cuenta.rrhh_documentos_sensibles_totp t
                 LEFT JOIN persona p ON p.id = t.id_persona
                 ORDER BY t.confirmado DESC, t.ultimo_uso_en DESC, nombre ASC
             ") ?: [];
@@ -6163,10 +6163,10 @@ class CapHum extends Model
                     a.resultado,
                     a.ip,
                     a.detalle
-                FROM __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh a
+                FROM estado_cuenta.auditoria_documentos_sensibles_rrhh a
                 LEFT JOIN persona u ON u.id = a.id_usuario
                 LEFT JOIN persona p ON p.id = a.id_persona
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.documento d ON d.id = a.id_documento
+                LEFT JOIN estado_cuenta.documento d ON d.id = a.id_documento
                 ORDER BY a.fecha_hora DESC, a.id DESC
                 LIMIT 300
             ") ?: [];
@@ -6189,7 +6189,7 @@ class CapHum extends Model
                     a.resultado,
                     a.ip,
                     a.detalle
-                FROM __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh a
+                FROM estado_cuenta.auditoria_salarios_sensibles_rrhh a
                 LEFT JOIN persona u ON u.id = a.id_usuario
                 LEFT JOIN persona p ON p.id = a.id_persona
                 ORDER BY a.fecha_hora DESC, a.id DESC
@@ -6211,13 +6211,13 @@ class CapHum extends Model
                 SELECT
                     COUNT(*) AS eventos,
                     SUM(CASE WHEN LOWER(resultado) = 'denegado' THEN 1 ELSE 0 END) AS denegados
-                FROM __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh
+                FROM estado_cuenta.auditoria_documentos_sensibles_rrhh
             ") ?: [];
             $conteoSalarios = $db->queryOne("
                 SELECT
                     COUNT(*) AS eventos,
                     SUM(CASE WHEN LOWER(resultado) = 'denegado' THEN 1 ELSE 0 END) AS denegados
-                FROM __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh
+                FROM estado_cuenta.auditoria_salarios_sensibles_rrhh
             ") ?: [];
 
             $totpConfirmados = 0;
@@ -6277,7 +6277,7 @@ class CapHum extends Model
     private static function asegurarAuditoriaInternaRrhh(Database $db): void
     {
         $db->CRUD("
-            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.caphum_auditoria_interna (
+            CREATE TABLE IF NOT EXISTS estado_cuenta.caphum_auditoria_interna (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 fecha_hora DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 id_usuario INT NULL,
@@ -6401,21 +6401,21 @@ class CapHum extends Model
                         TRIM(CONCAT_WS(' ', j.nombres, j.segundo_nombre, j.apellidop, j.apellidom)),
                         NULLIF(TRIM(v.nombre_vacante), '')
                     ) AS jefe
-                FROM __SPARTA_SECRET_REDACTED__.persona p
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = ap.id_puesto
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = pu.departamento_id
+                FROM estado_cuenta.persona p
+                LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                LEFT JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
+                LEFT JOIN estado_cuenta.departamento dep ON dep.id = pu.departamento_id
                 LEFT JOIN (
                     SELECT aj1.id_persona, aj1.id_jefe, aj1.id_vacante_jefe
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj1
+                    FROM estado_cuenta.asigna_jefe aj1
                     INNER JOIN (
                         SELECT id_persona, MAX(id) AS max_id
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        FROM estado_cuenta.asigna_jefe
                         GROUP BY id_persona
                     ) ult ON ult.id_persona = aj1.id_persona AND ult.max_id = aj1.id
                 ) aj ON aj.id_persona = p.id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona j ON j.id = aj.id_jefe
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal v ON v.id = aj.id_vacante_jefe
+                LEFT JOIN estado_cuenta.persona j ON j.id = aj.id_jefe
+                LEFT JOIN estado_cuenta.vacantes_personal v ON v.id = aj.id_vacante_jefe
                 WHERE p.id = :id
                 GROUP BY p.id
                 LIMIT 1
@@ -6462,11 +6462,11 @@ class CapHum extends Model
                     c.fecha_ingreso_programada,
                     c.postulacion_enviada,
                     c.notas
-                FROM __SPARTA_SECRET_REDACTED__.candidatos c
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = c.id_puesto
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = c.id_departamento
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona jefe ON jefe.id = c.id_posible_jefe
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona divi ON divi.id = c.id_jefe_divisional
+                FROM estado_cuenta.candidatos c
+                LEFT JOIN estado_cuenta.puesto pu ON pu.id = c.id_puesto
+                LEFT JOIN estado_cuenta.departamento dep ON dep.id = c.id_departamento
+                LEFT JOIN estado_cuenta.persona jefe ON jefe.id = c.id_posible_jefe
+                LEFT JOIN estado_cuenta.persona divi ON divi.id = c.id_jefe_divisional
                 WHERE c.id = :id
                 LIMIT 1
             ", ['id' => $idCandidato]);
@@ -6488,8 +6488,8 @@ class CapHum extends Model
             $idsSql = self::idsGestionablesAccesosCapitalHumanoSql();
             $rows = $db->queryAll("
                 SELECT mw.id, mw.nombre, mw.pestana
-                FROM __SPARTA_SECRET_REDACTED__.asigna_modulo_web am
-                INNER JOIN __SPARTA_SECRET_REDACTED__.modulos_web mw ON mw.id = am.modulo_web_id
+                FROM estado_cuenta.asigna_modulo_web am
+                INNER JOIN estado_cuenta.modulos_web mw ON mw.id = am.modulo_web_id
                 WHERE am.usuario_id = :id
                   AND am.modulo_web_id IN ($idsSql)
                 ORDER BY mw.id ASC
@@ -6517,7 +6517,7 @@ class CapHum extends Model
             if ($usuarioNombre === null && $idUsuario > 0) {
                 $u = $db->queryOne("
                     SELECT TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre
-                    FROM __SPARTA_SECRET_REDACTED__.persona
+                    FROM estado_cuenta.persona
                     WHERE id = :id
                     LIMIT 1
                 ", ['id' => $idUsuario]);
@@ -6527,7 +6527,7 @@ class CapHum extends Model
             $cambios = self::auditoriaSanitizar($data['cambios'] ?? []);
             $detalle = self::auditoriaSanitizar($data['detalle'] ?? []);
             $db->CRUD("
-                INSERT INTO __SPARTA_SECRET_REDACTED__.caphum_auditoria_interna
+                INSERT INTO estado_cuenta.caphum_auditoria_interna
                     (fecha_hora, id_usuario, usuario_nombre, ip, modulo, entidad_tipo, entidad_id, entidad_nombre, accion, resumen, cambios_json, detalle_json)
                 VALUES
                     (NOW(), :id_usuario, :usuario_nombre, :ip, :modulo, :entidad_tipo, :entidad_id, :entidad_nombre, :accion, :resumen, :cambios_json, :detalle_json)
@@ -6674,7 +6674,7 @@ class CapHum extends Model
                     resumen,
                     cambios_json,
                     detalle_json
-                FROM __SPARTA_SECRET_REDACTED__.caphum_auditoria_interna
+                FROM estado_cuenta.caphum_auditoria_interna
                 $whereSql
                 ORDER BY fecha_hora DESC, id DESC
                 LIMIT 600
@@ -6699,12 +6699,12 @@ class CapHum extends Model
                     SUM(CASE WHEN entidad_tipo = 'candidato' THEN 1 ELSE 0 END) AS candidatos,
                     SUM(CASE WHEN entidad_tipo = 'permisos' THEN 1 ELSE 0 END) AS permisos,
                     SUM(CASE WHEN fecha_hora >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 ELSE 0 END) AS ultimas_24h
-                FROM __SPARTA_SECRET_REDACTED__.caphum_auditoria_interna
+                FROM estado_cuenta.caphum_auditoria_interna
             ") ?: [];
 
             $acciones = $db->queryAll("
                 SELECT accion, COUNT(*) AS total
-                FROM __SPARTA_SECRET_REDACTED__.caphum_auditoria_interna
+                FROM estado_cuenta.caphum_auditoria_interna
                 GROUP BY accion
                 ORDER BY total DESC, accion ASC
             ") ?: [];
@@ -6732,7 +6732,7 @@ class CapHum extends Model
     private static function asegurarSalariosSensiblesRrhh(Database $db): void
     {
         $db->CRUD("
-            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles (
+            CREATE TABLE IF NOT EXISTS estado_cuenta.rrhh_salarios_sensibles (
                 id_persona INT NOT NULL PRIMARY KEY,
                 salario_cifrado TEXT NOT NULL,
                 moneda VARCHAR(8) NOT NULL DEFAULT 'MXN',
@@ -6744,7 +6744,7 @@ class CapHum extends Model
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
         $db->CRUD("
-            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh (
+            CREATE TABLE IF NOT EXISTS estado_cuenta.auditoria_salarios_sensibles_rrhh (
                 id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 fecha_hora DATETIME NOT NULL,
                 id_usuario INT NULL,
@@ -6783,7 +6783,7 @@ class CapHum extends Model
     private static function asegurarTotpDocumentosSensibles(Database $db): void
     {
         $db->CRUD("
-            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp (
+            CREATE TABLE IF NOT EXISTS estado_cuenta.rrhh_documentos_sensibles_totp (
                 id_persona INT NOT NULL PRIMARY KEY,
                 secret VARCHAR(255) NOT NULL,
                 confirmado TINYINT(1) NOT NULL DEFAULT 0,
@@ -6794,7 +6794,7 @@ class CapHum extends Model
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
         try {
-            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp MODIFY secret VARCHAR(255) NOT NULL");
+            $db->CRUD("ALTER TABLE estado_cuenta.rrhh_documentos_sensibles_totp MODIFY secret VARCHAR(255) NOT NULL");
         } catch (\Throwable $e) {
             error_log('CapHum::asegurarTotpDocumentosSensibles alter secret -> ' . $e->getMessage());
         }
@@ -6909,7 +6909,7 @@ class CapHum extends Model
                 $archivoEsc = addslashes($nombreArchivo);
 
                 $db->queryOne("
-                    INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                    INSERT INTO estado_cuenta.carga_documento_persona
                     (id_persona, id_documento, archivo, fecha_carga)
                     VALUES
                     (:id_persona, :id_documento, :archivo, NOW())
@@ -6940,7 +6940,7 @@ class CapHum extends Model
             // Primero obtener el nombre del archivo para eliminarlo físicamente
             $documento = $db->queryOne("
                 SELECT archivo, id_documento
-                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                FROM estado_cuenta.carga_documento_persona
                 WHERE id = :id
             ", ['id' => $id_documento_carga]);
 
@@ -6953,7 +6953,7 @@ class CapHum extends Model
 
             // Eliminar de la base de datos
             $db->queryOne("
-                DELETE FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                DELETE FROM estado_cuenta.carga_documento_persona
                 WHERE id = :id
             ", ['id' => $id_documento_carga]);
 
@@ -7981,7 +7981,7 @@ class CapHum extends Model
             $db = new Database();
             $existe = $db->queryOne("
                 SELECT id
-                FROM __SPARTA_SECRET_REDACTED__.razon_ausencia
+                FROM estado_cuenta.razon_ausencia
                 WHERE clave = 'FALTA'
                    OR UPPER(TRIM(nombre)) = 'FALTA'
                 LIMIT 1
@@ -7989,7 +7989,7 @@ class CapHum extends Model
 
             if ($existe && !empty($existe['id'])) {
                 $db->CRUD("
-                    UPDATE __SPARTA_SECRET_REDACTED__.razon_ausencia
+                    UPDATE estado_cuenta.razon_ausencia
                     SET clave = 'FALTA',
                         nombre = 'FALTA',
                         activo = 1
@@ -7999,7 +7999,7 @@ class CapHum extends Model
             }
 
             $db->CRUD("
-                INSERT INTO __SPARTA_SECRET_REDACTED__.razon_ausencia
+                INSERT INTO estado_cuenta.razon_ausencia
                     (clave, nombre, descripcion, activo)
                 VALUES
                     ('FALTA', 'FALTA', 'Ausencia por falta', 1)
@@ -8830,9 +8830,9 @@ class CapHum extends Model
                     pp.departamento_id AS id_departamento,
                     d.nombre AS nombre_departamento,
                     pp.nivel
-                 FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-                 INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
-                 LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
+                 FROM estado_cuenta.asigna_puesto ap
+                 INNER JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
+                 LEFT JOIN estado_cuenta.departamento d ON d.id = pp.departamento_id
                  WHERE ap.id_persona = :id_persona
                    AND COALESCE(ap.activo, 1) = 1
                  ORDER BY pp.nivel DESC, ap.id ASC",
@@ -8891,7 +8891,7 @@ class CapHum extends Model
                 numero_empleado,
                 estatus,
                 user_name
-            FROM __SPARTA_SECRET_REDACTED__.persona
+            FROM estado_cuenta.persona
             WHERE estatus = 'Baja'
             ORDER BY numero_empleado ASC
         SQL;
@@ -8913,7 +8913,7 @@ class CapHum extends Model
     {
         $row = $db->queryOne(
             "SELECT COALESCE(MAX(CAST(numero_empleado AS UNSIGNED)), 0) AS mx
-             FROM __SPARTA_SECRET_REDACTED__.persona
+             FROM estado_cuenta.persona
              WHERE TRIM(numero_empleado) <> ''
                AND TRIM(numero_empleado) REGEXP '^[0-9]+$'"
         );
@@ -8921,7 +8921,7 @@ class CapHum extends Model
         for ($i = 0; $i < 100000; $i++) {
             $candidate = (string) $next;
             $ex = $db->queryOne(
-                'SELECT 1 AS ok FROM __SPARTA_SECRET_REDACTED__.persona WHERE numero_empleado = :n LIMIT 1',
+                'SELECT 1 AS ok FROM estado_cuenta.persona WHERE numero_empleado = :n LIMIT 1',
                 ['n' => $candidate]
             );
             if (empty($ex)) {
@@ -8982,7 +8982,7 @@ class CapHum extends Model
                 self::asegurarAsignaJefeSoportaVacante($db);
                 $vacanteSeleccionada = $db->queryOne("
                     SELECT id, id_jefe, id_departamento, id_puesto
-                    FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
+                    FROM estado_cuenta.vacantes_personal
                     WHERE id = :id
                       AND UPPER(TRIM(estatus)) = 'ACTIVA'
                     LIMIT 1
@@ -9009,7 +9009,7 @@ class CapHum extends Model
 
             if ($cp === '' && $id_div_nivel3 !== 'NULL') {
                 $crow = $db->queryOne(
-                    'SELECT NULLIF(TRIM(codigo_interno), \'\') AS cp FROM __SPARTA_SECRET_REDACTED__.divisiones_administrativas WHERE id = :id AND activo = 1 LIMIT 1',
+                    'SELECT NULLIF(TRIM(codigo_interno), \'\') AS cp FROM estado_cuenta.divisiones_administrativas WHERE id = :id AND activo = 1 LIMIT 1',
                     ['id' => (int) $id_div_nivel3]
                 );
                 if (!empty($crow['cp'])) {
@@ -9028,7 +9028,7 @@ class CapHum extends Model
             $fechaRegistro = addslashes($fechaRegistro);
 
             $db->queryOne("
-            INSERT INTO __SPARTA_SECRET_REDACTED__.persona
+            INSERT INTO estado_cuenta.persona
             (nombres, segundo_nombre, apellidop, apellidom, curp, numero_empleado, codigo_contpac, es_externo, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal)
             VALUES
             ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', $curp_sql, '$numero_empleado', $codigo_contpac_sql, $es_externo_sql, '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro', $id_pais, $id_div_nivel1, $id_div_nivel2, $id_div_nivel3, $dom_calle_sql, $dom_ext_sql, $dom_int_sql, $cp_sql)
@@ -9062,7 +9062,7 @@ class CapHum extends Model
             {
                 $fechaAsignacionCdmx = self::fechaHoraCdmx();
                 $db->queryOne("
-                    INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto
+                    INSERT INTO estado_cuenta.asigna_puesto
                         (id, id_persona, id_puesto, fecha_asignacion, activo)
                     VALUES
                         (DEFAULT, $id_persona, $id_puesto, '$fechaAsignacionCdmx', 1)
@@ -9082,7 +9082,7 @@ class CapHum extends Model
 
                 if ($id_vacante_jefe > 0) {
                     $db->queryOne("
-                    INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_jefe
+                    INSERT INTO estado_cuenta.asigna_jefe
                         (id, id_persona, id_jefe, id_vacante_jefe, fecha_inicio, fecha_fin)
                     VALUES
                         (DEFAULT, $id_persona, NULL, $id_vacante_jefe, CURDATE(), NULL)
@@ -9090,7 +9090,7 @@ class CapHum extends Model
                 } else {
                     $idJefeSql = $id_jefe !== null ? (int)$id_jefe : 'NULL';
                     $db->queryOne("
-                    INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_jefe
+                    INSERT INTO estado_cuenta.asigna_jefe
                         (id, id_persona, id_jefe, fecha_inicio, fecha_fin)
                     VALUES
                         (DEFAULT, $id_persona, $idJefeSql, CURDATE(), NULL)
@@ -9118,14 +9118,14 @@ class CapHum extends Model
 
                     // Desactivar cualquier legión activa previa para esta persona
                     $db->queryOne("
-                        UPDATE __SPARTA_SECRET_REDACTED__.asigna_legion
+                        UPDATE estado_cuenta.asigna_legion
                         SET activo = 0, fecha_fin = NOW()
                         WHERE id_persona = $id_persona AND activo = 1
                     ");
 
                     // Insertar la nueva asignación de legión
                     $db->queryOne("
-                        INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_legion
+                        INSERT INTO estado_cuenta.asigna_legion
                             (id, id_persona, id_legion, fecha_asignacion, activo)
                         VALUES
                             (DEFAULT, $id_persona, $id_legion, NOW(), 1)
@@ -9134,7 +9134,7 @@ class CapHum extends Model
 
                 if ($vacanteSeleccionada) {
                     $db->CRUD("
-                        UPDATE __SPARTA_SECRET_REDACTED__.vacantes_personal
+                        UPDATE estado_cuenta.vacantes_personal
                         SET estatus = 'Ocupada',
                             id_persona_cubre = :id_persona,
                             fecha_cierre = NOW()
@@ -9146,7 +9146,7 @@ class CapHum extends Model
                     ]);
 
                     $db->CRUD("
-                        UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        UPDATE estado_cuenta.asigna_jefe
                         SET id_jefe = :id_persona,
                             id_vacante_jefe = NULL
                         WHERE id_vacante_jefe = :id_vacante
@@ -9184,7 +9184,7 @@ class CapHum extends Model
      * Asigna únicamente el módulo Onboarding al usuario (para nuevos colaboradores desde candidatos).
      * Elimina cualquier otro módulo asignado y deja solo Onboarding.
      *
-     * @param int $id_persona ID de persona en __SPARTA_SECRET_REDACTED__.persona
+     * @param int $id_persona ID de persona en estado_cuenta.persona
      * @return array { success, mensaje }
      */
     public static function asignarSoloModuloOnboarding($id_persona)
@@ -9224,7 +9224,7 @@ class CapHum extends Model
         try {
             $razon = $db->queryOne("
                 SELECT nombre
-                FROM __SPARTA_SECRET_REDACTED__.razon_ausencia
+                FROM estado_cuenta.razon_ausencia
                 WHERE id = $id_razon
                 LIMIT 1
             ");
@@ -9237,7 +9237,7 @@ class CapHum extends Model
             if ($id_ausencia) {
 
                 $db->queryOne("
-                UPDATE __SPARTA_SECRET_REDACTED__.ausencia
+                UPDATE estado_cuenta.ausencia
                 SET
                     id_razon     = $id_razon,
                     descripcion  = '$descripcion',
@@ -9256,7 +9256,7 @@ class CapHum extends Model
 
             // ➕ INSERT
             $db->queryOne("
-            INSERT INTO __SPARTA_SECRET_REDACTED__.ausencia
+            INSERT INTO estado_cuenta.ausencia
                 (id_persona, id_razon, descripcion, fecha_inicio, fecha_fin, creado_por, activo)
             VALUES
                 ($id_persona, $id_razon, '$descripcion', '$fecha_inicio', '$fecha_fin', '$creado_por', 1)
@@ -9366,7 +9366,7 @@ class CapHum extends Model
                     domicilio_num_exterior,
                     domicilio_num_interior,
                     codigo_postal
-                FROM __SPARTA_SECRET_REDACTED__.persona
+                FROM estado_cuenta.persona
                 WHERE id = :id
                 LIMIT 1",
                 ['id' => $id_persona]
@@ -9396,7 +9396,7 @@ class CapHum extends Model
             $numeroEmpleadoCambio = $numero_empleado !== $numeroEmpleadoActual;
             if ($numeroEmpleadoCambio && $numero_empleado !== '') {
                 $duplicadoNumero = $db->queryOne(
-                    "SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE numero_empleado = :numero_empleado AND id <> :id LIMIT 1",
+                    "SELECT id FROM estado_cuenta.persona WHERE numero_empleado = :numero_empleado AND id <> :id LIMIT 1",
                     ['numero_empleado' => $numero_empleado, 'id' => $id_persona]
                 );
                 if ($duplicadoNumero) {
@@ -9413,14 +9413,14 @@ class CapHum extends Model
                     pp.nivel,
                     aj.id_jefe AS id_jefe_anterior,
                     aj.id_vacante_jefe AS id_vacante_jefe_anterior
-                FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-                INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                FROM estado_cuenta.asigna_puesto ap
+                INNER JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
                 LEFT JOIN (
                     SELECT a.id_persona, a.id_jefe, a.id_vacante_jefe
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe a
+                    FROM estado_cuenta.asigna_jefe a
                     INNER JOIN (
                         SELECT id_persona, MAX(id) AS mid
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        FROM estado_cuenta.asigna_jefe
                         GROUP BY id_persona
                     ) m ON m.id_persona = a.id_persona AND m.mid = a.id
                 ) aj ON aj.id_persona = ap.id_persona
@@ -9432,7 +9432,7 @@ class CapHum extends Model
 
             $puestoNuevo = $id_puesto > 0 ? $db->queryOne("
                 SELECT id, nombre AS nombre_puesto, departamento_id, nivel
-                FROM __SPARTA_SECRET_REDACTED__.puesto
+                FROM estado_cuenta.puesto
                 WHERE id = :id_puesto
                 LIMIT 1
             ", ['id_puesto' => $id_puesto]) : null;
@@ -9454,14 +9454,14 @@ class CapHum extends Model
                         pp.nivel,
                         aj.id_jefe AS id_jefe_anterior,
                         aj.id_vacante_jefe AS id_vacante_jefe_anterior
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                    FROM estado_cuenta.asigna_puesto ap
+                    INNER JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
                     LEFT JOIN (
                         SELECT a.id_persona, a.id_jefe, a.id_vacante_jefe
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe a
+                        FROM estado_cuenta.asigna_jefe a
                         INNER JOIN (
                             SELECT id_persona, MAX(id) AS mid
-                            FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                            FROM estado_cuenta.asigna_jefe
                             GROUP BY id_persona
                         ) m ON m.id_persona = a.id_persona AND m.mid = a.id
                     ) aj ON aj.id_persona = ap.id_persona
@@ -9491,8 +9491,8 @@ class CapHum extends Model
             if ($esDegradacionConHueco) {
                 $subordinadosPuestoAnterior = $db->queryAll("
                     SELECT p.id, CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
-                    INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = aj.id_persona
+                    FROM estado_cuenta.asigna_jefe aj
+                    INNER JOIN estado_cuenta.persona p ON p.id = aj.id_persona
                     WHERE aj.id_jefe = :id_persona
                       AND p.estatus != 'Baja'
                     ORDER BY p.nombres ASC, p.apellidop ASC
@@ -9508,9 +9508,9 @@ class CapHum extends Model
                         CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
                         pp.nombre AS nombre_puesto,
                         MAX(pp.nivel) AS nivel_orden
-                    FROM __SPARTA_SECRET_REDACTED__.persona p
-                    INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
-                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                    FROM estado_cuenta.persona p
+                    INNER JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                    INNER JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
                     WHERE p.estatus != 'Baja'
                       AND p.id <> :id_persona
                       AND pp.departamento_id = :id_departamento
@@ -9535,9 +9535,9 @@ class CapHum extends Model
                 }
                 $sustitutoValido = $db->queryOne("
                     SELECT p.id
-                    FROM __SPARTA_SECRET_REDACTED__.persona p
-                    INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
-                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                    FROM estado_cuenta.persona p
+                    INNER JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                    INNER JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
                     WHERE p.id = :id_sustituto
                       AND p.estatus != 'Baja'
                       AND pp.departamento_id = :id_departamento
@@ -9557,7 +9557,7 @@ class CapHum extends Model
 
             if ($cp === '' && $id_div_nivel3 !== 'NULL') {
                 $crow = $db->queryOne(
-                    'SELECT NULLIF(TRIM(codigo_interno), \'\') AS cp FROM __SPARTA_SECRET_REDACTED__.divisiones_administrativas WHERE id = :id AND activo = 1 LIMIT 1',
+                    'SELECT NULLIF(TRIM(codigo_interno), \'\') AS cp FROM estado_cuenta.divisiones_administrativas WHERE id = :id AND activo = 1 LIMIT 1',
                     ['id' => (int) $id_div_nivel3]
                 );
                 if (!empty($crow['cp'])) {
@@ -9573,7 +9573,7 @@ class CapHum extends Model
 
             // 1️⃣ UPDATE PERSONA
             $db->queryOne("
-            UPDATE __SPARTA_SECRET_REDACTED__.persona
+            UPDATE estado_cuenta.persona
             SET
                 numero_empleado = $numero_empleado_sql,
                 nombres       = '$nombres',
@@ -9664,7 +9664,7 @@ class CapHum extends Model
             }
 
             $db->CRUD(
-                "UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto
+                "UPDATE estado_cuenta.asigna_puesto
                  SET activo = 0
                  WHERE id_persona = :id_persona",
                 ['id_persona' => $id_persona]
@@ -9673,7 +9673,7 @@ class CapHum extends Model
             foreach ($idsPuestosGuardar as $puestoId) {
                 $asignacionExistente = $db->queryOne(
                     "SELECT id
-                     FROM __SPARTA_SECRET_REDACTED__.asigna_puesto
+                     FROM estado_cuenta.asigna_puesto
                      WHERE id_persona = :id_persona
                        AND id_puesto = :id_puesto
                      ORDER BY id DESC
@@ -9684,7 +9684,7 @@ class CapHum extends Model
                 if ($asignacionExistente) {
                     $actualizarFechaAsignacion = !isset($idsPuestosActivosAntes[(int)$puestoId]);
                     $db->CRUD(
-                        "UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto
+                        "UPDATE estado_cuenta.asigna_puesto
                          SET activo = 1" . ($actualizarFechaAsignacion ? ", fecha_asignacion = :fecha_asignacion" : "") . "
                          WHERE id = :id",
                         $actualizarFechaAsignacion
@@ -9693,7 +9693,7 @@ class CapHum extends Model
                     );
                 } else {
                     $db->CRUD(
-                        "INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto (id_persona, id_puesto, fecha_asignacion, activo)
+                        "INSERT INTO estado_cuenta.asigna_puesto (id_persona, id_puesto, fecha_asignacion, activo)
                          VALUES (:id_persona, :id_puesto, :fecha_asignacion, 1)",
                         ['id_persona' => $id_persona, 'id_puesto' => $puestoId, 'fecha_asignacion' => $fechaAsignacionCdmx]
                     );
@@ -9723,7 +9723,7 @@ class CapHum extends Model
                             ? (int)$puestoAnterior['id_jefe_anterior']
                             : null;
                         $db->CRUD("
-                            INSERT INTO __SPARTA_SECRET_REDACTED__.vacantes_personal
+                            INSERT INTO estado_cuenta.vacantes_personal
                                 (id_departamento, id_puesto, id_jefe, id_persona_baja, origen, estatus, creado_por)
                             VALUES
                                 (:id_departamento, :id_puesto, :id_jefe, NULL, 'degradacion', 'Activa', :creado_por)
@@ -9736,7 +9736,7 @@ class CapHum extends Model
                         $idVacantePuestoAnterior = $db->lastInsertId();
 
                         $db->CRUD("
-                            UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                            UPDATE estado_cuenta.asigna_jefe
                             SET id_jefe = NULL,
                                 id_vacante_jefe = :id_vacante_jefe
                             WHERE id_jefe = :id_persona
@@ -9748,7 +9748,7 @@ class CapHum extends Model
                         if (in_array($idSustitutoPuestoAnterior, $idsSubordinados, true)) {
                             if (!empty($puestoAnterior['id_vacante_jefe_anterior'])) {
                                 $db->CRUD("
-                                    UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                                    UPDATE estado_cuenta.asigna_jefe
                                     SET id_jefe = NULL,
                                         id_vacante_jefe = :id_vacante_jefe
                                     WHERE id_persona = :id_sustituto
@@ -9758,7 +9758,7 @@ class CapHum extends Model
                                 ]);
                             } else {
                                 $db->CRUD("
-                                    UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                                    UPDATE estado_cuenta.asigna_jefe
                                     SET id_jefe = :id_jefe_anterior,
                                         id_vacante_jefe = NULL
                                     WHERE id_persona = :id_sustituto
@@ -9784,7 +9784,7 @@ class CapHum extends Model
                                 $paramsSustituto[$keySustituto] = (int)$idSubordinado;
                             }
                             $db->CRUD("
-                                UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                                UPDATE estado_cuenta.asigna_jefe
                                 SET id_jefe = :id_sustituto,
                                     id_vacante_jefe = NULL
                                 WHERE id_jefe = :id_persona
@@ -9802,14 +9802,14 @@ class CapHum extends Model
                     : null;
 
                 $db->queryOne("
-                    UPDATE __SPARTA_SECRET_REDACTED__.asigna_legion
+                    UPDATE estado_cuenta.asigna_legion
                     SET activo = 0, fecha_fin = NOW()
                     WHERE id_persona = $id_persona AND activo = 1
                 ");
 
                 if ($asignarLegion && $id_legion) {
                     $db->queryOne("
-                        INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_legion
+                        INSERT INTO estado_cuenta.asigna_legion
                             (id, id_persona, id_legion, fecha_asignacion, activo)
                         VALUES
                             (DEFAULT, $id_persona, $id_legion, NOW(), 1)
@@ -9922,8 +9922,8 @@ class CapHum extends Model
                 ra.nombre AS motivo,
                 a.fecha_inicio,
                 a.fecha_fin
-            FROM __SPARTA_SECRET_REDACTED__.ausencia a
-            INNER JOIN __SPARTA_SECRET_REDACTED__.razon_ausencia ra ON ra.id = a.id_razon
+            FROM estado_cuenta.ausencia a
+            INNER JOIN estado_cuenta.razon_ausencia ra ON ra.id = a.id_razon
             WHERE a.id_persona = :id_persona
               AND a.activo = 1
               AND DATE(a.fecha_inicio) <= CURDATE()
@@ -9949,8 +9949,8 @@ class CapHum extends Model
                 s.id,
                 COALESCE(MIN(d.fecha), s.fecha_inicio) AS fecha_inicio,
                 COALESCE(MAX(d.fecha), s.fecha_fin) AS fecha_fin
-            FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes s
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.vacaciones_solicitud_dias d ON d.id_solicitud = s.id
+            FROM estado_cuenta.vacaciones_solicitudes s
+            LEFT JOIN estado_cuenta.vacaciones_solicitud_dias d ON d.id_solicitud = s.id
             WHERE s.id_persona = :id_persona
               AND s.estatus IN ('aprobada', 'tomada')
               AND (
@@ -9999,7 +9999,7 @@ class CapHum extends Model
             // No se usa baja_persona como guard porque puede tener registros históricos (bajas previas
             // antes de un reingreso), y esos casos deben permitir una nueva baja.
             $personaActual = $db->queryOne("
-                SELECT estatus FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = '$id_persona' LIMIT 1
+                SELECT estatus FROM estado_cuenta.persona WHERE id = '$id_persona' LIMIT 1
             ");
             if ($personaActual && $personaActual['estatus'] === 'Baja') {
                 return self::resultado(false, 'Esta persona ya se encuentra dada de baja en el sistema.');
@@ -10012,8 +10012,8 @@ class CapHum extends Model
 
             $subordinadosActivos = $db->queryAll("
                 SELECT aj.id_persona
-                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
-                INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = aj.id_persona
+                FROM estado_cuenta.asigna_jefe aj
+                INNER JOIN estado_cuenta.persona p ON p.id = aj.id_persona
                 WHERE aj.id_jefe = :id_persona
                   AND p.estatus != 'Baja'
             ", ['id_persona' => (int) $id_persona]);
@@ -10076,7 +10076,7 @@ class CapHum extends Model
                     }
                     $jefesActivosRows = $db->queryAll("
                         SELECT id
-                        FROM __SPARTA_SECRET_REDACTED__.persona
+                        FROM estado_cuenta.persona
                         WHERE estatus != 'Baja'
                           AND id IN (" . implode(',', $phJefes) . ")
                     ", $paramsJefes);
@@ -10101,8 +10101,8 @@ class CapHum extends Model
 
                 $puestoVacante = $db->queryOne("
                     SELECT ap.id_puesto, pp.departamento_id
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                    FROM estado_cuenta.asigna_puesto ap
+                    INNER JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
                     WHERE ap.id_persona = :id_persona
                       AND COALESCE(ap.activo, 1) = 1
                     ORDER BY pp.nivel DESC, ap.id ASC
@@ -10112,8 +10112,8 @@ class CapHum extends Model
                 if (empty($puestoVacante['id_puesto']) || empty($puestoVacante['departamento_id'])) {
                     $puestoVacante = $db->queryOne("
                         SELECT ap.id_puesto, pp.departamento_id
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-                        INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                        FROM estado_cuenta.asigna_puesto ap
+                        INNER JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
                         WHERE ap.id_persona = :id_persona
                         ORDER BY COALESCE(ap.activo, 0) DESC, pp.nivel DESC, ap.id DESC
                         LIMIT 1
@@ -10122,7 +10122,7 @@ class CapHum extends Model
 
                 $jefeVacante = $db->queryOne("
                     SELECT id_jefe
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                    FROM estado_cuenta.asigna_jefe
                     WHERE id_persona = :id_persona
                     ORDER BY id DESC
                     LIMIT 1
@@ -10136,7 +10136,7 @@ class CapHum extends Model
                 if (!$vacanteExistenteId) {
                     $vacanteActiva = $db->queryOne("
                         SELECT id
-                        FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
+                        FROM estado_cuenta.vacantes_personal
                         WHERE id_puesto = :id_puesto
                           AND id_departamento = :id_departamento
                           AND UPPER(TRIM(estatus)) = 'ACTIVA'
@@ -10156,7 +10156,7 @@ class CapHum extends Model
 
             // 1️⃣ Insertar la baja en baja_persona
             $db->queryOne("
-            INSERT INTO __SPARTA_SECRET_REDACTED__.baja_persona
+            INSERT INTO estado_cuenta.baja_persona
             (id_persona, motivo, fecha_baja, descripcion, usuario_baja)
             VALUES
             ('$id_persona', '$motivo', '$fecha_baja', '$descripcion', '$usuario_baja')
@@ -10179,7 +10179,7 @@ class CapHum extends Model
                 $archivoEsc = addslashes($archivo);
 
                 $db->queryOne("
-                INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                INSERT INTO estado_cuenta.carga_documento_persona
                 (id_persona, id_documento, archivo, fecha_carga)
                 VALUES
                 ('$id_persona', '$id_documento', '$archivoEsc', NOW())
@@ -10188,21 +10188,21 @@ class CapHum extends Model
 
             // 3️⃣ Actualizar estatus de la persona a 'Baja'
             $db->queryOne("
-            UPDATE __SPARTA_SECRET_REDACTED__.persona
+            UPDATE estado_cuenta.persona
             SET estatus = 'Baja'
             WHERE id = '$id_persona'
         ");
 
             // 4️⃣ Inhabilitar en despachos si el gestor estaba registrado
             $db->queryOne("
-            UPDATE __SPARTA_SECRET_REDACTED__.despachos
+            UPDATE estado_cuenta.despachos
             SET estatus = 'Inactivo'
             WHERE id_persona = '$id_persona' AND estatus = 'Activo'
         ");
 
             if ($modoReasignacion === 'vacante' && !$vacanteExistenteId) {
                 $db->CRUD("
-                    INSERT INTO __SPARTA_SECRET_REDACTED__.vacantes_personal
+                    INSERT INTO estado_cuenta.vacantes_personal
                         (id_departamento, id_puesto, id_jefe, id_persona_baja, origen, estatus, creado_por)
                     VALUES
                         (:id_departamento, :id_puesto, :id_jefe, :id_persona_baja, 'baja', 'Activa', :creado_por)
@@ -10217,7 +10217,7 @@ class CapHum extends Model
             } elseif ($modoReasignacion === 'vacante') {
                 $vacanteDestinoId = (int)$vacanteExistenteId;
                 $db->CRUD("
-                    UPDATE __SPARTA_SECRET_REDACTED__.vacantes_personal
+                    UPDATE estado_cuenta.vacantes_personal
                     SET id_jefe = :id_jefe
                     WHERE id = :id_vacante
                 ", [
@@ -10256,7 +10256,7 @@ class CapHum extends Model
                             $paramsGrupo[$keyGrupo] = (int)$idGrupoSubordinado;
                         }
                         $db->CRUD("
-                            UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                            UPDATE estado_cuenta.asigna_jefe
                             SET id_jefe = :jefe_destino
                             WHERE id_jefe = :id_persona
                               AND id_persona IN (" . implode(',', $phGrupo) . ")
@@ -10264,7 +10264,7 @@ class CapHum extends Model
                     }
                 } else {
                     $db->CRUD("
-                        UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        UPDATE estado_cuenta.asigna_jefe
                         SET id_jefe = NULL,
                             id_vacante_jefe = :id_vacante_jefe
                         WHERE id_jefe = :id_persona
@@ -10317,7 +10317,7 @@ class CapHum extends Model
 
             // 1) Insertar en reingresos (consultas preparadas para evitar errores por caracteres especiales)
             $db->queryOne("
-                INSERT INTO __SPARTA_SECRET_REDACTED__.reingresos
+                INSERT INTO estado_cuenta.reingresos
                 (id_persona, fecha_reingreso, motivo_reingreso, descripcion_reingreso, usuario_reingreso)
                 VALUES
                 (:id_persona, :fecha_reingreso, :motivo_reingreso, :descripcion_reingreso, :usuario_reingreso)
@@ -10339,7 +10339,7 @@ class CapHum extends Model
             $id_documento = self::ID_DOCUMENTO_REINGRESO;
             foreach ($archivos as $archivo) {
                 $db->queryOne("
-                    INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                    INSERT INTO estado_cuenta.carga_documento_persona
                     (id_persona, id_documento, archivo, fecha_carga)
                     VALUES
                     (:id_persona, :id_documento, :archivo, NOW())
@@ -10352,7 +10352,7 @@ class CapHum extends Model
 
             // 3) Pasar a la plantilla: estatus = 'Activo'
             $db->queryOne("
-                UPDATE __SPARTA_SECRET_REDACTED__.persona
+                UPDATE estado_cuenta.persona
                 SET estatus = 'Activo'
                 WHERE id = :id_persona
             ", ['id_persona' => $id_persona]);
@@ -10371,7 +10371,7 @@ class CapHum extends Model
         try {
             $db = new Database();
             $reingreso = $db->queryOne("
-                SELECT id_persona FROM __SPARTA_SECRET_REDACTED__.reingresos WHERE id = :id
+                SELECT id_persona FROM estado_cuenta.reingresos WHERE id = :id
             ", ['id' => $registro_reingreso]);
             if (!$reingreso || !isset($reingreso['id_persona'])) {
                 return self::resultado(false, 'Reingreso no encontrado.', []);
@@ -10380,7 +10380,7 @@ class CapHum extends Model
             $id_documento = self::ID_DOCUMENTO_REINGRESO;
             $documentos = $db->queryAll("
                 SELECT cdp.id, cdp.archivo, DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
-                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                FROM estado_cuenta.carga_documento_persona cdp
                 WHERE cdp.id_persona = :id_persona AND cdp.id_documento = :id_documento
                 ORDER BY cdp.fecha_carga DESC
             ", ['id_persona' => $id_persona, 'id_documento' => $id_documento]);
@@ -10413,8 +10413,8 @@ class CapHum extends Model
 
                 // 2) ticket_historico: desvincular gestor y asignado
                 try {
-                    $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET gestor_id = NULL WHERE gestor_id = $id");
-                    $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET usuario_asignado = NULL WHERE usuario_asignado = $id");
+                    $db->CRUD("UPDATE estado_cuenta.ticket_historico SET gestor_id = NULL WHERE gestor_id = $id");
+                    $db->CRUD("UPDATE estado_cuenta.ticket_historico SET usuario_asignado = NULL WHERE usuario_asignado = $id");
                 } catch (\Exception $e) { /* ignorar si no existe */ }
 
                 // 3) Asignaciones de ticket
@@ -10427,38 +10427,38 @@ class CapHum extends Model
                 // ========== JERARQUÍA Y ORGANIGRAMA ==========
                 // 5) asigna_jefe: eliminar como persona subordinada
                 try {
-                    $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_persona = $id");
+                    $db->CRUD("DELETE FROM estado_cuenta.asigna_jefe WHERE id_persona = $id");
                 } catch (\Exception $e) { /* ignorar si no existe */ }
 
                 // 6) asigna_jefe: eliminar como jefe de otros (reasignar subordinados a NULL o eliminar)
                 try {
-                    $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_jefe = $id");
+                    $db->CRUD("DELETE FROM estado_cuenta.asigna_jefe WHERE id_jefe = $id");
                 } catch (\Exception $e) { /* ignorar si no existe */ }
 
                 // ========== ASIGNACIONES ==========
                 // 7) Puestos
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = $id");
+                $db->CRUD("DELETE FROM estado_cuenta.asigna_puesto WHERE id_persona = $id");
 
                 // 8) Bajas y reingresos
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = $id");
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.reingresos WHERE id_persona = $id");
+                $db->CRUD("DELETE FROM estado_cuenta.baja_persona WHERE id_persona = $id");
+                $db->CRUD("DELETE FROM estado_cuenta.reingresos WHERE id_persona = $id");
 
                 // 9) Legión
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_legion WHERE id_persona = $id");
+                $db->CRUD("DELETE FROM estado_cuenta.asigna_legion WHERE id_persona = $id");
 
                 // ========== DOCUMENTOS ==========
                 // 10) Documentos cargados
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona WHERE id_persona = $id");
+                $db->CRUD("DELETE FROM estado_cuenta.carga_documento_persona WHERE id_persona = $id");
 
                 // 11) documentos_persona
                 try {
-                    $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.documentos_persona WHERE id_persona = $id");
+                    $db->CRUD("DELETE FROM estado_cuenta.documentos_persona WHERE id_persona = $id");
                 } catch (\Exception $e) { /* ignorar si no existe */ }
 
                 // ========== PERFIL ==========
                 // 12) Perfil (si existe la tabla)
                 try {
-                    $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.perfil WHERE id_persona = $id");
+                    $db->CRUD("DELETE FROM estado_cuenta.perfil WHERE id_persona = $id");
                 } catch (\Exception $e) { /* ignorar si no existe */ }
 
                 // ========== SABUESO / CHAT ==========
@@ -10471,7 +10471,7 @@ class CapHum extends Model
 
                 // ========== FINALMENTE: ELIMINAR PERSONA ==========
                 // 14) Persona
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = $id");
+                $db->CRUD("DELETE FROM estado_cuenta.persona WHERE id = $id");
 
                 // Confirmar transacción
                 $db->commit();
@@ -10516,26 +10516,26 @@ class CapHum extends Model
             c_reingreso.id AS id_candidato_reingreso,
             c_reingreso.estatus AS estatus_candidato_reingreso,
             TRIM(CONCAT_WS(' ', c_reingreso.nombres, c_reingreso.segundo_nombre, c_reingreso.apellidop, c_reingreso.apellidom)) AS nombre_candidato_reingreso
-        FROM __SPARTA_SECRET_REDACTED__.persona p
-        INNER JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON p.id = bp.id_persona
+        FROM estado_cuenta.persona p
+        INNER JOIN estado_cuenta.baja_persona bp ON p.id = bp.id_persona
         INNER JOIN (
             SELECT id_persona, MAX(id) AS id_ultima_baja
-            FROM __SPARTA_SECRET_REDACTED__.baja_persona
+            FROM estado_cuenta.baja_persona
             GROUP BY id_persona
         ) ult ON bp.id_persona = ult.id_persona AND bp.id = ult.id_ultima_baja
-        LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id = (
+        LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id = (
             SELECT ap2.id
-            FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap2
+            FROM estado_cuenta.asigna_puesto ap2
             WHERE ap2.id_persona = p.id
             ORDER BY COALESCE(ap2.fecha_asignacion, '0000-00-00 00:00:00') DESC, ap2.id DESC
             LIMIT 1
         )
-        LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON ap.id_puesto = pu.id
-        LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON pu.departamento_id = d.id
-        LEFT JOIN __SPARTA_SECRET_REDACTED__.perfil pf ON pf.id_persona = p.id
-        LEFT JOIN __SPARTA_SECRET_REDACTED__.candidatos c_reingreso ON c_reingreso.id = (
+        LEFT JOIN estado_cuenta.puesto pu ON ap.id_puesto = pu.id
+        LEFT JOIN estado_cuenta.departamento d ON pu.departamento_id = d.id
+        LEFT JOIN estado_cuenta.perfil pf ON pf.id_persona = p.id
+        LEFT JOIN estado_cuenta.candidatos c_reingreso ON c_reingreso.id = (
             SELECT c2.id
-            FROM __SPARTA_SECRET_REDACTED__.candidatos c2
+            FROM estado_cuenta.candidatos c2
             WHERE c2.id_persona_reingreso = p.id
               AND COALESCE(c2.es_reingreso, 0) = 1
               AND COALESCE(c2.estatus, '') NOT IN ('Proceso cerrado', 'Eliminado')
@@ -10604,26 +10604,26 @@ class CapHum extends Model
             c_reingreso.id AS id_candidato_reingreso,
             c_reingreso.estatus AS estatus_candidato_reingreso,
             TRIM(CONCAT_WS(' ', c_reingreso.nombres, c_reingreso.segundo_nombre, c_reingreso.apellidop, c_reingreso.apellidom)) AS nombre_candidato_reingreso
-        FROM __SPARTA_SECRET_REDACTED__.persona p
-        INNER JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON p.id = bp.id_persona
+        FROM estado_cuenta.persona p
+        INNER JOIN estado_cuenta.baja_persona bp ON p.id = bp.id_persona
         INNER JOIN (
             SELECT id_persona, MAX(id) AS id_ultima_baja
-            FROM __SPARTA_SECRET_REDACTED__.baja_persona
+            FROM estado_cuenta.baja_persona
             GROUP BY id_persona
         ) ult ON bp.id_persona = ult.id_persona AND bp.id = ult.id_ultima_baja
-        LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id = (
+        LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id = (
             SELECT ap2.id
-            FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap2
+            FROM estado_cuenta.asigna_puesto ap2
             WHERE ap2.id_persona = p.id
             ORDER BY COALESCE(ap2.fecha_asignacion, '0000-00-00 00:00:00') DESC, ap2.id DESC
             LIMIT 1
         )
-        LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON ap.id_puesto = pu.id
-        LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON pu.departamento_id = d.id
-        LEFT JOIN __SPARTA_SECRET_REDACTED__.perfil pf ON pf.id_persona = p.id
-        LEFT JOIN __SPARTA_SECRET_REDACTED__.candidatos c_reingreso ON c_reingreso.id = (
+        LEFT JOIN estado_cuenta.puesto pu ON ap.id_puesto = pu.id
+        LEFT JOIN estado_cuenta.departamento d ON pu.departamento_id = d.id
+        LEFT JOIN estado_cuenta.perfil pf ON pf.id_persona = p.id
+        LEFT JOIN estado_cuenta.candidatos c_reingreso ON c_reingreso.id = (
             SELECT c2.id
-            FROM __SPARTA_SECRET_REDACTED__.candidatos c2
+            FROM estado_cuenta.candidatos c2
             WHERE c2.id_persona_reingreso = p.id
               AND COALESCE(c2.es_reingreso, 0) = 1
               AND COALESCE(c2.estatus, '') NOT IN ('Proceso cerrado', 'Eliminado')
@@ -10659,9 +10659,9 @@ class CapHum extends Model
         // Multipuesto (si se requiere filtrar por empleados con más de un puesto)
         if (isset($filtros['multipuesto']) && $filtros['multipuesto'] !== '' && $filtros['multipuesto'] !== null) {
             if ($filtros['multipuesto'] === 'multiples') {
-                $query .= " AND (SELECT COUNT(*) FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap2 WHERE ap2.id_persona = p.id) > 1";
+                $query .= " AND (SELECT COUNT(*) FROM estado_cuenta.asigna_puesto ap2 WHERE ap2.id_persona = p.id) > 1";
             } elseif ($filtros['multipuesto'] === 'unico') {
-                $query .= " AND (SELECT COUNT(*) FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap2 WHERE ap2.id_persona = p.id) = 1";
+                $query .= " AND (SELECT COUNT(*) FROM estado_cuenta.asigna_puesto ap2 WHERE ap2.id_persona = p.id) = 1";
             }
         }
 
@@ -10700,7 +10700,7 @@ class CapHum extends Model
                     nombres AS nombre,
                     apellidop AS apellido_paterno,
                     apellidom AS apellido_materno
-                FROM __SPARTA_SECRET_REDACTED__.persona
+                FROM estado_cuenta.persona
                 WHERE id = :id
             ", ['id' => $id_persona]);
             if (!$persona) {
@@ -10716,7 +10716,7 @@ class CapHum extends Model
                 $colsTicket = $db->queryAll("
                     SELECT COLUMN_NAME
                     FROM INFORMATION_SCHEMA.COLUMNS
-                    WHERE TABLE_SCHEMA = '__SPARTA_SECRET_REDACTED__'
+                    WHERE TABLE_SCHEMA = 'estado_cuenta'
                       AND TABLE_NAME = 'ticket_historico'
                       AND COLUMN_NAME IN ('gestor_id', 'usuario_asignado')
                 ");
@@ -10731,7 +10731,7 @@ class CapHum extends Model
                 $rowsTablas = $db->queryAll("
                     SELECT TABLE_NAME
                     FROM INFORMATION_SCHEMA.TABLES
-                    WHERE TABLE_SCHEMA = '__SPARTA_SECRET_REDACTED__'
+                    WHERE TABLE_SCHEMA = 'estado_cuenta'
                       AND TABLE_NAME IN (
                           'documentos_persona',
                           'carga_documento_persona',
@@ -10752,93 +10752,93 @@ class CapHum extends Model
             }
 
             // 1. asigna_puesto
-            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = :id", ['id' => $id_persona]);
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.asigna_puesto WHERE id_persona = :id", ['id' => $id_persona]);
             if ($count['c'] > 0) $dependencias['asigna_puesto'] = (int)$count['c'];
 
             // 2. asigna_jefe (como persona)
-            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_persona = :id", ['id' => $id_persona]);
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.asigna_jefe WHERE id_persona = :id", ['id' => $id_persona]);
             if ($count['c'] > 0) $dependencias['asigna_jefe_persona'] = (int)$count['c'];
 
             // 3. asigna_jefe (como jefe de otros)
-            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_jefe = :id", ['id' => $id_persona]);
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.asigna_jefe WHERE id_jefe = :id", ['id' => $id_persona]);
             if ($count['c'] > 0) $dependencias['asigna_jefe_jefe'] = (int)$count['c'];
 
             // 4. asigna_legion
-            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_legion WHERE id_persona = :id", ['id' => $id_persona]);
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.asigna_legion WHERE id_persona = :id", ['id' => $id_persona]);
             if ($count['c'] > 0) $dependencias['asigna_legion'] = (int)$count['c'];
 
             // 5. baja_persona
-            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = :id", ['id' => $id_persona]);
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.baja_persona WHERE id_persona = :id", ['id' => $id_persona]);
             if ($count['c'] > 0) $dependencias['baja_persona'] = (int)$count['c'];
             // 5b. reingresos
             if (!empty($tablasOpcionales['reingresos'])) {
-                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.reingresos WHERE id_persona = :id", ['id' => $id_persona]);
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.reingresos WHERE id_persona = :id", ['id' => $id_persona]);
                 if ($count['c'] > 0) $dependencias['reingresos'] = (int)$count['c'];
             }
 
             // 6. ticket_historico (gestor_id)
             if (!empty($columnasTicketHistorico['gestor_id'])) {
-                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.ticket_historico WHERE gestor_id = :id", ['id' => $id_persona]);
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.ticket_historico WHERE gestor_id = :id", ['id' => $id_persona]);
                 if ($count['c'] > 0) $dependencias['ticket_historico_gestor'] = (int)$count['c'];
             }
 
             // 7. ticket_historico (usuario_asignado)
             if (!empty($columnasTicketHistorico['usuario_asignado'])) {
-                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.ticket_historico WHERE usuario_asignado = :id", ['id' => $id_persona]);
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.ticket_historico WHERE usuario_asignado = :id", ['id' => $id_persona]);
                 if ($count['c'] > 0) $dependencias['ticket_historico_asignado'] = (int)$count['c'];
             }
 
             // 8. documentos_persona
             if (!empty($tablasOpcionales['documentos_persona'])) {
-                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.documentos_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.documentos_persona WHERE id_persona = :id", ['id' => $id_persona]);
                 if ($count['c'] > 0) $dependencias['documentos_persona'] = (int)$count['c'];
             }
 
             // 9. carga_documento_persona
             if (!empty($tablasOpcionales['carga_documento_persona'])) {
-                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.carga_documento_persona WHERE id_persona = :id", ['id' => $id_persona]);
                 if ($count['c'] > 0) $dependencias['carga_documento_persona'] = (int)$count['c'];
             }
 
             // 10. persona_datos_rrhh
             if (!empty($tablasOpcionales['persona_datos_rrhh'])) {
-                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.persona_datos_rrhh WHERE id_persona = :id", ['id' => $id_persona]);
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.persona_datos_rrhh WHERE id_persona = :id", ['id' => $id_persona]);
                 if ($count['c'] > 0) $dependencias['persona_datos_rrhh'] = (int)$count['c'];
             }
 
             // 11. perfil
             if (!empty($tablasOpcionales['perfil'])) {
-                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.perfil WHERE id_persona = :id", ['id' => $id_persona]);
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.perfil WHERE id_persona = :id", ['id' => $id_persona]);
                 if ($count['c'] > 0) $dependencias['perfil'] = (int)$count['c'];
             }
 
             // 12. privilegios_departamento
             if (!empty($tablasOpcionales['privilegios_departamento'])) {
-                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.privilegios_departamento WHERE idPersona = :id", ['id' => $id_persona]);
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.privilegios_departamento WHERE idPersona = :id", ['id' => $id_persona]);
                 if ($count['c'] > 0) $dependencias['privilegios_departamento'] = (int)$count['c'];
             }
 
             // 13. asigna_modulo_web
             if (!empty($tablasOpcionales['asigna_modulo_web'])) {
-                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_modulo_web WHERE usuario_id = :id", ['id' => $id_persona]);
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.asigna_modulo_web WHERE usuario_id = :id", ['id' => $id_persona]);
                 if ($count['c'] > 0) $dependencias['asigna_modulo_web'] = (int)$count['c'];
             }
 
             // 14. asigna_creditos_adjudicacion (historial de alta)
             if (!empty($tablasOpcionales['asigna_creditos_adjudicacion'])) {
-                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_creditos_adjudicacion WHERE alta = :id", ['id' => $id_persona]);
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.asigna_creditos_adjudicacion WHERE alta = :id", ['id' => $id_persona]);
                 if ($count['c'] > 0) $dependencias['asigna_creditos_adjudicacion_alta'] = (int)$count['c'];
             }
 
             // 15. personal_adjudicacion
             if (!empty($tablasOpcionales['personal_adjudicacion'])) {
-                $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.personal_adjudicacion WHERE id_persona = :id", ['id' => $id_persona]);
+                $count = $db->queryOne("SELECT COUNT(*) as c FROM estado_cuenta.personal_adjudicacion WHERE id_persona = :id", ['id' => $id_persona]);
                 if ($count['c'] > 0) $dependencias['personal_adjudicacion'] = (int)$count['c'];
                 if (!empty($tablasOpcionales['asigna_creditos_adjudicacion'])) {
                     $count = $db->queryOne("
                         SELECT COUNT(*) as c
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_creditos_adjudicacion aca
-                        INNER JOIN __SPARTA_SECRET_REDACTED__.personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+                        FROM estado_cuenta.asigna_creditos_adjudicacion aca
+                        INNER JOIN estado_cuenta.personal_adjudicacion pa ON pa.id = aca.id_personal_adj
                         WHERE pa.id_persona = :id
                     ", ['id' => $id_persona]);
                     if ($count['c'] > 0) $dependencias['asigna_creditos_adjudicacion_personal_adj'] = (int)$count['c'];
@@ -10860,39 +10860,39 @@ class CapHum extends Model
 
             try {
                 // Eliminar en orden de dependencias
-                if (!empty($tablasOpcionales['documentos_persona'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.documentos_persona WHERE id_persona = :id", ['id' => $id_persona]);
-                if (!empty($tablasOpcionales['carga_documento_persona'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona WHERE id_persona = :id", ['id' => $id_persona]);
-                if (!empty($tablasOpcionales['persona_datos_rrhh'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.persona_datos_rrhh WHERE id_persona = :id", ['id' => $id_persona]);
-                if (!empty($tablasOpcionales['perfil'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.perfil WHERE id_persona = :id", ['id' => $id_persona]);
-                if (!empty($tablasOpcionales['privilegios_departamento'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.privilegios_departamento WHERE idPersona = :id", ['id' => $id_persona]);
-                if (!empty($tablasOpcionales['asigna_modulo_web'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_modulo_web WHERE usuario_id = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['documentos_persona'])) $db->CRUD("DELETE FROM estado_cuenta.documentos_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['carga_documento_persona'])) $db->CRUD("DELETE FROM estado_cuenta.carga_documento_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['persona_datos_rrhh'])) $db->CRUD("DELETE FROM estado_cuenta.persona_datos_rrhh WHERE id_persona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['perfil'])) $db->CRUD("DELETE FROM estado_cuenta.perfil WHERE id_persona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['privilegios_departamento'])) $db->CRUD("DELETE FROM estado_cuenta.privilegios_departamento WHERE idPersona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['asigna_modulo_web'])) $db->CRUD("DELETE FROM estado_cuenta.asigna_modulo_web WHERE usuario_id = :id", ['id' => $id_persona]);
                 if (!empty($tablasOpcionales['personal_adjudicacion']) && !empty($tablasOpcionales['asigna_creditos_adjudicacion'])) {
                     $db->CRUD("
                         DELETE aca
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_creditos_adjudicacion aca
-                        INNER JOIN __SPARTA_SECRET_REDACTED__.personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+                        FROM estado_cuenta.asigna_creditos_adjudicacion aca
+                        INNER JOIN estado_cuenta.personal_adjudicacion pa ON pa.id = aca.id_personal_adj
                         WHERE pa.id_persona = :id
                     ", ['id' => $id_persona]);
                 }
-                if (!empty($tablasOpcionales['personal_adjudicacion'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.personal_adjudicacion WHERE id_persona = :id", ['id' => $id_persona]);
-                if (!empty($tablasOpcionales['asigna_creditos_adjudicacion'])) $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.asigna_creditos_adjudicacion SET alta = NULL WHERE alta = :id", ['id' => $id_persona]);
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_legion WHERE id_persona = :id", ['id' => $id_persona]);
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_persona = :id", ['id' => $id_persona]);
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_jefe = :id", ['id' => $id_persona]);
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = :id", ['id' => $id_persona]);
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = :id", ['id' => $id_persona]);
-                if (!empty($tablasOpcionales['reingresos'])) $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.reingresos WHERE id_persona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['personal_adjudicacion'])) $db->CRUD("DELETE FROM estado_cuenta.personal_adjudicacion WHERE id_persona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['asigna_creditos_adjudicacion'])) $db->CRUD("UPDATE estado_cuenta.asigna_creditos_adjudicacion SET alta = NULL WHERE alta = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM estado_cuenta.asigna_legion WHERE id_persona = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM estado_cuenta.asigna_jefe WHERE id_persona = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM estado_cuenta.asigna_jefe WHERE id_jefe = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM estado_cuenta.asigna_puesto WHERE id_persona = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM estado_cuenta.baja_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                if (!empty($tablasOpcionales['reingresos'])) $db->CRUD("DELETE FROM estado_cuenta.reingresos WHERE id_persona = :id", ['id' => $id_persona]);
 
                 // Para tickets, en lugar de eliminar, ponemos NULL (para no perder historial)
                 if (!empty($columnasTicketHistorico['gestor_id'])) {
-                    $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET gestor_id = NULL WHERE gestor_id = :id", ['id' => $id_persona]);
+                    $db->CRUD("UPDATE estado_cuenta.ticket_historico SET gestor_id = NULL WHERE gestor_id = :id", ['id' => $id_persona]);
                 }
                 if (!empty($columnasTicketHistorico['usuario_asignado'])) {
-                    $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET usuario_asignado = NULL WHERE usuario_asignado = :id", ['id' => $id_persona]);
+                    $db->CRUD("UPDATE estado_cuenta.ticket_historico SET usuario_asignado = NULL WHERE usuario_asignado = :id", ['id' => $id_persona]);
                 }
 
                 // Finalmente eliminar la persona
-                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM estado_cuenta.persona WHERE id = :id", ['id' => $id_persona]);
 
                 $db->commit();
 
@@ -10926,7 +10926,7 @@ class CapHum extends Model
             return '';
         }
         $nr = $db->queryOne(
-            'SELECT nombre FROM __SPARTA_SECRET_REDACTED__.divisiones_administrativas WHERE id = :id AND activo = 1 LIMIT 1',
+            'SELECT nombre FROM estado_cuenta.divisiones_administrativas WHERE id = :id AND activo = 1 LIMIT 1',
             ['id' => (int) $idFk]
         );
 

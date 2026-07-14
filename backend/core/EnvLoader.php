@@ -8,13 +8,24 @@ class EnvLoader
 
     public static function load(): void
     {
-        if (self::$loaded) {
+        if (self::$loaded && self::principalConfigurada()) {
             return;
         }
         self::$loaded = true;
 
-        $path = getenv('SPARTA_ENV_FILE') ?: 'C:\\xampp\\secure\\sparta_ledger.env';
-        if (!is_file($path) || !is_readable($path)) {
+        $configuredPath = getenv('SPARTA_ENV_FILE') ?: '';
+        $defaultPath = 'C:\\xampp\\secure\\sparta_ledger.env';
+        $paths = array_values(array_unique(array_filter([$configuredPath, $defaultPath])));
+
+        $path = '';
+        foreach ($paths as $candidatePath) {
+            if (is_file($candidatePath) && is_readable($candidatePath)) {
+                $path = $candidatePath;
+                break;
+            }
+        }
+
+        if ($path === '') {
             return;
         }
 
@@ -32,7 +43,8 @@ class EnvLoader
             [$key, $value] = explode('=', $line, 2);
             $key = trim($key);
             $value = trim($value);
-            if ($key === '' || getenv($key) !== false) {
+            $currentValue = getenv($key);
+            if ($key === '' || ($currentValue !== false && trim((string) $currentValue) !== '')) {
                 continue;
             }
 
@@ -49,5 +61,18 @@ class EnvLoader
             $_ENV[$key] = $value;
             $_SERVER[$key] = $value;
         }
+    }
+
+    private static function principalConfigurada(): bool
+    {
+        $host = getenv('DB_HOST') ?: getenv('DB_SERVIDOR') ?: '';
+        $name = getenv('DB_NAME') ?: getenv('DB_ESQUEMA') ?: '';
+        $user = getenv('DB_USER') ?: getenv('DB_USUARIO') ?: '';
+        $pass = getenv('DB_PASSWORD') ?: getenv('DB_PASS') ?: '';
+
+        return trim((string) $host) !== ''
+            && trim((string) $name) !== ''
+            && trim((string) $user) !== ''
+            && trim((string) $pass) !== '';
     }
 }

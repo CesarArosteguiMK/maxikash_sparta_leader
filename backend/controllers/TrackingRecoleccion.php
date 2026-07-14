@@ -1143,6 +1143,68 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * POST /TrackingRecoleccion/trackingGenerarOtpAlmacen
+     * Body JSON: { id_unidad?, id_credito?, id_detalle? }
+     * Crea una prealta tecnica si hace falta y genera el OTP sin ingresar aun la unidad al inventario visible.
+     * Proxy: POST /api/almacen/unidades/{id_unidad}/otp/generar
+     */
+    public function trackingGenerarOtpAlmacen()
+    {
+        $raw  = (string)file_get_contents('php://input');
+        $data = json_decode($raw, true) ?: [];
+        $idUnidad = (int)($data['id_unidad'] ?? 0);
+        $idCredito = (int)($data['id_credito'] ?? 0);
+        if ($idUnidad <= 0) {
+            if ($idCredito <= 0) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'id_unidad o id_credito requerido.']);
+                return;
+            }
+
+            $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+            $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+            try {
+                $sincronizacion = (new AlmacenVirtualModel())->asegurarUnidadRecolectadaPorCredito(
+                    $idCredito,
+                    $idUsuario,
+                    $nombreUsuario
+                );
+            } catch (\Throwable $e) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo preparar la unidad en Almacen Virtual.']);
+                return;
+            }
+
+            if (empty($sincronizacion['success'])) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => $sincronizacion['message'] ?? 'No se pudo preparar la unidad en Almacen Virtual.',
+                ]);
+                return;
+            }
+            $idUnidad = (int) ($sincronizacion['unidad']['id_unidad'] ?? 0);
+            if ($idUnidad <= 0) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'La sincronizacion no devolvio una unidad valida.']);
+                return;
+            }
+        }
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking no disponible.']);
+            return;
+        }
+
+        $url  = $this->_trkTrackingBuildUrl($cfg['base_url'], "/api/almacen/unidades/{$idUnidad}/otp/generar");
+        $resp = $this->_trkChatCurl($url, 'POST', '{}', [
+            'Content-Type: application/json',
+            'X-API-Key: ' . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
      * POST /TrackingRecoleccion/trackingValidarOtp
      * Body JSON: { id_detalle, codigo, origen? }
      * Proxy: POST /api/tracking/detalles/{id_detalle}/otp/validar

@@ -12,6 +12,7 @@ class AlmacenVirtual extends Model
     private const CELULA_FURIAMOTOS = 2;
     private const TRACKING_ESTATUS_RECOLECTADA = ['recolectada', 'recolectado', 'completado', 'completada'];
     private const TRACKING_RUTAS_NO_INVENTARIO = ['borrador', 'cancelada'];
+    private const ESTATUS_PENDIENTE_ENTREGA_CEDIS = 'pendiente_entrega_cedis';
     private const ESTATUS_PENDIENTE_EVIDENCIAS = 'pendiente_evidencias';
     private const ESTATUS_INCIDENCIA_EVIDENCIAS = 'incidencia_evidencias';
     private const ESTATUS_PENDIENTE_RECEPCION = 'pendiente_recepcion';
@@ -156,13 +157,15 @@ class AlmacenVirtual extends Model
         $total = $this->db->queryOne(
             "SELECT COUNT(*) AS total
              FROM av_unidades
-             WHERE deleted_at IS NULL"
+             WHERE deleted_at IS NULL
+               AND estatus_inventario <> 'pendiente_entrega_cedis'"
         );
 
         $estatusRows = $this->db->queryAll(
             "SELECT estatus_inventario, COUNT(*) AS total
              FROM av_unidades
              WHERE deleted_at IS NULL
+               AND estatus_inventario <> 'pendiente_entrega_cedis'
              GROUP BY estatus_inventario
              ORDER BY total DESC, estatus_inventario ASC"
         ) ?: [];
@@ -172,6 +175,7 @@ class AlmacenVirtual extends Model
             "SELECT id_celula, COUNT(*) AS total
              FROM av_unidades
              WHERE deleted_at IS NULL
+               AND estatus_inventario <> 'pendiente_entrega_cedis'
              GROUP BY id_celula
              ORDER BY id_celula ASC"
         ) ?: [];
@@ -206,8 +210,11 @@ class AlmacenVirtual extends Model
         $limit = max(1, min(100, (int) ($filtros['limit'] ?? 8)));
         $trackingDisponible = $this->trackingRecoleccionDisponible();
 
-        $where = ['u.deleted_at IS NULL'];
-        $params = [];
+        $where = [
+            'u.deleted_at IS NULL',
+            'u.estatus_inventario <> :estatus_prealta_cedis',
+        ];
+        $params = ['estatus_prealta_cedis' => self::ESTATUS_PENDIENTE_ENTREGA_CEDIS];
 
         $q = trim((string) ($filtros['q'] ?? ''));
         if ($q !== '') {
@@ -3393,7 +3400,7 @@ class AlmacenVirtual extends Model
             'cilindraje' => null,
             'estatus_inventario' => $estatusInicial,
             'id_ubicacion_actual' => $idUbicacion,
-            'fecha_ingreso_virtual' => $ahora,
+            'fecha_ingreso_virtual' => $estatusInicial === self::ESTATUS_PENDIENTE_ENTREGA_CEDIS ? null : $ahora,
             'creado_por' => $idUsuario > 0 ? $idUsuario : null,
             'actualizado_por' => $idUsuario > 0 ? $idUsuario : null,
             'fecha_alta' => $ahora,
@@ -3412,12 +3419,14 @@ class AlmacenVirtual extends Model
 
             $this->registrarMovimiento(
                 $idUnidad,
-                'ingreso_virtual',
+                $estatusInicial === self::ESTATUS_PENDIENTE_ENTREGA_CEDIS ? 'prealta_entrega_cedis' : 'ingreso_virtual',
                 null,
                 $estatusInicial,
                 null,
                 $idUbicacion,
-                'Creada desde Motos Adjudicadas con recoleccion confirmada en Tracking.',
+                $estatusInicial === self::ESTATUS_PENDIENTE_ENTREGA_CEDIS
+                    ? 'Prealta creada para validar la entrega fisica en CEDIS mediante OTP.'
+                    : 'Creada desde Motos Adjudicadas con recepcion previamente confirmada.',
                 $idUsuario,
                 $nombreUsuario,
                 $ahora
@@ -3425,7 +3434,9 @@ class AlmacenVirtual extends Model
             $this->registrarBitacora(
                 $idUnidad,
                 'Inventario Motos Adjudicadas',
-                'UNIDAD CREADA DESDE MOTOS ADJUDICADAS',
+                $estatusInicial === self::ESTATUS_PENDIENTE_ENTREGA_CEDIS
+                    ? 'PREALTA CREADA PARA ENTREGA EN CEDIS'
+                    : 'UNIDAD CREADA DESDE MOTOS ADJUDICADAS',
                 'Operacion #' . $idOperacion,
                 [
                     'id_operacion' => $idOperacion,
@@ -5170,7 +5181,7 @@ class AlmacenVirtual extends Model
             return self::ESTATUS_PENDIENTE_REVISION;
         }
 
-        return self::ESTATUS_PENDIENTE_EVIDENCIAS;
+        return self::ESTATUS_PENDIENTE_ENTREGA_CEDIS;
     }
 
     private function adjOperacionSelectColumnaONull(string $columna, string $alias): string
