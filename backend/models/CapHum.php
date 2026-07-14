@@ -71,15 +71,19 @@ class CapHum extends Model
             return;
         }
 
-        $columna = $db->queryOne("SHOW COLUMNS FROM __SPARTA_SECRET_REDACTED__.persona LIKE 'es_externo'");
-        if (!$columna) {
-            $db->CRUD("
-                ALTER TABLE __SPARTA_SECRET_REDACTED__.persona
-                ADD COLUMN es_externo TINYINT(1) NOT NULL DEFAULT 0 AFTER codigo_contpac
-            ");
+        $columnaActual = $db->queryOne("
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'persona'
+              AND COLUMN_NAME = 'es_externo'
+            LIMIT 1
+        ");
+        if (!$columnaActual) {
+            $db->CRUD("ALTER TABLE persona ADD COLUMN es_externo TINYINT(1) NOT NULL DEFAULT 0 AFTER codigo_contpac");
         }
-
         self::$personaEsExternoColumnaAsegurada = true;
+        return;
     }
 
     public static function asegurarModuloAccesosCapitalHumano(): void
@@ -1202,6 +1206,7 @@ class CapHum extends Model
         SQL;
         }
 
+        $query = preg_replace('/\b[A-Za-z0-9_]+\.reingresos\b/', 'reingresos', $query);
 
         try {
             $db = new Database();
