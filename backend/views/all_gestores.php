@@ -6544,8 +6544,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <div class="mb-5"></div>
 
                         <!-- Botones de Acción -->
-                        <div class="row row-cols-1 row-cols-md-3 g-3">
-                            <div class="col-12 d-flex gap-2 justify-content-end">
+                        <div class="d-flex flex-wrap justify-content-end gap-2 pt-2">
                                 <button
                                     type="button"
                                     id="btnLimpiarFiltroBajas"
@@ -6562,12 +6561,42 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                 >
                                     <i class="fa fa-download me-2"></i>Descargar Excel
                                 </button>
-                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <script>
+            (() => {
+                const textosPeriodo = {
+                    'ultimo-mes': 'Último Mes',
+                    'ultimos-3-meses': 'Últimos 3 Meses',
+                    'ultimos-6-meses': 'Últimos 6 Meses',
+                    'ano-actual': 'Año Actual'
+                };
+
+                Object.entries(textosPeriodo).forEach(([periodo, texto]) => {
+                    const boton = document.querySelector(`#filtroFechaBajas [data-periodo="${periodo}"]`);
+                    if (!boton) return;
+                    const icono = boton.querySelector('i');
+                    boton.innerHTML = `${icono ? icono.outerHTML : ''}${texto}`;
+                });
+
+                const etiquetaFiltros = document.querySelector('#filtroFechaBajas .form-label.fw-semibold.mb-2');
+                if (etiquetaFiltros) {
+                    const icono = etiquetaFiltros.querySelector('i');
+                    etiquetaFiltros.innerHTML = `${icono ? icono.outerHTML : ''}Filtros Rápidos`;
+                }
+
+                const vistaEstandar = document.querySelector('#vbtn-default-b');
+                if (vistaEstandar) {
+                    vistaEstandar.dataset.tip = 'Vista Estándar';
+                    const texto = vistaEstandar.querySelector('.kpi-btn-text');
+                    if (texto) texto.textContent = 'Estándar';
+                }
+            })();
+        </script>
 
         <!-- =======================
              TABLA
