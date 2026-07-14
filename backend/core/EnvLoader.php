@@ -8,7 +8,7 @@ class EnvLoader
 
     public static function load(): void
     {
-        if (self::$loaded) {
+        if (self::$loaded && self::principalConfigurada()) {
             return;
         }
         self::$loaded = true;
@@ -61,5 +61,18 @@ class EnvLoader
             $_ENV[$key] = $value;
             $_SERVER[$key] = $value;
         }
+    }
+
+    private static function principalConfigurada(): bool
+    {
+        $host = getenv('DB_HOST') ?: getenv('DB_SERVIDOR') ?: '';
+        $name = getenv('DB_NAME') ?: getenv('DB_ESQUEMA') ?: '';
+        $user = getenv('DB_USER') ?: getenv('DB_USUARIO') ?: '';
+        $pass = getenv('DB_PASSWORD') ?: getenv('DB_PASS') ?: '';
+
+        return trim((string) $host) !== ''
+            && trim((string) $name) !== ''
+            && trim((string) $user) !== ''
+            && trim((string) $pass) !== '';
     }
 }
