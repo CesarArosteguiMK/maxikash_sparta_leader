@@ -92,7 +92,7 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
     <div class="ch-audit-head">
         <div>
             <h1 class="ch-audit-title"><i class="fa-solid fa-shield-halved"></i><span>Auditoria RR.HH.</span></h1>
-            <p class="ch-audit-subtitle">Control de accesos sensibles, Google Authenticator e intentos sobre documentos y salarios.</p>
+            <p class="ch-audit-subtitle">Control de accesos sensibles, Google Authenticator y descargas de reportes de personal.</p>
         </div>
         <div class="ch-audit-actions">
             <button class="btn btn-label-secondary" type="button" id="chAuditRefresh">
@@ -246,7 +246,7 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
                             <th>Entidad</th>
                             <th>Accion</th>
                             <th>Resumen</th>
-                            <th>Cambios</th>
+                            <th>Detalle</th>
                         </tr>
                     </thead>
                     <tbody id="chIaBody">
@@ -494,11 +494,13 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
     const internalAccionLabel = (accion) => String(accion || 'evento').replaceAll('_', ' ');
     const renderInternalCambios = (row) => {
         const cambios = row.cambios && typeof row.cambios === 'object' ? row.cambios : {};
-        const keys = Object.keys(cambios);
-        if (!keys.length) {
-            return '<span class="ch-audit-empty d-block p-0 text-start">Sin cambios detallados.</span>';
+        const detalle = row.detalle && typeof row.detalle === 'object' ? row.detalle : {};
+        const keysCambios = Object.keys(cambios);
+        const keysDetalle = Object.keys(detalle);
+        if (!keysCambios.length && !keysDetalle.length) {
+            return '<span class="ch-audit-empty d-block p-0 text-start">Sin detalle registrado.</span>';
         }
-        const visible = keys.slice(0, 4).map((key) => {
+        const cambiosHtml = keysCambios.slice(0, 4).map((key) => {
             const c = cambios[key] || {};
             return `<div class="ch-ia-change">
                 <strong>${escapeHtml(key)}</strong>
@@ -506,8 +508,15 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
                 <span>Despues: ${textOrDash(shortValue(c.despues))}</span>
             </div>`;
         }).join('');
-        const more = keys.length > 4 ? `<span class="ch-ia-more">+${keys.length - 4} cambio(s) mas.</span>` : '';
-        return `<div class="ch-ia-change-list">${visible}${more}</div>`;
+        const detalleHtml = keysDetalle.slice(0, 4).map((key) => `
+            <div class="ch-ia-change">
+                <strong>${escapeHtml(key.replaceAll('_', ' '))}</strong>
+                <span>${textOrDash(shortValue(detalle[key]))}</span>
+            </div>
+        `).join('');
+        const restantes = Math.max(0, keysCambios.length - 4) + Math.max(0, keysDetalle.length - 4);
+        const more = restantes > 0 ? `<span class="ch-ia-more">+${restantes} detalle(s) mas.</span>` : '';
+        return `<div class="ch-ia-change-list">${cambiosHtml}${detalleHtml}${more}</div>`;
     };
     const renderInternalRows = () => {
         const tbody = $('#chIaBody');

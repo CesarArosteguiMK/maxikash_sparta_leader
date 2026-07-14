@@ -26,7 +26,7 @@ class LeonidasSemanticQueryService
 
             $plan = $this->planificar($mensaje);
             if (!is_array($plan) || ($plan['accion'] ?? '') !== 'consultar_datos') {
-                return null;
+                return (new LeonidasUniversalQueryService())->resolver($mensaje, $actorId);
             }
             return $this->ejecutar($plan, $actorId);
         } catch (\InvalidArgumentException $error) {

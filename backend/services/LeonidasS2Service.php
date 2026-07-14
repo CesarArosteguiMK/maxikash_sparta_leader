@@ -1,0 +1,131 @@
+<?php
+
+namespace Services;
+
+use Controllers\EstadoCuenta;
+
+/**
+ * Read-only adapter for the S2 Estado de Cuenta API already used by Sparta.
+ */
+class LeonidasS2Service
+{
+    /** @return array<string, mixed> */
+    public function consultarCredito(int $idCredito, ?string $fechaCorte = null): array
+    {
+        if ($idCredito <= 0) {
+            throw new \InvalidArgumentException('El id de credito debe ser mayor que cero.');
+        }
+
+        $fechaCorte = $this->normalizarFecha($fechaCorte);
+        $controller = new EstadoCuenta();
+        $method = 'api_' . 'maxi' . 'kash';
+        if (!method_exists($controller, $method)) {
+            throw new \RuntimeException('El conector de S2 no esta disponible en esta version de Sparta.');
+        }
+
+        $response = $controller->{$method}($idCredito, $fechaCorte, 15);
+        if (empty($response['ok'])) {
+            $message = trim((string) ($response['error'] ?? 'S2 no devolvio informacion para el credito solicitado.'));
+            throw new \RuntimeException($message !== '' ? $message : 'S2 no respondio correctamente.');
+        }
+
+        $data = is_array($response['data'] ?? null) ? $response['data'] : [];
+        $payments = $this->buscarLista($data, ['datospagos', 'pagos', 'paymentdata']);
+        $paymentSummary = $this->resumirPagos($payments);
+
+        $metrics = [
+            'id_credito' => $idCredito,
+            'fecha_corte' => $fechaCorte,
+            'pagos_registrados' => count($payments),
+            'ultimo_pago_fecha' => $paymentSummary['fecha'],
+            'ultimo_pago_monto' => $paymentSummary['monto'],
+            'saldo' => $this->buscarEscalar($data, ['saldototal', 'saldoactual', 'saldo', 'saldocapital']),
+            'saldo_vencido' => $this->buscarEscalar($data, ['saldovencido', 'montovencido', 'vencido']),
+            'mora' => $this->buscarEscalar($data, ['mora', 'diasmora', 'diasatraso']),
+            'estatus' => $this->buscarEscalar($data, ['estatuscredito', 'estadocredito', 'estatus', 'estado']),
+            'cliente' => $this->buscarEscalar($data, ['nombrecliente', 'cliente', 'nombrecompleto']),
+        ];
+
+        return [
+            'fuente' => 's2_estado_cuenta',
+            'metricas' => array_filter($metrics, static fn($value): bool => $value !== null && $value !== ''),
+        ];
+    }
+
+    private function normalizarFecha(?string $fecha): string
+    {
+        if ($fecha === null || trim($fecha) === '') {
+            return (new \DateTimeImmutable('today', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d');
+        }
+        $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', trim($fecha));
+        if (!$parsed || $parsed->format('Y-m-d') !== trim($fecha)) {
+            throw new \InvalidArgumentException('La fecha de corte debe tener formato YYYY-MM-DD.');
+        }
+        return $parsed->format('Y-m-d');
+    }
+
+    /** @param array<string, mixed> $data @param string[] $keys @return array<int, array<string, mixed>> */
+    private function buscarLista(array $data, array $keys): array
+    {
+        foreach ($data as $key => $value) {
+            if (in_array($this->normalizarClave((string) $key), $keys, true) && is_array($value)) {
+                return array_values(array_filter($value, 'is_array'));
+            }
+            if (is_array($value)) {
+                $found = $this->buscarLista($value, $keys);
+                if ($found !== []) {
+                    return $found;
+                }
+            }
+        }
+        return [];
+    }
+
+    /** @param array<string, mixed> $data @param string[] $keys */
+    private function buscarEscalar(array $data, array $keys)
+    {
+        foreach ($data as $key => $value) {
+            if (in_array($this->normalizarClave((string) $key), $keys, true) && is_scalar($value)) {
+                return $value;
+            }
+        }
+        foreach ($data as $value) {
+            if (!is_array($value)) {
+                continue;
+            }
+            $found = $this->buscarEscalar($value, $keys);
+            if ($found !== null && $found !== '') {
+                return $found;
+            }
+        }
+        return null;
+    }
+
+    /** @param array<int, array<string, mixed>> $payments @return array{fecha:?string,monto:mixed} */
+    private function resumirPagos(array $payments): array
+    {
+        $latest = null;
+        $latestTimestamp = 0;
+        foreach ($payments as $payment) {
+            $date = $this->buscarEscalar($payment, ['fechadeposito', 'fecharegistro', 'fechavalor', 'fecha']);
+            $timestamp = is_numeric($date) ? (int) $date : strtotime((string) $date);
+            if ($timestamp && $timestamp >= $latestTimestamp) {
+                $latestTimestamp = $timestamp;
+                $latest = $payment;
+            }
+        }
+        if ($latest === null) {
+            return ['fecha' => null, 'monto' => null];
+        }
+        return [
+            'fecha' => date('Y-m-d', $latestTimestamp),
+            'monto' => $this->buscarEscalar($latest, ['monto', 'importe', 'cantidad', 'pagototal']),
+        ];
+    }
+
+    private function normalizarClave(string $key): string
+    {
+        $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', mb_strtolower($key, 'UTF-8'));
+        return preg_replace('/[^a-z0-9]/', '', $ascii === false ? $key : $ascii) ?: '';
+    }
+}

@@ -8926,7 +8926,10 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
   function renderColumnasPlantillaGestoresRrhh() {
     const grupos = {};
-    columnasPlantillaGestoresRrhh.forEach(col => {
+    const columnasVisibles = columnasPlantillaGestoresRrhh.filter(col =>
+      !col.sensible || !!window.puedeVerSalarioSensibleRrhh
+    );
+    columnasVisibles.forEach(col => {
       if (!grupos[col.grupo]) grupos[col.grupo] = [];
       grupos[col.grupo].push(col);
     });
@@ -8936,17 +8939,15 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         <div class="plantilla-card-header">
           <div class="plantilla-card-title">
             <i class="fa ${grupo === 'Sensible' ? 'fa-lock' : grupo === 'Estructura' ? 'fa-building-columns' : grupo === 'Asignacion' ? 'fa-sitemap' : grupo === 'Laboral' ? 'fa-briefcase' : grupo === 'Contacto' ? 'fa-envelope' : grupo === 'Documentos' ? 'fa-file-alt' : 'fa-user'}"></i>
-            <span>${escapePlantillaGestoresHtml(grupo)} <span class="plantilla-grupo-contador" data-grupo="${escapePlantillaGestoresHtml(grupo)}">(0/${grupos[grupo].filter(col => !(col.sensible && !window.puedeVerSalarioSensibleRrhh)).length})</span></span>
+            <span>${escapePlantillaGestoresHtml(grupo)} <span class="plantilla-grupo-contador" data-grupo="${escapePlantillaGestoresHtml(grupo)}">(0/${grupos[grupo].length})</span></span>
           </div>
           <button type="button" class="plantilla-toggle-grupo" data-grupo="${escapePlantillaGestoresHtml(grupo)}">Marcar todo</button>
         </div>
         <div class="plantilla-card-body">
           ${grupos[grupo].map(col => {
-            const disabled = col.sensible && !window.puedeVerSalarioSensibleRrhh;
-            const title = disabled ? 'Requiere permiso especial de salario.' : '';
             return `
-              <label class="plantilla-item ${disabled ? 'is-disabled' : ''}" title="${escapePlantillaGestoresHtml(title)}">
-                <input type="checkbox" class="plantilla-columna-check" data-grupo="${escapePlantillaGestoresHtml(grupo)}" value="${escapePlantillaGestoresHtml(col.key)}" ${col.checked && !disabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+              <label class="plantilla-item">
+                <input type="checkbox" class="plantilla-columna-check" data-grupo="${escapePlantillaGestoresHtml(grupo)}" value="${escapePlantillaGestoresHtml(col.key)}" ${col.checked ? 'checked' : ''}>
                 <span>
                   <span class="plantilla-item-title">${escapePlantillaGestoresHtml(col.label)}${col.sensible ? '<span class="plantilla-protegido">Protegido</span>' : ''}</span>
                   <span class="plantilla-item-sub">${escapePlantillaGestoresHtml(col.desc || 'Columna disponible para la plantilla.')}</span>

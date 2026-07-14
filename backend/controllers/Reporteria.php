@@ -2284,17 +2284,45 @@ class Reporteria extends Controller
                 $datosFormateados[] = $filaSeleccionada;
             }
 
-            \Models\CapHum::registrarAuditoriaSalarioSensibleRrhh([
+            if ($incluyeSalario) {
+                \Models\CapHum::registrarAuditoriaSalarioSensibleRrhh([
+                    'id_usuario' => (int)($_SESSION['usuario_id'] ?? 0),
+                    'usuario_nombre' => (string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? ''),
+                    'id_persona' => 0,
+                    'persona_nombre' => 'Reporte de Personal',
+                    'accion' => 'descargar_reporte',
+                    'resultado' => 'autorizado',
+                    'ip' => (string)($_SERVER['REMOTE_ADDR'] ?? ''),
+                    'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+                    'detalle' => 'Incluyó salario sensible. Columnas: ' . implode(', ', $columnasSeleccionadas),
+                    'fecha_hora' => date('Y-m-d H:i:s'),
+                ]);
+            }
+
+            $filtrosAuditoria = array_filter([
+                'empresa' => $filtroEmpresa,
+                'direccion' => $filtroDireccion,
+                'area' => $filtroArea,
+                'departamento' => $filtroDepartamento,
+                'puesto' => $filtroPuesto,
+                'multipuesto' => $filtroMultipuesto,
+                'estatus' => $filtroEstatus,
+            ], static fn($valor) => $valor !== '');
+            \Models\CapHum::registrarAuditoriaInternaRrhh([
                 'id_usuario' => (int)($_SESSION['usuario_id'] ?? 0),
                 'usuario_nombre' => (string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? ''),
-                'id_persona' => 0,
-                'persona_nombre' => 'Plantilla de gestores',
-                'accion' => 'descargar_plantilla',
-                'resultado' => 'autorizado',
-                'ip' => (string)($_SERVER['REMOTE_ADDR'] ?? ''),
-                'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
-                'detalle' => 'Columnas: ' . implode(', ', $columnasSeleccionadas),
-                'fecha_hora' => date('Y-m-d H:i:s'),
+                'modulo' => 'Reporte de Personal',
+                'entidad_tipo' => 'general',
+                'entidad_nombre' => 'Reporte de Personal',
+                'accion' => 'descargar_reporte_personal',
+                'resumen' => 'Descargó reporte de personal: ' . count($datosFormateados) . ' personas y ' . count($columnasSeleccionadas) . ' columnas.',
+                'detalle' => [
+                    'formato' => 'Excel (.xlsx)',
+                    'personas_exportadas' => count($datosFormateados),
+                    'columnas' => array_map(static fn($columna) => $columnasDisponibles[$columna], $columnasSeleccionadas),
+                    'claves_columnas' => $columnasSeleccionadas,
+                    'filtros' => $filtrosAuditoria,
+                ],
             ]);
 
             // Nombre del archivo con timestamp y filtros aplicados
