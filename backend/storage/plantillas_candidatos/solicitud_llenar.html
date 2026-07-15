@@ -616,8 +616,8 @@
     </button>
     <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
     <div class="pdf-mobile-help" id="pdfMobileHelp">
-      Tu PDF ya esta listo.
-      <br><a id="pdfMobileLink" href="#" target="_blank" rel="noopener">Abrir PDF generado</a>
+      Tu PDF ya esta listo. Si la descarga no inicia sola, usa este enlace:
+      <br><a id="pdfMobileLink" href="#">Descargar PDF generado</a>
     </div>
   </div>
 
@@ -667,7 +667,7 @@ function prepararVentanaMovilPdf() {
   return w;
 }
 
-function mostrarEnlacePdfMovil(url, nombre) {
+function mostrarEnlacePdfGenerado(url, nombre) {
   const cont = document.getElementById('pdfMobileHelp');
   const link = document.getElementById('pdfMobileLink');
   if (!cont || !link) return;
@@ -676,7 +676,7 @@ function mostrarEnlacePdfMovil(url, nombre) {
   cont.classList.add('visible');
 }
 
-function ocultarEnlacePdfMovil() {
+function ocultarEnlacePdfGenerado() {
   const cont = document.getElementById('pdfMobileHelp');
   if (cont) cont.classList.remove('visible');
 }
@@ -685,9 +685,11 @@ function entregarPdfGenerado(out, nombre, ventanaMovil) {
   const movil = esNavegadorMovil();
   const blob = new Blob([out], {type:'application/pdf'});
   const url = URL.createObjectURL(blob);
+  // Dejamos un enlace visible para que el usuario nunca dependa del bloqueo
+  // de descargas automáticas del navegador.
+  mostrarEnlacePdfGenerado(url, nombre);
 
   if (movil) {
-    mostrarEnlacePdfMovil(url, nombre);
     if (ventanaMovil && !ventanaMovil.closed) {
       ventanaMovil.location.href = url;
     } else {
@@ -700,7 +702,7 @@ function entregarPdfGenerado(out, nombre, ventanaMovil) {
       aMovil.click();
       document.body.removeChild(aMovil);
     }
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 180000);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1800000);
     return;
   }
 
@@ -710,7 +712,7 @@ function entregarPdfGenerado(out, nombre, ventanaMovil) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  setTimeout(function(){ URL.revokeObjectURL(url); }, 30000);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1800000);
 }
 
 async function generarPDF() {
@@ -718,7 +720,7 @@ async function generarPDF() {
   const ventanaPdfMovil = prepararVentanaMovilPdf();
   btn.disabled = true;
   btn.innerHTML = '⏳  Generando tu documento...';
-  ocultarEnlacePdfMovil();
+  ocultarEnlacePdfGenerado();
   setProgress(15);
 
   try {
@@ -837,9 +839,6 @@ async function generarPDF() {
     entregarPdfGenerado(out, nombreArchivoSolicitudPdf(), ventanaPdfMovil);
 
     setTimeout(() => setProgress(0), 1500);
-    if (!esNavegadorMovil()) {
-      setTimeout(() => history.back(), 600);
-    }
 
   } catch(e) {
     if (ventanaPdfMovil && !ventanaPdfMovil.closed) {

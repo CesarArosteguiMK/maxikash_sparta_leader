@@ -71,15 +71,19 @@ class CapHum extends Model
             return;
         }
 
-        $columna = $db->queryOne("SHOW COLUMNS FROM estado_cuenta.persona LIKE 'es_externo'");
-        if (!$columna) {
-            $db->CRUD("
-                ALTER TABLE estado_cuenta.persona
-                ADD COLUMN es_externo TINYINT(1) NOT NULL DEFAULT 0 AFTER codigo_contpac
-            ");
+        $columnaActual = $db->queryOne("
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'persona'
+              AND COLUMN_NAME = 'es_externo'
+            LIMIT 1
+        ");
+        if (!$columnaActual) {
+            $db->CRUD("ALTER TABLE persona ADD COLUMN es_externo TINYINT(1) NOT NULL DEFAULT 0 AFTER codigo_contpac");
         }
-
         self::$personaEsExternoColumnaAsegurada = true;
+        return;
     }
 
     public static function asegurarModuloAccesosCapitalHumano(): void
@@ -1202,6 +1206,7 @@ class CapHum extends Model
         SQL;
         }
 
+        $query = preg_replace('/\b[A-Za-z0-9_]+\.reingresos\b/', 'reingresos', $query);
 
         try {
             $db = new Database();
@@ -2626,12 +2631,31 @@ class CapHum extends Model
         $puesto = $filtros['puesto'] ?? null;
         $estatus = $filtros['estatus'] ?? null;
         $multipuesto = $filtros['multipuesto'] ?? null;
+        $empresa = $filtros['empresa'] ?? null;
+        $direccion = $filtros['direccion'] ?? null;
+        $area = $filtros['area'] ?? null;
 
         $params = [];
         $whereConditions = [
             "p.estatus != 'Baja'",
             UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p'),
         ];
+
+        // Filtro por departamento
+        if (!empty($empresa)) {
+            $whereConditions[] = "COALESCE(emp.nombre_comercial, 'MaxiKash') = :empresa";
+            $params['empresa'] = $empresa;
+        }
+
+        if (!empty($direccion)) {
+            $whereConditions[] = "COALESCE(dir.nombre, '') = :direccion";
+            $params['direccion'] = $direccion;
+        }
+
+        if (!empty($area)) {
+            $whereConditions[] = "COALESCE(dorg.nombre, '') = :area";
+            $params['area'] = $area;
+        }
 
         // Filtro por departamento
         if (!empty($departamento)) {
@@ -2665,6 +2689,7 @@ class CapHum extends Model
         SELECT
             p.id,
             p.numero_empleado,
+            p.codigo_contpac,
             p.nombres,
             p.segundo_nombre,
             p.apellidop,
@@ -2675,12 +2700,26 @@ class CapHum extends Model
             COALESCE(p.correo, '') AS correo,
             COALESCE(p.domicilio_calle_texto, '') AS domicilio_calle_texto,
             COALESCE(p.codigo_postal, '') AS codigo_postal,
+            COALESCE(p.curp, '') AS curp,
+            COALESCE(r.rfc, '') AS rfc,
+            COALESCE(r.nss, '') AS nss,
+            COALESCE(r.fecha_nacimiento, '') AS fecha_nacimiento,
+            COALESCE(r.sexo, '') AS sexo,
+            COALESCE(r.estado_civil, '') AS estado_civil,
+            COALESCE(r.fecha_imss_alta, '') AS fecha_imss_alta,
+            COALESCE(r.registro_patronal, '') AS registro_patronal,
+            COALESCE(r.codigo_contpaq, '') AS codigo_contpaq_rrhh,
+            COALESCE(ben.beneficiarios, '') AS beneficiarios,
+            COALESCE(ben.porcentaje_total, 0) AS beneficiarios_porcentaje,
 
             pp.id AS id_puesto,
             COALESCE(pp.nombre, 'Sin puesto') AS nombre_puesto,
 
             d.id AS id_departamento,
             COALESCE(d.nombre, 'Sin departamento') AS nombre_departamento,
+            COALESCE(emp.nombre_comercial, 'MaxiKash') AS nombre_empresa,
+            COALESCE(NULLIF(dir.nombre, ''), NULLIF(r.direccion_organizacional, ''), '') AS nombre_direccion,
+            COALESCE(NULLIF(dorg.nombre, ''), NULLIF(r.area_texto, ''), '') AS nombre_area,
 
             COALESCE(
                 CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom),
@@ -2716,6 +2755,31 @@ class CapHum extends Model
         LEFT JOIN asigna_puesto ap ON p.id = ap.id_persona AND COALESCE(ap.activo, 1) = 1
         LEFT JOIN puesto pp ON pp.id = ap.id_puesto
         LEFT JOIN departamento d ON d.id = pp.departamento_id
+        LEFT JOIN persona_datos_rrhh r ON r.id_persona = p.id
+        LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+        LEFT JOIN asigna_direcciones ad ON ad.id_departamento_organizacional = d.id_departamento_organizacional AND COALESCE(ad.activo, 1) = 1
+        LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
+        LEFT JOIN rrhh_empresas emp ON emp.id = COALESCE(d.id_empresa, dorg.id_empresa, dir.id_empresa, 1)
+        LEFT JOIN (
+            SELECT
+                id_persona,
+                GROUP_CONCAT(
+                    TRIM(BOTH ' - ' FROM CONCAT_WS(' - ',
+                        NULLIF(nombre_beneficiario, ''),
+                        NULLIF(parentesco, ''),
+                        NULLIF(numero, ''),
+                        CASE
+                            WHEN porcentaje IS NULL THEN NULL
+                            ELSE CONCAT(FORMAT(porcentaje, 2), '%')
+                        END
+                    ))
+                    ORDER BY id ASC SEPARATOR ' | '
+                ) AS beneficiarios,
+                SUM(COALESCE(porcentaje, 0)) AS porcentaje_total
+            FROM persona_beneficiario_fallecimiento
+            WHERE estatus = 'Activo'
+            GROUP BY id_persona
+        ) ben ON ben.id_persona = p.id
 
         LEFT JOIN (
             SELECT a.id_persona, a.id_jefe
@@ -4819,10 +4883,20 @@ class CapHum extends Model
             ];
 
             $curpsSolicitadas = [];
+            $estatusPorCurp = [];
+            $curpsEstatusConflictivo = [];
             foreach ($filas as $filaCurp) {
                 $curpTmp = $curpLimpia($filaCurp['curp'] ?? '');
                 if ($curpTmp !== '') {
                     $curpsSolicitadas[$curpTmp] = true;
+                    $estatusFila = trim((string)($filaCurp['estatus_importacion'] ?? ''));
+                    if (in_array($estatusFila, ['Activo', 'Baja'], true)) {
+                        if (isset($estatusPorCurp[$curpTmp]) && $estatusPorCurp[$curpTmp] !== $estatusFila) {
+                            $curpsEstatusConflictivo[$curpTmp] = true;
+                        } else {
+                            $estatusPorCurp[$curpTmp] = $estatusFila;
+                        }
+                    }
                 }
             }
             $curpsSolicitadas = array_keys($curpsSolicitadas);
@@ -4846,6 +4920,7 @@ class CapHum extends Model
                     SELECT
                         id,
                         curp,
+                        estatus,
                         codigo_contpac,
                         rfc,
                         correo,
@@ -4930,6 +5005,17 @@ class CapHum extends Model
                     continue;
                 }
 
+                if (isset($curpsEstatusConflictivo[$curp])) {
+                    $resumen['omitidos']++;
+                    $resumen['errores'][] = [
+                        'fila' => $numeroFila,
+                        'hoja' => $hoja,
+                        'curp' => $curp,
+                        'motivo' => 'La CURP aparece en hojas de Activos y Bajas con estatus contradictorios.'
+                    ];
+                    continue;
+                }
+
                 $personas = $personasPorCurp[$curp] ?? [];
 
                 if (count($personas) === 0) {
@@ -4959,6 +5045,10 @@ class CapHum extends Model
                     'codigo_postal' => $numero($personaDatos['codigo_postal'] ?? null, 12),
                     'domicilio_calle_texto' => $texto($personaDatos['domicilio_calle_texto'] ?? null, 500),
                 ];
+                $estatusImportacion = $estatusPorCurp[$curp] ?? null;
+                if (in_array($estatusImportacion, ['Activo', 'Baja'], true)) {
+                    $personaUpdates['estatus'] = $estatusImportacion;
+                }
                 $personaUpdates = array_filter($personaUpdates, static fn($v) => $v !== null && $v !== '');
 
                 $rrhhActual = $rrhhPorPersona[$idPersona] ?? [];
@@ -5159,6 +5249,7 @@ class CapHum extends Model
                     'detalle' => [
                         'fila' => $numeroFila,
                         'hoja' => $hoja,
+                        'estatus_importacion' => $estatusImportacion,
                         'campos_persona' => array_keys($personaUpdates),
                         'campos_rrhh' => array_keys($rrhhUpdates),
                         'campos_banco' => array_keys($cuentaUpdates),
@@ -5219,7 +5310,7 @@ class CapHum extends Model
                 }
 
                 if (!empty($acciones['cambiar_puesto'])) {
-                    self::asignarPuestoUnicoCambioEstructura($db, $idPersona, $idPuesto, $idUsuario);
+                    self::asignarPuestoAdicionalCambioEstructura($db, $idPersona, $idPuesto, $idUsuario);
                 }
 
                 foreach (($acciones['jefes'] ?? []) as $relacion) {
@@ -5253,14 +5344,8 @@ class CapHum extends Model
         $personasPorNumero = self::indicePersonasPorNumeroEmpleado($db);
         $personasPorNombre = self::indicePersonasActivasPorNombre($db);
         $puestosPorClave = self::indicePuestosCambioEstructura($db);
-
-        $conteoExternal = [];
-        foreach ($filas as $fila) {
-            $external = trim((string)($fila['external_id'] ?? ''));
-            if ($external !== '') {
-                $conteoExternal[$external] = ($conteoExternal[$external] ?? 0) + 1;
-            }
-        }
+        $puestosActivosPorPersona = self::indicePuestosActivosCambioEstructura($db);
+        $jefesActualesPorPersona = self::indiceJefesActualesCambioEstructura($db);
 
         $resumen = [
             'total' => 0,
@@ -5297,6 +5382,7 @@ class CapHum extends Model
                 'supervisor' => trim((string)($fila['supervisor'] ?? '')),
                 'subgerente' => trim((string)($fila['subgerente'] ?? '')),
                 'gerente' => trim((string)($fila['gerente'] ?? '')),
+                'subdirector' => trim((string)($fila['subdirector'] ?? '')),
                 'estado' => 'sin_cambio',
                 'mensajes' => [],
                 'acciones' => [],
@@ -5304,8 +5390,6 @@ class CapHum extends Model
 
             if ($external === '') {
                 $errores[] = 'external_id vacio.';
-            } elseif (($conteoExternal[$external] ?? 0) > 1) {
-                $errores[] = 'external_id repetido dentro del Excel.';
             }
 
             if ($puestoExcel === '') {
@@ -5319,7 +5403,21 @@ class CapHum extends Model
             if ($external !== '' && count($personas) === 0) {
                 $errores[] = 'No existe persona con numero_empleado igual a ' . $external . '.';
             } elseif (count($personas) > 1) {
-                $errores[] = 'Hay mas de una persona con numero_empleado ' . $external . '.';
+                $nombreExcelNormalizado = self::normalizarTextoCambioEstructura($detalle['nombre_excel']);
+                $firmaExcel = self::firmaNombreCambioEstructura($nombreExcelNormalizado);
+                $coincidenciasNombre = array_values(array_filter($personas, static function (array $candidata) use ($nombreExcelNormalizado, $firmaExcel): bool {
+                    $nombreCandidata = self::normalizarTextoCambioEstructura(self::nombreCompletoPersonaCambioEstructura($candidata));
+                    if ($nombreExcelNormalizado !== '' && $nombreCandidata === $nombreExcelNormalizado) {
+                        return true;
+                    }
+                    return $firmaExcel !== '' && self::firmaNombreCambioEstructura($nombreCandidata) === $firmaExcel;
+                }));
+                if (count($coincidenciasNombre) === 1) {
+                    $personas = $coincidenciasNombre;
+                    $avisos[] = 'El numero de empleado esta duplicado; se eligio la coincidencia por Nombre completo.';
+                } else {
+                    $errores[] = 'Hay mas de una persona con numero_empleado ' . $external . ' y no se pudo resolver con Nombre completo.';
+                }
             }
 
             $persona = count($personas) === 1 ? $personas[0] : null;
@@ -5339,15 +5437,15 @@ class CapHum extends Model
 
             $clavePuesto = self::normalizarTextoCambioEstructura($departamentoExcel) . '|' . self::normalizarTextoCambioEstructura($puestoExcel);
             $puestos = ($puestoExcel !== '' && $departamentoExcel !== '') ? ($puestosPorClave[$clavePuesto] ?? []) : [];
-            if ($puestoExcel !== '' && $departamentoExcel !== '' && count($puestos) === 0) {
-                $errores[] = 'No existe el puesto "' . $puestoExcel . '" dentro del departamento "' . $departamentoExcel . '".';
+            if (count($puestos) === 0 && $puestoExcel !== '' && $departamentoExcel !== '') {
+                $errores[] = 'No existe una coincidencia exacta para el puesto "' . $puestoExcel . '" dentro del departamento "' . $departamentoExcel . '". No se aplican equivalencias automáticas de puesto.';
             } elseif (count($puestos) > 1) {
                 $errores[] = 'El puesto y departamento coinciden con mas de un registro del catalogo.';
             }
 
             $puestoNuevo = count($puestos) === 1 ? $puestos[0] : null;
             if ($persona && $puestoNuevo) {
-                $puestosActuales = self::puestosActivosTrayectoria($db, (int)$persona['id']);
+                $puestosActuales = $puestosActivosPorPersona[(int)$persona['id']] ?? [];
                 $puestoActual = array_values($puestosActuales)[0] ?? null;
                 $detalle['puesto_actual'] = (string)($puestoActual['nombre_puesto'] ?? 'Sin puesto');
                 $detalle['departamento_actual'] = (string)($puestoActual['nombre_departamento'] ?? 'Sin departamento');
@@ -5357,7 +5455,9 @@ class CapHum extends Model
                 $idsActivos = array_values(array_unique(array_map(static function ($row) {
                     return (int)($row['id_puesto'] ?? 0);
                 }, $puestosActuales)));
-                $cambiaPuesto = count($idsActivos) !== 1 || (int)($idsActivos[0] ?? 0) !== (int)$puestoNuevo['id_puesto'];
+                // Una persona puede tener varios puestos activos. Solo agregamos el del renglón
+                // cuando aún no lo tiene, sin desactivar las asignaciones existentes.
+                $cambiaPuesto = !in_array((int)$puestoNuevo['id_puesto'], $idsActivos, true);
                 $acciones['id_persona'] = (int)$persona['id'];
                 $acciones['id_puesto'] = (int)$puestoNuevo['id_puesto'];
                 $acciones['cambiar_puesto'] = $cambiaPuesto;
@@ -5366,10 +5466,11 @@ class CapHum extends Model
             $supervisor = self::resolverPersonaActivaPorNombreCambioEstructura($personasPorNombre, $detalle['supervisor'], 'supervisor', $errores);
             $subgerente = self::resolverPersonaActivaPorNombreCambioEstructura($personasPorNombre, $detalle['subgerente'], 'subgerente', $errores);
             $gerente = self::resolverPersonaActivaPorNombreCambioEstructura($personasPorNombre, $detalle['gerente'], 'gerente', $errores);
+            $subdirector = self::resolverPersonaActivaPorNombreCambioEstructura($personasPorNombre, $detalle['subdirector'], 'subdirector', $errores);
 
             if ($persona) {
-                $jefeDirecto = $supervisor ?: ($subgerente ?: $gerente);
-                $jefeActual = self::obtenerJefeActualCambioEstructura($db, (int)$persona['id']);
+                $jefeDirecto = $supervisor ?: ($subgerente ?: ($gerente ?: $subdirector));
+                $jefeActual = $jefesActualesPorPersona[(int)$persona['id']] ?? null;
                 $detalle['jefe_actual'] = $jefeActual ? (string)$jefeActual['nombre'] : 'Sin jefe';
                 if ($jefeDirecto) {
                     $detalle['jefe_nuevo'] = self::nombreCompletoPersonaCambioEstructura($jefeDirecto);
@@ -5383,31 +5484,12 @@ class CapHum extends Model
                     }
                 } else {
                     $detalle['jefe_nuevo'] = $detalle['jefe_actual'] ?: 'Sin jefe';
-                    $avisos[] = 'No se recibio supervisor, subgerente ni gerente; se conserva el jefe actual.';
+                    $avisos[] = 'No se recibio supervisor, subgerente, gerente ni subdirector; se conserva el jefe actual.';
                 }
             }
 
-            if ($supervisor && $subgerente) {
-                if ((int)$supervisor['id'] === (int)$subgerente['id']) {
-                    $errores[] = 'Supervisor y subgerente no pueden ser la misma persona.';
-                } else {
-                    $jefeSupervisor = self::obtenerJefeActualCambioEstructura($db, (int)$supervisor['id']);
-                    if ((int)($jefeSupervisor['id_jefe'] ?? 0) !== (int)$subgerente['id']) {
-                        $acciones['jefes'][] = ['id_persona' => (int)$supervisor['id'], 'id_jefe' => (int)$subgerente['id'], 'orden' => 20];
-                    }
-                }
-            }
-
-            if ($subgerente && $gerente) {
-                if ((int)$subgerente['id'] === (int)$gerente['id']) {
-                    $errores[] = 'Subgerente y gerente no pueden ser la misma persona.';
-                } else {
-                    $jefeSubgerente = self::obtenerJefeActualCambioEstructura($db, (int)$subgerente['id']);
-                    if ((int)($jefeSubgerente['id_jefe'] ?? 0) !== (int)$gerente['id']) {
-                        $acciones['jefes'][] = ['id_persona' => (int)$subgerente['id'], 'id_jefe' => (int)$gerente['id'], 'orden' => 10];
-                    }
-                }
-            }
+            // Cada persona se procesa desde su propia fila: Nombre completo, Puesto legacy y
+            // Departamento. Las columnas jerarquicas solo determinan su jefe directo actual.
 
             $tieneCambio = !empty($acciones['cambiar_puesto']) || !empty($acciones['jefes']);
             if (!empty($errores)) {
@@ -5430,6 +5512,46 @@ class CapHum extends Model
             }
 
             $detalles[] = $detalle;
+        }
+
+        // asigna_jefe es una relación por persona (no por puesto). Si un multipuesto
+        // requiere jefes directos diferentes, detener la aplicación evita que la última
+        // fila sobrescriba silenciosamente a las anteriores.
+        $jefesDirectos = [];
+        foreach ($detalles as $indice => $detalle) {
+            if (($detalle['estado'] ?? '') === 'error') {
+                continue;
+            }
+            foreach (($detalle['acciones']['jefes'] ?? []) as $relacion) {
+                if ((int)($relacion['orden'] ?? 0) !== 30) {
+                    continue;
+                }
+                $idPersona = (int)($relacion['id_persona'] ?? 0);
+                $idJefe = (int)($relacion['id_jefe'] ?? 0);
+                if ($idPersona > 0 && $idJefe > 0) {
+                    $jefesDirectos[$idPersona][$idJefe][] = $indice;
+                }
+            }
+        }
+        foreach ($jefesDirectos as $asignaciones) {
+            if (count($asignaciones) <= 1) {
+                continue;
+            }
+            foreach ($asignaciones as $indices) {
+                foreach ($indices as $indice) {
+                    if (($detalles[$indice]['estado'] ?? '') === 'error') {
+                        continue;
+                    }
+                    if (($detalles[$indice]['estado'] ?? '') === 'cambio') {
+                        $resumen['con_cambios']--;
+                    } else {
+                        $resumen['sin_cambios']--;
+                    }
+                    $detalles[$indice]['estado'] = 'error';
+                    $detalles[$indice]['mensajes'][] = 'La persona tiene varios puestos con jefes directos distintos; asigna_jefe solo admite un jefe por persona.';
+                    $resumen['errores']++;
+                }
+            }
         }
 
         return ['resumen' => $resumen, 'detalles' => $detalles];
@@ -5467,6 +5589,10 @@ class CapHum extends Model
                 continue;
             }
             $out[$nombre][] = $row;
+            $firma = self::firmaNombreCambioEstructura($nombre);
+            if ($firma !== '') {
+                $out['__firma__' . $firma][] = $row;
+            }
         }
         return $out;
     }
@@ -5493,6 +5619,12 @@ class CapHum extends Model
                 continue;
             }
             $out[$clave][] = $row;
+            $claveRol = self::normalizarTextoCambioEstructura($row['nombre_departamento'] ?? '')
+                . '|__rol__'
+                . self::rolPuestoCambioEstructura($row['nombre_puesto'] ?? '');
+            if ($claveRol !== '|__rol__') {
+                $out[$claveRol][] = $row;
+            }
         }
         return $out;
     }
@@ -5504,7 +5636,17 @@ class CapHum extends Model
             return null;
         }
         $clave = self::normalizarTextoCambioEstructura($nombre);
+        if (in_array($clave, ['vacante', 'sin jefe', 'ninguno', 'na', 'n a', 'no aplica'], true)
+            || strpos($clave, 'vacante ') === 0) {
+            return null;
+        }
         $personas = $indice[$clave] ?? [];
+        if (count($personas) === 0) {
+            $firma = self::firmaNombreCambioEstructura($clave);
+            if ($firma !== '') {
+                $personas = $indice['__firma__' . $firma] ?? [];
+            }
+        }
         if (count($personas) === 0) {
             $errores[] = 'No se encontro ' . $rol . ' activo con nombre "' . $nombre . '".';
             return null;
@@ -5514,6 +5656,59 @@ class CapHum extends Model
             return null;
         }
         return $personas[0];
+    }
+
+    /** Carga los puestos activos una sola vez para la prevalidación masiva. */
+    private static function indicePuestosActivosCambioEstructura(Database $db): array
+    {
+        $rows = $db->queryAll("
+            SELECT
+                ap.id_persona,
+                ap.id AS id_asigna_puesto,
+                ap.id_puesto,
+                ap.fecha_asignacion,
+                pu.nombre AS nombre_puesto,
+                pu.departamento_id AS id_departamento,
+                dep.nombre AS nombre_departamento,
+                COALESCE(pu.nivel, 0) AS nivel
+            FROM estado_cuenta.asigna_puesto ap
+            INNER JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
+            LEFT JOIN estado_cuenta.departamento dep ON dep.id = pu.departamento_id
+            WHERE COALESCE(ap.activo, 1) = 1
+            ORDER BY ap.id_persona, COALESCE(pu.nivel, 0) DESC, ap.id ASC
+        ");
+        $out = [];
+        foreach ($rows as $row) {
+            $idPersona = (int)($row['id_persona'] ?? 0);
+            if ($idPersona > 0) {
+                $out[$idPersona][] = $row;
+            }
+        }
+        return $out;
+    }
+
+    /** Último jefe vigente por persona, cargado una vez para evitar consultas por fila. */
+    private static function indiceJefesActualesCambioEstructura(Database $db): array
+    {
+        $rows = $db->queryAll("
+            SELECT aj.id_persona, aj.id_jefe,
+                   TRIM(CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom)) AS nombre
+            FROM estado_cuenta.asigna_jefe aj
+            INNER JOIN (
+                SELECT id_persona, MAX(id) AS id_actual
+                FROM estado_cuenta.asigna_jefe
+                GROUP BY id_persona
+            ) ultimo ON ultimo.id_actual = aj.id
+            LEFT JOIN estado_cuenta.persona pj ON pj.id = aj.id_jefe
+        ");
+        $out = [];
+        foreach ($rows as $row) {
+            $idPersona = (int)($row['id_persona'] ?? 0);
+            if ($idPersona > 0) {
+                $out[$idPersona] = $row;
+            }
+        }
+        return $out;
     }
 
     private static function obtenerJefeActualCambioEstructura(Database $db, int $idPersona): ?array
@@ -5530,7 +5725,7 @@ class CapHum extends Model
         ", ['id_persona' => $idPersona]);
     }
 
-    private static function asignarPuestoUnicoCambioEstructura(Database $db, int $idPersona, int $idPuesto, int $idUsuario): void
+    private static function asignarPuestoAdicionalCambioEstructura(Database $db, int $idPersona, int $idPuesto, int $idUsuario): void
     {
         $puestosAntes = self::puestosActivosTrayectoria($db, $idPersona);
         $fechaAsignacion = self::fechaHoraCdmx();
@@ -5682,6 +5877,28 @@ class CapHum extends Model
         $texto = strtolower($texto);
         $texto = preg_replace('/[^a-z0-9]+/', ' ', $texto);
         return trim((string)preg_replace('/\s+/', ' ', (string)$texto));
+    }
+
+    /** Firma sin orden: permite resolver "APELLIDO APELLIDO NOMBRE" contra la persona registrada. */
+    private static function firmaNombreCambioEstructura(string $nombreNormalizado): string
+    {
+        $tokens = preg_split('/\s+/', trim($nombreNormalizado)) ?: [];
+        $tokens = array_values(array_filter($tokens, static function (string $token): bool {
+            return $token !== '';
+        }));
+        sort($tokens, SORT_STRING);
+        return implode(' ', $tokens);
+    }
+
+    /** Rol base del puesto para aceptar la etiqueta corta del Excel dentro del mismo departamento. */
+    private static function rolPuestoCambioEstructura($puesto): string
+    {
+        $normalizado = self::normalizarTextoCambioEstructura($puesto);
+        if ($normalizado === '') {
+            return '';
+        }
+        $tokens = preg_split('/\s+/', $normalizado) ?: [];
+        return (string)($tokens[0] ?? '');
     }
 
     public static function registrarAuditoriaSalarioSensibleRrhh(array $datos): void
@@ -7864,10 +8081,94 @@ class CapHum extends Model
         try {
             $db = new Database();
             $r = $db->queryAll($query);
+            $r = self::agregarJefasFuriaMotoSiAplica($db, $r, null, (int)$id_departamento);
             return self::resultado(true, 'Personas encontradas.', $r);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
+    }
+
+    private static function obtenerEmpresaDepartamentoJefe(Database $db, ?int $idPuesto = null, ?int $idDepartamento = null): int
+    {
+        $params = [];
+        $where = '';
+        if ($idPuesto && $idPuesto > 0) {
+            $where = 'pu.id = :id_puesto';
+            $params['id_puesto'] = $idPuesto;
+        } elseif ($idDepartamento && $idDepartamento > 0) {
+            $where = 'dep.id = :id_departamento';
+            $params['id_departamento'] = $idDepartamento;
+        } else {
+            return 0;
+        }
+
+        $row = $db->queryOne("
+            SELECT COALESCE(dorg.id_empresa, dir.id_empresa, 1) AS id_empresa
+            FROM estado_cuenta.departamento dep
+            LEFT JOIN estado_cuenta.puesto pu ON pu.departamento_id = dep.id
+            LEFT JOIN estado_cuenta.departamento_organizacional dorg
+                   ON dorg.id = dep.id_departamento_organizacional
+            LEFT JOIN estado_cuenta.asigna_direcciones ad
+                   ON ad.id_departamento_organizacional = dorg.id
+            LEFT JOIN estado_cuenta.direcciones_organizacion dir
+                   ON dir.id = ad.id_direccion
+            WHERE {$where}
+            LIMIT 1
+        ", $params);
+
+        return (int)($row['id_empresa'] ?? 0);
+    }
+
+    private static function agregarJefasFuriaMotoSiAplica(Database $db, array $rows, ?int $idPuesto = null, ?int $idDepartamento = null): array
+    {
+        $idEmpresa = self::obtenerEmpresaDepartamentoJefe($db, $idPuesto, $idDepartamento);
+        if ($idEmpresa !== 2) {
+            return $rows;
+        }
+
+        $vistos = [];
+        foreach ($rows as $row) {
+            $id = (int)($row['id'] ?? 0);
+            if ($id > 0) {
+                $vistos[$id] = true;
+            }
+        }
+
+        $predPer = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('per');
+        $extra = $db->queryAll("
+            SELECT
+                per.id,
+                CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom) AS nombre_completo,
+                COALESCE(MIN(pu.nombre), '') AS nombre_puesto,
+                COALESCE(MIN(pu.nombre), '') AS puesto
+            FROM estado_cuenta.persona per
+            LEFT JOIN estado_cuenta.asigna_puesto ap
+                   ON ap.id_persona = per.id
+                  AND COALESCE(ap.activo, 1) = 1
+            LEFT JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
+            WHERE per.estatus != 'Baja'
+              AND {$predPer}
+              AND (
+                    UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'ZAIRA YAEL TORRES DIAZ'
+                 OR UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'IRMA NALLELY AGUILAR ISLAS'
+              )
+            GROUP BY per.id, per.nombres, per.segundo_nombre, per.apellidop, per.apellidom
+            ORDER BY nombre_completo ASC
+        ");
+
+        foreach ($extra as $row) {
+            $id = (int)($row['id'] ?? 0);
+            if ($id > 0 && empty($vistos[$id])) {
+                $rows[] = $row;
+                $vistos[$id] = true;
+            }
+        }
+
+        usort($rows, static function ($a, $b) {
+            return strcasecmp((string)($a['nombre_completo'] ?? ''), (string)($b['nombre_completo'] ?? ''));
+        });
+
+        return $rows;
     }
 
     /** Personas con puesto en el departamento (para combo jefe cuando no hay es_jefe ni por nivel) */
@@ -7898,9 +8199,27 @@ class CapHum extends Model
     }
 
     /** Personas activas de la empresa para escoger jefe cuando el puesto no tiene jefe jerarquico configurado. */
-    public static function getPersonasActivasEmpresaParaJefe()
+    public static function getPersonasActivasEmpresaParaJefe($idDepartamento = null)
     {
         $predPer = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('per');
+        $db = new Database();
+        $idEmpresa = self::obtenerEmpresaDepartamentoJefe($db, null, (int)$idDepartamento);
+        $whereEmpresa = '';
+        $params = [];
+        if ($idEmpresa > 0) {
+            $whereEmpresa = "AND (
+                COALESCE(dorg.id_empresa, dir.id_empresa, 1) = :id_empresa
+                OR (
+                    :id_empresa_furia = 2
+                    AND (
+                        UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'ZAIRA YAEL TORRES DIAZ'
+                        OR UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'IRMA NALLELY AGUILAR ISLAS'
+                    )
+                )
+            )";
+            $params['id_empresa'] = $idEmpresa;
+            $params['id_empresa_furia'] = $idEmpresa;
+        }
         $query = <<<SQL
           SELECT
             per.id,
@@ -7912,14 +8231,22 @@ class CapHum extends Model
            AND COALESCE(ap.activo, 1) = 1
           LEFT JOIN puesto pu
             ON pu.id = ap.id_puesto
+          LEFT JOIN departamento dep
+            ON dep.id = pu.departamento_id
+          LEFT JOIN departamento_organizacional dorg
+            ON dorg.id = dep.id_departamento_organizacional
+          LEFT JOIN asigna_direcciones ad
+            ON ad.id_departamento_organizacional = dorg.id
+          LEFT JOIN direcciones_organizacion dir
+            ON dir.id = ad.id_direccion
           WHERE per.estatus != 'Baja'
             AND {$predPer}
+            {$whereEmpresa}
           GROUP BY per.id, per.nombres, per.segundo_nombre, per.apellidop, per.apellidom
           ORDER BY nombre_completo ASC
         SQL;
         try {
-            $db = new Database();
-            $r = $db->queryAll($query);
+            $r = $db->queryAll($query, $params);
             return self::resultado(true, 'Personas activas encontradas.', $r);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
@@ -8027,6 +8354,7 @@ class CapHum extends Model
         try {
             $db = new Database();
             $r = $db->queryAll($query);
+            $r = self::agregarJefasFuriaMotoSiAplica($db, $r, (int)$id_puesto, null);
             return self::resultado(true, 'Jefes encontrados.', $r);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener jefes.', null, $e->getMessage());

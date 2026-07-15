@@ -17,8 +17,8 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
             'Créditos' => [
                 'icono' => 'fa-solid fa-sack-dollar',
                 'subItems' => [
-                    ['label' => 'Estados de Cuenta', 'url' => '/estadocuenta/consulta', 'modulos' => [1]],
-                    ['label' => 'Documentación', 'url' => '/estadocuenta/documentacion', 'modulos' => [2]],
+                    ['label' => 'Estados de Cuenta', 'url' => '/EstadoCuenta/Consulta', 'modulos' => [1]],
+                    ['label' => 'Documentación', 'url' => '/EstadoCuenta/documentacion', 'modulos' => [2]],
                     ['label' => 'Histórico Gestiones', 'url' => '/gestiones/seguimiento', 'modulos' => [3]],
                 ],
             ],

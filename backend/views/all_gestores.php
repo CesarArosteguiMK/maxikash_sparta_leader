@@ -5686,6 +5686,17 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             <option value="Otro">Otro</option>
                           </select>
                         </div>
+                        <div class="col-md-3">
+                          <label class="form-label">Estado civil</label>
+                          <select class="form-select" name="persona.estado_civil">
+                            <option value="">Selecciona</option>
+                            <option value="Soltero/a">Soltero/a</option>
+                            <option value="Casado/a">Casado/a</option>
+                            <option value="Union libre">Union libre</option>
+                            <option value="Divorciado/a">Divorciado/a</option>
+                            <option value="Viudo/a">Viudo/a</option>
+                          </select>
+                        </div>
                         <div class="col-md-3"><label class="form-label">Entidad federativa</label><input type="text" class="form-control text-uppercase" name="persona.entidad_federativa_rfc"></div>
                         <div class="col-md-3"><label class="form-label">Usuario</label><input type="text" class="form-control" name="persona.usuario" autocomplete="off" data-lpignore="true" data-1p-ignore="true"></div>
                         <div class="col-md-3"><label class="form-label">Contrase&ntilde;a</label><input type="text" class="form-control" name="persona.contrasena" autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other"></div>
@@ -6533,8 +6544,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <div class="mb-5"></div>
 
                         <!-- Botones de Acción -->
-                        <div class="row row-cols-1 row-cols-md-3 g-3">
-                            <div class="col-12 d-flex gap-2 justify-content-end">
+                        <div class="d-flex flex-wrap justify-content-end gap-2 pt-2">
                                 <button
                                     type="button"
                                     id="btnLimpiarFiltroBajas"
@@ -6551,12 +6561,42 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                 >
                                     <i class="fa fa-download me-2"></i>Descargar Excel
                                 </button>
-                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <script>
+            (() => {
+                const textosPeriodo = {
+                    'ultimo-mes': 'Último Mes',
+                    'ultimos-3-meses': 'Últimos 3 Meses',
+                    'ultimos-6-meses': 'Últimos 6 Meses',
+                    'ano-actual': 'Año Actual'
+                };
+
+                Object.entries(textosPeriodo).forEach(([periodo, texto]) => {
+                    const boton = document.querySelector(`#filtroFechaBajas [data-periodo="${periodo}"]`);
+                    if (!boton) return;
+                    const icono = boton.querySelector('i');
+                    boton.innerHTML = `${icono ? icono.outerHTML : ''}${texto}`;
+                });
+
+                const etiquetaFiltros = document.querySelector('#filtroFechaBajas .form-label.fw-semibold.mb-2');
+                if (etiquetaFiltros) {
+                    const icono = etiquetaFiltros.querySelector('i');
+                    etiquetaFiltros.innerHTML = `${icono ? icono.outerHTML : ''}Filtros Rápidos`;
+                }
+
+                const vistaEstandar = document.querySelector('#vbtn-default-b');
+                if (vistaEstandar) {
+                    vistaEstandar.dataset.tip = 'Vista Estándar';
+                    const texto = vistaEstandar.querySelector('.kpi-btn-text');
+                    if (texto) texto.textContent = 'Estándar';
+                }
+            })();
+        </script>
 
         <!-- =======================
              TABLA
@@ -8665,6 +8705,53 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         padding: .56rem .75rem;
         font-size: .86rem;
       }
+      #modalPlantillaGestoresRrhh .plantilla-resumen-title {
+        display: inline-flex;
+        align-items: center;
+        font-weight: 900;
+        color: #142641;
+        margin-right: .25rem;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-filter-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .25rem;
+        border: 1px solid #dbe7ff;
+        background: #fff;
+        color: #334155;
+        border-radius: 999px;
+        padding: .28rem .65rem;
+        font-size: .78rem;
+        font-weight: 700;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-kpis {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: .55rem;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-kpis > div {
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        border-radius: 8px;
+        padding: .55rem .65rem;
+        min-width: 0;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-kpis strong {
+        display: block;
+        color: #142641;
+        font-size: 1.05rem;
+        line-height: 1;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-kpis span {
+        display: block;
+        color: #64748b;
+        font-size: .68rem;
+        font-weight: 800;
+        margin-top: .22rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
       #modalPlantillaGestoresRrhh .plantilla-toolbar {
         background: #fff;
         padding: .15rem 0 .55rem;
@@ -8816,6 +8903,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         #modalPlantillaGestoresRrhh .plantilla-card-body {
           grid-template-columns: 1fr;
         }
+        #modalPlantillaGestoresRrhh .plantilla-kpis {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
     `;
     document.head.appendChild(style);
@@ -8834,52 +8924,59 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     { key: 'telefonos', label: 'Telefonos', grupo: 'Contacto', icon: 'fa-phone', desc: 'Telefonos activos.' },
     { key: 'domicilio', label: 'Domicilio', grupo: 'Contacto', icon: 'fa-home', desc: 'Domicilio principal.' },
     { key: 'codigo_postal', label: 'Codigo postal', grupo: 'Contacto', icon: 'fa-map-marker-alt', desc: 'Codigo postal.' },
-    { key: 'curp', label: 'CURP', grupo: 'Documentos', icon: 'fa-id-card', desc: 'Clave poblacional.' },
-    { key: 'rfc', label: 'RFC', grupo: 'Documentos', icon: 'fa-file-invoice', desc: 'Registro fiscal.' },
-    { key: 'nss', label: 'NSS', grupo: 'Documentos', icon: 'fa-shield-alt', desc: 'Seguro social.' },
-    { key: 'fecha_nacimiento', label: 'Fecha nacimiento', grupo: 'Documentos', icon: 'fa-calendar', desc: 'Nacimiento.' },
-    { key: 'sexo', label: 'Sexo', grupo: 'Documentos', icon: 'fa-venus-mars', desc: 'Sexo registrado.' },
-    { key: 'fecha_ingreso', label: 'Fecha ingreso', grupo: 'Laboral', icon: 'fa-calendar-check', desc: 'Ingreso.' },
+    { key: 'curp', label: 'CURP', grupo: 'Documentos', icon: 'fa-id-card', desc: 'Clave poblacional.', checked: true },
+    { key: 'rfc', label: 'RFC', grupo: 'Documentos', icon: 'fa-file-invoice', desc: 'Registro fiscal.', checked: true },
+    { key: 'nss', label: 'NSS', grupo: 'Documentos', icon: 'fa-shield-alt', desc: 'Seguro social.', checked: true },
+    { key: 'fecha_nacimiento', label: 'Fecha nacimiento', grupo: 'Documentos', icon: 'fa-calendar', desc: 'Nacimiento.', checked: true },
+    { key: 'sexo', label: 'Sexo', grupo: 'Documentos', icon: 'fa-venus-mars', desc: 'Sexo registrado.', checked: true },
+    { key: 'estado_civil', label: 'Estado civil', grupo: 'Documentos', icon: 'fa-ring', desc: 'Estado civil registrado.', checked: true },
+    { key: 'fecha_ingreso', label: 'Fecha ingreso', grupo: 'Laboral', icon: 'fa-calendar-check', desc: 'Ingreso.', checked: true },
     { key: 'fecha_registro', label: 'Fecha registro', grupo: 'Laboral', icon: 'fa-calendar-plus', desc: 'Alta sistema.' },
     { key: 'registro_patronal', label: 'Registro patronal', grupo: 'Laboral', icon: 'fa-briefcase', desc: 'Registro asignado.' },
     { key: 'codigo_contpaq_rrhh', label: 'Codigo CONTPAQ RRHH', grupo: 'Laboral', icon: 'fa-barcode', desc: 'Codigo laboral.' },
     { key: 'fecha_contpaq', label: 'Fecha CONTPAQ', grupo: 'Laboral', icon: 'fa-calendar-day', desc: 'Fecha CONTPAQ.' },
     { key: 'fecha_imss_alta', label: 'Fecha IMSS alta', grupo: 'Laboral', icon: 'fa-calendar-check', desc: 'Alta IMSS.' },
-    { key: 'direccion_organizacional', label: 'Direccion', grupo: 'Asignacion', icon: 'fa-sitemap', desc: 'Direccion org.' },
-    { key: 'area_texto', label: 'Area', grupo: 'Asignacion', icon: 'fa-layer-group', desc: 'Area asignada.' },
+    { key: 'nombre_empresa', label: 'Empresa', grupo: 'Estructura', icon: 'fa-city', desc: 'Empresa de la estructura.', checked: true },
+    { key: 'nombre_pais', label: 'Pais', grupo: 'Estructura', icon: 'fa-flag', desc: 'Pais.' },
+    { key: 'direccion_organizacional', label: 'Direccion', grupo: 'Estructura', icon: 'fa-sitemap', desc: 'Direccion org.', checked: true },
+    { key: 'area_texto', label: 'Area', grupo: 'Estructura', icon: 'fa-layer-group', desc: 'Area asignada.', checked: true },
     { key: 'nombre_departamento', label: 'Departamento', grupo: 'Asignacion', icon: 'fa-building', desc: 'Departamento.', checked: true },
     { key: 'nombre_puesto', label: 'Puesto', grupo: 'Asignacion', icon: 'fa-briefcase', desc: 'Puesto actual.', checked: true },
+    { key: 'puestos_total', label: 'Total puestos', grupo: 'Asignacion', icon: 'fa-layer-group', desc: 'Cantidad de puestos activos.' },
+    { key: 'puestos_detalle', label: 'Detalle puestos', grupo: 'Asignacion', icon: 'fa-list', desc: 'Departamento y puesto asignados.' },
     { key: 'nombre_jefe', label: 'Jefe inmediato', grupo: 'Asignacion', icon: 'fa-user-tie', desc: 'Jefe directo.', checked: true },
+    { key: 'beneficiarios', label: 'Beneficiarios', grupo: 'Beneficiarios', icon: 'fa-users', desc: 'Beneficiarios activos.', checked: true },
+    { key: 'beneficiarios_porcentaje', label: 'Porcentaje beneficiarios', grupo: 'Beneficiarios', icon: 'fa-percent', desc: 'Porcentaje total registrado.' },
     { key: 'ubicacion_laboral', label: 'Ubicacion laboral', grupo: 'Asignacion', icon: 'fa-map', desc: 'Ubicacion.' },
     { key: 'municipio_laboral', label: 'Municipio laboral', grupo: 'Asignacion', icon: 'fa-map-signs', desc: 'Municipio.' },
-    { key: 'nombre_pais', label: 'Pais', grupo: 'Asignacion', icon: 'fa-flag', desc: 'Pais.' },
     { key: 'estatus', label: 'Estatus', grupo: 'Asignacion', icon: 'fa-check-circle', desc: 'Estatus actual.', checked: true },
     { key: 'salario_sensible', label: 'Salario sensible', grupo: 'Sensible', icon: 'fa-lock', desc: 'Protegido.', sensible: true }
   ];
 
   function renderColumnasPlantillaGestoresRrhh() {
     const grupos = {};
-    columnasPlantillaGestoresRrhh.forEach(col => {
+    const columnasVisibles = columnasPlantillaGestoresRrhh.filter(col =>
+      !col.sensible || !!window.puedeVerSalarioSensibleRrhh
+    );
+    columnasVisibles.forEach(col => {
       if (!grupos[col.grupo]) grupos[col.grupo] = [];
       grupos[col.grupo].push(col);
     });
-    const ordenGrupos = ['Identidad', 'Contacto', 'Documentos', 'Laboral', 'Asignacion', 'Sensible'];
+    const ordenGrupos = ['Identidad', 'Estructura', 'Asignacion', 'Contacto', 'Documentos', 'Laboral', 'Sensible'];
     const renderGrupo = grupo => !grupos[grupo] ? '' : `
       <div class="plantilla-card">
         <div class="plantilla-card-header">
           <div class="plantilla-card-title">
-            <i class="fa ${grupo === 'Sensible' ? 'fa-lock' : grupo === 'Asignacion' ? 'fa-sitemap' : grupo === 'Laboral' ? 'fa-briefcase' : grupo === 'Contacto' ? 'fa-envelope' : grupo === 'Documentos' ? 'fa-file-alt' : 'fa-user'}"></i>
-            <span>${escapePlantillaGestoresHtml(grupo)} <span class="plantilla-grupo-contador" data-grupo="${escapePlantillaGestoresHtml(grupo)}">(0/${grupos[grupo].filter(col => !(col.sensible && !window.puedeVerSalarioSensibleRrhh)).length})</span></span>
+            <i class="fa ${grupo === 'Sensible' ? 'fa-lock' : grupo === 'Estructura' ? 'fa-building-columns' : grupo === 'Asignacion' ? 'fa-sitemap' : grupo === 'Laboral' ? 'fa-briefcase' : grupo === 'Contacto' ? 'fa-envelope' : grupo === 'Documentos' ? 'fa-file-alt' : 'fa-user'}"></i>
+            <span>${escapePlantillaGestoresHtml(grupo)} <span class="plantilla-grupo-contador" data-grupo="${escapePlantillaGestoresHtml(grupo)}">(0/${grupos[grupo].length})</span></span>
           </div>
           <button type="button" class="plantilla-toggle-grupo" data-grupo="${escapePlantillaGestoresHtml(grupo)}">Marcar todo</button>
         </div>
         <div class="plantilla-card-body">
           ${grupos[grupo].map(col => {
-            const disabled = col.sensible && !window.puedeVerSalarioSensibleRrhh;
-            const title = disabled ? 'Requiere permiso especial de salario.' : '';
             return `
-              <label class="plantilla-item ${disabled ? 'is-disabled' : ''}" title="${escapePlantillaGestoresHtml(title)}">
-                <input type="checkbox" class="plantilla-columna-check" data-grupo="${escapePlantillaGestoresHtml(grupo)}" value="${escapePlantillaGestoresHtml(col.key)}" ${col.checked && !disabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+              <label class="plantilla-item">
+                <input type="checkbox" class="plantilla-columna-check" data-grupo="${escapePlantillaGestoresHtml(grupo)}" value="${escapePlantillaGestoresHtml(col.key)}" ${col.checked ? 'checked' : ''}>
                 <span>
                   <span class="plantilla-item-title">${escapePlantillaGestoresHtml(col.label)}${col.sensible ? '<span class="plantilla-protegido">Protegido</span>' : ''}</span>
                   <span class="plantilla-item-sub">${escapePlantillaGestoresHtml(col.desc || 'Columna disponible para la plantilla.')}</span>
@@ -8893,11 +8990,89 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     return ordenGrupos.map(renderGrupo).join('');
   }
 
-  async function pedirColumnasPlantillaGestoresRrhh(mensajeFiltros) {
+  function obtenerTextoOptionGestion(selectId, fallback = '') {
+    const select = document.getElementById(selectId);
+    const option = select?.selectedOptions?.[0] || null;
+    const texto = String(option?.textContent || '').trim();
+    return texto && option?.value ? texto : fallback;
+  }
+
+  function filtrosReportePersonalRrhh() {
+    return {
+      empresa: document.getElementById('gestionEmpresaSelect')?.value || '',
+      empresaTexto: obtenerTextoOptionGestion('gestionEmpresaSelect'),
+      direccion: document.getElementById('UserDireccion')?.value || '',
+      area: document.getElementById('UserArea')?.value || '',
+      departamento: document.getElementById('UserRole')?.value || '',
+      puesto: document.getElementById('UserPlan')?.value || '',
+      multipuesto: document.getElementById('FilterMultiplePuestos')?.value || '',
+      estatus: document.getElementById('FilterTransaction')?.value || ''
+    };
+  }
+
+  function usuariosReportePersonalFiltradosRrhh(filtros) {
+    const base = Array.isArray(usuariosData) ? usuariosData : [];
+    return base.filter(persona => {
+      if (!usuarioCumpleFiltrosBase(persona, filtros.direccion, filtros.area, filtros.departamento, filtros.puesto)) return false;
+      if (!usuarioCumpleTipoPuesto(persona, filtros.multipuesto)) return false;
+      if (filtros.estatus && String(persona.estatus || '') !== String(filtros.estatus)) return false;
+      return true;
+    });
+  }
+
+  function resumenReportePersonalRrhh(filtros) {
+    const datos = usuariosReportePersonalFiltradosRrhh(filtros);
+    const empresas = new Set();
+    const direcciones = new Set();
+    const areas = new Set();
+    const departamentos = new Set();
+    const puestos = new Set();
+    let multipuesto = 0;
+
+    datos.forEach(persona => {
+      if (persona.puestos && persona.puestos.length > 1) multipuesto += 1;
+      obtenerPuestosUsuario(persona).forEach(puesto => {
+        const empresa = puesto.nombre_empresa || persona.nombre_empresa || filtros.empresaTexto || '';
+        const direccion = obtenerNombreDireccionPorPuesto(puesto);
+        const area = obtenerNombreAreaPorPuesto(puesto);
+        if (empresa) empresas.add(empresa);
+        if (direccion) direcciones.add(direccion);
+        if (area) areas.add(area);
+        if (puesto.nombre_departamento && puesto.nombre_departamento !== 'Sin departamento') departamentos.add(puesto.nombre_departamento);
+        if (puesto.nombre_puesto && puesto.nombre_puesto !== 'Sin puesto') puestos.add(puesto.nombre_puesto);
+      });
+    });
+
+    return {
+      total: datos.length,
+      empresas: empresas.size || (filtros.empresa ? 1 : 0),
+      direcciones: direcciones.size,
+      areas: areas.size,
+      departamentos: departamentos.size,
+      puestos: puestos.size,
+      multipuesto
+    };
+  }
+
+  function filtrosHtmlReportePersonalRrhh(filtros) {
+    const items = [];
+    if (filtros.empresa) items.push(['Empresa', filtros.empresaTexto || filtros.empresa]);
+    if (filtros.direccion) items.push(['Direccion', filtros.direccion]);
+    if (filtros.area) items.push(['Area', filtros.area]);
+    if (filtros.departamento) items.push(['Departamento', filtros.departamento]);
+    if (filtros.puesto) items.push(['Puesto', filtros.puesto]);
+    if (filtros.multipuesto) items.push(['Multipuesto', filtros.multipuesto === 'multiples' ? 'Multiples puestos' : 'Un solo puesto']);
+    if (filtros.estatus) items.push(['Estatus', filtros.estatus]);
+    if (!items.length) return '<span class="text-muted">Sin filtros aplicados. Se tomara el alcance completo visible en Gestion de Personal.</span>';
+    return items.map(([label, value]) => `<span class="plantilla-filter-chip"><strong>${escapePlantillaGestoresHtml(label)}:</strong> ${escapePlantillaGestoresHtml(value)}</span>`).join('');
+  }
+
+  async function pedirColumnasPlantillaGestoresRrhh(mensajeFiltros, filtros = filtrosReportePersonalRrhh()) {
     return new Promise(resolve => {
       inyectarEstilosPlantillaGestoresRrhh();
       const existente = document.getElementById('modalPlantillaGestoresRrhh');
       if (existente) existente.remove();
+      const resumen = resumenReportePersonalRrhh(filtros);
 
       const modal = document.createElement('div');
       modal.className = 'modal fade';
@@ -8913,15 +9088,27 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                   <i class="fa fa-file-excel"></i>
                 </span>
                 <div>
-                  <h5 class="modal-title fw-bold mb-0" style="color:#1f2937;">Descargar plantilla de gestores</h5>
-                  <div class="text-muted small">Elige las columnas que tendra el Excel.</div>
+                  <h5 class="modal-title fw-bold mb-0" style="color:#1f2937;">Reporte de Personal</h5>
+                  <div class="text-muted small">Consulta y descarga informacion del personal activo por estructura.</div>
                 </div>
               </div>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-              <div class="plantilla-resumen mb-2">
-                ${mensajeFiltros}
+              <div class="plantilla-resumen mb-3">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                  <span class="plantilla-resumen-title"><i class="fa fa-filter me-1"></i>Alcance del reporte</span>
+                  ${filtrosHtmlReportePersonalRrhh(filtros)}
+                </div>
+                <div class="plantilla-kpis">
+                  <div><strong>${resumen.total}</strong><span>Personas</span></div>
+                  <div><strong>${resumen.empresas}</strong><span>Empresas</span></div>
+                  <div><strong>${resumen.direcciones}</strong><span>Direcciones</span></div>
+                  <div><strong>${resumen.areas}</strong><span>Areas</span></div>
+                  <div><strong>${resumen.departamentos}</strong><span>Departamentos</span></div>
+                  <div><strong>${resumen.puestos}</strong><span>Puestos</span></div>
+                </div>
+                <div class="small text-muted mt-2">${mensajeFiltros}</div>
               </div>
               <div class="plantilla-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                 <label class="d-flex align-items-center gap-2 fw-bold mb-0" style="color:#26334d;">
@@ -9111,22 +9298,27 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
   }
 
   async function descargarPlantillaGestores() {
-    const direccion = document.getElementById('UserDireccion')?.value || '';
-    const area = document.getElementById('UserArea')?.value || '';
-    const departamento = document.getElementById('UserRole')?.value || '';
-    const puesto = document.getElementById('UserPlan')?.value || '';
-    const estatus = document.getElementById('FilterTransaction')?.value || '';
+    const filtrosReporte = filtrosReportePersonalRrhh();
+    const empresa = filtrosReporte.empresa;
+    const direccion = filtrosReporte.direccion;
+    const area = filtrosReporte.area;
+    const departamento = filtrosReporte.departamento;
+    const puesto = filtrosReporte.puesto;
+    const estatus = filtrosReporte.estatus;
+    const multipuesto = filtrosReporte.multipuesto;
     let detallesFiltros = [];
+    if (empresa) detallesFiltros.push(`Empresa: <strong>${escapePlantillaGestoresHtml(filtrosReporte.empresaTexto || empresa)}</strong>`);
     if (direccion) detallesFiltros.push(`Direccion: <strong>${escapePlantillaGestoresHtml(direccion)}</strong>`);
     if (area) detallesFiltros.push(`Area: <strong>${escapePlantillaGestoresHtml(area)}</strong>`);
     if (departamento) detallesFiltros.push(`Departamento: <strong>${escapePlantillaGestoresHtml(departamento)}</strong>`);
     if (puesto) detallesFiltros.push(`Puesto: <strong>${escapePlantillaGestoresHtml(puesto)}</strong>`);
+    if (multipuesto) detallesFiltros.push(`Multipuesto: <strong>${escapePlantillaGestoresHtml(multipuesto === 'multiples' ? 'Multiples puestos' : 'Un solo puesto')}</strong>`);
     if (estatus) detallesFiltros.push(`Estatus: <strong>${escapePlantillaGestoresHtml(estatus)}</strong>`);
     const mensajeFiltros = detallesFiltros.length
       ? 'Se descargara un archivo Excel filtrado por:<br>' + detallesFiltros.join('<br>')
       : 'Se descargara un archivo Excel con <strong>TODOS los gestores</strong> del sistema.';
 
-    const columnas = await pedirColumnasPlantillaGestoresRrhh(mensajeFiltros);
+    const columnas = await pedirColumnasPlantillaGestoresRrhh(mensajeFiltros, filtrosReporte);
     if (!columnas) return;
 
     try {
@@ -9162,8 +9354,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         input.value = value;
         form.appendChild(input);
       };
+      if (empresa) agregarInput('empresa', empresa);
+      if (direccion) agregarInput('direccion', direccion);
+      if (area) agregarInput('area', area);
       if (departamento) agregarInput('departamento', departamento);
       if (puesto) agregarInput('puesto', puesto);
+      if (multipuesto) agregarInput('multipuesto', multipuesto);
       if (estatus) agregarInput('estatus', estatus);
       agregarInput('plantilla_token', downloadToken);
       columnas.forEach(columna => agregarInput('columnas[]', columna));
@@ -14687,6 +14883,14 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     setEstadoSalarioSensibleRrhh(esEdicion ? (tieneSalario ? 'Guardado' : 'Sin capturar') : 'Solo al editar', 'locked');
   }
 
+  function bloquearSalarioSensibleRrhh() {
+    if (!inputSalarioSensibleRrhh) return;
+    const esEdicion = form.dataset.mode === 'editar';
+    const valorActual = String(inputSalarioSensibleRrhh.value || '').trim();
+    const tieneSalario = esEdicion && valorActual !== '';
+    resetSalarioSensibleRrhh(esEdicion, tieneSalario);
+  }
+
   function aplicarEstadoSalarioSensibleRrhh(meta = {}) {
     const puedeGestionar = Object.prototype.hasOwnProperty.call(meta, 'puede_gestionar')
       ? !!meta.puede_gestionar
@@ -15328,6 +15532,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     btn.type = 'button';
     btn.className = 'btn btn-outline-secondary';
     btn.title = 'Mostrar u ocultar contrase\u00f1a';
+    btn.dataset.rrhhPasswordToggle = '1';
     btn.innerHTML = '<i class="fa fa-eye"></i>';
     input.parentNode.insertBefore(wrap, input);
     wrap.appendChild(input);
@@ -15340,6 +15545,17 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       const masked = input.classList.toggle('rrhh-password-masked');
       btn.innerHTML = masked ? '<i class="fa fa-eye"></i>' : '<i class="fa fa-eye-slash"></i>';
     });
+  }
+
+  function bloquearPasswordRrhh() {
+    const input = form.querySelector('[name="persona.contrasena"]');
+    if (!input) return;
+    input.type = 'text';
+    input.classList.add('rrhh-password-masked');
+    const btn = form.querySelector('[data-rrhh-password-toggle="1"]');
+    if (btn) {
+      btn.innerHTML = '<i class="fa fa-eye"></i>';
+    }
   }
 
   function initRrhhDatepickers() {
@@ -17412,6 +17628,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       initRrhhLaboralSelects();
     }
     initRrhhWizardMarkup();
+    bloquearPasswordRrhh();
     actualizarRrhhWizard();
   });
 
@@ -17424,10 +17641,13 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     }
     showRrhhScrim();
     initRrhhWizardMarkup();
+    bloquearPasswordRrhh();
   });
 
   modal.addEventListener('hidden.bs.modal', function () {
     modal.style.removeProperty('z-index');
+    bloquearPasswordRrhh();
+    bloquearSalarioSensibleRrhh();
     setRrhhModalLoading(false);
     delete form.dataset.rrhhLoadToken;
     hideRrhhScrim();

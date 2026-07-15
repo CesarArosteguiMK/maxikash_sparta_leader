@@ -371,6 +371,7 @@
                     <div class="small text-muted">
                         Codigo CONTPAC, RFC, NSS, telefono, correo, domicilio, codigo postal, puesto, departamento, area,
                         jefe directo, datos IMSS, fechas, sueldo visible de ficha, banco, cuenta y CLABE. Las celdas vacias se omiten.
+                        Las hojas con "Activos" o "Bajas" en su nombre tambien sincronizan el estatus del colaborador.
                     </div>
                 </div>
                 <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
@@ -822,7 +823,7 @@
         if (aplicar) {
             const confirm = await Swal.fire({
                 title: 'Aplicar cambios',
-                text: 'Se actualizaran los datos encontrados por CURP. Las celdas vacias no se tocaran.',
+                text: 'Se actualizaran los datos encontrados por CURP. Las celdas vacias no se tocaran y las hojas Activos/Bajas sincronizaran el estatus.',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'Aplicar',

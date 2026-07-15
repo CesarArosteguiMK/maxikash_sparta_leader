@@ -26,7 +26,8 @@ $__assetsVer  = ($__demoCss ? filemtime($__demoCss) : '')
     . ($__swalGlassCss ? '.' . filemtime($__swalGlassCss) : '');
 if ($__assetsVer === '.' || $__assetsVer === '') $__assetsVer = (string) time();
 $__personaIdAsistente = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
-$__mostrarLeonidas = $__personaIdAsistente === 878;
+$__esPropietarioLeonidas = $__personaIdAsistente === 878;
+$__mostrarLeonidas = $__personaIdAsistente > 0 && isset($_SESSION['login']);
 
 function getMenu(): string
 {
@@ -180,8 +181,8 @@ function getMenu(): string
         'Créditos' => [
             'icono'    => 'fa-solid fa-sack-dollar',
             'subItems' => [
-                ['label' => 'Estados de Cuenta',  'url' => '/estadocuenta/consulta',      'modulos' => [1]],
-                ['label' => 'Documentación',       'url' => '/estadocuenta/documentacion', 'modulos' => [2]],
+                ['label' => 'Estados de Cuenta',  'url' => '/EstadoCuenta/Consulta',      'modulos' => [1]],
+                ['label' => 'Documentación',       'url' => '/EstadoCuenta/documentacion', 'modulos' => [2]],
                 ['label' => 'Histórico Gestiones', 'url' => '/gestiones/seguimiento',      'modulos' => [3]],
             ],
         ],
@@ -1743,7 +1744,12 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
 
     <?= $script ?? ''; ?>
     <?php if ($__mostrarLeonidas): ?>
-    <aside id="leonidasAssistant" class="leonidas-assistant" aria-label="Asistente Leónidas" data-leonidas-user="<?= htmlspecialchars((string) $usuario, ENT_QUOTES, 'UTF-8') ?>">
+    <aside id="leonidasAssistant"
+           class="leonidas-assistant<?= $__esPropietarioLeonidas ? '' : ' is-recipient-idle' ?>"
+           aria-label="Asistente Leónidas"
+           data-leonidas-owner="<?= $__esPropietarioLeonidas ? '1' : '0' ?>"
+           data-leonidas-persona="<?= (int) $__personaIdAsistente ?>"
+           data-leonidas-user="<?= htmlspecialchars((string) $usuario, ENT_QUOTES, 'UTF-8') ?>">
         <section class="leonidas-panel" aria-live="polite" aria-hidden="true">
             <header class="leonidas-panel__header">
                 <div class="leonidas-panel__identity">
@@ -1761,12 +1767,14 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
             </div>
             <form class="leonidas-composer" data-leonidas-form>
                 <label class="visually-hidden" for="leonidasPrompt">Mensaje para Leónidas</label>
-                <input id="leonidasPrompt" type="text" maxlength="500" autocomplete="off" placeholder="Escribe una instrucción..." data-leonidas-input>
+                <textarea id="leonidasPrompt" rows="1" maxlength="500" autocomplete="off" placeholder="Escribe una instrucción..." data-leonidas-input></textarea>
                 <button type="submit" class="leonidas-composer__send" aria-label="Enviar mensaje a Leónidas">
                     <i class="fa-solid fa-paper-plane"></i>
                 </button>
             </form>
-            <p class="leonidas-panel__notice"><i class="fa-solid fa-shield-halved"></i> Primera fase: conversa y prepara tareas; no modifica datos sin autorización.</p>
+            <p class="leonidas-panel__notice"><i class="fa-solid fa-shield-halved"></i> <?= $__esPropietarioLeonidas
+                ? 'Las acciones sensibles requieren vista previa, confirmación y auditoría.'
+                : 'Mensajería interna protegida y auditada dentro de Sparta.' ?></p>
         </section>
         <button type="button" class="leonidas-orb" data-leonidas-toggle aria-expanded="false" aria-controls="leonidasAssistant" aria-label="Abrir a Leónidas">
             <span class="leonidas-orb__stage" aria-hidden="true">

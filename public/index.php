@@ -110,17 +110,47 @@ if ((!isset($_SESSION['login']) && !$rutaPublicaSinLogin) || strtolower($urlSoli
 
 \Core\SessionGuard::validar();
 
-// Alias historico: las rutas /analitica/* viven en el controlador Reporteria.
+// Alias historicos: las rutas públicas no siempre conservan las mayúsculas
+// del nombre real del controlador. Esto debe resolverse antes de cargar el archivo.
 $controladorSolicitado = $urlSolicitada[0];
-$controladorArchivo = strtolower((string) $controladorSolicitado) === 'analitica'
-    ? 'Reporteria'
-    : $controladorSolicitado;
+$aliasesControlador = [
+    'analitica' => 'Reporteria',
+    'estadocuenta' => 'EstadoCuenta',
+];
+$controladorArchivo = $aliasesControlador[strtolower((string) $controladorSolicitado)]
+    ?? $controladorSolicitado;
+
+if (!function_exists('resolverControladorArchivo')) {
+    function resolverControladorArchivo($controladorArchivo)
+    {
+        $controladorArchivo = trim((string) $controladorArchivo);
+        if ($controladorArchivo === '') {
+            return '';
+        }
+
+        $rutaExacta = CONTROLADORES . "/$controladorArchivo.php";
+        if (is_file($rutaExacta)) {
+            return $controladorArchivo;
+        }
+
+        $controladorBuscado = strtolower($controladorArchivo . '.php');
+        foreach (glob(CONTROLADORES . '/*.php') ?: [] as $archivo) {
+            if (strtolower(basename($archivo)) === $controladorBuscado) {
+                return pathinfo($archivo, PATHINFO_FILENAME);
+            }
+        }
+
+        return $controladorArchivo;
+    }
+}
+
+$controladorArchivo = resolverControladorArchivo($controladorArchivo);
 
 // Se valida que el archivo del controlador solicitado exista
-if ($controladorArchivo === '' || !file_exists(CONTROLADORES . "/$controladorArchivo.php")) recursoNoDisponible();
+if ($controladorArchivo === '' || !is_file(CONTROLADORES . "/$controladorArchivo.php")) recursoNoDisponible();
 require_once CONTROLADORES . "/$controladorArchivo.php";
 
-$controlador = 'Controllers\\' . ucfirst($controladorArchivo);
+$controlador = 'Controllers\\' . $controladorArchivo;
 unset($urlSolicitada[0]);
 
 // Se valida que la clase del controlador exista

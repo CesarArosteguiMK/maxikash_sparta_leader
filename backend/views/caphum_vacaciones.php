@@ -955,6 +955,23 @@
         return true;
     }
 
+    function aplicarBorradorLeonidas() {
+        if (params.get('leonidas') !== '1') return;
+        const inicio = normalizarFechaInput(params.get('fecha_inicio') || '');
+        const fin = normalizarFechaInput(params.get('fecha_fin') || '');
+        if (!inicio || !fin) return;
+
+        const fpInicio = $('vacFechaInicio')?._flatpickr;
+        const fpFin = $('vacFechaFin')?._flatpickr;
+        if (fpInicio) fpInicio.setDate(inicio, false);
+        else $('vacFechaInicio').value = inicio;
+        actualizarLimitesCalendarios();
+        if (fpFin) fpFin.setDate(fin, false);
+        else $('vacFechaFin').value = fin;
+        actualizarPreviewDias();
+        $('vacFormSolicitud')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
     function scheduleInitCalendarios(intentos = 0) {
         if (initCalendarios()) return;
         if (intentos >= 25) return;
@@ -1633,9 +1650,14 @@ h6 { margin: 0 0 2mm; font-size: 14px; }
     $('vacBtnConfirmarSolicitud').addEventListener('click', enviarSolicitudFirmada);
     scheduleInitCalendarios();
     actualizarModoFechas('rango');
-    cargarResumen().catch((err) => {
-        console.error(err);
-        swal('error', 'Error', 'No se pudo cargar vacaciones.');
-    });
+    cargarResumen()
+        .then(() => {
+            scheduleInitCalendarios();
+            window.setTimeout(aplicarBorradorLeonidas, 180);
+        })
+        .catch((err) => {
+            console.error(err);
+            swal('error', 'Error', 'No se pudo cargar vacaciones.');
+        });
 })();
 </script>

@@ -103,6 +103,8 @@ class CapHum extends Controller
 
     /** Ãšltimo error de enviarCorreo para mostrarlo en la respuesta JSON */
     private $enviarCorreoUltimoError = '';
+    /** Canal usado en el último envío exitoso: principal, secundario, sendgrid o mail. */
+    private $enviarCorreoUltimoCanal = '';
     private static $modulosSesionRefrescados = false;
 
     private static function tieneModuloWeb(int $moduloId): bool
@@ -5494,6 +5496,7 @@ class CapHum extends Controller
                     if (estadoDocumentoAusencia) estadoDocumentoAusencia.textContent = "";
                     if (archivoDocumentoAusencia) archivoDocumentoAusencia.value = "";
                     limpiarDocumentoAusenciaSeleccionado();
+                    actualizarRestriccionFechaFinAusencia();
                     actualizarEstadoDocumentoAusenciaPorRazon();
 
                     // Cargar catálogo y tabla
@@ -5535,8 +5538,52 @@ class CapHum extends Controller
                         }
                     }
                 };
-                flatpickr(inpInicio, opts);
-                flatpickr(inpFin, opts);
+                flatpickr(inpInicio, {
+                    ...opts,
+                    onChange: function(selectedDates, dateStr, instance) {
+                        if (instance && instance.calendarContainer) {
+                            instance.calendarContainer.classList.add("ausencia-flatpickr-calendar");
+                        }
+                        actualizarRestriccionFechaFinAusencia();
+                    }
+                });
+                flatpickr(inpFin, {
+                    ...opts,
+                    onChange: function(selectedDates, dateStr, instance) {
+                        if (instance && instance.calendarContainer) {
+                            instance.calendarContainer.classList.add("ausencia-flatpickr-calendar");
+                        }
+                        validarRangoFechasAusencia(true);
+                    }
+                });
+                inpInicio.addEventListener('change', actualizarRestriccionFechaFinAusencia);
+                inpFin.addEventListener('change', function () { validarRangoFechasAusencia(true); });
+            }
+
+            function validarRangoFechasAusencia(mostrarMensaje = false) {
+                const inicio = (document.getElementById("fechaInicio")?.value || '').trim();
+                const fin = (document.getElementById("fechaFin")?.value || '').trim();
+                if (!inicio || !fin) return true;
+                if (fin >= inicio) return true;
+
+                const elFin = document.getElementById("fechaFin");
+                if (elFin) {
+                    elFin.value = '';
+                    if (elFin._flatpickr) elFin._flatpickr.clear();
+                }
+                if (mostrarMensaje) {
+                    Swal.fire("Fecha fin invalida", "La fecha fin no puede ser menor que la fecha inicio.", "warning");
+                }
+                return false;
+            }
+
+            function actualizarRestriccionFechaFinAusencia() {
+                const inicio = (document.getElementById("fechaInicio")?.value || '').trim();
+                const elFin = document.getElementById("fechaFin");
+                if (elFin && elFin._flatpickr) {
+                    elFin._flatpickr.set('minDate', inicio || null);
+                }
+                validarRangoFechasAusencia(false);
             }
 
             function fechasAusenciaCompletas() {
@@ -5645,9 +5692,13 @@ class CapHum extends Controller
                 return normalizarTextoAusencia(razon).includes('VACACIONES');
             }
 
+            function esRazonFaltaAusencia(razon) {
+                return normalizarTextoAusencia(razon).includes('FALTA');
+            }
+
             function ausenciaSeleccionadaRequiereDocumento() {
                 const razon = razonAusenciaSeleccionadaTexto();
-                return Boolean(razon && !esRazonVacacionesAusencia(razon));
+                return Boolean(razon && !esRazonVacacionesAusencia(razon) && !esRazonFaltaAusencia(razon));
             }
 
             function razonAusenciaSeleccionadaTexto() {
@@ -5658,19 +5709,21 @@ class CapHum extends Controller
 
             function actualizarEstadoDocumentoAusenciaPorRazon() {
                 const razon = razonAusenciaSeleccionadaTexto();
-                const esVacaciones = esRazonVacacionesAusencia(razon);
+                const noRequiereDocumento = Boolean(razon && !ausenciaSeleccionadaRequiereDocumento());
                 const btnAdjuntar = document.getElementById('btnAdjuntarDocumentoAusencia');
                 const estado = document.getElementById('estadoDocumentoAusencia');
 
                 if (btnAdjuntar) {
-                    btnAdjuntar.classList.toggle('d-none', esVacaciones);
-                    btnAdjuntar.disabled = esVacaciones;
+                    btnAdjuntar.classList.toggle('d-none', noRequiereDocumento);
+                    btnAdjuntar.disabled = noRequiereDocumento;
                 }
 
-                if (esVacaciones) {
+                if (noRequiereDocumento) {
                     limpiarDocumentoAusenciaSeleccionado();
                     if (estado) {
-                        estado.textContent = 'Vacaciones solo requiere fecha inicio y fecha fin.';
+                        estado.textContent = esRazonFaltaAusencia(razon)
+                            ? 'Falta solo requiere fechas y descripcion.'
+                            : 'Vacaciones solo requiere fecha inicio y fecha fin.';
                     }
                 } else if (estado && !documentoAusenciaSeleccionado) {
                     estado.textContent = '';
@@ -5744,8 +5797,8 @@ class CapHum extends Controller
                     const doc = documentoParaAusencia(a);
                     const archivo = doc ? String(doc.archivo || '') : '';
                     const archivoAttr = escaparAtributoJsAusencia(archivo);
-                    const esVacaciones = esRazonVacacionesAusencia(a.razon || '');
-                    const documentoHtml = esVacaciones
+                    const noRequiereDocumento = esRazonVacacionesAusencia(a.razon || '') || esRazonFaltaAusencia(a.razon || '');
+                    const documentoHtml = noRequiereDocumento
                         ? '<span class="badge bg-info text-dark">No requiere documento</span>'
                         : (doc
                         ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="verDocumentoAusenciaSubido('${archivoAttr}')"><i class="fa fa-eye me-1"></i>Ver documento</button>`
@@ -5885,11 +5938,12 @@ class CapHum extends Controller
                 const gestor = (document.getElementById('gestor_ausencia')?.textContent || '')
                     .replace(/^Gestor:\s*/i, '')
                     .trim();
-                if (esRazonVacacionesAusencia(razonAusenciaSeleccionadaTexto())) {
-                    Swal.fire('Documento no requerido', 'Las vacaciones solo necesitan fecha inicio y fecha fin.', 'info');
+                const razonTexto = razonAusenciaSeleccionadaTexto();
+                if (razonTexto && !ausenciaSeleccionadaRequiereDocumento()) {
+                    Swal.fire('Documento no requerido', 'Esta razon de ausencia solo necesita fechas y descripcion.', 'info');
                     return;
                 }
-                const tipoDocumento = tipoDocumentoDesdeRazonAusencia(razonAusenciaSeleccionadaTexto());
+                const tipoDocumento = tipoDocumentoDesdeRazonAusencia(razonTexto);
                 if (!tipoDocumento) {
                     Swal.fire('Atencion', 'Selecciona una razon de ausencia para cargar su documento.', 'warning');
                     return;
@@ -6109,6 +6163,7 @@ class CapHum extends Controller
                     document.getElementById("fechaFin").value = ff;
                     if (document.getElementById("fechaInicio")._flatpickr) document.getElementById("fechaInicio")._flatpickr.setDate(fi, false);
                     if (document.getElementById("fechaFin")._flatpickr) document.getElementById("fechaFin")._flatpickr.setDate(ff, false);
+                    actualizarRestriccionFechaFinAusencia();
 
                     document.getElementById("descripcionAusencia").value = a.descripcion || '';
 
@@ -6134,6 +6189,7 @@ class CapHum extends Controller
                 var elFin = document.getElementById("fechaFin");
                 if (elInicio) { elInicio.value = ''; if (elInicio._flatpickr) elInicio._flatpickr.clear(); }
                 if (elFin) { elFin.value = ''; if (elFin._flatpickr) elFin._flatpickr.clear(); }
+                actualizarRestriccionFechaFinAusencia();
                 document.getElementById("descripcionAusencia").value = '';
                 const estadoDocumentoAusencia = document.getElementById("estadoDocumentoAusencia");
                 const archivoDocumentoAusencia = document.getElementById("archivoDocumentoAusencia");
@@ -6168,6 +6224,9 @@ class CapHum extends Controller
                 }
                 if (!fechaInicio || !fechaFin) {
                     Swal.fire("Fechas requeridas", "Selecciona fecha inicio y fecha fin.", "warning");
+                    return;
+                }
+                if (!validarRangoFechasAusencia(true)) {
                     return;
                 }
                 const requiereDocumento = ausenciaSeleccionadaRequiereDocumento();
@@ -11637,7 +11696,12 @@ class CapHum extends Controller
                     }
                     if (alertas.length || (Array.isArray(v.recomendaciones) && v.recomendaciones.length)) {
                         htmlV2 += "<div class=\"mt-2 pt-2 border-top\"><span class=\"text-muted d-block mb-1\"><strong>Observaciones</strong></span><ul class=\"mb-0 ps-3\">";
-                        alertas.forEach(function(a) { htmlV2 += "<li class=\"text-danger\">" + escHtmlComparaciones(a) + "</li>"; });
+                        alertas.forEach(function(a) {
+                            var esAviso = esObservacionAvisoMotorV2(a, v);
+                            var clase = esAviso ? "text-warning fw-semibold" : "text-danger fw-semibold";
+                            var etiqueta = esAviso ? "Aviso" : "Alerta";
+                            htmlV2 += "<li class=\"" + clase + "\"><strong>" + etiqueta + ":</strong> " + escHtmlComparaciones(a) + "</li>";
+                        });
                         (Array.isArray(v.recomendaciones) ? v.recomendaciones : []).slice(0, 3).forEach(function(a) { htmlV2 += "<li class=\"text-muted\">" + escHtmlComparaciones(a) + "</li>"; });
                         htmlV2 += "</ul></div>";
                     } else if (comps.length) {
@@ -12015,6 +12079,22 @@ class CapHum extends Controller
                 var texto = claveDocModalGlobal(a);
                 if (texto.indexOf("CURP NO COINCIDE ENTRE DOCUMENTOS") === -1) return false;
                 return esVerificacionMotorV2(v) && !hayCurpCriticoMotorV2(v);
+            }
+
+            function esObservacionAvisoMotorV2(a, v) {
+                var texto = claveDocModalGlobal(a);
+                if (!texto) return false;
+                var comps = Array.isArray(v && v.comparaciones_v2) ? v.comparaciones_v2 : [];
+                for (var i = 0; i < comps.length; i++) {
+                    var comp = comps[i] || {};
+                    var severidad = claveDocModalGlobal(comp.severidad || comp.nivel || "");
+                    var mensaje = claveDocModalGlobal(comp.mensaje || comp.detalle || "");
+                    if (severidad !== "AVISO" && severidad !== "WARNING" && severidad !== "ADVERTENCIA") continue;
+                    if (!mensaje || texto === mensaje || texto.indexOf(mensaje) !== -1 || mensaje.indexOf(texto) !== -1) return true;
+                }
+                return texto.indexOf("PERTENECE A LA MISMA PERSONA") !== -1
+                    || texto.indexOf("MISMA IDENTIDAD DOCUMENTAL") !== -1
+                    || (texto.indexOf("CURP") !== -1 && texto.indexOf("RUIDO") !== -1);
             }
 
             function filtrarNotasCalidadVisibles(notas) {
@@ -15507,7 +15587,7 @@ class CapHum extends Controller
 </body>
 </html>';
 
-        $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
+        $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline, [], [], true);
         if ($enviado) {
             CandidatosDAO::registrarFechaEnvioCorreoPostulacion($id, $ahoraCdmx->format('Y-m-d H:i:s'));
             echo json_encode(self::respuesta(true, "Postulación enviada por correo correctamente.", [
@@ -18428,7 +18508,7 @@ class CapHum extends Controller
   </table>
 </body>
 </html>';
-                $correoOk = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInlineDel);
+                $correoOk = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInlineDel, [], [], true);
             }
         }
 
@@ -18882,7 +18962,7 @@ class CapHum extends Controller
         $fechaProgramadaGuardada = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
         CandidatosDAO::registrarIngresoProgramado($id_candidato, $fechaIngresoNormalizada, $fechaProgramadaGuardada);
 
-        $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
+        $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline, [], [], true);
         if ($enviado) {
             $nombreJefe = trim($c['nombre_jefe'] ?? '') ?: 'Jefe directo';
             $correoJefeInfo = $this->resolverCorreoPersonaIngreso(
@@ -19036,7 +19116,7 @@ class CapHum extends Controller
                 (int) ($_SESSION['usuario_id'] ?? 0),
                 $fechaProgramadaGuardada
             );
-            echo json_encode(self::respuesta(false, 'No se pudo enviar el correo al candidato. La fecha quedo guardada; revisa la configuracion de correo y vuelve a notificar antes de continuar.', [
+            echo json_encode(self::respuesta(false, 'No se pudo enviar el correo al candidato. La fecha quedo guardada. Detalle: ' . $msg, [
                 'id_candidato' => $id_candidato,
                 'fecha_ingreso' => $fechaIngresoNormalizada,
                 'fecha_ingreso_notificada_en' => $fechaProgramadaGuardada,
@@ -19374,6 +19454,7 @@ class CapHum extends Controller
         $destino = trim($c['email'] ?? '');
         $correoBienvenidaEnviado = false;
         $correoBienvenidaError = null;
+        $correoBienvenidaCanal = null;
         $base = $this->obtenerBaseUrlApp();
         $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
         $rutaLogoInline = null;
@@ -19428,8 +19509,10 @@ class CapHum extends Controller
   </td></tr></table>
 </body></html>';
             try {
-                $correoBienvenidaEnviado = $this->enviarCorreo($destino, 'Bienvenido(a) a Maxikash', $cuerpoBienvenida, $nombreCompleto, $rutaLogoInline, $adjuntosBienvenida);
-                if (!$correoBienvenidaEnviado) {
+                $correoBienvenidaEnviado = $this->enviarCorreo($destino, 'Bienvenido(a) a Maxikash', $cuerpoBienvenida, $nombreCompleto, $rutaLogoInline, $adjuntosBienvenida, [], true);
+                if ($correoBienvenidaEnviado) {
+                    $correoBienvenidaCanal = $this->enviarCorreoUltimoCanal ?: 'principal';
+                } else {
                     $correoBienvenidaError = $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo de bienvenida.';
                 }
             } catch (\Throwable $e) {
@@ -19467,6 +19550,7 @@ class CapHum extends Controller
             'limpieza_reingreso' => $limpiezaReingreso,
             'correo_bienvenida_enviado' => $correoBienvenidaEnviado,
             'correo_bienvenida_error' => $correoBienvenidaError,
+            'correo_bienvenida_canal' => $correoBienvenidaCanal,
             'correo_revision_documental_enviado' => $correoRevision['enviado'],
             'correo_revision_documental_error' => $correoRevision['error'],
             'correo_revision_documental_destinatarios' => $correoRevision['destinatarios'],
@@ -19504,7 +19588,13 @@ class CapHum extends Controller
         if ($nombreCompleto === '') {
             $nombreCompleto = 'Candidato';
         }
-        $bienvenida = !empty($resultado['correo_bienvenida_enviado']) ? 'bienvenida OK' : 'bienvenida fallo';
+        $bienvenida = 'bienvenida fallo';
+        if (!empty($resultado['correo_bienvenida_enviado'])) {
+            $canalBienvenida = (string) ($resultado['correo_bienvenida_canal'] ?? 'principal');
+            $bienvenida = $canalBienvenida === 'secundario'
+                ? 'bienvenida OK con correo secundario'
+                : 'bienvenida OK';
+        }
         $revisionEnviados = (int) ($resultado['correo_revision_documental_enviados'] ?? 0);
         $revisionTotal = (int) ($resultado['correo_revision_documental_total'] ?? 0);
         $divisionalParte = 'jefe divisional no aplica';
@@ -19700,7 +19790,8 @@ class CapHum extends Controller
         string $fechaIngreso,
         string $fechaContratado,
         string $urlPlataforma,
-        ?string $rutaLogoInline
+        ?string $rutaLogoInline,
+        bool $crearNotificacionesInternas = true
     ): array {
         $destinatarios = $this->obtenerDestinatariosRevisionDocumental(self::candidatoEsDireccionCobranza($candidato));
         $destinatariosEmail = [];
@@ -19780,7 +19871,7 @@ class CapHum extends Controller
             $correo = (string) ($destinatario['correo'] ?? '');
             $nombre = (string) ($destinatario['nombre'] ?? '');
             try {
-                if ($this->enviarCorreo($correo, $asunto, $cuerpoHtml, $nombre, $rutaLogoInline)) {
+                if ($this->enviarCorreo($correo, $asunto, $cuerpoHtml, $nombre, $rutaLogoInline, [], [], true)) {
                     $enviados++;
                 } else {
                     $errores[] = $correo . ': ' . ($this->enviarCorreoUltimoError ?: 'No se pudo enviar.');
@@ -19789,7 +19880,9 @@ class CapHum extends Controller
                 $errores[] = $correo . ': ' . $e->getMessage();
             }
         }
-        $notificacionesInternas = $this->notificarResponsablesRevisionDocumentalAltaPlantilla($candidato, $nombreCompleto, $destinatarios);
+        $notificacionesInternas = $crearNotificacionesInternas
+            ? $this->notificarResponsablesRevisionDocumentalAltaPlantilla($candidato, $nombreCompleto, $destinatarios)
+            : ['ids' => [], 'total' => 0, 'creada' => false];
 
         return [
             'enviado' => $enviados === count($destinatariosEmail),
@@ -19966,7 +20059,8 @@ class CapHum extends Controller
                     (string) ($destinatario['nombre'] ?? ''),
                     $rutaLogoInline,
                     [],
-                    $cc
+                    $cc,
+                    true
                 );
             } catch (\Throwable $e) {
                 $enviado = false;
@@ -23869,8 +23963,9 @@ class CapHum extends Controller
      * @param string|null $rutaLogoInline Ruta absoluta al logo para incrustar (cid:) — si existe se adjunta y se usa cid:logo__SPARTA_SECRET_REDACTED__ en el HTML
      * @return bool
      */
-    private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '', $rutaLogoInline = null, array $adjuntos = [], array $cc = [])
+    private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '', $rutaLogoInline = null, array $adjuntos = [], array $cc = [], bool $permitirFallbackLimiteDiario = false)
     {
+        $this->enviarCorreoUltimoCanal = '';
         $repoRoot = defined('RAIZ') ? dirname(RAIZ) : dirname(__DIR__, 2);
         $autoload = $repoRoot . '/vendor/autoload.php';
         if (!is_file($autoload)) {
@@ -23909,6 +24004,16 @@ class CapHum extends Controller
         $driver      = strtolower(trim($get('MAIL_DRIVER', 'mail_driver', 'smtp')));
         $fromEmail   = $mailFrom !== '' ? $mailFrom : $smtpUser;
         $fromName    = $mailFromName !== '' ? $mailFromName : 'Recursos Humanos';
+        $fallbackSmtpHost = trim($get('MAIL_FALLBACK_SMTP_HOST', 'fallback_smtp_host', $smtpHost));
+        $fallbackSmtpUser = trim($get('MAIL_FALLBACK_SMTP_USER', 'fallback_smtp_user', ''));
+        $fallbackSmtpPassRaw = $get('MAIL_FALLBACK_SMTP_PASS', 'fallback_smtp_pass', '');
+        $fallbackSmtpPass = preg_replace('/\s+/', '', $fallbackSmtpPassRaw);
+        $fallbackSmtpPass = preg_replace('/[^\x20-\x7E]/', '', $fallbackSmtpPass);
+        $fallbackSmtpPass = trim($fallbackSmtpPass);
+        $fallbackSmtpPort = (int) ($get('MAIL_FALLBACK_SMTP_PORT', 'fallback_smtp_port', (string) $smtpPort) ?: $smtpPort);
+        $fallbackSmtpSecure = strtolower(trim($get('MAIL_FALLBACK_SMTP_SECURE', 'fallback_smtp_secure', $smtpSecure)));
+        $fallbackMailFrom = trim($get('MAIL_FALLBACK_FROM', 'fallback_mail_from', ''));
+        $fallbackMailFromName = trim($get('MAIL_FALLBACK_FROM_NAME', 'fallback_mail_from_name', $fromName));
         $adjuntosValidos = $this->normalizarAdjuntosCorreo($adjuntos);
         $ccValidos = [];
         foreach ($cc as $correoCc => $nombreCc) {
@@ -23933,7 +24038,7 @@ class CapHum extends Controller
         if ($driver === 'sendgrid') {
             $apiKey = trim($get('MAIL_SENDGRID_API_KEY', 'sendgrid_api_key', ''));
             if ($apiKey === '' || $fromEmail === '') {
-                $this->enviarCorreoUltimoError = 'Con MAIL_DRIVER=sendgrid configure MAIL_SENDGRID_API_KEY y MAIL_FROM en .env. Cree cuenta en sendgrid.com, verifique el remitente y genere una API key.';
+                $this->enviarCorreoUltimoError = 'Con MAIL_DRIVER=sendgrid configure MAIL_SENDGRID_API_KEY y MAIL_FROM=postulaciones@maxikash.mx en .env. Verifique el dominio maxikash.mx en SendGrid con SPF/DKIM y genere una API key con permiso Mail Send.';
                 return false;
             }
             $personalization = ['to' => [['email' => $para, 'name' => $nombreDestinatario ?: $para]]];
@@ -23992,6 +24097,7 @@ class CapHum extends Controller
             }
             if ($httpCode === 202) {
                 $this->enviarCorreoUltimoError = '';
+                $this->enviarCorreoUltimoCanal = 'sendgrid';
                 return true;
             }
             $errBody = is_string($response) ? $response : '';
@@ -24016,10 +24122,11 @@ class CapHum extends Controller
             $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
             $ok = @mail($para, $asunto, $cuerpoHtml, $headers);
             if (!$ok) {
-                $this->enviarCorreoUltimoError = 'mail() falló. En XAMPP/Windows suele no estar configurado; use MAIL_DRIVER=sendgrid (recomendado) o smtp.';
+                $this->enviarCorreoUltimoError = 'mail() falló. En XAMPP/Windows suele no estar configurado; use MAIL_DRIVER=smtp con una cuenta Gmail y contraseña de aplicación.';
                 return false;
             }
             $this->enviarCorreoUltimoError = '';
+            $this->enviarCorreoUltimoCanal = 'mail';
             return true;
         }
 
@@ -24032,13 +24139,20 @@ class CapHum extends Controller
                 $smtpSecure = 'ssl';
             }
         }
+        if ($fallbackSmtpHost === 'smtp.gmail.com') {
+            $force587 = !empty($envMail['MAIL_GMAIL_FORCE_587']) && trim($envMail['MAIL_GMAIL_FORCE_587']) !== '0';
+            if (!$force587 && ($fallbackSmtpPort === 587 || $fallbackSmtpSecure === 'tls')) {
+                $fallbackSmtpPort = 465;
+                $fallbackSmtpSecure = 'ssl';
+            }
+        }
         $smtpConfigurado = $smtpHost !== '' && $smtpUser !== '';
         if (!$smtpConfigurado) {
-            $this->enviarCorreoUltimoError = 'Para enviar correos configure .env: MAIL_DRIVER=sendgrid + MAIL_SENDGRID_API_KEY (recomendado), o SMTP (smtp_host, smtp_user, smtp_pass).';
+            $this->enviarCorreoUltimoError = 'Para enviar correos configure .env con SMTP: MAIL_SMTP_HOST, MAIL_SMTP_USER y MAIL_SMTP_PASS. Opcionalmente agregue MAIL_FALLBACK_SMTP_USER para un correo secundario.';
             return false;
         }
         if ($smtpPass === '') {
-            $this->enviarCorreoUltimoError = 'Contraseña SMTP vacía. O use MAIL_DRIVER=sendgrid con API key para evitar SMTP.';
+            $this->enviarCorreoUltimoError = 'Contraseña SMTP vacía. Configure MAIL_SMTP_PASS con la contraseña de aplicación de Gmail.';
             return false;
         }
 
@@ -24121,16 +24235,92 @@ class CapHum extends Controller
 
             $mail->send();
             $this->enviarCorreoUltimoError = '';
+            $this->enviarCorreoUltimoCanal = 'principal';
             return true;
         } catch (\Exception $e) {
             $msg = $e->getMessage();
+            $limiteDiarioEnvio = false;
             // En el log guardamos la respuesta SMTP completa para ver el 535 exacto de Gmail
             if ($smtpDebugLog !== '') {
                 error_log('CapHum SMTP debug (últimas líneas): ' . trim(substr($smtpDebugLog, -800)));
+                if (stripos($smtpDebugLog, 'Daily user sending limit exceeded') !== false
+                    || stripos($smtpDebugLog, '550-5.4.5') !== false) {
+                    $limiteDiarioEnvio = true;
+                    $msg = 'Límite diario de envío alcanzado para la cuenta de correo principal. El candidato fue guardado; comparta manualmente el enlace o intente más tarde. Puede configurar un correo secundario gratis con MAIL_FALLBACK_SMTP_USER para reintentar automáticamente.';
+                }
                 $lines = explode("\n", $smtpDebugLog);
                 $lastLine = trim($lines[count($lines) - 1] ?? '');
                 if (strpos($lastLine, '535') !== false || stripos($lastLine, 'auth') !== false) {
                     $msg .= "\n\nGmail rechazó usuario/contraseña. Compruebe: 1) Contraseña de aplicación (no la de la cuenta). 2) Verificación en 2 pasos activada. 3) Si es Google Workspace, el admin debe permitir contraseñas de aplicación. Se está usando puerto 465/SSL y AUTH LOGIN.";
+                }
+            }
+            if ($permitirFallbackLimiteDiario && $limiteDiarioEnvio && $fallbackSmtpHost !== '' && $fallbackSmtpUser !== '' && $fallbackSmtpPass !== '') {
+                $fallbackDebugLog = '';
+                try {
+                    $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+                    $mail->CharSet = 'UTF-8';
+                    $mail->Encoding = 'base64';
+                    $langPath = $repoRoot . '/vendor/phpmailer/phpmailer/language/';
+                    if (is_dir($langPath)) {
+                        $mail->setLanguage('es', $langPath);
+                    }
+                    $mail->isHTML(true);
+                    $mail->Subject = $asunto;
+                    $mail->Body = $cuerpoHtml;
+                    $mail->AltBody = strip_tags(preg_replace('/<br\s*\/?>/i', "\n", $cuerpoHtml));
+                    $mail->addAddress($para, $nombreDestinatario ?: '');
+                    foreach ($ccValidos as $ccItem) {
+                        $mail->addCC($ccItem['email'], $ccItem['name']);
+                    }
+
+                    $mail->setFrom(
+                        $fallbackMailFrom !== '' ? $fallbackMailFrom : $fallbackSmtpUser,
+                        $fallbackMailFromName !== '' ? $fallbackMailFromName : $fromName
+                    );
+                    if ($rutaLogoInline !== null && is_file($rutaLogoInline)) {
+                        $mail->addEmbeddedImage($rutaLogoInline, 'logomaxikash', 'logo.png');
+                    }
+                    foreach ($adjuntosValidos as $adjunto) {
+                        $mail->addAttachment($adjunto['path'], $adjunto['name']);
+                    }
+
+                    $mail->isSMTP();
+                    $mail->Host = $fallbackSmtpHost;
+                    $mail->SMTPAuth = true;
+                    $mail->Username = $fallbackSmtpUser;
+                    $mail->Password = $fallbackSmtpPass;
+                    $mail->Port = $fallbackSmtpPort;
+                    if ($fallbackSmtpSecure === 'ssl') {
+                        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+                    } else {
+                        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+                    }
+                    if ($fallbackSmtpHost === 'smtp.gmail.com') {
+                        $mail->AuthType = 'LOGIN';
+                        $mail->SMTPOptions = [
+                            'ssl' => [
+                                'verify_peer' => false,
+                                'verify_peer_name' => false,
+                            ],
+                        ];
+                    }
+
+                    $mail->SMTPDebug = 2;
+                    $mail->Debugoutput = function ($str) use (&$fallbackDebugLog) {
+                        $fallbackDebugLog .= $str . "\n";
+                    };
+
+                    $mail->send();
+                    $this->enviarCorreoUltimoError = '';
+                    $this->enviarCorreoUltimoCanal = 'secundario';
+                    error_log('CapHum::enviarCorreo: envio realizado con SMTP secundario por limite diario del principal. user=' . $fallbackSmtpUser);
+                    return true;
+                } catch (\Exception $fallbackException) {
+                    if ($fallbackDebugLog !== '') {
+                        error_log('CapHum SMTP fallback debug (ultimas lineas): ' . trim(substr($fallbackDebugLog, -800)));
+                    }
+                    $msg .= "\n\nTambien fallo el correo secundario: " . $fallbackException->getMessage();
+                    error_log('CapHum::enviarCorreo fallback: ' . $fallbackException->getMessage());
                 }
             }
             $this->enviarCorreoUltimoError = $msg;
@@ -27165,6 +27355,7 @@ class CapHum extends Controller
         $idxSupervisor = $buscarIndice(['supervisor', 'jefe_directo', 'jefe']);
         $idxSubgerente = $buscarIndice(['subgerente']);
         $idxGerente = $buscarIndice(['gerente']);
+        $idxSubdirector = $buscarIndice(['subdirector']);
 
         if ($idxExternal === false || $idxPuesto === false || $idxDepartamento === false) {
             throw new \RuntimeException('El archivo debe tener las columnas external_id, puesto_legacy y departamento.');
@@ -27179,6 +27370,7 @@ class CapHum extends Controller
             $supervisor = $idxSupervisor !== false ? trim((string)($row[$idxSupervisor] ?? '')) : '';
             $subgerente = $idxSubgerente !== false ? trim((string)($row[$idxSubgerente] ?? '')) : '';
             $gerente = $idxGerente !== false ? trim((string)($row[$idxGerente] ?? '')) : '';
+            $subdirector = $idxSubdirector !== false ? trim((string)($row[$idxSubdirector] ?? '')) : '';
 
             if ($externalId === '' && $puesto === '' && $departamento === '' && $nombreCompleto === '') {
                 continue;
@@ -27193,6 +27385,7 @@ class CapHum extends Controller
                 'supervisor' => $supervisor,
                 'subgerente' => $subgerente,
                 'gerente' => $gerente,
+                'subdirector' => $subdirector,
             ];
         }
 
@@ -27263,6 +27456,13 @@ class CapHum extends Controller
             return $idx === false ? '' : $fechaCelda($row[$idx] ?? '');
         };
         $procesarMatriz = function (array $matriz, string $hoja) use ($normalizarHeader, $obtener, $obtenerFecha): array {
+            $nombreHoja = $normalizarHeader($hoja);
+            $estatusImportacion = null;
+            if (str_contains($nombreHoja, 'baja')) {
+                $estatusImportacion = 'Baja';
+            } elseif (str_contains($nombreHoja, 'activo')) {
+                $estatusImportacion = 'Activo';
+            }
             $headerIndex = null;
             $headers = [];
             $limite = min(30, count($matriz));
@@ -27298,6 +27498,7 @@ class CapHum extends Controller
                 $filas[] = [
                     'fila' => $i + 1,
                     'hoja' => $hoja,
+                    'estatus_importacion' => $estatusImportacion,
                     'curp' => $curp,
                     'persona' => [
                         'codigo_contpac' => $codigo,
@@ -28396,6 +28597,22 @@ public function getEstadosMunicipiosMexico()
         }
 
         // ðŸ¹ DAO decide si INSERT o UPDATE
+        $fechaInicio = \DateTime::createFromFormat('!Y-m-d', (string)$data['fechaInicio']);
+        $fechaFin = \DateTime::createFromFormat('!Y-m-d', (string)$data['fechaFin']);
+        if (
+            !$fechaInicio ||
+            !$fechaFin ||
+            $fechaInicio->format('Y-m-d') !== (string)$data['fechaInicio'] ||
+            $fechaFin->format('Y-m-d') !== (string)$data['fechaFin'] ||
+            $fechaFin < $fechaInicio
+        ) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'La fecha fin no puede ser menor que la fecha inicio.'
+            ]);
+            return;
+        }
+
         $resultado = CapHumDAO::guardarAusencia($data);
 
         self::respuestaJSON($resultado);
@@ -28460,8 +28677,8 @@ public function getEstadosMunicipiosMexico()
             $datosVacantes = !empty($vacantes['success']) ? $normalizarVacantesJefe($vacantes['datos'] ?? []) : [];
             return array_merge((array)$personas, $datosVacantes);
         };
-        $responderPersonasEmpresa = function ($mensaje) use ($deduplicarPorPersona) {
-            $personasEmpresa = CapHumDAO::getPersonasActivasEmpresaParaJefe();
+        $responderPersonasEmpresa = function ($mensaje) use ($deduplicarPorPersona, $idDepartamento) {
+            $personasEmpresa = CapHumDAO::getPersonasActivasEmpresaParaJefe($idDepartamento);
             if (!empty($personasEmpresa['success']) && !empty($personasEmpresa['datos'])) {
                 self::respuestaJSON([
                     'success' => true,

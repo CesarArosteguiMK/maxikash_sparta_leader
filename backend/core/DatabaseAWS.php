@@ -28,19 +28,33 @@ class DatabaseAWS
         // Cadena MySQL
         $cadena = "mysql:host=$servidor;port=$puerto;dbname=$esquema;charset=utf8mb4";
 
+        $pdoOptions = [
+            PDO::ATTR_PERSISTENT => false,
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_TIMEOUT => 5,
+            PDO::ATTR_EMULATE_PREPARES => false
+        ];
+
         try {
-            $this->db = new PDO(
-                $cadena,
-                $usuario,
-                $password,
-                [
-                    PDO::ATTR_PERSISTENT => false,
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_TIMEOUT => 5,
-                    PDO::ATTR_EMULATE_PREPARES => false
-                ]
-            );
+            $ultimoError = null;
+            // La red hacia RDS puede tener cortes breves. Un segundo intento evita
+            // que una consulta de documentos falle por un pico transitorio.
+            for ($intento = 1; $intento <= 2; $intento++) {
+                try {
+                    $this->db = new PDO($cadena, $usuario, $password, $pdoOptions);
+                    $ultimoError = null;
+                    break;
+                } catch (\PDOException $eConn) {
+                    $ultimoError = $eConn;
+                    if ($intento < 2) {
+                        usleep(250000);
+                    }
+                }
+            }
+            if ($ultimoError instanceof \PDOException) {
+                throw $ultimoError;
+            }
         } catch (\PDOException $e) {
             error_log(sprintf(
                 '[DatabaseAWS] Connection error schema=%s host=%s uri=%s :: %s',
@@ -49,7 +63,11 @@ class DatabaseAWS
                 $_SERVER['REQUEST_URI'] ?? 'CLI',
                 $e->getMessage()
             ));
-            if (DatabaseCliSupport::isCli()) {
+            if (
+                DatabaseCliSupport::isCli()
+                || DatabaseCliSupport::esEstadoCuentaDocumentoRequest()
+                || DatabaseCliSupport::esSabuesoRastreoJsonRequest()
+            ) {
                 throw new \RuntimeException(
                     'No se pudo conectar a MySQL (AWS ' . $esquema . '): ' . $e->getMessage(),
                     0,

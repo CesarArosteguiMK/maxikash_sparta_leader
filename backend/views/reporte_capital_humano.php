@@ -39,36 +39,50 @@ body.dark-mode .swal2-popup .btn-secondary:hover {
     background-color: #475569 !important;
     border-color: #475569 !important;
 }
-.rch-swal-reingresos .swal2-actions {
-    gap: 0.75rem;
+.rch-swal-reingresos .swal2-actions,
+.rch-swal-reporte-personal .swal2-actions {
+    gap: 1.25rem;
 }
-.rch-swal-reingresos .rch-swal-btn {
-    min-width: 128px;
+.rch-swal-reingresos .rch-swal-btn,
+.rch-swal-reporte-personal .rch-swal-btn {
+    width: 170px;
+    min-width: 170px;
+    height: 48px;
     border-radius: 8px;
     padding: 0.62rem 1.15rem;
     font-weight: 700;
     box-shadow: none !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    line-height: 1;
 }
-.rch-swal-reingresos .rch-swal-confirm {
+.rch-swal-reingresos .rch-swal-confirm,
+.rch-swal-reporte-personal .rch-swal-confirm {
     background-color: #263957 !important;
     border-color: #263957 !important;
     color: #fff !important;
 }
-.rch-swal-reingresos .rch-swal-confirm:hover {
+.rch-swal-reingresos .rch-swal-confirm:hover,
+.rch-swal-reporte-personal .rch-swal-confirm:hover {
     background-color: #1f2f49 !important;
     border-color: #1f2f49 !important;
 }
-.rch-swal-reingresos .rch-swal-cancel {
+.rch-swal-reingresos .rch-swal-cancel,
+.rch-swal-reporte-personal .rch-swal-cancel {
     background-color: #fff !important;
     border: 1px solid #cfd6e4 !important;
     color: #566a7f !important;
 }
-.rch-swal-reingresos .rch-swal-cancel:hover {
+.rch-swal-reingresos .rch-swal-cancel:hover,
+.rch-swal-reporte-personal .rch-swal-cancel:hover {
     background-color: #f5f7fb !important;
     border-color: #b8c2d4 !important;
     color: #2f3f56 !important;
 }
-body.dark-mode .rch-swal-reingresos .rch-swal-cancel {
+body.dark-mode .rch-swal-reingresos .rch-swal-cancel,
+body.dark-mode .rch-swal-reporte-personal .rch-swal-cancel {
     background-color: transparent !important;
     border-color: #64748b !important;
     color: #dbe4f0 !important;
@@ -279,19 +293,37 @@ body.dark-mode .rch-report-icon {
                     <div class="card-body py-3">
                         <form id="formFiltrosUsuarios">
                             <div class="row g-2 align-items-end">
-                                <div class="col-md-3">
+                                <div class="col-md-3 col-xl-2">
+                                    <label class="form-label fw-semibold mb-1">Empresa</label>
+                                    <select class="form-select form-select-sm" id="filtroEmpresaUsuario">
+                                        <option value="">Todas las empresas</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 col-xl-2">
+                                    <label class="form-label fw-semibold mb-1">Direcci&oacute;n</label>
+                                    <select class="form-select form-select-sm" id="filtroDireccionUsuario">
+                                        <option value="">Todas las direcciones</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 col-xl-2">
+                                    <label class="form-label fw-semibold mb-1">&Aacute;rea</label>
+                                    <select class="form-select form-select-sm" id="filtroAreaUsuario">
+                                        <option value="">Todas las areas</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 col-xl-2">
                                     <label class="form-label fw-semibold mb-1">Departamento</label>
                                     <select class="form-select form-select-sm" id="filtroDepartamentoUsuario">
                                         <option value="">Todos los departamentos</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-3 col-xl-2">
                                     <label class="form-label fw-semibold mb-1">Puesto</label>
                                     <select class="form-select form-select-sm" id="filtroPuestoUsuario">
                                         <option value="">Todos los puestos</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-3 col-xl-1">
                                     <label class="form-label fw-semibold mb-1">Estatus</label>
                                     <select class="form-select form-select-sm" id="filtroEstatusUsuario">
                                         <option value="">Todos</option>
@@ -299,7 +331,7 @@ body.dark-mode .rch-report-icon {
                                         <option value="Inactivo">Inactivo</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-3 col-xl-1">
                                     <label class="form-label fw-semibold mb-1">Multipuesto</label>
                                     <select class="form-select form-select-sm" id="filtroMultipuestoUsuario">
                                         <option value="">Todos</option>
@@ -325,8 +357,11 @@ body.dark-mode .rch-report-icon {
                         <thead>
                             <tr>
                                 <th></th>
-                                <th>N° Empleado</th>
+                                <th>C&oacute;digo CONTPAQ</th>
                                 <th>Nombre</th>
+                                <th>Empresa</th>
+                                <th>Direcci&oacute;n</th>
+                                <th>&Aacute;rea</th>
                                 <th>Departamento</th>
                                 <th>Puesto</th>
                                 <th>Estatus</th>
@@ -366,6 +401,53 @@ let todosLosPuestos = [];
 let puestosPorDepartamento = {};
 let datosFiltradosUsuarios = [];
 
+function rchTexto(valor) {
+    return String(valor || '').trim();
+}
+
+function rchPuestosUsuario(usuario) {
+    return Array.isArray(usuario?.puestos) ? usuario.puestos : [];
+}
+
+function rchSetOptions(select, valores, etiquetaTodos) {
+    if (!select) return;
+    const actual = select.value;
+    const descartes = new Set(['n/a', 'na', 'sin empresa', 'sin direccion', 'sin dirección', 'sin area', 'sin área', 'sin departamento', 'sin puesto']);
+    const unicos = Array.from(new Set((valores || [])
+        .map(rchTexto)
+        .filter(valor => valor && !descartes.has(valor.toLowerCase()))))
+        .sort((a, b) => a.localeCompare(b, 'es'));
+    select.innerHTML = `<option value="">${etiquetaTodos}</option>`;
+    unicos.forEach(valor => {
+        const option = document.createElement('option');
+        option.value = valor;
+        option.textContent = valor;
+        select.appendChild(option);
+    });
+    select.value = unicos.includes(actual) ? actual : '';
+}
+
+function rchPuestoCumpleEstructura(puesto, filtros = {}) {
+    if (filtros.empresa && rchTexto(puesto.nombre_empresa) !== filtros.empresa) return false;
+    if (filtros.direccion && rchTexto(puesto.nombre_direccion) !== filtros.direccion) return false;
+    if (filtros.area && rchTexto(puesto.nombre_area) !== filtros.area) return false;
+    if (filtros.departamento && rchTexto(puesto.nombre_departamento) !== filtros.departamento) return false;
+    if (filtros.puesto && rchTexto(puesto.nombre_puesto) !== filtros.puesto) return false;
+    return true;
+}
+
+function rchFiltrosUsuarios() {
+    return {
+        empresa: document.getElementById('filtroEmpresaUsuario')?.value || '',
+        direccion: document.getElementById('filtroDireccionUsuario')?.value || '',
+        area: document.getElementById('filtroAreaUsuario')?.value || '',
+        departamento: document.getElementById('filtroDepartamentoUsuario')?.value || '',
+        puesto: document.getElementById('filtroPuestoUsuario')?.value || '',
+        estatus: document.getElementById('filtroEstatusUsuario')?.value || '',
+        multipuesto: document.getElementById('filtroMultipuestoUsuario')?.value || ''
+    };
+}
+
 // ============================================
 // 1. INICIALIZAR DATATABLE USUARIOS
 // ============================================
@@ -384,8 +466,11 @@ function inicializarDataTableUsuarios() {
                 data: null,
                 defaultContent: ''
             },
-            { data: 'numero_empleado' },
+            { data: 'codigo_contpac' },
             { data: 'nombre_completo' },
+            { data: 'nombre_empresa' },
+            { data: 'nombre_direccion' },
+            { data: 'nombre_area' },
             { data: 'departamento' },
             { data: 'nombre_puesto' },
             { 
@@ -500,7 +585,7 @@ function cargarUsuariosCapitalHumano() {
             todosLosPuestos = Array.from(todosPuestosSet).sort();
             
             const datosTabla = todosLosUsuarios.map(u => ({
-                numero_empleado: u.numero_empleado || 'N/A',
+                codigo_contpac: u.codigo_contpac || 'N/A',
                 nombre_completo: [u.nombres, u.segundo_nombre, u.apellidop, u.apellidom].filter(Boolean).join(' '),
                 departamento: u.nombre_departamento || 'N/A',
                 nombre_puesto: u.nombre_puesto || 'N/A',
@@ -590,7 +675,7 @@ function filtrarUsuarios() {
     });
     
     const datosTabla = datosFiltradosUsuarios.map(u => ({
-        numero_empleado: u.numero_empleado || 'N/A',
+        codigo_contpac: u.codigo_contpac || 'N/A',
         nombre_completo: [u.nombres, u.segundo_nombre, u.apellidop, u.apellidom].filter(Boolean).join(' '),
         departamento: u.nombre_departamento || 'N/A',
         nombre_puesto: u.nombre_puesto || 'N/A',
@@ -608,6 +693,9 @@ function filtrarUsuarios() {
 // DESCARGAR EXCEL - VERSIÓN FINAL (MISMA VENTANA, SIN CANCELAR)
 // ============================================
 function descargarExcelUsuarios() {
+    const empresa = document.getElementById('filtroEmpresaUsuario')?.value || '';
+    const direccion = document.getElementById('filtroDireccionUsuario')?.value || '';
+    const area = document.getElementById('filtroAreaUsuario')?.value || '';
     const departamento = document.getElementById('filtroDepartamentoUsuario').value || '';
     const puesto = document.getElementById('filtroPuestoUsuario').value || '';
     const estatus = document.getElementById('filtroEstatusUsuario').value || '';
@@ -617,6 +705,18 @@ function descargarExcelUsuarios() {
     let detallesFiltros = [];
     let nombreArchivo = 'Plantilla_Gestores';
     
+    if (empresa) {
+        detallesFiltros.push(`Empresa: <strong>${empresa}</strong>`);
+        nombreArchivo += '_' + empresa.replace(/ /g, '_');
+    }
+    if (direccion) {
+        detallesFiltros.push(`Direcci&oacute;n: <strong>${direccion}</strong>`);
+        nombreArchivo += '_' + direccion.replace(/ /g, '_');
+    }
+    if (area) {
+        detallesFiltros.push(`&Aacute;rea: <strong>${area}</strong>`);
+        nombreArchivo += '_' + area.replace(/ /g, '_');
+    }
     if (departamento) {
         detallesFiltros.push(`Departamento: <strong>${departamento}</strong>`);
         nombreArchivo += '_' + departamento.replace(/ /g, '_');
@@ -664,7 +764,7 @@ function descargarExcelUsuarios() {
                 <div style="background: #f8f9fa; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; text-align: left;">
                     <small style="color: #6c757d; display: flex; align-items: center; gap: 0.5rem;">
                         <i class="fas fa-info-circle" style="color: #0d6efd;"></i>
-                        Incluye: número de empleado, nombres, departamento, puesto, jefe y estatus.
+                        Incluye: estructura, datos laborales, documentos y beneficiarios.
                     </small>
                 </div>
                 <p style="margin-top: 0.5rem; font-weight: 500;"><strong>¿Deseas continuar con la descarga?</strong></p>
@@ -675,14 +775,18 @@ function descargarExcelUsuarios() {
         cancelButtonText: 'Cancelar',
         reverseButtons: true,
         customClass: {
-            confirmButton: 'btn btn-primary',
-            cancelButton: 'btn btn-secondary'
+            popup: 'rch-swal-reporte-personal',
+            confirmButton: 'btn rch-swal-btn rch-swal-confirm',
+            cancelButton: 'btn rch-swal-btn rch-swal-cancel'
         },
         buttonsStyling: false
     }).then((result) => {
         if (result.isConfirmed) {
             // ✅ USUARIO CONFIRMÓ - INICIAR DESCARGA DIRECTA
             const url = '/analitica/descargarUsuariosExcelCapitalHumano?' + new URLSearchParams({
+                ...(empresa && { empresa }),
+                ...(direccion && { direccion }),
+                ...(area && { area }),
                 ...(departamento && { departamento }),
                 ...(puesto && { puesto }),
                 ...(estatus && { estatus }),
@@ -779,14 +883,38 @@ document.addEventListener('DOMContentLoaded', function() {
     inicializarDataTableUsuarios();
     cargarUsuariosCapitalHumano();
     
+    const selectEmpresa = document.getElementById('filtroEmpresaUsuario');
+    const selectDireccion = document.getElementById('filtroDireccionUsuario');
+    const selectArea = document.getElementById('filtroAreaUsuario');
     const selectDept = document.getElementById('filtroDepartamentoUsuario');
     const selectPuesto = document.getElementById('filtroPuestoUsuario');
     const selectEstatus = document.getElementById('filtroEstatusUsuario');
     const selectMultipuesto = document.getElementById('filtroMultipuestoUsuario');
+
+    if (selectEmpresa) {
+        selectEmpresa.addEventListener('change', function() {
+            actualizarSelectDireccionesUsuario();
+            filtrarUsuarios();
+        });
+    }
+
+    if (selectDireccion) {
+        selectDireccion.addEventListener('change', function() {
+            actualizarSelectAreasUsuario();
+            filtrarUsuarios();
+        });
+    }
+
+    if (selectArea) {
+        selectArea.addEventListener('change', function() {
+            actualizarSelectDepartamentosUsuario();
+            filtrarUsuarios();
+        });
+    }
     
     if (selectDept) {
         selectDept.addEventListener('change', function(e) {
-            actualizarSelectPuestosUsuario(e.target.value);
+            actualizarSelectPuestosUsuario();
             filtrarUsuarios();
         });
     }
@@ -860,8 +988,11 @@ function formatearUsuario(u) {
     }
     
     return {
-        numero_empleado: u.numero_empleado || 'N/A',
+        codigo_contpac: u.codigo_contpac || 'N/A',
         nombre_completo: nombreCompleto,
+        nombre_empresa: u.nombre_empresa || 'N/A',
+        nombre_direccion: u.nombre_direccion || 'N/A',
+        nombre_area: u.nombre_area || 'N/A',
         departamento: puestosHTML, // ✅ AQUÍ VA TODO EL HTML DE PUESTOS
         nombre_puesto: u.nombre_puesto || 'N/A', // Para compatibilidad
         estatus: u.estatus || 'N/A',
@@ -909,7 +1040,7 @@ function expandirPuestos(userId) {
                 <div class="mb-4 p-3 bg-light rounded">
                     <strong><i class="fa fa-user me-2"></i>${nombreCompleto}</strong>
                     <br>
-                    <small class="text-muted">#${usuario.numero_empleado} | ${usuario.usuario}</small>
+                    <small class="text-muted">${usuario.codigo_contpac || 'Sin codigo CONTPAQ'} | ${usuario.usuario}</small>
                 </div>
                 ${puestosHTML}
             </div>
@@ -949,7 +1080,10 @@ function cargarUsuariosCapitalHumano() {
                             id_puesto: usuario.id_puesto,
                             nombre_puesto: usuario.nombre_puesto,
                             nombre_departamento: usuario.nombre_departamento,
-                            id_departamento: usuario.id_departamento
+                            id_departamento: usuario.id_departamento,
+                            nombre_empresa: usuario.nombre_empresa,
+                            nombre_direccion: usuario.nombre_direccion,
+                            nombre_area: usuario.nombre_area
                         }]
                     });
                 } else {
@@ -964,7 +1098,10 @@ function cargarUsuariosCapitalHumano() {
                             id_puesto: usuario.id_puesto,
                             nombre_puesto: usuario.nombre_puesto,
                             nombre_departamento: usuario.nombre_departamento,
-                            id_departamento: usuario.id_departamento
+                            id_departamento: usuario.id_departamento,
+                            nombre_empresa: usuario.nombre_empresa,
+                            nombre_direccion: usuario.nombre_direccion,
+                            nombre_area: usuario.nombre_area
                         });
                     }
                 }
@@ -1081,6 +1218,112 @@ function actualizarSelectPuestosUsuario(departamentoSeleccionado) {
     puestosAMostrar.forEach(puesto => {
         selectPuesto.innerHTML += `<option value="${puesto}">${puesto}</option>`;
     });
+}
+
+function inicializarSelectsUsuarios() {
+    const selectEmpresa = document.getElementById('filtroEmpresaUsuario');
+    const selectDireccion = document.getElementById('filtroDireccionUsuario');
+    const selectArea = document.getElementById('filtroAreaUsuario');
+    const selectDept = document.getElementById('filtroDepartamentoUsuario');
+    const selectPuesto = document.getElementById('filtroPuestoUsuario');
+
+    if (!selectEmpresa || !selectDireccion || !selectArea || !selectDept || !selectPuesto) return;
+
+    rchSetOptions(
+        selectEmpresa,
+        todosLosUsuarios.flatMap(u => rchPuestosUsuario(u).map(p => p.nombre_empresa || u.nombre_empresa)),
+        'Todas las empresas'
+    );
+    actualizarSelectDireccionesUsuario();
+}
+
+function actualizarSelectDireccionesUsuario() {
+    const filtros = rchFiltrosUsuarios();
+    const selectDireccion = document.getElementById('filtroDireccionUsuario');
+    if (selectDireccion) selectDireccion.disabled = !filtros.empresa;
+    if (!filtros.empresa) {
+        rchSetOptions(selectDireccion, [], 'Selecciona una empresa');
+        actualizarSelectAreasUsuario();
+        return;
+    }
+    const direcciones = todosLosUsuarios.flatMap(u => rchPuestosUsuario(u)
+        .filter(p => rchPuestoCumpleEstructura(p, { empresa: filtros.empresa }))
+        .map(p => p.nombre_direccion || u.nombre_direccion));
+    rchSetOptions(selectDireccion, direcciones, 'Todas las direcciones');
+    actualizarSelectAreasUsuario();
+}
+
+function actualizarSelectAreasUsuario() {
+    const filtros = rchFiltrosUsuarios();
+    const selectArea = document.getElementById('filtroAreaUsuario');
+    if (selectArea) selectArea.disabled = !filtros.direccion;
+    if (!filtros.direccion) {
+        rchSetOptions(selectArea, [], 'Selecciona una direccion');
+        actualizarSelectDepartamentosUsuario();
+        return;
+    }
+    const areas = todosLosUsuarios.flatMap(u => rchPuestosUsuario(u)
+        .filter(p => rchPuestoCumpleEstructura(p, { empresa: filtros.empresa, direccion: filtros.direccion }))
+        .map(p => p.nombre_area || u.nombre_area));
+    rchSetOptions(selectArea, areas, 'Todas las areas');
+    actualizarSelectDepartamentosUsuario();
+}
+
+function actualizarSelectDepartamentosUsuario() {
+    const filtros = rchFiltrosUsuarios();
+    const selectDept = document.getElementById('filtroDepartamentoUsuario');
+    if (selectDept) selectDept.disabled = !filtros.area;
+    if (!filtros.area) {
+        rchSetOptions(selectDept, [], 'Selecciona un area');
+        actualizarSelectPuestosUsuario();
+        return;
+    }
+    const departamentos = todosLosUsuarios.flatMap(u => rchPuestosUsuario(u)
+        .filter(p => rchPuestoCumpleEstructura(p, {
+            empresa: filtros.empresa,
+            direccion: filtros.direccion,
+            area: filtros.area
+        }))
+        .map(p => p.nombre_departamento));
+    rchSetOptions(selectDept, departamentos, 'Todos los departamentos');
+    actualizarSelectPuestosUsuario();
+}
+
+function actualizarSelectPuestosUsuario(departamentoSeleccionado = '') {
+    const selectPuesto = document.getElementById('filtroPuestoUsuario');
+    if (!selectPuesto) return;
+    const filtros = rchFiltrosUsuarios();
+    selectPuesto.disabled = !filtros.departamento && !departamentoSeleccionado;
+    if (selectPuesto.disabled) {
+        rchSetOptions(selectPuesto, [], 'Selecciona un departamento');
+        return;
+    }
+    const puestos = todosLosUsuarios.flatMap(u => rchPuestosUsuario(u)
+        .filter(p => rchPuestoCumpleEstructura(p, {
+            empresa: filtros.empresa,
+            direccion: filtros.direccion,
+            area: filtros.area,
+            departamento: filtros.departamento || departamentoSeleccionado || ''
+        }))
+        .map(p => p.nombre_puesto));
+    rchSetOptions(selectPuesto, puestos, filtros.departamento ? 'Selecciona un puesto' : 'Todos los puestos');
+}
+
+function filtrarUsuarios() {
+    const filtros = rchFiltrosUsuarios();
+
+    datosFiltradosUsuarios = todosLosUsuarios.filter(u => {
+        const puestos = rchPuestosUsuario(u);
+        if (filtros.estatus && u.estatus !== filtros.estatus) return false;
+        if (filtros.multipuesto === 'unico' && puestos.length > 1) return false;
+        if (filtros.multipuesto === 'multiples' && puestos.length <= 1) return false;
+
+        return puestos.some(p => rchPuestoCumpleEstructura(p, filtros));
+    });
+
+    tablaUsuarios.clear();
+    tablaUsuarios.rows.add(datosFiltradosUsuarios.map(u => formatearUsuario(u)));
+    tablaUsuarios.draw();
 }
 </script>
 

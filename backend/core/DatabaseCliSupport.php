@@ -33,6 +33,49 @@ final class DatabaseCliSupport
     }
 
     /**
+     * La consulta de documentos se consume con fetch y espera siempre JSON. Si la
+     * conexion de respaldo AWS falla, el controlador debe poder responder el error
+     * controlado en vez de interrumpir la respuesta con HTML 503.
+     */
+    public static function esEstadoCuentaDocumentoRequest(): bool
+    {
+        if (isset($_GET['url'])) {
+            $u = strtolower(trim(str_replace('\\', '/', (string) $_GET['url']), '/'));
+            if ($u === 'estadocuenta/descargar') {
+                return true;
+            }
+        }
+        $path = strtolower((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
+        return (bool) preg_match('#/estadocuenta/descargar$#', $path);
+    }
+
+    /** Las consultas de rastreo son AJAX y siempre deben recibir JSON. */
+    public static function esSabuesoRastreoJsonRequest(): bool
+    {
+        $acciones = [
+            'sabueso/getdatoscredito',
+            'sabueso/getubicacionescredito',
+            'sabueso/getpuntosgeocredito',
+        ];
+
+        if (isset($_GET['url'])) {
+            $ruta = strtolower(trim(str_replace('\\', '/', (string) $_GET['url']), '/'));
+            if (in_array($ruta, $acciones, true)) {
+                return true;
+            }
+        }
+
+        $path = strtolower((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
+        foreach ($acciones as $accion) {
+            if (str_ends_with($path, '/' . $accion)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Histórico de gestiones (POST/GET): varias conexiones MySQL remotas.
      * Si falla PDO, no debe imprimirse HTML + exit (rompe el flujo); se lanza excepción y el modelo la captura.
      */

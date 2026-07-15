@@ -2953,10 +2953,12 @@ function ejecutarOtorgarProrrogaDictamenSistema() {
             abrirDictamenSistema(dictamenSistemaTicketId);
             if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
         },
-        onError: function() {
+        onError: function(error) {
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-hourglass-half me-1"></i>Otorgar prórroga (+12 h)';
-            body.innerHTML = '<div class="alert alert-danger mb-0">Error de conexión al otorgar la prórroga.</div>';
+            var msg = (typeof error === 'string' && error.trim()) ? error : 'Error de conexión al otorgar la prórroga.';
+            var safeMsg = $('<div>').text(msg).html();
+            body.innerHTML = '<div class="alert alert-danger mb-0">' + safeMsg + '</div>';
         }
     });
 }
@@ -2984,10 +2986,12 @@ function ejecutarOtorgarIntensidadDictamenSistema() {
             abrirDictamenSistema(dictamenSistemaTicketId);
             if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
         },
-        onError: function() {
+        onError: function(error) {
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-bolt me-1"></i>Intensidad (+12 h)';
-            body.innerHTML = '<div class="alert alert-danger mb-0">Error de conexión al otorgar Intensidad.</div>';
+            var msg = (typeof error === 'string' && error.trim()) ? error : 'Error de conexión al otorgar Intensidad.';
+            var safeMsg = $('<div>').text(msg).html();
+            body.innerHTML = '<div class="alert alert-danger mb-0">' + safeMsg + '</div>';
         }
     });
 }

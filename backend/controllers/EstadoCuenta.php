@@ -1964,7 +1964,7 @@ class EstadoCuenta extends Controller
             'confirmButtonColor' => '#dc3545',
             'width' => '500px',
         ]);
-        self::render('__SPARTA_SECRET_REDACTED___consulta');
+        self::render('estado_cuenta_consulta');
     }
 
     public function ConsultaApi()
@@ -2320,8 +2320,6 @@ JS;
             } else {
                 $fechaHoy = date('Y-m-d');
             }
-            error_log('[EstadoCuenta Consulta] POST fechaCorte=' . ($fechaCortePost ?? 'null') . ', permisoFechaCorte=' . ($tienePermisoFechaCorte ? '1' : '0') . ', fechaUsada=' . $fechaHoy);
-
             // Validación cruzada MX -> GT: si no existe en México, verificar Guatemala para mostrar alerta amigable.
             $idConsultado = ($nombre != null && $idCreditoLista != null) ? $idCreditoLista : $idCredito;
             EstadoCuentaTimingLog::start((string) ($idConsultado ?? ''));
@@ -2363,7 +2361,7 @@ JS;
                             'confirmButtonText' => 'Entendido'
                         ]);
                         EstadoCuentaTimingLog::finish('out_guatemala');
-                        return self::render("__SPARTA_SECRET_REDACTED___consulta");
+                        return self::render("estado_cuenta_consulta");
                     }
                 }
             }
@@ -3700,7 +3698,7 @@ JS;
             }
 
             EstadoCuentaTimingLog::finish('render_ok');
-            return self::render("__SPARTA_SECRET_REDACTED___request");
+            return self::render("estado_cuenta_request");
 
 
         }
@@ -3712,7 +3710,7 @@ JS;
         $scriptConsulta = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode(false), $script);
         $scriptConsulta = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConsulta);
         self::set("script", $scriptConsulta);
-        return self::render("__SPARTA_SECRET_REDACTED___consulta");
+        return self::render("estado_cuenta_consulta");
     }
     public function getclientesEstadoCuenta()
     {
@@ -3804,7 +3802,10 @@ JS;
      */
     private function api___SPARTA_SECRET_REDACTED___curl_init($idCredito, $fechaCorte, int $timeoutSegundos = 20, bool $logRequest = true)
     {
-        $url = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+        // ENDPOINT es la fuente oficial; sustituye cualquier ruta heredada del controlador.
+        $url = defined('ENDPOINT') && trim((string) ENDPOINT) !== ''
+            ? trim((string) ENDPOINT)
+            : 'https://servicios.s2movil.net/s2maxikash/estadocuenta';
         $fechaCorteStr = is_string($fechaCorte) ? $fechaCorte : date('Y-m-d', is_numeric($fechaCorte) ? (int) $fechaCorte : time());
         $payload = json_encode([
             'idCredito'  => (int) $idCredito,
@@ -3884,10 +3885,20 @@ JS;
         }
 
         if (!isset($json['estadoCuenta'])) {
+            $statusS2 = trim((string) ($json['status'] ?? $json['tipo'] ?? 'RESPUESTA_SIN_ESTADO_CUENTA'));
+            $mensajesS2 = $json['mensaje'] ?? [];
+            if (!is_array($mensajesS2)) {
+                $mensajesS2 = [$mensajesS2];
+            }
+            $detalleS2 = trim(implode(' ', array_filter(array_map('strval', $mensajesS2))));
+            $errorS2 = 'S2 no devolvio un estado de cuenta (' . $statusS2 . ')';
+            if ($detalleS2 !== '') {
+                $errorS2 .= ': ' . $detalleS2;
+            }
             return [
                 'ok'     => false,
                 'status' => $httpCode,
-                'error'  => 'No se encontraron datos en la API',
+                'error'  => $errorS2,
                 'data'   => $json,
                 'respuestaS2' => $json,
             ];
@@ -5602,6 +5613,43 @@ public function descargar()
             ];
         };
 
+        // Algunos INE historicos conservan en oferta nombres distintos al id de credito.
+        // Consultar esos nombres evita reportarlos como inexistentes cuando si estan en S3.
+        $responderINEOferta = function ($idCredito) use ($existeEnS3, $tipo, $nombreDoc) {
+            try {
+                $res = EstadoCuentaDAO::obtenerINEOfertaDocumentos($idCredito);
+            } catch (\Throwable $e) {
+                error_log("INE $idCredito - Error consultando nombres de oferta: " . $e->getMessage());
+                return false;
+            }
+
+            $datos = $res['datos'] ?? [];
+            $frente = trim((string) ($datos['archivo_ine_frente'] ?? ''));
+            $reverso = trim((string) ($datos['archivo_ine_reverso'] ?? ''));
+            if (empty($res['success']) || $frente === '' || $reverso === '') {
+                return false;
+            }
+
+            $frente = 'INE/' . basename(str_replace('\\', '/', $frente));
+            $reverso = 'INE/' . basename(str_replace('\\', '/', $reverso));
+            if (!$existeEnS3($frente) || !$existeEnS3($reverso)) {
+                error_log("INE $idCredito - Oferta contiene nombres, pero S3 no respondio para ambos archivos");
+                return false;
+            }
+
+            error_log("INE $idCredito - RESULTADO: 4TA FORMA (oferta + S3)");
+            $this->registrarAuditoriaDocumento($idCredito, $tipo, $nombreDoc, 1, null);
+            echo json_encode([
+                'success' => true,
+                'tipo' => 'INE',
+                'frente' => '/estadocuenta/verDocumento?fileName=' . urlencode($frente),
+                'reverso' => '/estadocuenta/verDocumento?fileName=' . urlencode($reverso),
+                'archivoFrente' => basename($frente),
+                'archivoReverso' => basename($reverso)
+            ]);
+            exit;
+        };
+
         // ---------------- FACTURA ----------------
         if ($tipo === 'FACTURA') {
             error_log("=== PROCESANDO FACTURA ===");
@@ -5766,8 +5814,10 @@ public function descargar()
 
             // Si no existe local, buscar en API externo y S3 (2da forma)
             error_log("INE $id - 1RA FORMA falló, probando 2DA FORMA (API + S3)...");
-            $endpoint = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta";
-            $token    = (defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: ''));
+            $endpoint = defined('ENDPOINT') && trim((string) ENDPOINT) !== ''
+                ? trim((string) ENDPOINT)
+                : 'https://servicios.s2movil.net/s2maxikash/estadocuenta';
+            $token = (string) (getenv('S2_ESTADO_CUENTA_TOKEN') ?: (defined('TOKEN') ? TOKEN : ''));
 
             $payload = json_encode([
                 "idCredito"  => (int)$id,
@@ -5809,6 +5859,7 @@ public function descargar()
                     ]);
                     exit;
                 }
+                $responderINEOferta($id);
                 error_log("INE $id - 3RA FORMA falló, sin INE registrado");
                 $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, 'Este ID de crédito no tiene INE registrado.');
                 echo json_encode([
@@ -5819,6 +5870,10 @@ public function descargar()
             }
 
             $idCliente = $data['estadoCuenta']['datosCliente']['idCliente'];
+
+            // Antes de asumir el patron {id}_frente/reverso, revisar los nombres
+            // registrados para la oferta. Es el caso del credito 1499, por ejemplo.
+            $responderINEOferta($id);
 
             // URLs directas para frente y reverso del INE (2da forma)
             $urlFrente = "http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_frente.jpeg";
@@ -6091,8 +6146,7 @@ public function descargar()
         }
         echo json_encode([
             'success' => false,
-            'mensaje' => 'Error interno',
-            'debug'   => $e->getMessage()
+            'mensaje' => 'No se pudo consultar el servidor de documentos. Intente nuevamente en unos segundos.'
         ]);
         exit;
     }
@@ -7968,7 +8022,7 @@ public function descargarReporteDictamen()
                     $scriptGt = $this->appendRastreoSabuesoScriptSiAplica('', $tienePermisoRastreoNeverPaidGt);
                     self::set('script', $scriptGt);
                     self::set('catalogoMotivosCondonacion', EstadoCuentaDAO::getCatalogoMotivosCondonacion());
-                    return self::render("__SPARTA_SECRET_REDACTED___guatemala");
+                    return self::render("estado_cuenta_guatemala");
                 }
 
                 // 2) Si no existe en GT, validar en México para mostrar alerta de país incorrecto.
@@ -7997,7 +8051,7 @@ public function descargarReporteDictamen()
         if (!empty($alertaBusqueda)) {
             self::set("alertaBusqueda", $alertaBusqueda);
         }
-        return self::render("__SPARTA_SECRET_REDACTED___guatemala_consulta");
+        return self::render("estado_cuenta_guatemala_consulta");
     }
 
     /* ----------------------------------------------------------------
