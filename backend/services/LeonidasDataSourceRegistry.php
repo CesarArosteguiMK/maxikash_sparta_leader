@@ -88,4 +88,16 @@ class LeonidasDataSourceRegistry
         return 'Tengo acceso de consulta mediante adaptadores auditados a: ' . implode(', ', $nombres)
             . '. Las credenciales, direcciones internas y consultas SQL no se exponen en el chat.';
     }
+
+    /** @return string[] */
+    public function idsBasesDeDatos(): array
+    {
+        return array_values(array_map(
+            static fn(array $fuente): string => (string) $fuente['id'],
+            array_filter(
+                $this->catalogoPublico(),
+                static fn(array $fuente): bool => ($fuente['tipo'] ?? '') === 'base_de_datos'
+            )
+        ));
+    }
 }

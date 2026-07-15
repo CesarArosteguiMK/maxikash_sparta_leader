@@ -7,9 +7,9 @@ if (!function_exists('getMenuItemsConfig')) {
     function getMenuItemsConfig()
     {
         return [
-            ['url' => '/estadocuenta/consulta', 'label' => 'Estados de Cuenta', 'icon' => 'fa-solid fa-sack-dollar', 'bg' => 'bg-yellow', 'modulos' => [1]],
-            ['url' => '/estadocuenta/guatemala', 'label' => 'Estados de Cuenta - Guatemala', 'icon' => 'fa-solid fa-flag', 'bg' => 'bg-success', 'modulos' => [1]],
-            ['url' => '/estadocuenta/documentacion', 'label' => 'Documentación', 'icon' => 'fa-solid fa-sack-dollar', 'bg' => 'bg-yellow', 'modulos' => [2]],
+            ['url' => '/EstadoCuenta/Consulta', 'label' => 'Estados de Cuenta', 'icon' => 'fa-solid fa-sack-dollar', 'bg' => 'bg-yellow', 'modulos' => [1]],
+            ['url' => '/EstadoCuenta/Guatemala', 'label' => 'Estados de Cuenta - Guatemala', 'icon' => 'fa-solid fa-flag', 'bg' => 'bg-success', 'modulos' => [1]],
+            ['url' => '/EstadoCuenta/documentacion', 'label' => 'Documentación', 'icon' => 'fa-solid fa-sack-dollar', 'bg' => 'bg-yellow', 'modulos' => [2]],
             ['url' => '/gestiones/seguimiento', 'label' => 'Histórico Gestiones', 'icon' => 'fa-solid fa-screwdriver-wrench', 'bg' => 'bg-green', 'modulos' => [3]],
             ['url' => '/caphum/gestion', 'label' => 'Capital Humano - Gestión', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [4]],
             ['url' => '/caphum/accesosCapitalHumano', 'label' => 'Accesos', 'icon' => 'fa-solid fa-user-shield', 'bg' => 'bg-purple', 'modulos' => [140]],

@@ -96,9 +96,11 @@ class LeonidasUniversalQueryService
             }
         }
 
+        $registry = new LeonidasDataSourceRegistry();
+        $allowedSources = $registry->idsBasesDeDatos();
         $catalog = array_values(array_filter(
-            (new LeonidasDataSourceRegistry())->catalogoPublico(),
-            static fn(array $item): bool => ($item['tipo'] ?? '') === 'sql'
+            $registry->catalogoPublico(),
+            static fn(array $item): bool => in_array((string) ($item['id'] ?? ''), $allowedSources, true)
         ));
         $choice = (new LeonidasQwenClient())->json(
             'Seleccionas una fuente SQL de Sparta. No respondes al usuario ni generas SQL.',

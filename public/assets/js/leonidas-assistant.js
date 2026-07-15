@@ -14,10 +14,12 @@
     var isOwner = root.getAttribute('data-leonidas-owner') === '1';
     var personaId = root.getAttribute('data-leonidas-persona') || '0';
     var storageKey = 'sparta.leonidas.open.' + personaId;
+    var conversationKey = 'sparta.leonidas.conversation.' + personaId;
     var userName = (root.getAttribute('data-leonidas-user') || 'comandante').trim();
     var firstName = (userName.split(/\s+/)[0] || 'comandante').toLocaleLowerCase('es-MX');
     var polling = false;
     var currentDeliveryId = null;
+    var restoringConversation = false;
     var firstMessage = messages ? messages.querySelector('.leonidas-message--assistant') : null;
     firstName = firstName.charAt(0).toLocaleUpperCase('es-MX') + firstName.slice(1);
 
@@ -64,6 +66,13 @@
         }, 2100);
     }
 
+    function triggerDeliveryWalk(direction) {
+        if (!root.classList.contains('is-3d-ready')) return;
+        root.dispatchEvent(new CustomEvent('leonidas:delivery-walk', {
+            detail: { direction: direction === 'arrive' ? 'arrive' : 'depart' }
+        }));
+    }
+
     function openPanel(celebrate) {
         root.classList.remove('is-recipient-idle');
         root.classList.add('is-open');
@@ -71,7 +80,7 @@
         toggle.setAttribute('aria-expanded', 'true');
         if (isOwner) localStorage.setItem(storageKey, '1');
         if (celebrate) triggerVictory();
-        else triggerGreeting();
+        else if (!root.classList.contains('is-delivering')) triggerGreeting();
         if (isOwner && input) {
             window.setTimeout(function () { input.focus(); }, 180);
         }
@@ -93,13 +102,93 @@
         }, 2200);
     }
 
-    function addMessage(text, type) {
+    function addMessage(text, type, silent) {
         var item = document.createElement('article');
         item.className = 'leonidas-message leonidas-message--' + type;
         item.textContent = text;
         messages.appendChild(item);
         messages.scrollTop = messages.scrollHeight;
-        if (type === 'assistant') triggerSpeaking();
+        if (type === 'assistant' && !silent) triggerSpeaking();
+        persistConversation();
+        return item;
+    }
+
+    function persistConversation(arrivalName) {
+        if (!isOwner || !messages || restoringConversation) return;
+        try {
+            var rows = Array.prototype.slice.call(messages.querySelectorAll('.leonidas-message'))
+                .filter(function (item) {
+                    return !item.classList.contains('leonidas-message--thinking');
+                })
+                .map(function (item) {
+                    return {
+                        type: item.classList.contains('leonidas-message--user') ? 'user' : 'assistant',
+                        text: (item.textContent || '').trim()
+                    };
+                })
+                .filter(function (item) { return item.text !== ''; })
+                .slice(-40);
+
+            var previous = {};
+            try {
+                previous = JSON.parse(sessionStorage.getItem(conversationKey) || '{}') || {};
+            } catch (ignore) {
+                previous = {};
+            }
+            sessionStorage.setItem(conversationKey, JSON.stringify({
+                messages: rows,
+                arrival: typeof arrivalName === 'string' ? arrivalName : (previous.arrival || '')
+            }));
+        } catch (ignore) {
+            // La conversación sigue funcionando aunque el navegador bloquee sessionStorage.
+        }
+    }
+
+    function restoreConversation() {
+        if (!isOwner || !messages) return false;
+        var state;
+        try {
+            state = JSON.parse(sessionStorage.getItem(conversationKey) || 'null');
+        } catch (ignore) {
+            state = null;
+        }
+        if (!state || !Array.isArray(state.messages) || !state.messages.length) return false;
+
+        restoringConversation = true;
+        messages.innerHTML = '';
+        state.messages.slice(-40).forEach(function (item) {
+            if (!item || (item.type !== 'user' && item.type !== 'assistant')) return;
+            addMessage(String(item.text || ''), item.type, true);
+        });
+        if (state.arrival) {
+            addMessage('Listo, ya estás en ' + state.arrival + '.', 'assistant', true);
+            state.arrival = '';
+        }
+        restoringConversation = false;
+        persistConversation('');
+        messages.scrollTop = messages.scrollHeight;
+        return true;
+    }
+
+    function addThinkingIndicator() {
+        var item = document.createElement('article');
+        var label = document.createElement('span');
+        var dots = document.createElement('span');
+        item.className = 'leonidas-message leonidas-message--assistant leonidas-message--thinking';
+        item.setAttribute('role', 'status');
+        item.setAttribute('aria-live', 'polite');
+        item.setAttribute('aria-label', 'Leónidas está consultando');
+        label.className = 'leonidas-visually-hidden';
+        label.textContent = 'Leónidas está consultando';
+        dots.className = 'leonidas-thinking-dots';
+        dots.setAttribute('aria-hidden', 'true');
+        for (var index = 0; index < 3; index += 1) {
+            dots.appendChild(document.createElement('span'));
+        }
+        item.appendChild(label);
+        item.appendChild(dots);
+        messages.appendChild(item);
+        messages.scrollTop = messages.scrollHeight;
         return item;
     }
 
@@ -180,12 +269,64 @@
         messages.scrollTop = messages.scrollHeight;
     }
 
-    function request(endpoint, payload) {
+    function addChart(chart) {
+        if (!chart || !Array.isArray(chart.series) || !chart.series.length) return;
+        var values = chart.series.map(function (item) { return Math.max(0, Number(item.valor) || 0); });
+        var max = Math.max.apply(Math, values.concat([1]));
+        var wrapper = document.createElement('section');
+        var title = document.createElement('strong');
+        var plot = document.createElement('div');
+        wrapper.className = 'leonidas-chart';
+        title.className = 'leonidas-chart__title';
+        title.textContent = chart.titulo || 'Gráfica de resultados';
+        plot.className = 'leonidas-chart__plot';
+
+        chart.series.slice(0, 12).forEach(function (series, index) {
+            var row = document.createElement('div');
+            var meta = document.createElement('div');
+            var label = document.createElement('span');
+            var value = document.createElement('strong');
+            var track = document.createElement('div');
+            var bar = document.createElement('span');
+            var number = Number(series.valor) || 0;
+            row.className = 'leonidas-chart__row';
+            meta.className = 'leonidas-chart__meta';
+            label.textContent = series.etiqueta || ('Dato ' + (index + 1));
+            value.textContent = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 }).format(number);
+            track.className = 'leonidas-chart__track';
+            bar.className = 'leonidas-chart__bar';
+            bar.style.width = Math.max(number > 0 ? 4 : 0, (number / max) * 100) + '%';
+            meta.appendChild(label);
+            meta.appendChild(value);
+            track.appendChild(bar);
+            row.appendChild(meta);
+            row.appendChild(track);
+            plot.appendChild(row);
+        });
+
+        wrapper.appendChild(title);
+        wrapper.appendChild(plot);
+        messages.appendChild(wrapper);
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    function request(endpoint, payload, timeoutMs) {
+        var controller = typeof window.AbortController === 'function'
+            ? new window.AbortController()
+            : null;
+        var requestTimeout = Number(timeoutMs) > 0
+            ? Number(timeoutMs)
+            : (endpoint === '/Leonidas/bandeja' ? 8000 : 35000);
+        var timeoutId = controller ? window.setTimeout(function () {
+            controller.abort();
+        }, requestTimeout) : null;
+
         return window.fetch(endpoint, {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify(payload || {})
+            body: JSON.stringify(payload || {}),
+            signal: controller ? controller.signal : undefined
         }).then(function (response) {
             return response.json().catch(function () {
                 return { success: false, error: 'El servidor devolvió una respuesta no válida.' };
@@ -195,6 +336,13 @@
                 throw new Error((data && data.error) || 'Leónidas no pudo completar la solicitud.');
             }
             return data.respuesta || {};
+        }).catch(function (error) {
+            if (error && error.name === 'AbortError') {
+                throw new Error('La consulta tardó más de lo esperado. Intenta nuevamente; no se realizó ningún cambio.');
+            }
+            throw error;
+        }).finally(function () {
+            if (timeoutId !== null) window.clearTimeout(timeoutId);
         });
     }
 
@@ -261,6 +409,7 @@
                 .then(function (response) {
                     addMessage(response.mensaje || 'Confirmación registrada.', 'assistant');
                     wrapper.remove();
+                    if (proposal.accion === 'mensaje') triggerDeliveryWalk('depart');
                     pollMailbox();
                 })
                 .catch(function (error) {
@@ -286,14 +435,17 @@
         addMessage(response.mensaje || 'Leónidas preparó una respuesta sin cambios.', 'assistant');
         addPeople(response.personas);
         addReport(response.reporte);
+        addChart(response.grafica);
         addProposal(response.propuesta);
         if (response.navegar_a) {
+            persistConversation(response.navegar_nombre || 'el módulo solicitado');
             window.setTimeout(function () { window.location.assign(response.navegar_a); }, 450);
         }
     }
 
     function setSending(sending) {
         root.classList.toggle('is-thinking', sending);
+        root.classList.toggle('is-consulting', sending);
         if (input) input.disabled = sending;
         if (sendButton) sendButton.disabled = sending;
     }
@@ -307,6 +459,7 @@
         currentDeliveryId = Number(delivery.id);
         root.classList.remove('is-recipient-idle');
         root.classList.add('is-delivering');
+        triggerDeliveryWalk('arrive');
         openPanel(false);
         triggerSpeaking();
         addMessage('Hola, ' + firstName + '. ' + delivery.remitente + ' te mandó decir:', 'assistant');
@@ -475,12 +628,18 @@
             input.value = '';
             resizeComposer();
             setSending(true);
+            var thinkingIndicator = addThinkingIndicator();
             request('/Leonidas/conversar', { mensaje: value })
-                .then(renderResponse)
+                .then(function (response) {
+                    thinkingIndicator.remove();
+                    renderResponse(response);
+                })
                 .catch(function (error) {
+                    thinkingIndicator.remove();
                     addMessage(error.message || 'No pude procesar la instrucción. No se realizó ningún cambio.', 'assistant');
                 })
                 .finally(function () {
+                    thinkingIndicator.remove();
                     setSending(false);
                     input.focus();
                 });
@@ -494,6 +653,7 @@
         if (!document.hidden) pollMailbox();
     });
 
+    restoreConversation();
     if (isOwner && localStorage.getItem(storageKey) === '1') openPanel(false);
     else if (isOwner) triggerGreeting();
     pollMailbox();

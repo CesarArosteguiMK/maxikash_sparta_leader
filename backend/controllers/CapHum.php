@@ -19790,7 +19790,8 @@ class CapHum extends Controller
         string $fechaIngreso,
         string $fechaContratado,
         string $urlPlataforma,
-        ?string $rutaLogoInline
+        ?string $rutaLogoInline,
+        bool $crearNotificacionesInternas = true
     ): array {
         $destinatarios = $this->obtenerDestinatariosRevisionDocumental(self::candidatoEsDireccionCobranza($candidato));
         $destinatariosEmail = [];
@@ -19870,7 +19871,7 @@ class CapHum extends Controller
             $correo = (string) ($destinatario['correo'] ?? '');
             $nombre = (string) ($destinatario['nombre'] ?? '');
             try {
-                if ($this->enviarCorreo($correo, $asunto, $cuerpoHtml, $nombre, $rutaLogoInline)) {
+                if ($this->enviarCorreo($correo, $asunto, $cuerpoHtml, $nombre, $rutaLogoInline, [], [], true)) {
                     $enviados++;
                 } else {
                     $errores[] = $correo . ': ' . ($this->enviarCorreoUltimoError ?: 'No se pudo enviar.');
@@ -19879,7 +19880,9 @@ class CapHum extends Controller
                 $errores[] = $correo . ': ' . $e->getMessage();
             }
         }
-        $notificacionesInternas = $this->notificarResponsablesRevisionDocumentalAltaPlantilla($candidato, $nombreCompleto, $destinatarios);
+        $notificacionesInternas = $crearNotificacionesInternas
+            ? $this->notificarResponsablesRevisionDocumentalAltaPlantilla($candidato, $nombreCompleto, $destinatarios)
+            : ['ids' => [], 'total' => 0, 'creada' => false];
 
         return [
             'enviado' => $enviados === count($destinatariosEmail),
@@ -20056,7 +20059,8 @@ class CapHum extends Controller
                     (string) ($destinatario['nombre'] ?? ''),
                     $rutaLogoInline,
                     [],
-                    $cc
+                    $cc,
+                    true
                 );
             } catch (\Throwable $e) {
                 $enviado = false;
@@ -27452,6 +27456,13 @@ class CapHum extends Controller
             return $idx === false ? '' : $fechaCelda($row[$idx] ?? '');
         };
         $procesarMatriz = function (array $matriz, string $hoja) use ($normalizarHeader, $obtener, $obtenerFecha): array {
+            $nombreHoja = $normalizarHeader($hoja);
+            $estatusImportacion = null;
+            if (str_contains($nombreHoja, 'baja')) {
+                $estatusImportacion = 'Baja';
+            } elseif (str_contains($nombreHoja, 'activo')) {
+                $estatusImportacion = 'Activo';
+            }
             $headerIndex = null;
             $headers = [];
             $limite = min(30, count($matriz));
@@ -27487,6 +27498,7 @@ class CapHum extends Controller
                 $filas[] = [
                     'fila' => $i + 1,
                     'hoja' => $hoja,
+                    'estatus_importacion' => $estatusImportacion,
                     'curp' => $curp,
                     'persona' => [
                         'codigo_contpac' => $codigo,

@@ -1129,8 +1129,8 @@ class CapHumRrhh extends Model
                        p.domicilio_calle_texto, p.codigo_postal, p.curp,
                        r.rfc, r.nss, r.entidad_federativa_rfc, r.anio, r.mes, r.dia,
                        r.fecha_nacimiento, r.sexo, r.estado_civil
-                FROM __SPARTA_SECRET_REDACTED__.persona p
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona_datos_rrhh r ON r.id_persona = p.id
+                FROM estado_cuenta.persona p
+                LEFT JOIN estado_cuenta.persona_datos_rrhh r ON r.id_persona = p.id
                 WHERE p.id = :id_persona
                 LIMIT 1
             ", ['id_persona' => $idPersona]);

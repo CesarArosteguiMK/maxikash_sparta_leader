@@ -4463,6 +4463,7 @@ class Sabueso extends Controller
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.', 'datos' => null]);
             return;
         }
+        try {
         $dir = EmpresaDAO::getConsultaDireccionEstadoCuenta($idCredito);
         $ref = EmpresaDAO::getConsultaReferenciasEstadoCuenta($idCredito);
         $datosDir = ($dir['success'] ?? false) && !empty($dir['datos']) ? $dir['datos'][0] : [];
@@ -4535,6 +4536,13 @@ class Sabueso extends Controller
         // Los tickets NO dependen de omitir_fad (solo evita extracción FAD / info ingresos). Antes omitir_fad=true vaciaba tickets y el rastreo mostraba "sin detalle adicional".
         $todo['tickets'] = TicketDAO::getTicketsPorIdCredito($idCredito);
         self::respuestaJSON(['success' => true, 'mensaje' => 'OK', 'datos' => $todo]);
+        } catch (\Throwable $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No se pudieron cargar los datos del crédito.',
+                'datos' => null,
+            ]);
+        }
     }
 
     /**
@@ -4620,7 +4628,7 @@ class Sabueso extends Controller
             return;
         }
         try {
-            $gestiones = GestionesDAO::getGestionesParaRastreoCredito((string) $idCredito, 16, 80);
+            $gestiones = GestionesDAO::getGestionesParaRastreoCredito((string) $idCredito, 16);
             $gestiones = is_array($gestiones) ? $gestiones : [];
             self::respuestaJSON(['success' => true, 'mensaje' => 'OK', 'datos' => $gestiones]);
         } catch (\Exception $e) {
@@ -5259,6 +5267,11 @@ class Sabueso extends Controller
         return dirname(__DIR__) . '/storage/cache/sabueso_ubicaciones_' . $idCredito . $sufijo . '.json';
     }
 
+    private function getPuntosGeoCachePath(int $idCredito): string
+    {
+        return dirname(__DIR__) . '/storage/cache/sabueso_puntos_geo_' . $idCredito . '_v1.json';
+    }
+
     /**
      * API: ubicaciones filtradas por id_credito (idCliente desde segundometro, tabla ubicacion en AWS).
      * Devuelve direcciones_resumen, puntos_mapa, domicilio_megareporte { lat, lng } e indice_casa (índice en puntos_mapa del punto dentro del rango de Megareporte, o null).
@@ -5377,7 +5390,7 @@ class Sabueso extends Controller
                 'payload' => $payload,
             ], JSON_UNESCAPED_UNICODE));
             self::respuestaJSON($payload);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Error al obtener ubicaciones.', 'direcciones_resumen' => [], 'puntos_mapa' => [], 'puntos_geo' => [], 'domicilio_megareporte' => null, 'indice_casa' => null]);
         }
     }
@@ -5395,6 +5408,16 @@ class Sabueso extends Controller
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.', 'puntos_geo' => [], 'domicilios_referencia' => []]);
             return;
         }
+        $forceRefresh = !empty($datos['force_refresh']);
+        $cachePath = $this->getPuntosGeoCachePath($idCredito);
+        if (!$forceRefresh && is_file($cachePath)) {
+            $rawCache = @file_get_contents($cachePath);
+            $cache = $rawCache !== false ? json_decode($rawCache, true) : null;
+            if (is_array($cache) && isset($cache['expires'], $cache['payload']) && (int) $cache['expires'] >= time() && is_array($cache['payload'])) {
+                self::respuestaJSON($cache['payload']);
+                return;
+            }
+        }
         try {
             $puntosGeo = OfertaCoordenada::getPorIdCredito($idCredito);
             $domiciliosReferencia = [];
@@ -5404,17 +5427,26 @@ class Sabueso extends Controller
                     ? trim((string) $dirMegareporte['datos'][0]['Domicilio_Completo'])
                     : '';
                 $domiciliosReferencia = $this->obtenerDomiciliosReferenciaCredito($idCredito, $domicilioCompleto, new GeocodingService(), false);
-            } catch (\Exception $eReferencia) {
+            } catch (\Throwable $eReferencia) {
                 $domiciliosReferencia = [];
             }
-            self::respuestaJSON([
+            $payload = [
                 'success' => true,
                 'mensaje' => '',
                 'puntos_geo' => $puntosGeo,
                 'domicilios_referencia' => $domiciliosReferencia,
                 'ine_verificacion' => $this->obtenerEstadoIneReferencia($idCredito),
-            ]);
-        } catch (\Exception $e) {
+            ];
+            $cacheDir = dirname($cachePath);
+            if (!is_dir($cacheDir)) {
+                @mkdir($cacheDir, 0755, true);
+            }
+            @file_put_contents($cachePath, json_encode([
+                'expires' => time() + self::UBICACIONES_CACHE_TTL,
+                'payload' => $payload,
+            ], JSON_UNESCAPED_UNICODE), LOCK_EX);
+            self::respuestaJSON($payload);
+        } catch (\Throwable $e) {
             self::respuestaJSON([
                 'success' => false,
                 'mensaje' => 'No se pudieron cargar las direcciones alternas.',

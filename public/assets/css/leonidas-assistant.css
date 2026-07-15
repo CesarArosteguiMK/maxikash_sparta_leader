@@ -161,6 +161,45 @@
 .leonidas-message--assistant { background: #eef3fb; color: #294365; }
 .leonidas-message--user { align-self: flex-end; background: #243a5c; color: #fff; }
 
+.leonidas-message--thinking {
+    min-width: 3.15rem;
+    padding-block: .72rem;
+}
+
+.leonidas-thinking-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: .28rem;
+}
+
+.leonidas-thinking-dots span {
+    width: .38rem;
+    height: .38rem;
+    border-radius: 50%;
+    background: #60738e;
+    animation: leonidas-thinking-dot 1.05s ease-in-out infinite;
+}
+
+.leonidas-thinking-dots span:nth-child(2) { animation-delay: .14s; }
+.leonidas-thinking-dots span:nth-child(3) { animation-delay: .28s; }
+
+.leonidas-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@keyframes leonidas-thinking-dot {
+    0%, 60%, 100% { opacity: .38; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-.2rem); }
+}
+
 .leonidas-results,
 .leonidas-proposal {
     display: grid;
@@ -222,6 +261,44 @@
 .leonidas-report__row strong { color: #253a59; font-size: .7rem; }
 .leonidas-report__row small,
 .leonidas-report__remainder { color: #68778c; font-size: .64rem; }
+
+.leonidas-chart {
+    margin: .45rem 0;
+    padding: .65rem;
+    border: 1px solid #dbe5f2;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.leonidas-chart__title {
+    display: block;
+    margin-bottom: .55rem;
+    color: #253a59;
+    font-size: .74rem;
+}
+
+.leonidas-chart__plot { display: grid; gap: .48rem; }
+.leonidas-chart__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem;
+    margin-bottom: .18rem;
+    color: #5f6f84;
+    font-size: .64rem;
+}
+.leonidas-chart__meta strong { color: #253a59; }
+.leonidas-chart__track {
+    height: .42rem;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #edf2f8;
+}
+.leonidas-chart__bar {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #6f57ff;
+}
 
 .leonidas-proposal { grid-template-columns: 1fr; align-items: center; color: #5b4a1f; font-size: .73rem; background: #fff8e7; border-color: #f0d78d; }
 .leonidas-proposal__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .35rem; }

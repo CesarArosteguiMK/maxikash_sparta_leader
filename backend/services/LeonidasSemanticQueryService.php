@@ -19,6 +19,14 @@ class LeonidasSemanticQueryService
     public function resolver(string $mensaje, int $actorId): ?array
     {
         try {
+            $normalized = $this->normalize($mensaje);
+            if ($this->esConsultaFuentes($normalized)) {
+                return $this->consultarFuentes();
+            }
+            if ($this->esConsultaS2($normalized)) {
+                return $this->consultarS2($mensaje, $normalized);
+            }
+
             $operational = $this->resolverOperacionCobranza($mensaje);
             if ($operational !== null) {
                 return $operational;
@@ -39,6 +47,162 @@ class LeonidasSemanticQueryService
                 'tipo' => 'consulta_semantica_error',
             ];
         }
+    }
+
+    private function esConsultaFuentes(string $normalized): bool
+    {
+        return (bool) preg_match(
+            '/\b(que|cuales|lista|dime|muestra|conoces|tienes acceso)\b.*\b(fuentes|conexiones|bases(?: de datos)?|apis|servicios)\b|\b(fuentes|conexiones|bases(?: de datos)?)\b.*\b(disponibles|conectadas|acceso)\b/',
+            $normalized
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private function consultarFuentes(): array
+    {
+        $registry = new LeonidasDataSourceRegistry();
+        $sources = $registry->catalogoPublico();
+        $rows = array_map(static fn(array $source): array => [
+            'nombre' => (string) ($source['nombre'] ?? $source['id'] ?? 'Fuente'),
+            'tipo' => str_replace('_', ' ', (string) ($source['tipo'] ?? 'servicio')),
+            'alcance' => implode(', ', array_map('strval', (array) ($source['alcance'] ?? []))),
+        ], $sources);
+
+        return [
+            'mensaje' => $registry->resumen(),
+            'tipo' => 'consulta_fuentes',
+            'fuente' => 'registro_fuentes_sparta',
+            'reporte' => [
+                'titulo' => 'Fuentes de datos conectadas a Sparta',
+                'total' => count($rows),
+                'filas' => $rows,
+            ],
+            'metricas' => [
+                'dataset' => 'registro_fuentes_sparta',
+                'total' => count($rows),
+            ],
+            'ia_disponible' => true,
+            'modelo_ia' => 'Qwen + registro de fuentes de Sparta',
+        ];
+    }
+
+    private function esConsultaS2(string $normalized): bool
+    {
+        if (preg_match('/\bs2\b/', $normalized)) {
+            return true;
+        }
+
+        if (preg_match('/\bcreditos?\b\s*(?:(?:numero|no|id)\s*)?(?:#|:)?\s*\d{2,}\b/', $normalized)) {
+            return true;
+        }
+
+        return (bool) preg_match(
+            '/\b(estado de cuenta|saldo|saldo vencido|mora|cuotas pagadas|cuotas contratadas|abonos|resumen|informacion|detalle)\b.*\b(credito|creditos)\b|\b(credito|creditos)\b.*\b(estado de cuenta|saldo|saldo vencido|mora|cuotas pagadas|cuotas contratadas|abonos|resumen|informacion|detalle)\b/',
+            $normalized
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private function consultarS2(string $message, string $normalized): array
+    {
+        $creditId = $this->extraerIdCreditoS2($message);
+        if ($creditId <= 0) {
+            return [
+                'mensaje' => 'Puedo consultar S2, pero necesito el ID numérico del crédito. Por ejemplo: "consulta en S2 el crédito 123456".',
+                'tipo' => 'consulta_s2_datos_requeridos',
+                'fuente' => 's2_estado_cuenta',
+                'metricas' => ['dataset' => 's2_estado_cuenta', 'dato_requerido' => 'id_credito'],
+            ];
+        }
+
+        $date = null;
+        if (preg_match('/\b(20\d{2}-\d{2}-\d{2})\b/', $message, $dateMatch)) {
+            $date = $dateMatch[1];
+        }
+        try {
+            $result = (new LeonidasS2Service())->consultarCredito($creditId, $date);
+        } catch (\Throwable $error) {
+            error_log('[Leonidas] S2 query failed for credit ' . $creditId . ': ' . $error->getMessage());
+            $errorText = $this->normalize($error->getMessage());
+            if (preg_match('/\b(401|403|autentic|credencial|token|api key|error acceso|handler class|cannot be loaded)\b/', $errorText)) {
+                $detail = 'La conexion con S2 requiere revisar su configuracion de autenticacion.';
+                $reason = 'configuracion_s2';
+            } elseif (preg_match('/\b(timeout|tiempo de espera|connect|conexion|network|red)\b/', $errorText)) {
+                $detail = 'S2 no esta disponible en este momento o excedio el tiempo de respuesta.';
+                $reason = 'servicio_s2_no_disponible';
+            } else {
+                $detail = 'S2 respondio, pero no devolvio un estado de cuenta utilizable. Verifica el ID del credito o intenta con otra fecha de corte.';
+                $reason = 'credito_sin_datos';
+            }
+
+            return [
+                'mensaje' => $detail . ' Credito consultado: ' . number_format($creditId) . '.',
+                'tipo' => 'consulta_s2_error',
+                'fuente' => 's2_estado_cuenta',
+                'metricas' => [
+                    'dataset' => 's2_estado_cuenta',
+                    'id_credito' => $creditId,
+                    'motivo' => $reason,
+                ],
+            ];
+        }
+        $metrics = (array) ($result['metricas'] ?? []);
+        $parts = ['S2 reporta para el crédito ' . number_format($creditId)];
+        $labels = [
+            'cliente' => 'cliente',
+            'estatus' => 'estatus',
+            'monto_otorgado' => 'monto otorgado',
+            'cuota' => 'cuota',
+            'periodicidad' => 'periodicidad',
+            'producto' => 'producto',
+            'sucursal' => 'sucursal',
+            'fecha_credito' => 'fecha de inicio',
+            'fecha_liquidacion' => 'fecha de liquidacion',
+            'saldo' => 'saldo para liquidar',
+            'adeudo_total' => 'adeudo total',
+            'saldo_vencido' => 'saldo vencido',
+            'mora' => 'dias de mora',
+            'cuotas_contratadas' => 'cuotas contratadas',
+            'cuotas_pagadas' => 'cuotas pagadas',
+            'pagos_registrados' => 'pagos registrados',
+            'siguiente_pago' => 'siguiente pago',
+            'abonos_total' => 'total pagado',
+            'ultimo_pago_fecha' => 'último pago',
+            'ultimo_pago_monto' => 'monto del último pago',
+        ];
+        foreach ($labels as $key => $label) {
+            if (!array_key_exists($key, $metrics) || $metrics[$key] === '' || $metrics[$key] === null) {
+                continue;
+            }
+            $value = $metrics[$key];
+            if (in_array($key, ['monto_otorgado', 'cuota', 'saldo', 'adeudo_total', 'saldo_vencido', 'abonos_total', 'ultimo_pago_monto'], true) && is_numeric($value)) {
+                $value = '$' . number_format((float) $value, 2);
+            }
+            $parts[] = $label . ': ' . $value;
+        }
+
+        return [
+            'mensaje' => implode('; ', $parts) . '. Fuente: API S2 Estado de Cuenta.',
+            'tipo' => 'consulta_s2',
+            'fuente' => 's2_estado_cuenta',
+            'metricas' => $metrics + ['dataset' => 's2_estado_cuenta'],
+            'ia_disponible' => true,
+            'modelo_ia' => 'Qwen + adaptador S2 de Sparta',
+        ];
+    }
+
+    private function extraerIdCreditoS2(string $message): int
+    {
+        $patterns = [
+            '/\b(?:credito|crédito|id)\s*(?:numero|número|no\.?|#|:)?\s*(\d{2,})\b/iu',
+            '/\bs2\D{0,20}(\d{2,})\b/iu',
+        ];
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $message, $matches)) {
+                return (int) $matches[1];
+            }
+        }
+        return 0;
     }
 
     /** @return array<string, mixed>|null */
@@ -89,6 +253,21 @@ class LeonidasSemanticQueryService
         $hoy = $this->fechaSolicitada('hoy');
         $ayer = $this->fechaSolicitada('ayer');
         $dia = $fecha === $hoy ? 'hoy' : ($fecha === $ayer ? 'ayer' : 'el ' . $fecha);
+        if ($evaluados === 0 && $noVerificados === 0) {
+            return $this->operationalResponse(
+                'Sabueso no tiene tickets evaluables para ' . $dia
+                    . '. La muestra esta vacia, por lo que no es correcto afirmar cuantos creditos pagaron puntualmente.',
+                'consulta_operativa_sin_datos',
+                [
+                    'fecha' => $fecha,
+                    'creditos_pagados' => 0,
+                    'tickets_evaluados' => 0,
+                    'no_verificados' => 0,
+                    'sin_datos' => true,
+                    'fuente' => 'sabueso_primeros_pagos',
+                ]
+            );
+        }
         $mensaje = ucfirst($dia) . ' hay ' . number_format($total) . ' créditos con pago confirmado dentro de la ventana evaluada por Sabueso.';
         $mensaje .= ' Se evaluaron ' . number_format($evaluados) . ' tickets';
         if ($noVerificados > 0) {
@@ -291,9 +470,19 @@ class LeonidasSemanticQueryService
     /** @param array<string, mixed> $metrics @return array<string, mixed> */
     private function operationalResponse(string $mensaje, string $dataset, array $metrics): array
     {
+        $source = 'sparta_principal';
+        if (strpos($dataset, 'segundometro') === 0) {
+            $source = 'segundometro';
+        } elseif ($dataset === 'pagos_puntuales') {
+            $source = 'sabueso';
+        } elseif ($dataset === 'gastos_cobranza') {
+            $source = 'gastos_cobranza';
+        }
+
         return [
             'mensaje' => $mensaje,
             'tipo' => 'consulta_operativa',
+            'fuente' => $source,
             'metricas' => $metrics + ['dataset' => $dataset],
             'ia_disponible' => true,
             'modelo_ia' => 'Qwen + fuentes operativas de Sparta',
@@ -377,7 +566,13 @@ class LeonidasSemanticQueryService
         }
 
         $group = '';
+        if ($dataset === 'candidatos' && preg_match('/\bpor\s+(?:etapa|estado)\b/', $normalized)) {
+            $group = 'estatus';
+        }
         foreach ($groupFields as $candidate) {
+            if ($group !== '') {
+                break;
+            }
             $label = str_replace('_', '\\s+', preg_quote($candidate, '/'));
             if (preg_match('/\bpor\s+' . $label . '\b/', $normalized)) {
                 $group = $candidate;

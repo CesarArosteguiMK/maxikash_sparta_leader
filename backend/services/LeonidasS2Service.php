@@ -18,8 +18,8 @@ class LeonidasS2Service
 
         $fechaCorte = $this->normalizarFecha($fechaCorte);
         $controller = new EstadoCuenta();
-        $method = 'api_' . 'maxi' . 'kash';
-        if (!method_exists($controller, $method)) {
+        $method = $this->resolverMetodoEstadoCuenta($controller);
+        if ($method === null) {
             throw new \RuntimeException('El conector de S2 no esta disponible en esta version de Sparta.');
         }
 
@@ -32,6 +32,7 @@ class LeonidasS2Service
         $data = is_array($response['data'] ?? null) ? $response['data'] : [];
         $payments = $this->buscarLista($data, ['datospagos', 'pagos', 'paymentdata']);
         $paymentSummary = $this->resumirPagos($payments);
+        $paymentsTotal = $this->sumarPagos($payments);
 
         $metrics = [
             'id_credito' => $idCredito,
@@ -39,17 +40,53 @@ class LeonidasS2Service
             'pagos_registrados' => count($payments),
             'ultimo_pago_fecha' => $paymentSummary['fecha'],
             'ultimo_pago_monto' => $paymentSummary['monto'],
-            'saldo' => $this->buscarEscalar($data, ['saldototal', 'saldoactual', 'saldo', 'saldocapital']),
-            'saldo_vencido' => $this->buscarEscalar($data, ['saldovencido', 'montovencido', 'vencido']),
+            'saldo' => $this->buscarEscalar($data, ['saldoparaliquidarv2', 'saldoparaliquidar', 'saldototal', 'saldoactual', 'saldo', 'saldocapital']),
+            'adeudo_total' => $this->buscarEscalar($data, ['adeudototal']),
+            'saldo_vencido' => $this->buscarEscalar($data, ['saldototalvencido', 'saldovencido', 'montovencido', 'vencido']),
             'mora' => $this->buscarEscalar($data, ['mora', 'diasmora', 'diasatraso']),
-            'estatus' => $this->buscarEscalar($data, ['estatuscredito', 'estadocredito', 'estatus', 'estado']),
+            'estatus' => $this->buscarEscalar($data, ['statuscredito', 'estatuscredito', 'estadocredito', 'estatus', 'estado']),
             'cliente' => $this->buscarEscalar($data, ['nombrecliente', 'cliente', 'nombrecompleto']),
+            'cuotas_contratadas' => $this->buscarEscalar($data, ['numeroamortizaciones', 'cuotascontratadas', 'numerocuotas']),
+            'cuotas_pagadas' => $this->buscarEscalar($data, ['numcuotaspagadas', 'cuotaspagadas', 'numeroabonos']),
+            'abonos_total' => $paymentsTotal,
+            'monto_otorgado' => $this->buscarEscalar($data, ['montootorgado', 'montoasignado', 'montoentregado', 'montoautorizado', 'capitalotorgado']),
+            'cuota' => $this->buscarEscalar($data, ['cuota', 'montocuota', 'pagoperiodico']),
+            'periodicidad' => $this->buscarEscalar($data, ['periodicidad', 'frecuenciapago']),
+            'producto' => $this->buscarEscalar($data, ['producto', 'nombreproducto', 'tipocredito']),
+            'sucursal' => $this->buscarEscalar($data, ['sucursal', 'secursal', 'nombresucursal']),
+            'fecha_credito' => $this->buscarEscalar($data, ['fechainicio', 'fechacredito', 'fechaotorgamiento', 'fechaapertura']),
+            'fecha_liquidacion' => $this->buscarEscalar($data, ['fechaliquidacion', 'fechafiniquito']),
+            'siguiente_pago' => $this->buscarEscalar($data, ['fechasiguientepago', 'siguientepago']),
         ];
 
         return [
             'fuente' => 's2_estado_cuenta',
             'metricas' => array_filter($metrics, static fn($value): bool => $value !== null && $value !== ''),
         ];
+    }
+
+    private function resolverMetodoEstadoCuenta(EstadoCuenta $controller): ?string
+    {
+        foreach (get_class_methods($controller) as $method) {
+            if (strpos($method, 'api_') !== 0 || substr($method, -9) === '_parallel') {
+                continue;
+            }
+
+            try {
+                $reflection = new \ReflectionMethod($controller, $method);
+                if (
+                    $reflection->isPublic()
+                    && $reflection->getNumberOfParameters() === 3
+                    && $reflection->getNumberOfRequiredParameters() <= 2
+                ) {
+                    return $method;
+                }
+            } catch (\ReflectionException $error) {
+                continue;
+            }
+        }
+
+        return null;
     }
 
     private function normalizarFecha(?string $fecha): string
@@ -119,8 +156,21 @@ class LeonidasS2Service
         }
         return [
             'fecha' => date('Y-m-d', $latestTimestamp),
-            'monto' => $this->buscarEscalar($latest, ['monto', 'importe', 'cantidad', 'pagototal']),
+            'monto' => $this->buscarEscalar($latest, ['montopago', 'monto', 'importe', 'cantidad', 'pagototal']),
         ];
+    }
+
+    /** @param array<int, array<string, mixed>> $payments */
+    private function sumarPagos(array $payments): float
+    {
+        $total = 0.0;
+        foreach ($payments as $payment) {
+            $amount = $this->buscarEscalar($payment, ['montopago', 'monto', 'importe', 'cantidad', 'pagototal']);
+            if (is_numeric($amount)) {
+                $total += (float) $amount;
+            }
+        }
+        return round($total, 2);
     }
 
     private function normalizarClave(string $key): string

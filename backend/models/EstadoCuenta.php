@@ -161,8 +161,8 @@ class EstadoCuenta extends Model
         ];
 
         try {
-            // Documentación / oferta_documentos está en __SPARTA_SECRET_REDACTED__
-            $db = new DatabaseAWS('__SPARTA_SECRET_REDACTED__');
+            // La documentación de oferta_documentos vive en maxi-prod.
+            $db = new DatabaseAWS('maxi-prod');
             $r = $db->queryAll($qry, $val);
 
             if (!$r || count($r) === 0) {
@@ -189,7 +189,7 @@ class EstadoCuenta extends Model
             return self::resultado(false, 'Tipo inválido');
         }
         try {
-            $db = new DatabaseAWS('__SPARTA_SECRET_REDACTED__');
+            $db = new DatabaseAWS('maxi-prod');
             $qry = "
                 SELECT nombre_archivo
                 FROM oferta_documentos
@@ -232,7 +232,7 @@ class EstadoCuenta extends Model
         $val = ['id_credito' => (int) $idCredito];
 
         try {
-            $db = new DatabaseAWS('__SPARTA_SECRET_REDACTED__');
+            $db = new DatabaseAWS('maxi-prod');
             $r = $db->queryOne($qry, $val);
             if (!$r) {
                 return self::resultado(false, 'INE no encontrado en persona_documentos', null);

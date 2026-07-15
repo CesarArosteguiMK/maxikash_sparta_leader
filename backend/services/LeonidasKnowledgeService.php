@@ -26,6 +26,7 @@ class LeonidasKnowledgeService
                 'Una accion que modifique datos, permisos o comunicaciones necesita confirmacion explicita y registro de auditoria.',
                 'Los reportes deben usar datos autorizados por servidor; Leonidas no inventa resultados ni consulta datos sin una herramienta aprobada.',
             ],
+            'fuentes_de_datos' => (new LeonidasDataSourceRegistry())->catalogoPublico(),
             'modulos_del_sistema' => $this->catalogoModulos(),
             'catalogo_real_relevante' => $this->buscarModulosReales($pregunta, $modulosUsuario),
             'modulos_disponibles_para_el_usuario' => array_values(array_unique(array_map('intval', $modulosUsuario))),
@@ -85,7 +86,7 @@ class LeonidasKnowledgeService
     }
 
     /** @return array<int, array<string, string>> */
-    private function catalogoModulos(): array
+    public function catalogoModulos(): array
     {
         return [
             ['modulo' => 'Creditos', 'funcion' => 'Consulta estados de cuenta, documentacion asociada e historico de gestiones.'],

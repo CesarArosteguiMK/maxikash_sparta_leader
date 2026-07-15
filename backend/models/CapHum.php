@@ -4883,10 +4883,20 @@ class CapHum extends Model
             ];
 
             $curpsSolicitadas = [];
+            $estatusPorCurp = [];
+            $curpsEstatusConflictivo = [];
             foreach ($filas as $filaCurp) {
                 $curpTmp = $curpLimpia($filaCurp['curp'] ?? '');
                 if ($curpTmp !== '') {
                     $curpsSolicitadas[$curpTmp] = true;
+                    $estatusFila = trim((string)($filaCurp['estatus_importacion'] ?? ''));
+                    if (in_array($estatusFila, ['Activo', 'Baja'], true)) {
+                        if (isset($estatusPorCurp[$curpTmp]) && $estatusPorCurp[$curpTmp] !== $estatusFila) {
+                            $curpsEstatusConflictivo[$curpTmp] = true;
+                        } else {
+                            $estatusPorCurp[$curpTmp] = $estatusFila;
+                        }
+                    }
                 }
             }
             $curpsSolicitadas = array_keys($curpsSolicitadas);
@@ -4910,6 +4920,7 @@ class CapHum extends Model
                     SELECT
                         id,
                         curp,
+                        estatus,
                         codigo_contpac,
                         rfc,
                         correo,
@@ -4994,6 +5005,17 @@ class CapHum extends Model
                     continue;
                 }
 
+                if (isset($curpsEstatusConflictivo[$curp])) {
+                    $resumen['omitidos']++;
+                    $resumen['errores'][] = [
+                        'fila' => $numeroFila,
+                        'hoja' => $hoja,
+                        'curp' => $curp,
+                        'motivo' => 'La CURP aparece en hojas de Activos y Bajas con estatus contradictorios.'
+                    ];
+                    continue;
+                }
+
                 $personas = $personasPorCurp[$curp] ?? [];
 
                 if (count($personas) === 0) {
@@ -5023,6 +5045,10 @@ class CapHum extends Model
                     'codigo_postal' => $numero($personaDatos['codigo_postal'] ?? null, 12),
                     'domicilio_calle_texto' => $texto($personaDatos['domicilio_calle_texto'] ?? null, 500),
                 ];
+                $estatusImportacion = $estatusPorCurp[$curp] ?? null;
+                if (in_array($estatusImportacion, ['Activo', 'Baja'], true)) {
+                    $personaUpdates['estatus'] = $estatusImportacion;
+                }
                 $personaUpdates = array_filter($personaUpdates, static fn($v) => $v !== null && $v !== '');
 
                 $rrhhActual = $rrhhPorPersona[$idPersona] ?? [];
@@ -5223,6 +5249,7 @@ class CapHum extends Model
                     'detalle' => [
                         'fila' => $numeroFila,
                         'hoja' => $hoja,
+                        'estatus_importacion' => $estatusImportacion,
                         'campos_persona' => array_keys($personaUpdates),
                         'campos_rrhh' => array_keys($rrhhUpdates),
                         'campos_banco' => array_keys($cuentaUpdates),
@@ -5376,7 +5403,21 @@ class CapHum extends Model
             if ($external !== '' && count($personas) === 0) {
                 $errores[] = 'No existe persona con numero_empleado igual a ' . $external . '.';
             } elseif (count($personas) > 1) {
-                $errores[] = 'Hay mas de una persona con numero_empleado ' . $external . '.';
+                $nombreExcelNormalizado = self::normalizarTextoCambioEstructura($detalle['nombre_excel']);
+                $firmaExcel = self::firmaNombreCambioEstructura($nombreExcelNormalizado);
+                $coincidenciasNombre = array_values(array_filter($personas, static function (array $candidata) use ($nombreExcelNormalizado, $firmaExcel): bool {
+                    $nombreCandidata = self::normalizarTextoCambioEstructura(self::nombreCompletoPersonaCambioEstructura($candidata));
+                    if ($nombreExcelNormalizado !== '' && $nombreCandidata === $nombreExcelNormalizado) {
+                        return true;
+                    }
+                    return $firmaExcel !== '' && self::firmaNombreCambioEstructura($nombreCandidata) === $firmaExcel;
+                }));
+                if (count($coincidenciasNombre) === 1) {
+                    $personas = $coincidenciasNombre;
+                    $avisos[] = 'El numero de empleado esta duplicado; se eligio la coincidencia por Nombre completo.';
+                } else {
+                    $errores[] = 'Hay mas de una persona con numero_empleado ' . $external . ' y no se pudo resolver con Nombre completo.';
+                }
             }
 
             $persona = count($personas) === 1 ? $personas[0] : null;
@@ -5447,38 +5488,8 @@ class CapHum extends Model
                 }
             }
 
-            if ($supervisor && $subgerente) {
-                if ((int)$supervisor['id'] === (int)$subgerente['id']) {
-                    $errores[] = 'Supervisor y subgerente no pueden ser la misma persona.';
-                } else {
-                    $jefeSupervisor = $jefesActualesPorPersona[(int)$supervisor['id']] ?? null;
-                    if ((int)($jefeSupervisor['id_jefe'] ?? 0) !== (int)$subgerente['id']) {
-                        $acciones['jefes'][] = ['id_persona' => (int)$supervisor['id'], 'id_jefe' => (int)$subgerente['id'], 'orden' => 20];
-                    }
-                }
-            }
-
-            if ($subgerente && $gerente) {
-                if ((int)$subgerente['id'] === (int)$gerente['id']) {
-                    $errores[] = 'Subgerente y gerente no pueden ser la misma persona.';
-                } else {
-                    $jefeSubgerente = $jefesActualesPorPersona[(int)$subgerente['id']] ?? null;
-                    if ((int)($jefeSubgerente['id_jefe'] ?? 0) !== (int)$gerente['id']) {
-                        $acciones['jefes'][] = ['id_persona' => (int)$subgerente['id'], 'id_jefe' => (int)$gerente['id'], 'orden' => 10];
-                    }
-                }
-            }
-
-            if ($gerente && $subdirector) {
-                if ((int)$gerente['id'] === (int)$subdirector['id']) {
-                    $errores[] = 'Gerente y subdirector no pueden ser la misma persona.';
-                } else {
-                    $jefeGerente = $jefesActualesPorPersona[(int)$gerente['id']] ?? null;
-                    if ((int)($jefeGerente['id_jefe'] ?? 0) !== (int)$subdirector['id']) {
-                        $acciones['jefes'][] = ['id_persona' => (int)$gerente['id'], 'id_jefe' => (int)$subdirector['id'], 'orden' => 5];
-                    }
-                }
-            }
+            // Cada persona se procesa desde su propia fila: Nombre completo, Puesto legacy y
+            // Departamento. Las columnas jerarquicas solo determinan su jefe directo actual.
 
             $tieneCambio = !empty($acciones['cambiar_puesto']) || !empty($acciones['jefes']);
             if (!empty($errores)) {

@@ -144,16 +144,21 @@ SQL;
      * @param int $limiteFinal Registros devueltos (p. ej. 16).
      * @param int $porFuente Cuántas filas traer por fuente antes de fusionar y ordenar.
      */
-    public static function getGestionesParaRastreoCredito($credito, int $limiteFinal = 16, int $porFuente = 80): array
+    public static function getGestionesParaRastreoCredito($credito, int $limiteFinal = 16, ?int $porFuente = null): array
     {
         $credito = trim((string) $credito);
         if ($credito === '' || !ctype_digit($credito)) {
             return [];
         }
         $limiteFinal = max(1, min($limiteFinal, 100));
-        $porFuente = max($limiteFinal, min($porFuente, 300));
+        // Cada fuente se ordena por fecha descendente. Para obtener las N más recientes
+        // de la mezcla, basta consultar N filas de cada fuente; pedir 80 no cambiaba el
+        // resultado final y sí retrasaba la apertura del mapa.
+        $porFuente = $porFuente === null ? $limiteFinal : max($limiteFinal, min($porFuente, 300));
 
-        $legacy = self::getGestionesLegacy($credito, $porFuente);
+        // Rastreo no muestra los datos complementarios del crédito, por lo que evita una
+        // consulta adicional a Sky Logic exclusivamente para completar filas Legacy.
+        $legacy = self::getGestionesLegacy($credito, $porFuente, false);
         $sky = self::getAllGestionesSkyLogic($credito, '', $porFuente);
         $cc = self::getGestionesCallCenter($credito, $porFuente);
         if (!is_array($legacy)) {
@@ -179,11 +184,36 @@ SQL;
      *
      * @param int|null $limit Si se indica, LIMIT en SQL (más recientes primero). null = sin límite.
      */
-    public static function getGestionesLegacy($credito, ?int $limit = null)
+    public static function getGestionesLegacy($credito, ?int $limit = null, bool $completarDatosSky = true)
     {
         try {
             $mysqli = new DatabaseLegacy(); // conexión LEGACY
             $creditoParam = trim((string) $credito);
+            $creditoColumn = 't.credit_number';
+            $campaignColumn = 't.campaign_id';
+            $origenLegacy = 'tasks t JOIN dictums d ON d.task_id = t.id';
+            $filtroCredito = 'WHERE t.credit_number = :credito';
+
+            // JSON_TABLE expande cada respuesta de formulario. Cuando solo se requieren
+            // las gestiones recientes (Rastreo), limitar antes de esa expansión evita
+            // recorrer todo el histórico del crédito.
+            if ($limit !== null) {
+                $lim = max(1, min((int) $limit, 500));
+                $origenLegacy = <<<SQL
+(
+    SELECT d.id, d.updated_at, d.lat, d.lng, d.form_response, d.valid_geofencing,
+           d.opciondictamen_id, d.user_id, t.credit_number, t.campaign_id
+    FROM tasks t
+    JOIN dictums d ON d.task_id = t.id
+    WHERE t.credit_number = :credito
+    ORDER BY d.updated_at DESC
+    LIMIT {$lim}
+) d
+SQL;
+                $creditoColumn = 'd.credit_number';
+                $campaignColumn = 'd.campaign_id';
+                $filtroCredito = '';
+            }
 
             $query = <<<SQL
         SELECT
@@ -199,7 +229,7 @@ SQL;
             '' AS estatus,
             u.name AS usuario_asignado,
             u.name AS nombre_cliente,
-            t.credit_number AS id_credito,
+            {$creditoColumn} AS id_credito,
             '' AS cuenta_clabe,
             '' AS nombre_completo_cliente,
             '' AS pago_semanal,
@@ -277,10 +307,9 @@ SQL;
             '' AS fake_gps,
             '' AS secure_area,
             '' AS images
-        FROM tasks t
-        JOIN dictums d ON d.task_id = t.id
+        FROM {$origenLegacy}
         JOIN opcionesdictamen o ON d.opciondictamen_id = o.id
-        JOIN campaigns c ON c.id = t.campaign_id
+        JOIN campaigns c ON c.id = {$campaignColumn}
         JOIN users u ON d.user_id = u.id
         JOIN JSON_TABLE(
             JSON_UNQUOTE(d.form_response),
@@ -296,18 +325,14 @@ SQL;
             u.gerente_id,
             u.subdirector_id
         )
-        WHERE t.credit_number = :credito
+        {$filtroCredito}
         GROUP BY
             d.id, d.updated_at, d.lat, d.lng,
-            t.credit_number, o.nombre_opcion,
+            {$creditoColumn}, o.nombre_opcion,
             c.name, u.name, ut.name,
             d.valid_geofencing
         ORDER BY d.updated_at DESC
 SQL;
-        if ($limit !== null) {
-            $lim = max(1, min((int) $limit, 500));
-            $query .= ' LIMIT ' . $lim;
-        }
         $query .= ';';
 
         $legacyData = $mysqli->queryAll($query, ['credito' => $creditoParam]);
@@ -315,6 +340,10 @@ SQL;
         // Si no hay datos de Legacy, retornar vacío
         if (empty($legacyData)) {
             return [];
+        }
+
+        if (!$completarDatosSky) {
+            return $legacyData;
         }
 
         // Obtener datos complementarios de Sky Logic

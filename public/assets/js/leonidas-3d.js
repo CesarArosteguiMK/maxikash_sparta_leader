@@ -19,6 +19,24 @@ if (root && canvas) {
     const openFingerRotations = new Map();
     const poseEuler = new THREE.Euler();
     const poseQuaternion = new THREE.Quaternion();
+    const aimBonePosition = new THREE.Vector3();
+    const aimChildPosition = new THREE.Vector3();
+    const aimCurrentDirection = new THREE.Vector3();
+    const aimTargetDirection = new THREE.Vector3();
+    const aimBoneWorldQuaternion = new THREE.Quaternion();
+    const aimParentWorldQuaternion = new THREE.Quaternion();
+    const aimDeltaQuaternion = new THREE.Quaternion();
+    const aimDesiredWorldQuaternion = new THREE.Quaternion();
+    const bodyWorldQuaternion = new THREE.Quaternion();
+    const bodyUp = new THREE.Vector3();
+    const bodyForward = new THREE.Vector3();
+    const armOutward = new THREE.Vector3();
+    const armShoulderPosition = new THREE.Vector3();
+    const armElbowPosition = new THREE.Vector3();
+    const armHandPosition = new THREE.Vector3();
+    const armTorsoPosition = new THREE.Vector3();
+    const armTargetElbow = new THREE.Vector3();
+    const armTargetHand = new THREE.Vector3();
 
     scene.add(characterAnchor);
     camera.position.set(0, 0, 4.8);
@@ -80,6 +98,7 @@ if (root && canvas) {
         let leftLeg = null;
         let rightFingerBones = [];
         let leftFingerBones = [];
+        let greetingHandRotation = null;
         let mixer = null;
         let nativeAnimationTime = 0.45;
         let nativeAnimationDirection = 1;
@@ -88,7 +107,7 @@ if (root && canvas) {
         let victoryWeight = 0;
         let walkWeight = 0;
         let patrolX = 0;
-        let presenceStartedAt = null;
+        let deliveryWalk = null;
         const frontalRotation = -0.28;
 
         const normalizedBoneName = (name) => String(name || '')
@@ -128,6 +147,91 @@ if (root && canvas) {
             bone.quaternion.multiply(poseQuaternion);
         };
 
+        const aimBoneAtWorldPoint = (bone, child, target, weight = 1) => {
+            if (!bone || !child || !bone.parent || weight <= 0.001) return;
+            activeModel.updateMatrixWorld(true);
+            bone.getWorldPosition(aimBonePosition);
+            child.getWorldPosition(aimChildPosition);
+            aimCurrentDirection.subVectors(aimChildPosition, aimBonePosition);
+            aimTargetDirection.subVectors(target, aimBonePosition);
+            if (aimCurrentDirection.lengthSq() < 0.000001 || aimTargetDirection.lengthSq() < 0.000001) return;
+
+            aimCurrentDirection.normalize();
+            aimTargetDirection.normalize();
+            aimTargetDirection.lerp(aimCurrentDirection, 1 - THREE.MathUtils.clamp(weight, 0, 1)).normalize();
+            aimDeltaQuaternion.setFromUnitVectors(aimCurrentDirection, aimTargetDirection);
+            bone.getWorldQuaternion(aimBoneWorldQuaternion);
+            aimDesiredWorldQuaternion.copy(aimDeltaQuaternion).multiply(aimBoneWorldQuaternion);
+            bone.parent.getWorldQuaternion(aimParentWorldQuaternion).invert();
+            bone.quaternion.copy(aimParentWorldQuaternion.multiply(aimDesiredWorldQuaternion));
+            bone.updateMatrixWorld(true);
+        };
+
+        const bodyBasis = () => {
+            activeModel.getWorldQuaternion(bodyWorldQuaternion);
+            bodyUp.set(0, 1, 0).applyQuaternion(bodyWorldQuaternion).normalize();
+            bodyForward.set(0, 0, 1).applyQuaternion(bodyWorldQuaternion).normalize();
+        };
+
+        const armMeasurements = (upperArm, foreArm, hand) => {
+            activeModel.updateMatrixWorld(true);
+            upperArm.getWorldPosition(armShoulderPosition);
+            foreArm.getWorldPosition(armElbowPosition);
+            hand.getWorldPosition(armHandPosition);
+            (spine || pelvis).getWorldPosition(armTorsoPosition);
+            armOutward.subVectors(armShoulderPosition, armTorsoPosition)
+                .addScaledVector(bodyUp, -armOutward.dot(bodyUp))
+                .addScaledVector(bodyForward, -armOutward.dot(bodyForward));
+            if (armOutward.lengthSq() < 0.000001) armOutward.set(1, 0, 0);
+            armOutward.normalize();
+            return {
+                upperLength: Math.max(armShoulderPosition.distanceTo(armElbowPosition), 0.001),
+                foreLength: Math.max(armElbowPosition.distanceTo(armHandPosition), 0.001)
+            };
+        };
+
+        const poseArm = (upperArm, foreArm, hand, pose, weight, phase = 0) => {
+            if (!activeModel || !upperArm || !foreArm || !hand || weight <= 0.001) return;
+            bodyBasis();
+            const lengths = armMeasurements(upperArm, foreArm, hand);
+
+            if (pose === 'walk') {
+                armTargetElbow.copy(armShoulderPosition)
+                    .addScaledVector(bodyUp, -lengths.upperLength * 0.82)
+                    .addScaledVector(bodyForward, lengths.upperLength * phase * 0.32)
+                    .addScaledVector(armOutward, lengths.upperLength * 0.035);
+                armTargetHand.copy(armTargetElbow)
+                    .addScaledVector(bodyUp, -lengths.foreLength * 0.72)
+                    .addScaledVector(bodyForward, lengths.foreLength * phase * 0.2)
+                    .addScaledVector(armOutward, -lengths.foreLength * 0.025);
+            } else if (pose === 'greeting') {
+                const wave = Math.sin(clock.elapsedTime * 5.2);
+                armTargetElbow.copy(armShoulderPosition)
+                    .addScaledVector(armOutward, lengths.upperLength * 0.58)
+                    .addScaledVector(bodyUp, -lengths.upperLength * 0.04)
+                    .addScaledVector(bodyForward, lengths.upperLength * 0.16);
+                armTargetHand.copy(armTargetElbow)
+                    .addScaledVector(bodyUp, lengths.foreLength * 0.78)
+                    .addScaledVector(armOutward, lengths.foreLength * (0.05 + wave * 0.16))
+                    .addScaledVector(bodyForward, lengths.foreLength * 0.28);
+            } else {
+                const pulse = Math.sin(clock.elapsedTime * 2.8) * 0.025;
+                // Bent elbows and raised fists read as celebration. Keeping the
+                // hands slightly inward avoids the old surrender/T-pose shape.
+                armTargetElbow.copy(armShoulderPosition)
+                    .addScaledVector(armOutward, lengths.upperLength * 0.72)
+                    .addScaledVector(bodyUp, lengths.upperLength * (0.46 + pulse))
+                    .addScaledVector(bodyForward, lengths.upperLength * 0.16);
+                armTargetHand.copy(armTargetElbow)
+                    .addScaledVector(armOutward, -lengths.foreLength * 0.22)
+                    .addScaledVector(bodyUp, lengths.foreLength * 0.78)
+                    .addScaledVector(bodyForward, lengths.foreLength * 0.12);
+            }
+
+            aimBoneAtWorldPoint(upperArm, foreArm, armTargetElbow, weight);
+            aimBoneAtWorldPoint(foreArm, hand, armTargetHand, weight);
+        };
+
         const applyOpenFingers = (bones, weight) => {
             if (weight <= 0.001) return;
             bones.forEach((bone) => {
@@ -151,7 +255,13 @@ if (root && canvas) {
             );
             anchorBaseX = characterAnchor.position.x;
             anchorBaseY = characterAnchor.position.y;
-            patrolDistance = (width <= 575 ? 34 : 72) * visibleWidth / width;
+            // Convert a clearly visible screen-space route to world units. The
+            // previous 72 px route was almost imperceptible on desktop and made
+            // the walk look like a treadmill animation.
+            const patrolPixels = width <= 575
+                ? Math.min(92, width * 0.24)
+                : Math.min(260, Math.max(170, width * 0.18));
+            patrolDistance = patrolPixels * visibleWidth / width;
         };
 
         const resize = () => {
@@ -164,16 +274,9 @@ if (root && canvas) {
         };
 
         const applyPresence = (elapsed, delta) => {
-            const presenceElapsed = presenceStartedAt === null ? 0 : Math.max(0, elapsed - presenceStartedAt);
             const greetingTarget = !root.classList.contains('is-victory') && root.classList.contains('is-greeting') ? 1 : 0;
             const victoryTarget = root.classList.contains('is-victory') ? 1 : 0;
-            const isInteracting = greetingTarget > 0 || victoryTarget > 0 || root.classList.contains('is-speaking');
-            // Leonidas remains at rest most of the time. A patrol is intentionally
-            // infrequent: he turns first, walks, pauses, turns back and returns.
-            const cycleTime = presenceElapsed % 60;
-            const walkingLeft = !isInteracting && cycleTime >= 9.2 && cycleTime < 13;
-            const walkingRight = !isInteracting && cycleTime >= 17.2 && cycleTime < 21;
-            const walkingTarget = walkingLeft || walkingRight ? 1 : 0;
+            let walkingTarget = deliveryWalk ? 1 : 0;
             greetingWeight = THREE.MathUtils.damp(greetingWeight, greetingTarget, 7, delta);
             victoryWeight = THREE.MathUtils.damp(victoryWeight, victoryTarget, 7, delta);
             walkWeight = THREE.MathUtils.damp(walkWeight, walkingTarget, 7, delta);
@@ -181,30 +284,41 @@ if (root && canvas) {
             const breath = Math.sin(elapsed * 1.65);
             const interaction = Math.max(greetingWeight, victoryWeight);
             const acknowledgement = Math.sin(elapsed * 5.3) * interaction;
-            const walkPhase = elapsed * 5.6;
-            const stride = Math.sin(walkPhase) * 0.25 * walkWeight * (1 - interaction);
-            const walkBob = Math.abs(Math.sin(walkPhase)) * 0.01 * walkWeight;
+            const walkPhase = elapsed * 7.2;
+            const stride = Math.sin(walkPhase) * 0.42 * walkWeight;
+            const armSwing = Math.sin(walkPhase) * walkWeight;
+            const walkBob = Math.abs(Math.sin(walkPhase)) * 0.018 * walkWeight;
             let patrolTarget = 0;
             let facingTarget = frontalRotation;
-            if (!isInteracting) {
-                if (cycleTime >= 8 && cycleTime < 9.2) {
+            if (deliveryWalk) {
+                const rawProgress = THREE.MathUtils.clamp(
+                    (elapsed - deliveryWalk.startedAt) / deliveryWalk.duration,
+                    0,
+                    1
+                );
+                const progress = THREE.MathUtils.smoothstep(rawProgress, 0, 1);
+                const travelDistance = Math.max(patrolDistance, characterScale * 1.25);
+                if (deliveryWalk.direction === 'arrive') {
+                    patrolTarget = travelDistance * (1 - progress);
                     facingTarget = frontalRotation - Math.PI / 2;
-                } else if (walkingLeft) {
-                    patrolTarget = -patrolDistance;
-                    facingTarget = frontalRotation - Math.PI / 2;
-                } else if (cycleTime >= 13 && cycleTime < 16) {
-                    patrolTarget = -patrolDistance;
-                    facingTarget = frontalRotation;
-                } else if (cycleTime >= 16 && cycleTime < 17.2) {
-                    patrolTarget = -patrolDistance;
-                    facingTarget = frontalRotation + Math.PI / 2;
-                } else if (walkingRight) {
+                } else {
+                    patrolTarget = travelDistance * progress;
                     facingTarget = frontalRotation + Math.PI / 2;
                 }
-            } else {
-                patrolTarget = patrolX;
+
+                if (rawProgress >= 1) {
+                    const completedDirection = deliveryWalk.direction;
+                    deliveryWalk = null;
+                    walkingTarget = 0;
+                    patrolX = 0;
+                    patrolTarget = 0;
+                    facingTarget = frontalRotation;
+                    root.dispatchEvent(new CustomEvent('leonidas:delivery-walk-complete', {
+                        detail: { direction: completedDirection }
+                    }));
+                }
             }
-            patrolX = THREE.MathUtils.damp(patrolX, patrolTarget, walkingTarget > 0 ? 2.6 : 5.5, delta);
+            patrolX = THREE.MathUtils.damp(patrolX, patrolTarget, walkingTarget > 0 ? 12 : 7, delta);
             if (activeModel) {
                 activeModel.rotation.y = THREE.MathUtils.damp(activeModel.rotation.y, facingTarget, 5.2, delta);
             }
@@ -232,25 +346,14 @@ if (root && canvas) {
                 // Apply gestures after the native clip so the offsets build on the
                 // evaluated pose instead of fighting the animation mixer.
                 if (victoryWeight > 0.001) {
-                    const pulse = Math.sin(elapsed * 3.2) * 0.018;
-                    // Bent elbows keep the celebration compact instead of looking
-                    // like a rigid T-pose or a take-off pose.
-                    offsetAnimatedBone(swordArm, (-0.62 + pulse) * victoryWeight, 0, -0.18 * victoryWeight);
-                    offsetAnimatedBone(swordForeArm, -1.28 * victoryWeight, 0, 0.12 * victoryWeight);
-                    offsetAnimatedBone(shieldArm, (-0.56 - pulse) * victoryWeight, 0, 0.18 * victoryWeight);
-                    offsetAnimatedBone(shieldForeArm, -1.24 * victoryWeight, 0, -0.12 * victoryWeight);
-                    offsetAnimatedBone(rightHand, 0, 0, -0.06 * victoryWeight);
-                    offsetAnimatedBone(leftHand, 0, 0, 0.06 * victoryWeight);
-                    applyOpenFingers(rightFingerBones, victoryWeight);
-                    applyOpenFingers(leftFingerBones, victoryWeight);
+                    poseArm(swordArm, swordForeArm, rightHand, 'victory', victoryWeight);
+                    poseArm(shieldArm, shieldForeArm, leftHand, 'victory', victoryWeight);
                 } else if (greetingWeight > 0.001) {
-                    const wave = Math.sin(elapsed * 5.4);
-                    // A short, open-palm wave. The shoulder stays close to the body
-                    // and only the forearm/hand perform the visible greeting.
-                    offsetAnimatedBone(swordArm, -0.58 * greetingWeight, 0, -0.14 * greetingWeight);
-                    offsetAnimatedBone(swordForeArm, -1.22 * greetingWeight, 0, 0.10 * greetingWeight);
-                    offsetAnimatedBone(rightHand, 0, wave * 0.04 * greetingWeight, wave * 0.12 * greetingWeight);
-                    applyOpenFingers(rightFingerBones, greetingWeight);
+                    poseArm(swordArm, swordForeArm, rightHand, 'greeting', greetingWeight);
+                    if (rightHand && greetingHandRotation) {
+                        rightHand.quaternion.slerp(greetingHandRotation, greetingWeight * 0.9);
+                    }
+                    applyOpenFingers(rightFingerBones, greetingWeight * 0.96);
                 }
 
                 if (walkWeight > 0.001 && interaction < 0.02) {
@@ -258,11 +361,13 @@ if (root && canvas) {
                     offsetAnimatedBone(leftUpLeg, -stride, 0, 0);
                     offsetAnimatedBone(rightLeg, -Math.max(0, stride) * 1.45, 0, 0);
                     offsetAnimatedBone(leftLeg, -Math.max(0, -stride) * 1.45, 0, 0);
-                    offsetAnimatedBone(swordArm, stride * 0.48, 0, 0);
-                    offsetAnimatedBone(shieldArm, -stride * 0.48, 0, 0);
-                    offsetAnimatedBone(swordForeArm, -0.14 * walkWeight, 0, 0);
-                    offsetAnimatedBone(shieldForeArm, -0.14 * walkWeight, 0, 0);
-                    offsetAnimatedBone(pelvis, 0, 0, Math.sin(walkPhase) * 0.025 * walkWeight);
+                    // Arms swing front/back close to the torso instead of rotating
+                    // laterally on the rig's unusual local shoulder axes.
+                    poseArm(swordArm, swordForeArm, rightHand, 'walk', walkWeight, -armSwing);
+                    poseArm(shieldArm, shieldForeArm, leftHand, 'walk', walkWeight, armSwing);
+                    applyOpenFingers(rightFingerBones, walkWeight * 0.98);
+                    applyOpenFingers(leftFingerBones, walkWeight * 0.98);
+                    offsetAnimatedBone(pelvis, 0, 0, Math.sin(walkPhase) * 0.035 * walkWeight);
                 }
             }
             root.dataset.leonidasMotion = victoryWeight > 0.08
@@ -275,6 +380,7 @@ if (root && canvas) {
             root.dataset.leonidasFacing = Math.abs(facingTarget - frontalRotation) < 0.2
                 ? 'front'
                 : facingTarget < frontalRotation ? 'left' : 'right';
+            root.dataset.leonidasPatrolX = patrolX.toFixed(3);
         };
 
         const animate = () => {
@@ -329,6 +435,19 @@ if (root && canvas) {
             }
             window.requestAnimationFrame(animate);
         };
+
+        root.addEventListener('leonidas:delivery-walk', (event) => {
+            const direction = event.detail?.direction === 'arrive' ? 'arrive' : 'depart';
+            root.classList.remove('is-greeting', 'is-victory');
+            deliveryWalk = {
+                direction,
+                startedAt: clock.elapsedTime,
+                duration: direction === 'arrive' ? 1.45 : 1.6
+            };
+            if (direction === 'arrive') {
+                patrolX = Math.max(patrolDistance, characterScale * 1.25);
+            }
+        });
 
         const applyLeonidasSkin = (model, useRigTexture = false) => {
             const palette = {
@@ -426,9 +545,8 @@ if (root && canvas) {
             if (animations.length) {
                 mixer = new THREE.AnimationMixer(model);
                 mixer.clipAction(animations[0]).reset().play();
-                // The calibration segment contains naturally open hands. Capture
-                // only finger rotations and reuse them for greeting/celebration.
-                mixer.setTime(6);
+                mixer.setTime(6.4);
+                if (rightHand) greetingHandRotation = rightHand.quaternion.clone();
                 [...rightFingerBones, ...leftFingerBones].forEach((bone) => {
                     openFingerRotations.set(bone, bone.quaternion.clone());
                 });
@@ -438,7 +556,6 @@ if (root && canvas) {
             root.dataset.leonidasModel = modelName;
             root.dataset.leonidasBones = String(baseRotations.size);
             root.classList.add('is-3d-ready');
-            presenceStartedAt = clock.elapsedTime;
             resize();
             root.dispatchEvent(new CustomEvent('leonidas:model-ready'));
         };
