@@ -4149,7 +4149,8 @@ async def leonidas_conversar(
     try:
         respuesta, usage, modelo, fallback = ai._call_content(
             [{"type": "text", "text": prompt}],
-            max_tokens=700,
+            max_tokens=280,
+            enable_thinking=False,
         )
     except Exception as exc:
         logger.exception("Leonidas/Qwen no pudo completar la conversacion: {}", exc)
@@ -5698,7 +5699,7 @@ async def validar_expediente(
     acta_nacimiento: Optional[UploadFile] = File(None, description="PDF acta de nacimiento"),
     comprobante_domicilio: Optional[UploadFile] = File(None, description="PDF comprobante de domicilio"),
     hoja_retencion: Optional[UploadFile] = File(None, description="PDF hoja de retencion FONACOT o INFONAVIT"),
-    __SPARTA_SECRET_REDACTED__: Optional[UploadFile] = File(None, description="PDF estado de cuenta"),
+    estado_cuenta: Optional[UploadFile] = File(None, description="PDF estado de cuenta"),
     nombre_candidato_registro: Optional[str] = Form(None, description="Nombre registrado del candidato en Sparta Ledger"),
     lecturas_json: Optional[str] = Form(None, description="Lecturas IA rapidas ya guardadas por documento"),
     lecturas_json_b64: Optional[str] = Form(None, description="Lecturas IA rapidas en base64 para evitar problemas de encoding multipart"),
@@ -5748,7 +5749,7 @@ async def validar_expediente(
     acta_pdf_bytes = await _leer_pdf(acta_nacimiento)
     domicilio_pdf_bytes = await _leer_pdf(comprobante_domicilio)
     retencion_pdf_bytes = await _leer_pdf(hoja_retencion)
-    __SPARTA_SECRET_REDACTED___pdf_bytes = await _leer_pdf(__SPARTA_SECRET_REDACTED__)
+    __SPARTA_SECRET_REDACTED___pdf_bytes = await _leer_pdf(estado_cuenta)
 
     lecturas_previas: Dict[str, Any] = {}
     lecturas_payload = lecturas_json
@@ -5831,7 +5832,7 @@ async def validar_expediente(
                 {"key": "constancia_fiscal", "label": "Constancia de situacion fiscal", "bytes": fiscal_pdf_bytes, "filename": getattr(constancia_fiscal, "filename", None) or "constancia_fiscal.pdf"},
                 {"key": "nss", "label": "Numero de seguridad social", "bytes": nss_pdf_bytes, "filename": getattr(documento_nss, "filename", None) or "nss.pdf"},
                 {"key": "hoja_retencion", "label": "Hoja de retencion FONACOT o INFONAVIT", "bytes": retencion_pdf_bytes, "filename": getattr(hoja_retencion, "filename", None) or "hoja_retencion.pdf"},
-                {"key": "__SPARTA_SECRET_REDACTED__", "label": "Estado de cuenta", "bytes": __SPARTA_SECRET_REDACTED___pdf_bytes, "filename": getattr(__SPARTA_SECRET_REDACTED__, "filename", None) or "__SPARTA_SECRET_REDACTED__.pdf"},
+                {"key": "__SPARTA_SECRET_REDACTED__", "label": "Estado de cuenta", "bytes": __SPARTA_SECRET_REDACTED___pdf_bytes, "filename": getattr(estado_cuenta, "filename", None) or "__SPARTA_SECRET_REDACTED__.pdf"},
             ]
             for doc in docs_v2:
                 key = str(doc.get("key") or "")
@@ -6251,7 +6252,7 @@ async def validar_expediente_json(
         acta_nacimiento=_payload_upload_from_b64(payload, "acta_nacimiento", "acta_nacimiento.pdf"),
         comprobante_domicilio=_payload_upload_from_b64(payload, "comprobante_domicilio", "comprobante_domicilio.pdf"),
         hoja_retencion=_payload_upload_from_b64(payload, "hoja_retencion", "hoja_retencion.pdf"),
-        __SPARTA_SECRET_REDACTED__=_payload_upload_from_b64(payload, "__SPARTA_SECRET_REDACTED__", "__SPARTA_SECRET_REDACTED__.pdf"),
+        estado_cuenta=_payload_upload_from_b64(payload, "__SPARTA_SECRET_REDACTED__", "__SPARTA_SECRET_REDACTED__.pdf"),
         nombre_candidato_registro=payload.get("nombre_candidato_registro"),
         lecturas_json=None,
         lecturas_json_b64=payload.get("lecturas_json_b64"),

@@ -765,7 +765,7 @@ JS;
             var html = \'<div class="rastreo-donde-firma-titulo">Donde firmó:</div>\';
             if (!puntosGeo.length) {
                 html = \'<div class="rastreo-donde-firma-titulo">Direcciones de referencia:</div>\';
-                html += \'<div class="text-muted small mb-2">Sin coordenada de firma FAD. Se muestra solicitud/INE/megareporte cuando existe.</div>\';
+                html += \'<div class="text-muted small mb-2">Sin coordenada de firma FAD.</div>\';
             }
             puntosGeo.forEach(function(p, i) {
                 var donde = escG(p.donde_firma || \'Dirección\');
@@ -1012,6 +1012,28 @@ JS;
             puntosGeo = puntosGeo || [];
             var cont = document.getElementById(\'rastreoMapaAlternas\');
             if (!cont) return;
+            var tienePuntoConCoordenadas = function(puntos, latKey, lngKey) {
+                return (puntos || []).some(function(p) {
+                    p = p || {};
+                    var lat = parseFloat(p[latKey] !== undefined ? p[latKey] : p.lat);
+                    var lng = parseFloat(p[lngKey] !== undefined ? p[lngKey] : p.lng);
+                    return !isNaN(lat) && !isNaN(lng);
+                });
+            };
+            var hayReferenciaConCoordenadas = (rastreoDomiciliosReferencia || []).some(function(ref) {
+                return !isNaN(parseFloat(ref.lat)) && !isNaN(parseFloat(ref.lng));
+            });
+            var hayMegareporteConCoordenadas = rastreoDomicilioMegareporte
+                && !isNaN(parseFloat(rastreoDomicilioMegareporte.lat))
+                && !isNaN(parseFloat(rastreoDomicilioMegareporte.lng));
+            if (!tienePuntoConCoordenadas(puntosMaxiApp, \'latitud\', \'longitud\')
+                && !tienePuntoConCoordenadas(puntosGestores, \'lat\', \'lng\')
+                && !tienePuntoConCoordenadas(puntosGeo, \'lat\', \'lng\')
+                && !hayReferenciaConCoordenadas
+                && !hayMegareporteConCoordenadas) {
+                cont.innerHTML = \'<div class="d-flex h-100 align-items-center justify-content-center text-muted small p-3 text-center"><div><i class="fa-solid fa-location-dot d-block mb-2 fs-5"></i>No hay coordenadas verificadas para mostrar en el mapa de este crédito.</div></div>\';
+                return;
+            }
             if (!googleMapsApiKey || !googleMapsApiKey.length) {
                 cont.innerHTML = \'<div class="d-flex align-items-center justify-content-center h-100 text-muted small p-3 text-center">Falta configurar GOOGLE_MAPS_API_KEY para mostrar este mapa.</div>\';
                 return;
@@ -1328,6 +1350,28 @@ JS;
             if (oldOverlayG) oldOverlayG.remove();
             var oldLeyendaG = cont.querySelector(\'.rastreo-leyenda-mapa-grande\');
             if (oldLeyendaG) oldLeyendaG.remove();
+            var tienePuntoConCoordenadas = function(puntos, latKey, lngKey) {
+                return (puntos || []).some(function(p) {
+                    p = p || {};
+                    var lat = parseFloat(p[latKey] !== undefined ? p[latKey] : p.lat);
+                    var lng = parseFloat(p[lngKey] !== undefined ? p[lngKey] : p.lng);
+                    return !isNaN(lat) && !isNaN(lng);
+                });
+            };
+            var hayReferenciaConCoordenadas = (rastreoDomiciliosReferencia || []).some(function(ref) {
+                return !isNaN(parseFloat(ref.lat)) && !isNaN(parseFloat(ref.lng));
+            });
+            var hayMegareporteConCoordenadas = rastreoDomicilioMegareporte
+                && !isNaN(parseFloat(rastreoDomicilioMegareporte.lat))
+                && !isNaN(parseFloat(rastreoDomicilioMegareporte.lng));
+            if (!tienePuntoConCoordenadas(puntosMaxiApp, \'latitud\', \'longitud\')
+                && !tienePuntoConCoordenadas(puntosGestores, \'lat\', \'lng\')
+                && !tienePuntoConCoordenadas(puntosGeo, \'lat\', \'lng\')
+                && !hayReferenciaConCoordenadas
+                && !hayMegareporteConCoordenadas) {
+                cont.innerHTML = \'<div class="d-flex h-100 align-items-center justify-content-center text-muted small p-3 text-center"><div><i class="fa-solid fa-location-dot d-block mb-2 fs-3"></i>No hay coordenadas verificadas para mostrar en el mapa de este crédito.</div></div>\';
+                return;
+            }
             if (!googleMapsApiKey || !googleMapsApiKey.length) {
                 cont.innerHTML = \'<div class="d-flex align-items-center justify-content-center h-100 text-muted small p-3 text-center">Falta configurar GOOGLE_MAPS_API_KEY para mostrar este mapa.</div>\';
                 return;

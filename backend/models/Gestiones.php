@@ -66,7 +66,7 @@ SQL;
 
             return $mysqli->queryAll($query, ['credito' => (int) $credito]);
         } catch (\Throwable $e) {
-            self::marcarHistoricoDbFallo('Segundómetro (__SPARTA_SECRET_REDACTED__ → tbl_segundometro_histo)', $e);
+            self::marcarHistoricoDbFallo('Segundómetro (tbl_segundometro_histo)', $e);
 
             return [];
         }
@@ -179,7 +179,7 @@ SQL;
     }
 
     /**
-     * Gestiones desde __SPARTA_SECRET_REDACTED__ (Legacy / DatabaseLegacy): tasks + dictums + JSON_TABLE(form_response).
+     * Gestiones desde Legacy: tasks + dictums + JSON_TABLE(form_response).
      * Mismos alias de columnas que la consulta anterior (legacy_historico) para vistas y merge con Sky.
      *
      * @param int|null $limit Si se indica, LIMIT en SQL (más recientes primero). null = sin límite.
@@ -358,7 +358,7 @@ SQL;
 
         return $legacyData;
         } catch (\Throwable $e) {
-            self::marcarHistoricoDbFallo('Legacy __SPARTA_SECRET_REDACTED__ (DatabaseLegacy → tasks/dictums)', $e);
+            self::marcarHistoricoDbFallo('Legacy (tasks/dictums)', $e);
 
             return [];
         }
@@ -393,7 +393,7 @@ SQL;
 
             return !empty($result) ? $result[0] : null;
         } catch (\Throwable $e) {
-            self::marcarHistoricoDbFallo('Sky Logic complemento (__SPARTA_SECRET_REDACTED__ → base_clientes, 1 fila)', $e);
+            self::marcarHistoricoDbFallo('Sky Logic complemento (base_clientes, 1 fila)', $e);
 
             return null;
         }
@@ -581,7 +581,7 @@ SQL;
     }
 
     /**
-     * Gestiones de dictaminar llamada (__SPARTA_SECRET_REDACTED__.dictamen_llamada) homologadas al histórico.
+     * Gestiones de dictaminar llamada homologadas al histórico.
      * Fuente: CALL CENTER; orden por fecha/hora en SQL; luego se mezclan con Legacy/Sky.
      *
      * @param int|null $limit Si se indica, LIMIT en SQL (más recientes primero). null = sin límite.
@@ -613,7 +613,7 @@ SQL;
                     NULLIF(TRIM(CONCAT_WS(' ', u.nombres, u.segundo_nombre, u.apellidop, u.apellidom)), '') AS agente_nombre,
                     cp.nombre AS plataforma,
                     NULLIF(TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)), '') AS nombre_titular_persona
-                FROM __SPARTA_SECRET_REDACTED__.dictamen_llamada dl
+                FROM dictamen_llamada dl
                 LEFT JOIN persona p ON dl.id_credito = p.id
                 LEFT JOIN persona u ON u.id = dl.agente
                 LEFT JOIN cat_tipo_contacto tc ON tc.id = dl.tipo_contacto_id
@@ -734,7 +734,7 @@ SQL;
 
             return $out;
         } catch (\Throwable $e) {
-            self::marcarHistoricoDbFallo('Call Center (__SPARTA_SECRET_REDACTED__ → dictamen_llamada + catálogos)', $e);
+            self::marcarHistoricoDbFallo('Call Center (dictamen_llamada + catálogos)', $e);
 
             return [];
         }
@@ -785,7 +785,7 @@ SQL;
 
         return $mysqli->queryAll($query, $params);
         } catch (\Throwable $e) {
-            self::marcarHistoricoDbFallo('Sky Logic listado (__SPARTA_SECRET_REDACTED__ → base_clientes)', $e);
+            self::marcarHistoricoDbFallo('Sky Logic listado (base_clientes)', $e);
 
             return [];
         }
@@ -793,7 +793,7 @@ SQL;
 
     /**
      * Devuelve eventos de ubicación del gestor (coordenadas en cada gestión) para un crédito.
-     * Origen: Sky Logic (base_clientes.longitud/latitud) y Legacy __SPARTA_SECRET_REDACTED__ (dictums.longitud/latitud).
+     * Origen: Sky Logic (base_clientes.longitud/latitud) y Legacy (dictums.longitud/latitud).
      * Formato: [ ['lat'=>float, 'lng'=>float, 'timestamp'=>int, 'id'=>string], ... ]
      *
      * @param string|int $idCredito

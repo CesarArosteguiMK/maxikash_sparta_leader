@@ -131,11 +131,48 @@
     color: #f1ca55;
 }
 
+.leonidas-panel__actions {
+    display: flex;
+    align-items: center;
+    gap: .2rem;
+}
+
+.leonidas-panel__voice,
 .leonidas-panel__close {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
     border: 0;
+    border-radius: 50%;
     background: transparent;
     color: #6d7785;
     cursor: pointer;
+}
+
+.leonidas-panel__voice:hover,
+.leonidas-panel__close:hover {
+    background: #e8edf5;
+    color: #243a5c;
+}
+
+.leonidas-panel__voice.is-enabled {
+    background: #e8f0ff;
+    color: #315fbd;
+}
+
+.leonidas-panel__voice.is-loading i {
+    animation: leonidas-voice-pulse .85s ease-in-out infinite alternate;
+}
+
+.leonidas-panel__voice.has-error {
+    background: #fff0f0;
+    color: #b84242;
+}
+
+@keyframes leonidas-voice-pulse {
+    from { opacity: .45; transform: scale(.9); }
+    to { opacity: 1; transform: scale(1.08); }
 }
 
 .leonidas-messages {

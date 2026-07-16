@@ -14,6 +14,7 @@ class LeonidasAssistantService
     private const MESSAGE_DRAFT_KEY = 'leonidas_message_draft';
     private const VACATION_DRAFT_KEY = 'leonidas_vacation_draft';
     private const MAX_PENDING = 12;
+    private ?array $modulosAutorizados = null;
 
     public function conversar(string $mensaje): array
     {
@@ -55,6 +56,15 @@ class LeonidasAssistantService
             $respuesta = $flujoMensaje;
         } elseif ($flujoVacaciones = $this->resolverFlujoVacaciones($mensaje, $normalizado)) {
             $respuesta = $flujoVacaciones;
+        } elseif ($flujoAgente = (new LeonidasAgentService())->resolver($mensaje, $normalizado, $contexto)) {
+            $respuesta = $flujoAgente;
+            if (is_array($respuesta['propuesta_especificacion'] ?? null)) {
+                $respuesta['propuesta'] = $this->registrarPropuesta(
+                    $respuesta['propuesta_especificacion'],
+                    $contexto
+                );
+                unset($respuesta['propuesta_especificacion']);
+            }
         } elseif ($this->esSaludo($normalizado)) {
             $respuesta = [
                 'mensaje' => 'Hola, ' . $contexto['nombre_corto'] . '. ¿Qué necesitas resolver?',
@@ -171,6 +181,31 @@ class LeonidasAssistantService
             ];
         }
 
+        if (in_array(($accion['accion'] ?? ''), ['convenio_crear', 'moto_asignar'], true)) {
+            $payload = is_array($accion['payload'] ?? null) ? $accion['payload'] : [];
+            try {
+                $resultado = (new LeonidasAgentService())->ejecutar((string) $accion['accion'], $payload, $contexto);
+            } catch (\Throwable $error) {
+                unset($pendientes[$token]);
+                $_SESSION[self::PENDING_KEY] = $pendientes;
+                $this->auditar($contexto, 'agente_ejecucion_fallida', [
+                    'accion' => (string) $accion['accion'],
+                    'token' => $token,
+                    'error' => $error->getMessage(),
+                ]);
+                throw $error;
+            }
+
+            unset($pendientes[$token]);
+            $_SESSION[self::PENDING_KEY] = $pendientes;
+            $this->auditar($contexto, 'agente_ejecucion_exitosa', [
+                'accion' => (string) $accion['accion'],
+                'token' => $token,
+                'ejecucion' => $resultado['ejecucion'] ?? null,
+            ]);
+            return $resultado;
+        }
+
         unset($pendientes[$token]);
         $_SESSION[self::PENDING_KEY] = $pendientes;
 
@@ -195,16 +230,20 @@ class LeonidasAssistantService
             throw new \RuntimeException('La solicitud ya no esta disponible.');
         }
 
+        $esMensaje = (string) ($accion['accion'] ?? '') === 'mensaje';
         unset($pendientes[$token], $_SESSION[self::MESSAGE_DRAFT_KEY]);
         $_SESSION[self::PENDING_KEY] = $pendientes;
+        (new LeonidasAgentService())->limpiarTarea();
         $this->auditar($contexto, 'confirmacion_cancelada', [
             'accion' => (string) ($accion['accion'] ?? 'operacion'),
             'token' => $token,
         ]);
 
         return [
-            'mensaje' => 'Solicitud cancelada. No se envio ningun mensaje ni se modifico ningun dato.',
-            'tipo' => 'mensaje_cancelado',
+            'mensaje' => $esMensaje
+                ? 'Mensaje cancelado. No se envió ninguna comunicación.'
+                : 'Operación cancelada. No se modificó ningún dato.',
+            'tipo' => $esMensaje ? 'mensaje_cancelado' : 'agente_cancelado',
         ];
     }
 
@@ -267,6 +306,11 @@ class LeonidasAssistantService
             'nombre_corto' => isset($partes[0])
                 ? mb_convert_case((string) $partes[0], MB_CASE_TITLE, 'UTF-8')
                 : 'Usuario',
+            'permisos_agente' => [
+                'convenio' => $this->tieneAccesoModulo(46) && $this->tieneAccesoModulo(32),
+                'motos' => $this->tieneAccesoModulo(62) || $this->tieneAccesoModulo(80),
+                'id_celula' => $this->resolverCelulaConvenio(),
+            ],
         ];
     }
 
@@ -392,6 +436,10 @@ class LeonidasAssistantService
             return true;
         }
 
+        if ($this->modulosAutorizados !== null) {
+            return in_array($moduloId, $this->modulosAutorizados, true);
+        }
+
         $modulos = is_array($_SESSION['modulos'] ?? null)
             ? array_map('intval', $_SESSION['modulos'])
             : [];
@@ -409,7 +457,8 @@ class LeonidasAssistantService
             }
         }
 
-        return in_array($moduloId, $modulos, true);
+        $this->modulosAutorizados = array_values(array_unique(array_map('intval', $modulos)));
+        return in_array($moduloId, $this->modulosAutorizados, true);
     }
 
     private function esConsultaDeActivos(string $mensaje): bool
@@ -464,6 +513,7 @@ class LeonidasAssistantService
         return str_starts_with($tipo, 'mensaje_')
             || str_starts_with($tipo, 'consulta_')
             || str_starts_with($tipo, 'vacaciones_')
+            || str_starts_with($tipo, 'agente_')
             || in_array($tipo, [
             'conversacion',
             'metrica_personal',
@@ -1195,6 +1245,47 @@ class LeonidasAssistantService
         $_SESSION[self::PENDING_KEY] = $pendientes;
     }
 
+    private function registrarPropuesta(array $especificacion, array $contexto): array
+    {
+        $accion = trim((string) ($especificacion['accion'] ?? ''));
+        $resumen = trim((string) ($especificacion['resumen'] ?? ''));
+        $payload = is_array($especificacion['payload'] ?? null) ? $especificacion['payload'] : [];
+        if (!in_array($accion, ['convenio_crear', 'moto_asignar'], true) || $resumen === '' || !$payload) {
+            throw new \RuntimeException('La propuesta operativa está incompleta y no puede confirmarse.');
+        }
+
+        $token = bin2hex(random_bytes(16));
+        $pendientes = is_array($_SESSION[self::PENDING_KEY] ?? null) ? $_SESSION[self::PENDING_KEY] : [];
+        if (count($pendientes) >= self::MAX_PENDING) {
+            array_shift($pendientes);
+        }
+        $pendientes[$token] = [
+            'actor_id' => (int) $contexto['actor_id'],
+            'accion' => $accion,
+            'resumen' => $resumen,
+            'payload' => $payload,
+            'expira_en' => time() + 600,
+        ];
+        $_SESSION[self::PENDING_KEY] = $pendientes;
+
+        return [
+            'token' => $token,
+            'accion' => $accion,
+            'resumen' => $resumen,
+            'requiere_confirmacion' => true,
+        ];
+    }
+
+    private function resolverCelulaConvenio(): ?int
+    {
+        $despachos = $this->tieneAccesoModulo(58);
+        $callCenter = $this->tieneAccesoModulo(57);
+        if ($despachos === $callCenter) {
+            return null;
+        }
+        return $despachos ? 1 : 2;
+    }
+
     private function esSolicitudSensible(string $mensaje): bool
     {
         return preg_match('/\b(permiso|mensaje|correo|reporte|reportes|descarga|actualiza|cambia|elimina|asigna|salario|salarios|sueldo|sueldos|curp|rfc|nss|clabe)\b/u', $mensaje) === 1;
@@ -1258,23 +1349,6 @@ class LeonidasAssistantService
             return $respuesta + ['ia_disponible' => false];
         }
 
-        $configPath = defined('RAIZ') ? RAIZ . '/config/config.ini' : dirname(__DIR__) . '/config/config.ini';
-        $config = is_file($configPath) ? @parse_ini_file($configPath, true) : null;
-        $apiUrl = trim((string) ($config['doc_verificacion']['api_url'] ?? ''));
-        $apiKey = trim((string) ($config['doc_verificacion']['api_key'] ?? ''));
-        if ($apiUrl === '' || $apiKey === '') {
-            return $respuesta + ['ia_disponible' => false];
-        }
-
-        $baseUrl = preg_replace('#/verificar\s*$#i', '', $apiUrl);
-        $baseUrl = rtrim(trim((string) $baseUrl), '/');
-        if ($baseUrl === '') {
-            return $respuesta + ['ia_disponible' => false];
-        }
-        if (!preg_match('#/api/v1$#i', $baseUrl)) {
-            $baseUrl .= '/api/v1';
-        }
-
         $conocimiento = (new LeonidasKnowledgeService())->contextoPara($mensaje, (array) ($_SESSION['modulos'] ?? []));
         $contextoQwen = [
             'actor' => $contexto['nombre_corto'],
@@ -1302,6 +1376,24 @@ class LeonidasAssistantService
             ],
             'conocimiento_sparta' => $conocimiento,
         ];
+
+        $configPath = defined('RAIZ') ? RAIZ . '/config/config.ini' : dirname(__DIR__) . '/config/config.ini';
+        $config = is_file($configPath) ? @parse_ini_file($configPath, true) : null;
+        $apiUrl = trim((string) ($config['doc_verificacion']['api_url'] ?? ''));
+        $apiKey = trim((string) ($config['doc_verificacion']['api_key'] ?? ''));
+        if ($apiUrl === '' || $apiKey === '') {
+            return $respuesta + ['ia_disponible' => false];
+        }
+
+        $baseUrl = preg_replace('#/verificar\s*$#i', '', $apiUrl);
+        $baseUrl = rtrim(trim((string) $baseUrl), '/');
+        if ($baseUrl === '') {
+            return $respuesta + ['ia_disponible' => false];
+        }
+        if (!preg_match('#/api/v1$#i', $baseUrl)) {
+            $baseUrl .= '/api/v1';
+        }
+
         $payload = json_encode([
             'mensaje' => $mensaje,
             'contexto' => $contextoQwen,
@@ -1320,8 +1412,8 @@ class LeonidasAssistantService
                 'X-API-Key: ' . $apiKey,
             ],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 3,
-            CURLOPT_TIMEOUT => 20,
+            CURLOPT_CONNECTTIMEOUT => 2,
+            CURLOPT_TIMEOUT => 8,
         ]);
         $body = curl_exec($curl);
         $httpCode = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
@@ -1334,16 +1426,16 @@ class LeonidasAssistantService
             : '';
         $modelo = is_array($data) ? trim((string) ($data['modelo'] ?? '')) : '';
 
-        if ($texto === '') {
-            if ($httpCode > 0) {
-                error_log('[Leonidas] Endpoint Qwen no disponible. HTTP=' . $httpCode . ' error=' . $curlError);
-            }
-            $directo = $this->consultarQwenDirecto($mensaje, $contextoQwen);
-            $texto = $directo['texto'];
-            $modelo = $directo['modelo'];
+        if ($texto === '' && $httpCode > 0) {
+            error_log('[Leonidas] Endpoint Qwen local no disponible. HTTP=' . $httpCode . ' error=' . $curlError);
         }
         if ($texto === '') {
-            return $respuesta + ['ia_disponible' => false];
+            $directo = $this->consultarQwenDirecto($mensaje, $contextoQwen);
+            if ($directo['texto'] === '') {
+                return $respuesta + ['ia_disponible' => false];
+            }
+            $texto = $directo['texto'];
+            $modelo = $directo['modelo'];
         }
 
         $respuesta['mensaje'] = $texto;
@@ -1371,11 +1463,12 @@ class LeonidasAssistantService
         $payload = json_encode([
             'model' => $modelo,
             'messages' => [
-                ['role' => 'system', 'content' => 'Eres Leonidas, asistente interno de Sparta. Hablas con calidez, claridad y criterio operativo. Las consultas de solo lectura y la navegacion se ejecutan inmediatamente mediante herramientas del servidor. Solo las acciones que modifican datos o envian comunicaciones requieren confirmacion final.'],
+                ['role' => 'system', 'content' => 'Eres Leonidas, asistente interno de Sparta. Hablas con calidez, claridad y criterio operativo. Responde de forma breve y directa, salvo que el usuario pida un informe o una explicacion detallada. Las consultas de solo lectura y la navegacion se ejecutan inmediatamente mediante herramientas del servidor. Solo las acciones que modifican datos o envian comunicaciones requieren confirmacion final.'],
                 ['role' => 'user', 'content' => $prompt],
             ],
             'temperature' => 0.2,
-            'max_tokens' => 700,
+            'max_tokens' => 280,
+            'enable_thinking' => false,
             'response_format' => ['type' => 'json_object'],
         ]);
         if ($payload === false) {
@@ -1391,8 +1484,8 @@ class LeonidasAssistantService
                 'Authorization: Bearer ' . $apiKey,
             ],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 4,
-            CURLOPT_TIMEOUT => 25,
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_TIMEOUT => 15,
         ]);
         $body = curl_exec($curl);
         $httpCode = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);

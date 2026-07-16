@@ -92,6 +92,13 @@
 
             <div class="accordion" id="accordionClientes">
 
+                <?php if (!empty($gestionesSinHistorial)): ?>
+                    <div class="alert alert-info mb-0" role="status">
+                        <strong>Cr&eacute;dito encontrado.</strong>
+                        Todav&iacute;a no tiene gestiones registradas en Legacy, Sky Logic ni Call Center.
+                    </div>
+                <?php endif; ?>
+
                 <?php $i = 1; foreach ($gestiones as $g): ?>
                     <?php
                     $esCallCenter = !empty($g['es_fuente_call_center']) || (($g['app'] ?? '') === 'CALL CENTER');

@@ -1659,6 +1659,7 @@ class AlibabaDocumentAI:
         content: List[Dict[str, Any]],
         max_tokens: int = 1600,
         deadline: Optional[float] = None,
+        enable_thinking: Optional[bool] = None,
     ) -> tuple[Dict[str, Any], Dict[str, Any], str, bool]:
         endpoint = self.base_url + "/chat/completions"
         last_exc: Optional[Exception] = None
@@ -1684,6 +1685,8 @@ class AlibabaDocumentAI:
                         "max_tokens": max_tokens,
                         "response_format": {"type": "json_object"},
                     }
+                    if enable_thinking is not None:
+                        payload["enable_thinking"] = enable_thinking
                     req = urllib.request.Request(
                         endpoint,
                         data=json.dumps(payload).encode("utf-8"),

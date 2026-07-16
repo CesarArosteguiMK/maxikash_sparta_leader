@@ -4768,8 +4768,10 @@ class Sabueso extends Controller
             }
         }
 
-        // Calle + CP sin colonia/ciudad/estado puede geocodificar otra ciudad.
-        return false;
+        // Un CP mexicano de cinco dígitos aporta suficiente contexto para intentar
+        // geocodificar el domicilio aunque MaxiProd no tenga colonia o municipio.
+        $codigoPostal = preg_replace('/\D+/', '', (string) ($partesDireccion['codigo_postal'] ?? ''));
+        return strlen($codigoPostal) === 5;
     }
 
     private function respuestaPareceImagenIne(string $archivo, $contenido): bool

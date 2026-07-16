@@ -95,17 +95,16 @@ JS;
             if ($fallosDbConsole !== []) {
                 self::set('gestionesDbFallosConsole', $fallosDbConsole);
                 // Si aun así hay filas, el fallo es solo de una fuente (p. ej. Legacy); la consola lo aclara como aviso.
-                self::set('gestionesDbFallosModoParcial', !empty($GestionesAll));
+                self::set('gestionesDbFallosModoParcial', !empty($GestionesAll) || !empty($detalle));
             }
 
-            if (empty($GestionesAll)) {
+            if (empty($GestionesAll) && empty($detalle)) {
                 self::set("titulo", "Sin resultados para solicitud");
                 if (GestionesDAO::huboHistoricoDbFallo()) {
                     self::set(
                         "errorGestiones",
-                        'No se pudo conectar a una o más bases de datos del histórico (Legacy __SPARTA_SECRET_REDACTED__, __SPARTA_SECRET_REDACTED__ / Sky Logic, Call Center / dictamen_llamada o Segundómetro). '
-                        . 'En producción suele deberse a que el servidor web no tiene salida al puerto 3306 de esos hosts MySQL, o a credenciales distintas al entorno local. '
-                        . 'Revise firewall, listas blancas en el servidor de BD y el log de PHP (error_log) para el detalle técnico.'
+                        'No fue posible consultar temporalmente una de las fuentes del histórico. '
+                        . 'Intenta nuevamente y, si el problema continúa, informa a soporte indicando el ID de crédito.'
                     );
                     self::set("script", $script);
                 } else {
@@ -118,6 +117,7 @@ JS;
 
             self::set("gestiones", $GestionesAll);
             self::set("detalle", $detalle);
+            self::set("gestionesSinHistorial", empty($GestionesAll));
             self::set("titulo", "Resultado de la solicitud");
             self::set("script", $script);
             return self::render("gestiones_request");

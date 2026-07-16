@@ -744,7 +744,7 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                                         </div>
                                         <div class="flex-grow-1">
                                             <h6 class="mb-0"><?= $_SESSION['usuario_nombre']; ?></h6>
-                                            <small class="text-muted"><?= $_SESSION['nombre_puesto']; ?></small>
+                                            <small class="text-success"><?= $_SESSION['nombre_puesto']; ?></small>
                                         </div>
                                     </div>
                                 </a>
@@ -1756,9 +1756,15 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                     <span class="leonidas-panel__crest" aria-hidden="true"><i class="fa-solid fa-helmet-un"></i></span>
                     <span><strong>Leónidas</strong><small>Asistente de Sparta</small></span>
                 </div>
-                <button type="button" class="leonidas-panel__close" data-leonidas-close aria-label="Cerrar Leónidas">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+                <div class="leonidas-panel__actions">
+                    <button type="button" class="leonidas-panel__voice is-enabled" data-leonidas-voice
+                            aria-label="Silenciar voz de Leónidas" aria-pressed="true" title="Silenciar voz">
+                        <i class="fa-solid fa-volume-high"></i>
+                    </button>
+                    <button type="button" class="leonidas-panel__close" data-leonidas-close aria-label="Cerrar Leónidas">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
             </header>
             <div class="leonidas-messages" data-leonidas-messages>
                 <article class="leonidas-message leonidas-message--assistant">

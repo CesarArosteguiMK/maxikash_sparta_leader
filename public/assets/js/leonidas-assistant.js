@@ -7,6 +7,7 @@
     var panel = root.querySelector('.leonidas-panel');
     var toggle = root.querySelector('[data-leonidas-toggle]');
     var close = root.querySelector('[data-leonidas-close]');
+    var voiceButton = root.querySelector('[data-leonidas-voice]');
     var form = root.querySelector('[data-leonidas-form]');
     var input = root.querySelector('[data-leonidas-input]');
     var messages = root.querySelector('[data-leonidas-messages]');
@@ -15,12 +16,21 @@
     var personaId = root.getAttribute('data-leonidas-persona') || '0';
     var storageKey = 'sparta.leonidas.open.' + personaId;
     var conversationKey = 'sparta.leonidas.conversation.' + personaId;
+    var voiceStorageKey = 'sparta.leonidas.voice.' + personaId;
     var userName = (root.getAttribute('data-leonidas-user') || 'comandante').trim();
     var firstName = (userName.split(/\s+/)[0] || 'comandante').toLocaleLowerCase('es-MX');
     var polling = false;
     var currentDeliveryId = null;
     var restoringConversation = false;
     var firstMessage = messages ? messages.querySelector('.leonidas-message--assistant') : null;
+    var voiceEnabled = localStorage.getItem(voiceStorageKey) !== '0';
+    var voiceRequestSerial = 0;
+    var currentAudio = null;
+    var voiceAudioContext = null;
+    var voiceStreamController = null;
+    var voiceStreamSources = [];
+    var pendingVoiceText = '';
+    var welcomeSpoken = false;
     firstName = firstName.charAt(0).toLocaleUpperCase('es-MX') + firstName.slice(1);
 
     if (form && !isOwner) form.hidden = true;
@@ -66,6 +76,330 @@
         }, 2100);
     }
 
+    function updateVoiceButton() {
+        if (!voiceButton) return;
+        voiceButton.classList.toggle('is-enabled', voiceEnabled);
+        voiceButton.classList.remove('is-loading', 'has-error');
+        voiceButton.setAttribute('aria-pressed', voiceEnabled ? 'true' : 'false');
+        voiceButton.setAttribute('aria-label', voiceEnabled ? 'Silenciar voz de Leónidas' : 'Activar voz de Leónidas');
+        voiceButton.title = voiceEnabled ? 'Silenciar voz' : 'Activar voz';
+        voiceButton.innerHTML = voiceEnabled
+            ? '<i class="fa-solid fa-volume-high"></i>'
+            : '<i class="fa-solid fa-volume-xmark"></i>';
+    }
+
+    function cancelVoicePlayback() {
+        if (voiceStreamController) {
+            voiceStreamController.abort();
+            voiceStreamController = null;
+        }
+        voiceStreamSources.forEach(function (source) {
+            try { source.stop(0); } catch (ignore) {}
+        });
+        voiceStreamSources = [];
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+        root.classList.remove('is-speaking');
+        if (voiceButton) voiceButton.classList.remove('is-loading');
+    }
+
+    function stopVoice() {
+        voiceRequestSerial += 1;
+        cancelVoicePlayback();
+    }
+
+    function setVoiceEnabled(enabled) {
+        voiceEnabled = enabled === true;
+        localStorage.setItem(voiceStorageKey, voiceEnabled ? '1' : '0');
+        if (!voiceEnabled) stopVoice();
+        updateVoiceButton();
+    }
+
+    function showVoiceError() {
+        if (!voiceButton) return;
+        voiceButton.classList.remove('is-loading');
+        voiceButton.classList.add('has-error');
+        voiceButton.title = 'La voz no está disponible temporalmente';
+        window.setTimeout(function () {
+            if (voiceEnabled) updateVoiceButton();
+        }, 3500);
+    }
+
+    function ensureVoiceContext() {
+        var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return null;
+        if (!voiceAudioContext) {
+            voiceAudioContext = new AudioContextClass();
+            root.setAttribute('data-leonidas-voice-state', voiceAudioContext.state);
+            voiceAudioContext.addEventListener('statechange', function () {
+                root.setAttribute('data-leonidas-voice-state', voiceAudioContext.state);
+            });
+        }
+        return voiceAudioContext;
+    }
+
+    function unlockVoiceContext() {
+        if (!voiceEnabled) return Promise.resolve(false);
+        var context = ensureVoiceContext();
+        if (!context) return Promise.resolve(false);
+        root.setAttribute('data-leonidas-voice-mode', 'unlocking');
+        var resumed = context.state === 'suspended' ? context.resume() : Promise.resolve();
+        return resumed.then(function () {
+            root.setAttribute('data-leonidas-voice-state', context.state);
+            if (context.state !== 'running') {
+                root.setAttribute('data-leonidas-voice-mode', 'blocked');
+                return false;
+            }
+            root.setAttribute('data-leonidas-voice-mode', 'ready');
+            if (pendingVoiceText) {
+                var queuedText = pendingVoiceText;
+                pendingVoiceText = '';
+                speakText(queuedText);
+            }
+            return true;
+        }).catch(function () {
+            root.setAttribute('data-leonidas-voice-mode', 'blocked');
+            return false;
+        });
+    }
+
+    function playVoiceAudio(audioUrl, serial) {
+        var context = ensureVoiceContext();
+        if (!context || context.state !== 'running') {
+            throw new Error('El navegador aun no ha habilitado el audio.');
+        }
+        return window.fetch(audioUrl, { credentials: 'same-origin' })
+            .then(function (response) {
+                if (!response.ok) throw new Error('No se pudo descargar el audio generado.');
+                return response.arrayBuffer();
+            })
+            .then(function (audioBytes) {
+                return context.decodeAudioData(audioBytes);
+            })
+            .then(function (audioBuffer) {
+                if (!voiceEnabled || serial !== voiceRequestSerial) return;
+                var source = context.createBufferSource();
+                var gain = context.createGain();
+                source.buffer = audioBuffer;
+                gain.gain.value = 0.92;
+                source.connect(gain);
+                gain.connect(context.destination);
+                currentAudio = {
+                    pause: function () {
+                        try { source.stop(0); } catch (ignore) {}
+                    }
+                };
+                source.onended = function () {
+                    if (serial !== voiceRequestSerial) return;
+                    currentAudio = null;
+                    root.classList.remove('is-speaking');
+                };
+                root.classList.add('is-speaking');
+                root.setAttribute('data-leonidas-voice-mode', 'fallback-playing');
+                if (voiceButton) voiceButton.classList.remove('is-loading', 'has-error');
+                source.start(0);
+            });
+    }
+
+    function decodePcmBytes(encoded) {
+        var binary = window.atob(String(encoded || ''));
+        var bytes = new Uint8Array(binary.length);
+        for (var index = 0; index < binary.length; index += 1) {
+            bytes[index] = binary.charCodeAt(index);
+        }
+        return bytes;
+    }
+
+    function removeStreamSource(source) {
+        var index = voiceStreamSources.indexOf(source);
+        if (index >= 0) voiceStreamSources.splice(index, 1);
+    }
+
+    function schedulePcmChunk(encoded, state, serial) {
+        if (!voiceEnabled || serial !== voiceRequestSerial) return;
+        var context = ensureVoiceContext();
+        if (!context || context.state !== 'running') {
+            throw new Error('El navegador aun no ha habilitado el audio.');
+        }
+
+        var incoming = decodePcmBytes(encoded);
+        var bytes = incoming;
+        if (state.carry !== null) {
+            bytes = new Uint8Array(incoming.length + 1);
+            bytes[0] = state.carry;
+            bytes.set(incoming, 1);
+            state.carry = null;
+        }
+        if (bytes.length % 2 !== 0) {
+            state.carry = bytes[bytes.length - 1];
+            bytes = bytes.subarray(0, bytes.length - 1);
+        }
+        if (bytes.length === 0) return;
+
+        var samples = bytes.length / 2;
+        var audioBuffer = context.createBuffer(1, samples, state.sampleRate);
+        var channel = audioBuffer.getChannelData(0);
+        var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        for (var sample = 0; sample < samples; sample += 1) {
+            channel[sample] = view.getInt16(sample * 2, true) / 32768;
+        }
+
+        var source = context.createBufferSource();
+        var gain = context.createGain();
+        source.buffer = audioBuffer;
+        gain.gain.value = 0.92;
+        source.connect(gain);
+        gain.connect(context.destination);
+        var startAt = Math.max(context.currentTime + 0.055, state.nextStartAt);
+        state.nextStartAt = startAt + audioBuffer.duration;
+        state.pending += 1;
+        voiceStreamSources.push(source);
+        source.onended = function () {
+            removeStreamSource(source);
+            state.pending = Math.max(0, state.pending - 1);
+            if (serial === voiceRequestSerial && state.done && state.pending === 0) {
+                root.classList.remove('is-speaking');
+            }
+        };
+        source.start(startAt);
+
+        if (!state.hadAudio) {
+            state.hadAudio = true;
+            state.firstAudioAt = window.performance ? window.performance.now() : Date.now();
+            root.classList.add('is-speaking');
+            root.setAttribute('data-leonidas-voice-mode', 'realtime-playing');
+            root.setAttribute('data-leonidas-voice-latency', String(Math.round(state.firstAudioAt - state.requestedAt)));
+            if (voiceButton) voiceButton.classList.remove('is-loading', 'has-error');
+        }
+    }
+
+    function playRealtimeVoice(text, serial) {
+        var context = ensureVoiceContext();
+        if (!context || context.state !== 'running' || !window.ReadableStream || !window.TextDecoder) {
+            return Promise.reject(new Error('Streaming de audio no disponible.'));
+        }
+
+        var controller = new AbortController();
+        var state = {
+            sampleRate: 24000,
+            nextStartAt: 0,
+            pending: 0,
+            done: false,
+            hadAudio: false,
+            carry: null,
+            requestedAt: window.performance ? window.performance.now() : Date.now()
+        };
+        voiceStreamController = controller;
+
+        return window.fetch('/Leonidas/vozTiempoReal', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/x-ndjson' },
+            body: JSON.stringify({ texto: text }),
+            signal: controller.signal
+        }).then(function (response) {
+            if (!response.ok || !response.body) {
+                throw new Error('La voz en tiempo real no respondio correctamente.');
+            }
+            var reader = response.body.getReader();
+            var decoder = new TextDecoder('utf-8');
+            var buffered = '';
+
+            function processLine(line) {
+                line = String(line || '').trim();
+                if (line === '') return;
+                var event = JSON.parse(line);
+                if (event.type === 'meta' && Number(event.sample_rate) > 0) {
+                    state.sampleRate = Number(event.sample_rate);
+                } else if (event.type === 'audio' && event.delta) {
+                    schedulePcmChunk(event.delta, state, serial);
+                } else if (event.type === 'error') {
+                    var streamError = new Error(event.message || 'La voz en tiempo real fallo.');
+                    streamError.hadAudio = state.hadAudio;
+                    throw streamError;
+                } else if (event.type === 'done') {
+                    state.done = true;
+                }
+            }
+
+            function consume() {
+                return reader.read().then(function (result) {
+                    if (result.done) {
+                        buffered += decoder.decode();
+                        if (buffered.trim() !== '') processLine(buffered);
+                        state.done = true;
+                        if (state.pending === 0 && serial === voiceRequestSerial) {
+                            root.classList.remove('is-speaking');
+                        }
+                        return state;
+                    }
+                    buffered += decoder.decode(result.value, { stream: true });
+                    var lines = buffered.split('\n');
+                    buffered = lines.pop() || '';
+                    lines.forEach(processLine);
+                    return consume();
+                });
+            }
+
+            return consume();
+        }).then(function () {
+            if (voiceStreamController === controller) voiceStreamController = null;
+            return state;
+        }).catch(function (error) {
+            if (voiceStreamController === controller) voiceStreamController = null;
+            error.hadAudio = error.hadAudio === true || state.hadAudio;
+            throw error;
+        });
+    }
+
+    function playFallbackVoice(text, serial) {
+        return request('/Leonidas/voz', { texto: text }, 50000)
+            .then(function (voice) {
+                if (!voiceEnabled || serial !== voiceRequestSerial || !voice.audio_url) return;
+                return playVoiceAudio(voice.audio_url, serial);
+            });
+    }
+
+    function speakText(text) {
+        text = String(text || '').trim();
+        if (!voiceEnabled || text === '') {
+            triggerSpeaking();
+            return;
+        }
+
+        var context = ensureVoiceContext();
+        if (context && context.state !== 'running') {
+            pendingVoiceText = text;
+            root.setAttribute('data-leonidas-voice-state', context.state);
+            root.setAttribute('data-leonidas-voice-mode', 'pending-unlock');
+            if (voiceButton) voiceButton.classList.remove('is-loading', 'has-error');
+            return;
+        }
+
+        var serial = ++voiceRequestSerial;
+        cancelVoicePlayback();
+        root.setAttribute('data-leonidas-voice-mode', 'realtime-request');
+        root.removeAttribute('data-leonidas-voice-error');
+        if (voiceButton) voiceButton.classList.add('is-loading');
+
+        playRealtimeVoice(text, serial)
+            .catch(function (streamError) {
+                if (serial !== voiceRequestSerial || streamError.name === 'AbortError') return;
+                if (streamError.hadAudio) throw streamError;
+                root.setAttribute('data-leonidas-voice-mode', 'fallback-request');
+                return playFallbackVoice(text, serial);
+            })
+            .catch(function (error) {
+                if (serial !== voiceRequestSerial) return;
+                root.setAttribute('data-leonidas-voice-mode', 'error');
+                root.setAttribute('data-leonidas-voice-error', String(error && error.message ? error.message : 'unknown'));
+                triggerSpeaking();
+                showVoiceError();
+            });
+    }
+
     function triggerDeliveryWalk(direction) {
         if (!root.classList.contains('is-3d-ready')) return;
         root.dispatchEvent(new CustomEvent('leonidas:delivery-walk', {
@@ -81,6 +415,12 @@
         if (isOwner) localStorage.setItem(storageKey, '1');
         if (celebrate) triggerVictory();
         else if (!root.classList.contains('is-delivering')) triggerGreeting();
+        if (!welcomeSpoken && firstMessage && voiceEnabled) {
+            welcomeSpoken = true;
+            window.setTimeout(function () {
+                speakText((firstMessage.textContent || '').trim());
+            }, 220);
+        }
         if (isOwner && input) {
             window.setTimeout(function () { input.focus(); }, 180);
         }
@@ -108,7 +448,7 @@
         item.textContent = text;
         messages.appendChild(item);
         messages.scrollTop = messages.scrollHeight;
-        if (type === 'assistant' && !silent) triggerSpeaking();
+        if (type === 'assistant' && !silent) speakText(text);
         persistConversation();
         return item;
     }
@@ -461,7 +801,6 @@
         root.classList.add('is-delivering');
         triggerDeliveryWalk('arrive');
         openPanel(false);
-        triggerSpeaking();
         addMessage('Hola, ' + firstName + '. ' + delivery.remitente + ' te mandó decir:', 'assistant');
 
         var quote = document.createElement('blockquote');
@@ -601,6 +940,16 @@
         closePanel(false);
         if (!isOwner && currentDeliveryId === null) root.classList.add('is-recipient-idle');
     });
+    if (voiceButton) {
+        updateVoiceButton();
+        voiceButton.addEventListener('click', function () {
+            setVoiceEnabled(!voiceEnabled);
+            if (voiceEnabled) unlockVoiceContext();
+        });
+    }
+
+    document.addEventListener('pointerdown', unlockVoiceContext, true);
+    document.addEventListener('keydown', unlockVoiceContext, true);
 
     if (form && isOwner) {
         function resizeComposer() {
@@ -622,6 +971,10 @@
 
         form.addEventListener('submit', function (event) {
             event.preventDefault();
+            // Conserva el permiso de audio dentro del gesto del usuario. Algunos
+            // navegadores suspenden el AudioContext si solo se reanuda desde un
+            // listener global y terminan reproduciendo hasta el siguiente clic.
+            unlockVoiceContext();
             var value = input.value.trim();
             if (!value) return;
             addMessage(value, 'user');

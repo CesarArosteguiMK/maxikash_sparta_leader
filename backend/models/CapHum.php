@@ -8151,6 +8151,7 @@ class CapHum extends Model
               AND (
                     UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'ZAIRA YAEL TORRES DIAZ'
                  OR UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'IRMA NALLELY AGUILAR ISLAS'
+                    OR UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'MONICA GABRIELA GARRIDO ORTEGA'
               )
             GROUP BY per.id, per.nombres, per.segundo_nombre, per.apellidop, per.apellidom
             ORDER BY nombre_completo ASC
@@ -8205,19 +8206,23 @@ class CapHum extends Model
         $db = new Database();
         $idEmpresa = self::obtenerEmpresaDepartamentoJefe($db, null, (int)$idDepartamento);
         $whereEmpresa = '';
-        $params = [];
+        $params = ['id_departamento_objetivo' => (int)$idDepartamento];
         if ($idEmpresa > 0) {
             $whereEmpresa = "AND (
-                COALESCE(dorg.id_empresa, dir.id_empresa, 1) = :id_empresa
+                dep.id = :id_departamento_objetivo
+                OR (
+                    dep_objetivo.id_departamento_organizacional IS NOT NULL
+                    AND dorg.id = dep_objetivo.id_departamento_organizacional
+                )
                 OR (
                     :id_empresa_furia = 2
                     AND (
                         UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'ZAIRA YAEL TORRES DIAZ'
                         OR UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'IRMA NALLELY AGUILAR ISLAS'
+                        OR UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'MONICA GABRIELA GARRIDO ORTEGA'
                     )
                 )
             )";
-            $params['id_empresa'] = $idEmpresa;
             $params['id_empresa_furia'] = $idEmpresa;
         }
         $query = <<<SQL
@@ -8233,6 +8238,8 @@ class CapHum extends Model
             ON pu.id = ap.id_puesto
           LEFT JOIN departamento dep
             ON dep.id = pu.departamento_id
+          INNER JOIN departamento dep_objetivo
+            ON dep_objetivo.id = :id_departamento_objetivo
           LEFT JOIN departamento_organizacional dorg
             ON dorg.id = dep.id_departamento_organizacional
           LEFT JOIN asigna_direcciones ad
