@@ -9,6 +9,22 @@ class DatabaseSegundometro
 {
     private $db;
 
+    /**
+     * Estas tablas pertenecen al esquema configurado por SEGUNDOMETRO_DB_NAME.
+     *
+     * Algunas consultas heredadas todavia incluyen el nombre fijo del esquema
+     * anterior. Cuando la base cambia de nombre, MySQL falla antes de intentar
+     * resolver la tabla aunque la conexion ya este abierta sobre el esquema
+     * correcto. Se elimina solamente el calificador de estas tablas conocidas
+     * para que PDO use siempre la base configurada en el entorno.
+     */
+    private const TABLAS_ESQUEMA_CONFIGURADO = [
+        'gastos_cobranza',
+        'condonaciones_cobranza',
+        'condonaciones_cobranza_detalle',
+        'catalogo_motivos_condonacion',
+    ];
+
     function __construct()
     {
         EnvLoader::load();
@@ -118,6 +134,19 @@ class DatabaseSegundometro
         return $error;
     }
 
+    private static function usarEsquemaConfigurado(string $sql): string
+    {
+        foreach (self::TABLAS_ESQUEMA_CONFIGURADO as $tabla) {
+            $patron = '/`[^`]+`\.(?=`?' . preg_quote($tabla, '/') . '`?\b)/i';
+            $normalizado = preg_replace($patron, '', $sql);
+            if (is_string($normalizado)) {
+                $sql = $normalizado;
+            }
+        }
+
+        return $sql;
+    }
+
     public function beginTransaction()  { if ($this->db) $this->db->beginTransaction(); }
     public function commit()           { if ($this->db) $this->db->commit(); }
     public function rollback()         { if ($this->db) $this->db->rollBack(); }
@@ -132,6 +161,7 @@ class DatabaseSegundometro
             throw new \RuntimeException('Conexión no disponible a MySQL (__SPARTA_SECRET_REDACTED__).');
         }
         try {
+            $sql = self::usarEsquemaConfigurado((string) $sql);
             $stmt = $this->db->prepare($sql);
 
             if ($valores) {

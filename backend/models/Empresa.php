@@ -60,6 +60,92 @@ class Empresa extends Model
         }
     }
 
+    /**
+     * Resuelve el identificador capturado en Estado de cuenta contra la cartera
+     * de Segundometro. Se prioriza siempre un Id_credito exacto. Si no existe,
+     * se permite usar Id_cliente solo cuando pertenece a un unico credito.
+     *
+     * @return array Resultado con datos.id_credito, datos.tipo y, cuando hay
+     *               ambiguedad, datos.creditos.
+     */
+    public static function resolverIdCreditoCarteraEstadoCuenta($idIngresado)
+    {
+        $id = (int) $idIngresado;
+        if ($id <= 0) {
+            return self::resultado(false, 'ID no valido.', []);
+        }
+
+        try {
+            $db = new DatabaseSegundometro();
+
+            $creditoExacto = $db->queryOne(
+                'SELECT Id_credito
+                 FROM gastos_cobranza
+                 WHERE Id_credito = :id
+                 LIMIT 1',
+                ['id' => $id]
+            );
+            if (!empty($creditoExacto['Id_credito'])) {
+                return self::resultado(true, 'Credito encontrado.', [
+                    'id_credito' => (int) $creditoExacto['Id_credito'],
+                    'tipo' => 'id_credito',
+                    'creditos' => [(int) $creditoExacto['Id_credito']],
+                ]);
+            }
+
+            $creditoCartera = $db->queryOne(
+                'SELECT Id_credito
+                 FROM tbl_segundometro_semana
+                 WHERE Id_credito = :id
+                 LIMIT 1',
+                ['id' => $id]
+            );
+            if (!empty($creditoCartera['Id_credito'])) {
+                return self::resultado(true, 'Credito encontrado.', [
+                    'id_credito' => (int) $creditoCartera['Id_credito'],
+                    'tipo' => 'id_credito',
+                    'creditos' => [(int) $creditoCartera['Id_credito']],
+                ]);
+            }
+
+            $porCliente = $db->queryAll(
+                'SELECT Id_credito, MAX(id_gastos_cobranza) AS ultimo_registro
+                 FROM gastos_cobranza
+                 WHERE Id_cliente = :id
+                   AND Id_credito IS NOT NULL
+                   AND Id_credito > 0
+                 GROUP BY Id_credito
+                 ORDER BY ultimo_registro DESC',
+                ['id' => $id]
+            );
+            $creditos = array_values(array_unique(array_filter(array_map(
+                static function (array $row): int {
+                    return (int) ($row['Id_credito'] ?? 0);
+                },
+                is_array($porCliente) ? $porCliente : []
+            ))));
+
+            if (count($creditos) === 1) {
+                return self::resultado(true, 'ID de cliente asociado a un credito.', [
+                    'id_credito' => $creditos[0],
+                    'tipo' => 'id_cliente',
+                    'creditos' => $creditos,
+                ]);
+            }
+
+            if (count($creditos) > 1) {
+                return self::resultado(false, 'El ID de cliente pertenece a varios creditos.', [
+                    'tipo' => 'id_cliente_ambiguo',
+                    'creditos' => $creditos,
+                ]);
+            }
+
+            return self::resultado(true, 'Sin coincidencias en cartera.', []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al resolver el ID en cartera.', [], $e->getMessage());
+        }
+    }
+
     public static function getConsultaDireccionEstadoCuenta($id_credito)
     {
         $query = <<<SQL
