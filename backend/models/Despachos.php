@@ -311,26 +311,52 @@ SQL;
     }
 
     /**
-     * Obtener dirección completa desde tbl_segundometro_semana
-     * Esta función consulta la base de datos db-megae-reporte
+     * Obtener el registro mas reciente del credito en Segundometro.
+     * Prioriza la semana actual y usa el historico como respaldo.
      */
     private function obtenerDatosSegundometro($idCredito): ?array
     {
         try {
             $dbSegundo = new DatabaseSegundometro();
-            $query = <<<SQL
+            $querySemana = <<<SQL
             SELECT
-                Domicilio_Completo,
-                Bucket_Morosidad_Real,
+                Id_credito,
                 Id_cliente,
-                Nombre_cliente
+                Nombre_cliente,
+                Celular,
+                Sucursal,
+                Dias_mora,
+                Saldo_total_capital,
+                Domicilio_Completo,
+                Bucket_Morosidad_Real
             FROM tbl_segundometro_semana
             WHERE Id_credito = :idCredito
             LIMIT 1
 SQL;
 
-            $resultado = $dbSegundo->queryOne($query, ['idCredito' => $idCredito]);
-            return $resultado ?: null;
+            $resultado = $dbSegundo->queryOne($querySemana, ['idCredito' => $idCredito]);
+            if ($resultado) {
+                return $resultado;
+            }
+
+            $queryHistorico = <<<SQL
+            SELECT
+                id_credito AS Id_credito,
+                id_cliente AS Id_cliente,
+                Nombre_cliente,
+                Celular,
+                Sucursal,
+                Dias_mora,
+                Saldo_total_capital,
+                Domicilio_Completo,
+                Bucket_Morosidad_Real
+            FROM tbl_segundometro_histo
+            WHERE id_credito = :idCredito
+            ORDER BY fecha_hora_insert DESC, id_segundometro_histo DESC
+            LIMIT 1
+SQL;
+
+            return $dbSegundo->queryOne($queryHistorico, ['idCredito' => $idCredito]) ?: null;
         } catch (\Exception $e) {
             error_log("Error al obtener datos de segundometro: " . $e->getMessage());
             return null;
@@ -554,47 +580,100 @@ SQL;
     {
         // Usamos la API externa para obtener información del crédito
         // Similar a como se hace en EstadoCuenta
-        $url = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta";
+        $idCredito = filter_var($valor, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1]
+        ]);
+
+        if ($tipo !== 'id_credito' || $idCredito === false) {
+            return null;
+        }
+
+        $datosSegundo = $this->obtenerDatosSegundometro($idCredito);
+        $url = defined('ENDPOINT')
+            ? trim((string) ENDPOINT)
+            : trim((string) (getenv('ENDPOINT') ?: ''));
+        $token = defined('TOKEN')
+            ? trim((string) TOKEN)
+            : trim((string) (getenv('S2_ESTADO_CUENTA_TOKEN') ?: ''));
+        $errorServicio = null;
+        $estadoCuenta = null;
 
         $payload = json_encode([
-            "idCredito" => intval($valor),
+            "idCredito" => $idCredito,
             "fechaCorte" => date('Y-m-d')
         ]);
 
-        $headers = [
-            'Token: ' . (defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: '')),
-            "Content-Type: application/json"
-        ];
+        if ($url === '' || $token === '') {
+            $errorServicio = 'La consulta S2 no esta configurada correctamente.';
+        } elseif (!function_exists('curl_init')) {
+            $errorServicio = 'El servidor no tiene habilitado el cliente HTTP requerido para consultar S2.';
+        } else {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $payload,
+                CURLOPT_HTTPHEADER => [
+                    'Token: ' . $token,
+                    'Content-Type: application/json'
+                ],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 5,
+                CURLOPT_TIMEOUT => 20
+            ]);
 
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+            $response = curl_exec($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
 
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($response === false || $httpCode !== 200) {
-            return null;
+            if ($response === false) {
+                $errorServicio = 'No fue posible conectar con S2.';
+                error_log('Error al buscar credito en S2: ' . $curlError);
+            } elseif ($httpCode !== 200) {
+                $errorServicio = "S2 respondio con codigo HTTP {$httpCode}.";
+                error_log($errorServicio);
+            } else {
+                $json = json_decode($response, true);
+                if (!is_array($json)) {
+                    $errorServicio = 'S2 devolvio una respuesta no valida.';
+                    error_log($errorServicio);
+                } elseif (isset($json['estadoCuenta']) && is_array($json['estadoCuenta'])) {
+                    $estadoCuenta = $json['estadoCuenta'];
+                }
+            }
         }
-
-        $json = json_decode($response, true);
-
-        if (!isset($json["estadoCuenta"])) {
-            return null;
-        }
-
-        $estadoCuenta = $json["estadoCuenta"];
 
         // Si el crédito no existe en la API, idCredito viene null o vacío
-        if (empty($estadoCuenta["idCredito"])) {
+        if (empty($estadoCuenta['idCredito'])) {
+            if ($datosSegundo) {
+                $domicilioCompleto = $datosSegundo['Domicilio_Completo'] ?? null;
+
+                return [
+                    'id_credito'            => $datosSegundo['Id_credito'] ?? $idCredito,
+                    'nombre_cliente'        => $datosSegundo['Nombre_cliente'] ?? 'Sin nombre',
+                    'saldo_actual'          => $datosSegundo['Saldo_total_capital'] ?? 0,
+                    'dias_mora'             => $datosSegundo['Dias_mora'] ?? 0,
+                    'Bucket_Morosidad_Real' => $datosSegundo['Bucket_Morosidad_Real'] ?? null,
+                    'telefono'              => $datosSegundo['Celular'] ?? 'Sin telefono',
+                    'curp'                  => 'Sin CURP',
+                    'direccion'             => $domicilioCompleto ?: 'Sin direccion registrada',
+                    'direccion_api'         => 'No disponible en API',
+                    'direccion_megareporte' => $domicilioCompleto ?: 'No disponible en Megareporte',
+                    'sucursal'              => $datosSegundo['Sucursal'] ?? 'Sin sucursal',
+                    'fecha_desembolso'      => 'Sin fecha'
+                ];
+            }
+
+            if ($errorServicio !== null) {
+                throw new \RuntimeException(
+                    'No se pudo consultar S2 y el credito no esta disponible en el respaldo de Segundometro.'
+                );
+            }
+
             return null;
         }
 
-        $cliente = $estadoCuenta["datosCliente"] ?? [];
+        $cliente = $estadoCuenta['datosCliente'] ?? [];
 
         // Construir dirección completa desde los campos del cliente
         $direccionParts = array_filter([
@@ -608,8 +687,7 @@ SQL;
         ]);
         $direccionAPI = !empty($direccionParts) ? implode(', ', $direccionParts) : null;
 
-        // Obtener datos de tbl_segundometro_semana (domicilio + bucket)
-        $datosSegundo = $this->obtenerDatosSegundometro($valor);
+        // Complementar los datos de S2 con la fuente semanal o historica.
         $domicilioCompleto   = $datosSegundo['Domicilio_Completo']    ?? null;
         $bucketMorosidad     = $datosSegundo['Bucket_Morosidad_Real'] ?? null;
 
@@ -618,16 +696,16 @@ SQL;
 
         return [
             'id_credito'            => $estadoCuenta["idCredito"],
-            'nombre_cliente'        => $cliente["nombreCliente"] ?? 'Sin nombre',
-            'saldo_actual'          => $estadoCuenta["datosSaldos"]["saldoTotalVencido"] ?? 0,
-            'dias_mora'             => $estadoCuenta["datosSaldos"]["diasMoraMaximo"] ?? 0,
+            'nombre_cliente'        => $cliente["nombreCliente"] ?? ($datosSegundo['Nombre_cliente'] ?? 'Sin nombre'),
+            'saldo_actual'          => $estadoCuenta["datosSaldos"]["saldoTotalVencido"] ?? ($datosSegundo['Saldo_total_capital'] ?? 0),
+            'dias_mora'             => $estadoCuenta["datosSaldos"]["diasMoraMaximo"] ?? ($datosSegundo['Dias_mora'] ?? 0),
             'Bucket_Morosidad_Real' => $bucketMorosidad,
-            'telefono'              => $cliente["celular"] ?? 'Sin teléfono',
+            'telefono'              => $cliente["celular"] ?? ($datosSegundo['Celular'] ?? 'Sin teléfono'),
             'curp'                  => $cliente["curp"] ?? 'Sin CURP',
             'direccion'             => $direccion,
             'direccion_api'         => $direccionAPI ?: 'No disponible en API',
             'direccion_megareporte' => $domicilioCompleto ?: 'No disponible en Megareporte',
-            'sucursal'              => $cliente["sucursal"] ?? 'Sin sucursal',
+            'sucursal'              => $cliente["sucursal"] ?? ($datosSegundo['Sucursal'] ?? 'Sin sucursal'),
             'fecha_desembolso'      => $estadoCuenta["fechaDesembolso"] ?? 'Sin fecha'
         ];
     }
