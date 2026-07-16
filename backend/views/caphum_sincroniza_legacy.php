@@ -764,7 +764,8 @@
                 personalStatus.className = 'badge bg-label-danger text-dark';
                 personalStatus.textContent = 'No se pudo cargar';
             }
-            personalList.innerHTML = '<div class="p-3 text-danger">No se pudieron cargar usuarios.</div>';
+            const mensaje = err && err.message ? err.message : 'No se pudieron cargar usuarios.';
+            personalList.innerHTML = '<div class="p-3 text-danger">' + esc(mensaje) + '</div>';
         }
     }
 
