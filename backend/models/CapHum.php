@@ -3191,7 +3191,7 @@ class CapHum extends Model
     /**
      * Obtener documentos de una baja usando registro_baja
      */
-    public static function getDocumentosBaja($registro_baja)
+    public static function getDocumentosBaja($registro_baja, int $id_documento)
     {
         try {
             $db = new Database();
@@ -3208,15 +3208,16 @@ class CapHum extends Model
             }
 
             $id_persona = $baja['id_persona'];
-            $id_documento = 15; // Documento Baja
 
             // Obtener documentos
             $documentos = $db->queryAll("
                 SELECT
                     cdp.id,
                     cdp.archivo,
+                    d.nombre AS nombre_documento,
                     DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
                 FROM estado_cuenta.carga_documento_persona cdp
+                INNER JOIN estado_cuenta.documento d ON d.id = cdp.id_documento
                 WHERE cdp.id_persona = :id_persona
                 AND cdp.id_documento = :id_documento
                 ORDER BY cdp.fecha_carga DESC
@@ -3235,7 +3236,7 @@ class CapHum extends Model
     /**
      * Guardar documentos de una baja
      */
-    public static function guardarDocumentosBaja($registro_baja, $archivos)
+    public static function guardarDocumentosBaja($registro_baja, int $id_documento, $archivos)
     {
         try {
             $db = new Database();
@@ -3252,7 +3253,6 @@ class CapHum extends Model
             }
 
             $id_persona = $baja['id_persona'];
-            $id_documento = 15; // Documento Baja
 
             $archivosGuardados = [];
 
@@ -3317,6 +3317,31 @@ class CapHum extends Model
 
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al eliminar documento.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Recupera un documento asociado a una persona que cuenta con registro de baja.
+     */
+    public static function obtenerDocumentoBaja(int $id_documento_carga)
+    {
+        try {
+            $db = new Database();
+            $documento = $db->queryOne("
+                SELECT cdp.id, cdp.id_persona, cdp.id_documento, cdp.archivo
+                FROM estado_cuenta.carga_documento_persona cdp
+                INNER JOIN estado_cuenta.baja_persona bp ON bp.id_persona = cdp.id_persona
+                WHERE cdp.id = :id
+                LIMIT 1
+            ", ['id' => $id_documento_carga]);
+
+            if (!$documento) {
+                return self::resultado(false, 'Documento no encontrado.');
+            }
+
+            return self::resultado(true, 'Documento encontrado.', $documento);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al consultar documento.', null, $e->getMessage());
         }
     }
 

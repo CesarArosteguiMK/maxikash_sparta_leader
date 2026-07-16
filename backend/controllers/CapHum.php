@@ -41,6 +41,7 @@ class CapHum extends Controller
     private const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
     private const MODULO_AUDITORIA_RRHH = 154;
     private const MODULO_GESTION_ACTUALIZAR_ESTRUCTURA = 191;
+    private const MODULO_CONTROL_BAJAS = 13;
     private const MODULOS_DOCUMENTO_RRHH = [
         8 => 155,
         9 => 156,
@@ -274,6 +275,29 @@ class CapHum extends Controller
         }
         return self::esDocumentoSensibleRrhh($idDocumento)
             && self::puedeVerDocumentosSensiblesRrhh();
+    }
+
+    /**
+     * Tipos que pueden adjuntarse desde Control de Bajas. Cada uno conserva
+     * su permiso documental propio; no se reutiliza el permiso genérico de
+     * carga de documentos de Gestión de Personal.
+     */
+    private static function tiposDocumentoControlBajasPermitidos(): array
+    {
+        $catalogo = self::documentosRrhhConPermisoEspecial();
+        $permitidos = [];
+        foreach ([15, 37, 38] as $idDocumento) {
+            if (self::puedeUsarTipoDocumentoRrhh($idDocumento)) {
+                $permitidos[$idDocumento] = $catalogo[$idDocumento];
+            }
+        }
+        return $permitidos;
+    }
+
+    private static function puedeGestionarTipoDocumentoControlBajas(int $idDocumento): bool
+    {
+        return self::tieneModuloWeb(self::MODULO_CONTROL_BAJAS)
+            && array_key_exists($idDocumento, self::tiposDocumentoControlBajasPermitidos());
     }
 
     private static function obtenerLlaveArchivoSensible(): string
@@ -24642,14 +24666,14 @@ class CapHum extends Controller
                                     <button class="btn btn-sm btn-success control-bajas-action-btn" onclick="abrirModalReingreso(${p.id}, '${(nombreCompleto || '').replace(/'/g, "\\'")}')" title="Reactivar (registrar reingreso)" aria-label="Reactivar">
                                         <i class="fa fa-user-check"></i>
                                     </button>
-                                    <button class="btn btn-sm btn-info control-bajas-action-btn" onclick="cargarDocumentoBaja(this)"
+                                    ${window.tiposDocumentoBajaPermitidos && Object.keys(window.tiposDocumentoBajaPermitidos).length > 0 ? `<button class="btn btn-sm btn-info control-bajas-action-btn" onclick="cargarDocumentoBaja(this)"
                                         data-id-persona="${p.id ?? ''}"
                                         data-registro-baja="${p.registro_baja ?? ''}"
                                         data-estatus="Baja"
                                         data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}"
                                         title="Cargar documento" aria-label="Cargar documento">
                                         <i class="fa fa-file"></i>
-                                    </button>
+                                    </button>` : ''}
                                 </div>
                             `.trim()
                         };
@@ -24959,7 +24983,15 @@ class CapHum extends Controller
                 document.getElementById('cargarDoc_nombrePersona').textContent = 'Persona: ' + (nombreCompleto || 'N/A');
 
                 // Limpiar el select y el input de archivo
-                document.getElementById('cargarDoc_tipoDocumento').value = 'Documento Baja';
+                const tipoDocumento = document.getElementById('cargarDoc_tipoDocumento');
+                if (!tipoDocumento || !tipoDocumento.value) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Sin documentos autorizados',
+                        text: 'No tienes permisos para cargar documentos de baja.'
+                    });
+                    return;
+                }
                 document.getElementById('cargarDoc_archivo').value = '';
                 document.getElementById('cargarDoc_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
 
@@ -24969,7 +25001,7 @@ class CapHum extends Controller
 
                 // Cargar archivos existentes
                 if (registroBaja) {
-                    cargarArchivosExistentes(registroBaja);
+                    cargarArchivosExistentes(registroBaja, tipoDocumento.value);
                 } else {
                     // Si no hay registro, mostrar tabla vacía
                     document.getElementById('cargarDoc_tablaArchivos').innerHTML = `
@@ -24984,8 +25016,9 @@ class CapHum extends Controller
             }
 
             // Función para cargar archivos existentes
-            function cargarArchivosExistentes(registroBaja) {
-                fetch('/caphum/getDocumentosBaja?registro_baja=' + registroBaja)
+            function cargarArchivosExistentes(registroBaja, idDocumento) {
+                const tipoDocumento = idDocumento || document.getElementById('cargarDoc_tipoDocumento').value;
+                fetch('/caphum/getDocumentosBaja?registro_baja=' + encodeURIComponent(registroBaja) + '&id_documento=' + encodeURIComponent(tipoDocumento))
                     .then(res => res.json())
                     .then(resp => {
                         if (resp.success && resp.datos) {
@@ -25001,6 +25034,16 @@ class CapHum extends Controller
                         archivosSubidos = [];
                         renderizarArchivosSubidos();
                     });
+            }
+
+            function cambiarTipoDocumentoBaja(select) {
+                const registroBaja = document.getElementById('cargarDoc_registroBaja').value;
+                archivosSeleccionados = [];
+                document.getElementById('cargarDoc_archivo').value = '';
+                document.getElementById('cargarDoc_nombreArchivo').textContent = 'No se ha seleccionado ningÃºn archivo';
+                if (registroBaja && select && select.value) {
+                    cargarArchivosExistentes(registroBaja, select.value);
+                }
             }
 
             // Función para formatear fecha
@@ -25039,7 +25082,7 @@ class CapHum extends Controller
                         const archivoEscapado = (doc.archivo || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
                         htmlTabla += `
                             <tr>
-                                <td>Documento Baja</td>
+                                <td>${doc.nombre_documento || 'Documento de baja'}</td>
                                 <td>${doc.archivo || 'N/A'}</td>
                                 <td>${fechaFormateada}</td>
                                 <td>
@@ -25049,7 +25092,7 @@ class CapHum extends Controller
                                     <button
                                         type="button"
                                         class="btn btn-sm btn-info me-1"
-                                        onclick="verArchivoSubido('${archivoEscapado}')"
+                                        onclick="verArchivoSubido(${doc.id})"
                                         title="Ver archivo"
                                     >
                                         Ver
@@ -25241,8 +25284,8 @@ class CapHum extends Controller
             }
 
             // Función para ver un archivo ya subido
-            function verArchivoSubido(nombreArchivo) {
-                const url = '/caphum/verDocumentoBaja?archivo=' + encodeURIComponent(nombreArchivo);
+            function verArchivoSubido(idDocumentoCarga) {
+                const url = '/caphum/verDocumentoBaja?id_documento=' + encodeURIComponent(idDocumentoCarga);
                 window.open(url, '_blank');
             }
 
@@ -25305,6 +25348,7 @@ class CapHum extends Controller
                 // Crear FormData
                 const formData = new FormData();
                 formData.append('registro_baja', registroBaja);
+                formData.append('id_documento', tipoDocumento);
 
                 // Agregar archivos
                 archivosSeleccionados.forEach((file, index) => {
@@ -25335,7 +25379,7 @@ class CapHum extends Controller
                         document.getElementById('cargarDoc_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
 
                         // Recargar lista de archivos
-                        cargarArchivosExistentes(registroBaja);
+                        cargarArchivosExistentes(registroBaja, tipoDocumento);
                     } else {
                         Swal.fire({
                             icon: 'error',
@@ -26635,6 +26679,7 @@ class CapHum extends Controller
         self::set("puedeAgregarUsuarioRrhh", in_array(self::MODULO_AGREGAR_USUARIO_RRHH, $modulos));
         self::set("puedeEditarUsuarioRrhh", in_array(self::MODULO_EDITAR_USUARIO_RRHH, $modulos));
         self::set("puedeVerSalarioSensibleRrhh", self::puedeGestionarSalarioSensibleRrhh());
+        self::set("tiposDocumentoBajaPermitidos", self::tiposDocumentoControlBajasPermitidos());
         self::set("miUsuarioId", (int) ($_SESSION['usuario_id'] ?? 0));
         self::render("all_gestores");
     }
@@ -29636,17 +29681,27 @@ public function getEstadosMunicipiosMexico()
     {
         try {
             $registro_baja = $_GET['registro_baja'] ?? null;
+            $idDocumento = (int) ($_GET['id_documento'] ?? 0);
 
-            if (!$registro_baja) {
+            if (!$registro_baja || $idDocumento <= 0) {
                 self::respuestaJSON([
                     'success' => false,
-                    'mensaje' => 'Registro de baja requerido',
+                    'mensaje' => 'Registro de baja y tipo de documento requeridos',
                     'datos' => []
                 ]);
                 return;
             }
 
-            $resultado = CapHumDAO::getDocumentosBaja($registro_baja);
+            if (!self::puedeGestionarTipoDocumentoControlBajas($idDocumento)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'No tienes permiso para consultar este tipo de documento.',
+                    'datos' => []
+                ]);
+                return;
+            }
+
+            $resultado = CapHumDAO::getDocumentosBaja($registro_baja, $idDocumento);
             self::respuestaJSON($resultado);
 
         } catch (\Exception $e) {
@@ -29687,11 +29742,20 @@ public function getEstadosMunicipiosMexico()
     {
         try {
             $registro_baja = $_POST['registro_baja'] ?? null;
+            $idDocumento = (int) ($_POST['id_documento'] ?? 0);
 
-            if (!$registro_baja) {
+            if (!$registro_baja || $idDocumento <= 0) {
                 self::respuestaJSON([
                     'success' => false,
-                    'mensaje' => 'Registro de baja requerido'
+                    'mensaje' => 'Registro de baja y tipo de documento requeridos'
+                ]);
+                return;
+            }
+
+            if (!self::puedeGestionarTipoDocumentoControlBajas($idDocumento)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'No tienes permiso para cargar este tipo de documento.'
                 ]);
                 return;
             }
@@ -29732,7 +29796,7 @@ public function getEstadosMunicipiosMexico()
             }
 
             // Guardar en base de datos
-            $resultado = CapHumDAO::guardarDocumentosBaja($registro_baja, $archivosGuardados);
+            $resultado = CapHumDAO::guardarDocumentosBaja($registro_baja, $idDocumento, $archivosGuardados);
             self::respuestaJSON($resultado);
 
         } catch (\Exception $e) {
@@ -29759,6 +29823,23 @@ public function getEstadosMunicipiosMexico()
                 return;
             }
 
+            $documento = CapHumDAO::obtenerDocumentoBaja((int) $id_documento);
+            if (empty($documento['success']) || empty($documento['datos'])) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Documento no encontrado.'
+                ]);
+                return;
+            }
+            $idTipoDocumento = (int) ($documento['datos']['id_documento'] ?? 0);
+            if (!self::puedeGestionarTipoDocumentoControlBajas($idTipoDocumento)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'No tienes permiso para eliminar este documento.'
+                ]);
+                return;
+            }
+
             $resultado = CapHumDAO::eliminarDocumentoBaja($id_documento);
             self::respuestaJSON($resultado);
 
@@ -29776,17 +29857,33 @@ public function getEstadosMunicipiosMexico()
     public function verDocumentoBaja()
     {
         try {
-            $nombreArchivo = $_GET['archivo'] ?? null;
+            $idDocumentoCarga = (int) ($_GET['id_documento'] ?? 0);
 
-            if (!$nombreArchivo) {
+            if ($idDocumentoCarga <= 0) {
                 http_response_code(400);
-                echo 'Nombre de archivo requerido';
+                echo 'Documento requerido';
                 exit;
             }
 
-            // Validar que el nombre del archivo no contenga rutas relativas (seguridad)
-            if (strpos($nombreArchivo, '..') !== false || strpos($nombreArchivo, '/') !== false) {
-                header('Location: /inicio');
+            $resultado = CapHumDAO::obtenerDocumentoBaja($idDocumentoCarga);
+            $documento = $resultado['datos'] ?? null;
+            if (empty($resultado['success']) || !is_array($documento)) {
+                http_response_code(404);
+                echo 'Documento no encontrado';
+                exit;
+            }
+
+            $idTipoDocumento = (int) ($documento['id_documento'] ?? 0);
+            if (!self::puedeGestionarTipoDocumentoControlBajas($idTipoDocumento)) {
+                http_response_code(403);
+                echo 'No tienes permiso para ver este documento';
+                exit;
+            }
+
+            $nombreArchivo = basename((string) ($documento['archivo'] ?? ''));
+            if ($nombreArchivo === '') {
+                http_response_code(404);
+                echo 'Archivo no encontrado';
                 exit;
             }
 

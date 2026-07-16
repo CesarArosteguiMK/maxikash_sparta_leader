@@ -5244,6 +5244,7 @@ window.puedeAgregarUsuarioGestion = <?= json_encode(!empty($puedeAgregarUsuarioG
 window.puedeEditarUsuarioGestion = <?= json_encode(!empty($puedeEditarUsuarioGestion ?? false)) ?>;
 window.puedeImportarEstructuraGestion = <?= json_encode(!empty($puedeImportarEstructuraGestion ?? false)) ?>;
 window.puedeCargarDocumentoGestion = <?= json_encode(!empty($puedeCargarDocumentoGestion ?? false)) ?>;
+window.tiposDocumentoBajaPermitidos = <?= json_encode($tiposDocumentoBajaPermitidos ?? []) ?>;
 window.puedeRegistrarAusenciaGestion = <?= json_encode(!empty($puedeRegistrarAusenciaGestion ?? false)) ?>;
 window.puedeDarBajaGestion = <?= json_encode(!empty($puedeDarBajaGestion ?? false)) ?>;
 window.puedeVisualizarContrasenaGestion = <?= json_encode(!empty($puedeVisualizarContrasenaGestion ?? false)) ?>;
@@ -7067,8 +7068,10 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
                     <div class="mb-3">
                         <label for="cargarDoc_tipoDocumento" class="form-label"><strong>Tipo de Documento: </strong></label>
-                        <select class="form-select" id="cargarDoc_tipoDocumento">
-                            <option value="Documento Baja">Documento Baja</option>
+                        <select class="form-select" id="cargarDoc_tipoDocumento" onchange="cambiarTipoDocumentoBaja(this)">
+                            <?php foreach (($tiposDocumentoBajaPermitidos ?? []) as $idDocumentoBaja => $nombreDocumentoBaja): ?>
+                                <option value="<?= (int) $idDocumentoBaja ?>"><?= htmlspecialchars((string) $nombreDocumentoBaja, ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
 
