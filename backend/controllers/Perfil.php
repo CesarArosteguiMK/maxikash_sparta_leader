@@ -7,6 +7,21 @@ use Models\Perfil as PerfilDao;
 
 class Perfil extends Controller
 {
+    private const INVITACION_EMISOR = 'LAZARO RAUDEL';
+    private const INVITACION_DESTINATARIA = 'SANDRA YUNUETH';
+
+    private static function buscarPersonaUnica(string $nombreInicio): ?array
+    {
+        $personas = PerfilDao::buscarPersonasPorNombreInicio($nombreInicio);
+        return count($personas) === 1 ? $personas[0] : null;
+    }
+
+    private static function esPersonaActual(string $nombreInicio): bool
+    {
+        $persona = self::buscarPersonaUnica($nombreInicio);
+        return $persona && (int) ($persona['id'] ?? 0) === (int) ($_SESSION['usuario_id'] ?? 0);
+    }
+
     /** Combina datos de perfil y persona: si no hay en perfil, usa persona (__SPARTA_SECRET_REDACTED__). */
     private static function mergePerfilPersona($perfil, $persona)
     {
@@ -61,7 +76,77 @@ class Perfil extends Controller
         $this->set('titulo', 'Ajustes | ' . CONFIGURACION['EMPRESA']);
         $this->set('perfil', $perfil);
         $this->set('datos', $datos);
+        $this->set('puedeEnviarInvitacionPareja', self::esPersonaActual(self::INVITACION_EMISOR));
+        $this->set('mostrarInvitacionPareja', false);
         self::render('perfil_contenido', false);
+    }
+
+    public function enviarInvitacionPareja()
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !self::esPersonaActual(self::INVITACION_EMISOR)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No autorizado.']);
+            return;
+        }
+
+        $destinataria = self::buscarPersonaUnica(self::INVITACION_DESTINATARIA);
+        if (!$destinataria) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No se encontro una destinataria unica para la invitacion.']);
+            return;
+        }
+
+        PerfilDao::eliminarNotificacionesInvitacionPareja((int) $destinataria['id']);
+        $ok = PerfilDao::crearInvitacionPareja((int) ($_SESSION['usuario_id'] ?? 0), (int) $destinataria['id']);
+        self::respuestaJSON(['success' => $ok, 'mensaje' => $ok ? 'Invitacion enviada.' : 'No se pudo enviar la invitacion.']);
+    }
+
+    public function invitacionPareja()
+    {
+        if (!self::esPersonaActual(self::INVITACION_DESTINATARIA)) {
+            header('Location: /perfil');
+            exit;
+        }
+        header('Location: /');
+        exit;
+    }
+
+    public function responderInvitacionPareja()
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !self::esPersonaActual(self::INVITACION_DESTINATARIA)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No autorizado.']);
+            return;
+        }
+
+        $datos = json_decode((string) file_get_contents('php://input'), true) ?: [];
+        $ok = PerfilDao::responderInvitacionPareja((int) ($datos['id_invitacion'] ?? 0), (int) ($_SESSION['usuario_id'] ?? 0), 'aceptada');
+        self::respuestaJSON(['success' => $ok, 'mensaje' => $ok ? 'Respuesta enviada.' : 'No se pudo enviar la respuesta.']);
+    }
+
+    public function cerrarInvitacionPareja()
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !self::esPersonaActual(self::INVITACION_DESTINATARIA)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No autorizado.']);
+            return;
+        }
+
+        $datos = json_decode((string) file_get_contents('php://input'), true) ?: [];
+        $ok = PerfilDao::responderInvitacionPareja((int) ($datos['id_invitacion'] ?? 0), (int) ($_SESSION['usuario_id'] ?? 0), 'cerrada');
+        self::respuestaJSON(['success' => $ok]);
+    }
+
+    public function consultarInvitacionPareja()
+    {
+        $idPersona = (int) ($_SESSION['usuario_id'] ?? 0);
+        if ($idPersona < 1) {
+            self::respuestaJSON(['success' => false]);
+            return;
+        }
+        $invitacion = self::esPersonaActual(self::INVITACION_DESTINATARIA)
+            ? PerfilDao::getInvitacionParejaPendiente($idPersona)
+            : null;
+        $respuestas = self::esPersonaActual(self::INVITACION_EMISOR)
+            ? PerfilDao::consumirRespuestasInvitacionPareja($idPersona)
+            : [];
+        self::respuestaJSON(['success' => true, 'invitacion' => $invitacion, 'respuestas' => $respuestas]);
     }
 
     /**

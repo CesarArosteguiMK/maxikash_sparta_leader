@@ -1016,6 +1016,7 @@ class LeonidasAssistantService
         $preguntaCapacidad = $mencionaMensajeria
             && preg_match('/\b(puedo|puedes|serias capaz|es posible|se puede)\b/u', $normalizado) === 1;
         if ($preguntaCapacidad && !$borrador) {
+            $_SESSION[self::MESSAGE_DRAFT_KEY] = ['iniciado' => true];
             return [
                 'mensaje' => 'Si. Dime a quien va dirigido y que quieres comunicarle. Verificare la persona, te mostrare una vista previa y esperare tu confirmacion antes de enviarlo.',
                 'tipo' => 'mensajeria_ayuda',
@@ -1058,7 +1059,10 @@ class LeonidasAssistantService
             && empty($borrador['criterio_destinatario'])
             && empty($borrador['destinatario_id'])
             && !$mencionaMensajeria) {
-            $criterio = preg_replace('/^(?:el\s+)?(?:destinatario|colaborador|usuario)\s+(?:es|sera)\s*:?\s*/iu', '', trim($mensaje));
+            $criterio = trim($mensaje);
+            $criterio = preg_replace('/^(?:(?:va|es|sera|seria)\s+)?(?:para|a)\s+/iu', '', $criterio) ?? $criterio;
+            $criterio = preg_replace('/^(?:el\s+)?(?:destinatario|colaborador|usuario)\s+(?:es|sera)\s*:?\s*/iu', '', $criterio) ?? $criterio;
+            $criterio = preg_replace('/^(?:se\s+llama|su\s+nombre\s+es|el\s+nombre\s+es)\s*:?\s*/iu', '', $criterio) ?? $criterio;
             $borrador['criterio_destinatario'] = trim((string) $criterio);
         }
 
@@ -1074,7 +1078,9 @@ class LeonidasAssistantService
             $servicio = new LeonidasMessagingService();
             $personas = $servicio->buscarDestinatarios((string) $borrador['criterio_destinatario']);
             if (!$personas) {
-                unset($_SESSION[self::MESSAGE_DRAFT_KEY]);
+                unset($borrador['criterio_destinatario'], $borrador['destinatario_id'], $borrador['destinatario_nombre'], $borrador['candidatos']);
+                $borrador['iniciado'] = true;
+                $_SESSION[self::MESSAGE_DRAFT_KEY] = $borrador;
                 return [
                     'mensaje' => 'No encontre un colaborador con ese nombre. Revisa la escritura o dime su nombre completo.',
                     'tipo' => 'mensaje_destinatario_no_encontrado',

@@ -289,7 +289,6 @@ class CapHum extends Controller
         $catalogo = self::documentosRrhhConPermisoEspecial();
         // La constancia fiscal es el único documento fiscal del flujo.
         // RFC heredado no se presenta como un tipo independiente.
-        unset($catalogo[10]);
         $permitidos = [];
         foreach ($catalogo as $idDocumento => $nombreDocumento) {
             if (self::puedeUsarTipoDocumentoRrhh($idDocumento)) {
@@ -8748,6 +8747,7 @@ class CapHum extends Controller
                 return '<span class="badge bg-secondary">Gestión</span>';
             }
             function obtenerNombreDocumento(idDocumento, nombreCatalogo) {
+                if (Number(idDocumento) === 10) return 'Constancia de situacion fiscal';
                 if (nombreCatalogo && String(nombreCatalogo).trim() !== '') return String(nombreCatalogo).trim();
                 const mapeo = {
                     8: 'CURP',
@@ -26089,6 +26089,7 @@ class CapHum extends Controller
                 return '<span class="badge bg-secondary">Gestión</span>';
             }
             function obtenerNombreDocumento(idDocumento, nombreCatalogo) {
+                if (Number(idDocumento) === 10) return 'Constancia de situacion fiscal';
                 if (nombreCatalogo && String(nombreCatalogo).trim() !== '') return String(nombreCatalogo).trim();
                 const mapeo = {
                     8: 'CURP',

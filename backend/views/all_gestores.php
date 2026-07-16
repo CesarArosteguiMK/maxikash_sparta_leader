@@ -7163,7 +7163,6 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             $modulosDocumentoRrhhSelect = [
                                 8 => 155,
                                 9 => 156,
-                                10 => 157,
                                 11 => 158,
                                 12 => 159,
                                 13 => 160,
@@ -7205,7 +7204,6 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                 31 => 'Llave vector',
                                 32 => 'Prueba centavo',
                                 14 => 'Referencias Laborales',
-                                10 => 'RFC',
                                 33 => 'Semanas cotizadas IMSS (segundos patrones)',
                                 17 => 'Solicitud interna',
                                 18 => 'CV o solicitud de trabajo',
@@ -7224,6 +7222,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                 $tienePermisoDocumentoRrhh = $usuarioSesionDocumentoRrhh === 1
                                     || ($idModuloNuevoDocumentoRrhh > 0 && in_array($idModuloNuevoDocumentoRrhh, $modulosSesionDocumentoRrhh, true))
                                     || in_array(3000 + $idDocumentoRrhh, $modulosSesionDocumentoRrhh, true)
+                                    || ($idDocumentoRrhh === 22 && in_array(157, $modulosSesionDocumentoRrhh, true))
                                     || ($idDocumentoRrhh === 27 && in_array(144, $modulosSesionDocumentoRrhh, true));
                                 if (!$tienePermisoDocumentoRrhh) {
                                     continue;

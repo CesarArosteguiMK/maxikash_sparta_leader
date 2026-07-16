@@ -7,7 +7,6 @@ use Models\CapHum as CapHumDAO;
 
 class RrhhDocumentImportService
 {
-    private const DOCUMENTO_RFC = 10;
     private const DOCUMENTO_CONSTANCIA_FISCAL = 22;
     private const DOCUMENTO_CONTRATO_FIRMADO = 28;
     private const DOCUMENTO_ARCHIVO_FAD = 29;
@@ -15,7 +14,6 @@ class RrhhDocumentImportService
     private const MODULOS_DOCUMENTO_RRHH = [
         8 => 155,
         9 => 156,
-        10 => 157,
         11 => 158,
         12 => 159,
         13 => 160,
@@ -52,7 +50,7 @@ class RrhhDocumentImportService
         }
 
         $controlados = [
-            8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 22, 23, 24, 25,
+            8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 22, 23, 24, 25,
             27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38,
         ];
         if (!in_array($idDocumento, $controlados, true)) {
@@ -713,7 +711,6 @@ class RrhhDocumentImportService
         $fallback = [
             8 => 'CURP',
             9 => 'Identificacion Oficial (INE)',
-            10 => 'RFC',
             11 => 'Comprobante de Domicilio',
             12 => 'Acta de Nacimiento',
             13 => 'Certificado de Estudios',
@@ -961,9 +958,6 @@ class RrhhDocumentImportService
             9 => [
                 95 => ['/(\bine\b|\bife\b|\binstituto\s+nacional\s+electoral\b|\bcredencial\s+para\s+votar\b|\bidentificacion\s+oficial\b|\bidentificaci[oó]n\s+oficial\b|\bpasaporte\b|\bfm2\b|\bfm3\b|\bcedula\s+profesional\b)/'],
             ],
-            10 => [
-                85 => ['/(\brfc\b|\bregistro\s+federal\s+de\s+contribuyentes\b)/'],
-            ],
             11 => [
                 100 => ['/(\bcomprobante\s+de\s+domicilio\b|\bdomicilio\b|\bdomiicilio\b|\bdomicilo\b|\bdomiciio\b|\brecibo\s+cfe\b|\bcfe\b|\btelmex\b|\bpredial\b|\bagua\b|\bluz\b|\bcomprobante\s+localizacion\b|\blocalizacion\b)/'],
             ],
@@ -991,6 +985,7 @@ class RrhhDocumentImportService
             ],
             22 => [
                 125 => ['/(\bconstancia\s+de\s+situacion\s+fiscal\b|\bconstancia\s+situacion\s+fiscal\b|\bsituacion\s+fiscal\b|\bc[eé]dula\s+de\s+identificaci[oó]n\s+fiscal\b|\bcif\b|\bcsf\b|\bsat\b)/'],
+                85 => ['/(\brfc\b|\bregistro\s+federal\s+de\s+contribuyentes\b)/'],
             ],
             23 => [
                 110 => ['/(\bnss\b|\binss\b|\btarjeta\s*nss\d*\b|\bnss\d+\b|\bnumero\s+de\s+seguridad\s+social\b|\bn[uú]mero\s+de\s+seguridad\s+social\b|\bseguridad\s+social\b|\bimss\b.*\bnss\b)/'],
@@ -1079,7 +1074,6 @@ class RrhhDocumentImportService
 
         if (preg_match('/\bconstancia\b.*\bfiscal\b|\bsituacion\s+fiscal\b|\bsat\b|\bcif\b|\bcsf\b/', $texto)) {
             $penalizar(25, 70);
-            $penalizar(10, 35);
         }
         if (preg_match('/\bsolicitud\s+de\s+trabajo\b|\bcv\b|\bcurriculum\b|\bcurriculo\b/', $texto)) {
             $penalizar(17, 60);
@@ -1111,19 +1105,17 @@ class RrhhDocumentImportService
         }, $items))));
         $existentes = CapHumDAO::getDocumentosPersonaIndex($idsPersonas);
         $indexExistentes = !empty($existentes['success']) && is_array($existentes['datos'] ?? null) ? $existentes['datos'] : [];
+        // Las cargas RFC previas se consideran constancia fiscal para no
+        // duplicar el documento al importar nuevos expedientes.
+        foreach ($indexExistentes as &$documentosPersona) {
+            if (!empty($documentosPersona[10]) && empty($documentosPersona[self::DOCUMENTO_CONSTANCIA_FISCAL])) {
+                $documentosPersona[self::DOCUMENTO_CONSTANCIA_FISCAL] = $documentosPersona[10];
+            }
+            unset($documentosPersona[10]);
+        }
+        unset($documentosPersona);
 
         $vistos = [];
-        $personasConConstanciaEnLote = [];
-        foreach ($items as $itemLote) {
-            if (($itemLote['estado'] ?? '') !== 'listo') {
-                continue;
-            }
-            $idPersonaLote = (int) ($itemLote['id_persona'] ?? 0);
-            $idDocumentoLote = (int) ($itemLote['id_documento'] ?? 0);
-            if ($idPersonaLote > 0 && $idDocumentoLote === self::DOCUMENTO_CONSTANCIA_FISCAL) {
-                $personasConConstanciaEnLote[$idPersonaLote] = true;
-            }
-        }
         $multiplesPermitidos = [14 => true, 15 => true, 16 => true];
         foreach ($items as &$item) {
             if (($item['estado'] ?? '') !== 'listo') {
@@ -1137,16 +1129,6 @@ class RrhhDocumentImportService
             $permiteMultiple = !empty($multiplesPermitidos[$idDocumento])
                 || strtoupper((string) ($item['documento_clave'] ?? '')) === 'OTROS'
                 || $this->normalizarTexto((string) ($item['documento'] ?? '')) === 'otros';
-            if (!$permiteMultiple && $idDocumento === self::DOCUMENTO_RFC && !empty($indexExistentes[$idPersona][self::DOCUMENTO_CONSTANCIA_FISCAL])) {
-                $item['estado'] = 'ya_existe';
-                $item['razon'] = 'La Constancia de situacion fiscal ya cubre el RFC.';
-                continue;
-            }
-            if (!$permiteMultiple && $idDocumento === self::DOCUMENTO_RFC && !empty($personasConConstanciaEnLote[$idPersona])) {
-                $item['estado'] = 'duplicado_lote';
-                $item['razon'] = 'En este lote hay Constancia de situacion fiscal; cubre el RFC.';
-                continue;
-            }
             if (!$permiteMultiple && !empty($indexExistentes[$idPersona][$idDocumento])) {
                 $item['estado'] = 'ya_existe';
                 $item['razon'] = 'La persona ya tiene este tipo de documento cargado.';

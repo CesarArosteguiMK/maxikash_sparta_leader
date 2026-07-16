@@ -1,7 +1,5 @@
 <?php
-session_start();
 date_default_timezone_set('America/Mexico_City');
-$layoutVendorLite = true;
 
 /* ----------------------
    Helpers locales
@@ -1856,7 +1854,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
 </div>
 
 <?php if (!empty($tienePermisoRastreoNeverPaid)): ?>
-<?php require __DIR__ . '/partials/sabueso_rastreo___SPARTA_SECRET_REDACTED___bundle.php'; ?>
+<?php require __DIR__ . '/partials/sabueso_rastreo_estado_cuenta_bundle.php'; ?>
 <script>
 window.abrirRastreoNeverPaidModalEc = function (idCredito) {
     var id = (idCredito != null && String(idCredito).trim() !== '') ? String(idCredito).trim() : '';
@@ -2081,7 +2079,7 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
 </div>
 
 <?php if (!empty($tienePermisoAclaracionesGc)): ?>
-<?php require __DIR__ . '/partials/__SPARTA_SECRET_REDACTED___modal_aclaraciones_gc.php'; ?>
+<?php require __DIR__ . '/partials/estado_cuenta_modal_aclaraciones_gc.php'; ?>
 <?php endif; ?>
 
 <!-- Modal Notas -->

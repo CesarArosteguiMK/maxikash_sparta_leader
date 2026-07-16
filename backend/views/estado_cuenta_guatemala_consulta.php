@@ -1,4 +1,3 @@
-<?php $layoutVendorLite = true; ?>
 <style>
     /* Card con esquinas más redondeadas */
     .estado-cuenta-card.card {
