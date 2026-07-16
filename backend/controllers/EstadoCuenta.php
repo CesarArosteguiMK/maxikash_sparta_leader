@@ -2175,6 +2175,14 @@ class EstadoCuenta extends Controller
                     }
                     const result = await response.json();
 
+                    // El usuario puede capturar un Id_cliente visible en Gastos
+                    // Cobranza. Si pertenece a un solo credito, el backend
+                    // devuelve el Id_credito real que debe enviarse a S2.
+                    if (result.success && modo === "id" && Number(result.idCredito) > 0) {
+                        const inputCredito = document.getElementById("idCredito");
+                        if (inputCredito) inputCredito.value = String(result.idCredito);
+                    }
+
                     if (!result.success) {
                         Swal.close();
 
@@ -2191,6 +2199,14 @@ class EstadoCuenta extends Controller
                                 icon: "error",
                                 title: "Base de datos no disponible",
                                 text: result.mensaje || "No se pudo conectar al servidor de datos para validar el crédito."
+                            });
+                        }
+
+                        if (result.tipo === "id_cliente_ambiguo") {
+                            return Swal.fire({
+                                icon: "warning",
+                                title: "Cliente con varios creditos",
+                                text: result.mensaje || "Este cliente tiene varios creditos; capture el ID de credito que desea consultar."
                             });
                         }
 
@@ -2312,6 +2328,20 @@ JS;
             $idCredito = $_POST['idCredito'] ?? null;
             $nombre = $_POST['nombre'] ?? null;
             $idCreditoLista = $_POST['idCreditoLista'] ?? null;
+            if (($nombre === null || trim((string) $nombre) === '')
+                && ($idCreditoLista === null || trim((string) $idCreditoLista) === '')
+                && (int) $idCredito > 0) {
+                $creditoMxPost = EmpresasDAO::creditoTieneOfertaEnMx((int) $idCredito);
+                $esCreditoMxExacto = !empty($creditoMxPost['success']) && !empty($creditoMxPost['datos']);
+                if (!$esCreditoMxExacto) {
+                    $resolucionPost = EmpresasDAO::resolverIdCreditoCarteraEstadoCuenta((int) $idCredito);
+                    $idCreditoPostResuelto = (int) ($resolucionPost['datos']['id_credito'] ?? 0);
+                    if (!empty($resolucionPost['success']) && $idCreditoPostResuelto > 0) {
+                        $idCredito = $idCreditoPostResuelto;
+                        $_POST['idCredito'] = $idCreditoPostResuelto;
+                    }
+                }
+            }
             $fechaCortePost = isset($_POST['fechaCorte']) ? trim((string) $_POST['fechaCorte']) : null;
             if ($fechaCortePost === '') $fechaCortePost = null;
             // Si tiene permiso de fecha de corte personalizada y envió una fecha válida (pasada o hoy), usarla
@@ -3721,14 +3751,51 @@ JS;
     {
         $idCredito = $_POST['idCredito'] ?? null;
         $idCreditoLista = $_POST['idCreditoLista'] ?? null;
-        $idAValidar = $idCreditoLista ?? $idCredito;
+        $idAValidar = (int) ($idCreditoLista ?? $idCredito);
 
-        if (!$idAValidar) {
+        if ($idAValidar <= 0) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito no proporcionado']);
             return;
         }
 
         // ✅ Solo consultas locales — sin API externa
+        $creditoMxExacto = EmpresasDAO::creditoTieneOfertaEnMx($idAValidar);
+        if (!empty($creditoMxExacto['success']) && !empty($creditoMxExacto['datos'])) {
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => 'ID de credito valido',
+                'idCredito' => $idAValidar,
+                'idIngresado' => $idAValidar,
+                'tipoResolucion' => 'id_credito',
+            ]);
+            return;
+        }
+
+        $resolucionCartera = EmpresasDAO::resolverIdCreditoCarteraEstadoCuenta($idAValidar);
+        $idResuelto = (int) ($resolucionCartera['datos']['id_credito'] ?? 0);
+        if (!empty($resolucionCartera['success']) && $idResuelto > 0) {
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => $idResuelto === $idAValidar
+                    ? 'ID de credito valido'
+                    : 'ID de cliente asociado al credito ' . $idResuelto,
+                'idCredito' => $idResuelto,
+                'idIngresado' => $idAValidar,
+                'tipoResolucion' => $resolucionCartera['datos']['tipo'] ?? 'cartera',
+            ]);
+            return;
+        }
+
+        if (($resolucionCartera['datos']['tipo'] ?? '') === 'id_cliente_ambiguo') {
+            self::respuestaJSON([
+                'success' => false,
+                'tipo' => 'id_cliente_ambiguo',
+                'mensaje' => 'Este ID corresponde a un cliente con varios creditos. Busque por uno de los ID de credito: '
+                    . implode(', ', array_map('intval', $resolucionCartera['datos']['creditos'] ?? [])),
+            ]);
+            return;
+        }
+
         $referenciasMx = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idAValidar);
 
         if (empty($referenciasMx['success']) && !empty($referenciasMx['error'])) {
@@ -3742,6 +3809,15 @@ JS;
 
         if (!empty($referenciasMx['datos'])) {
             self::respuestaJSON(['success' => true, 'mensaje' => 'ID de crédito válido']);
+            return;
+        }
+
+        if (empty($resolucionCartera['success']) && !empty($resolucionCartera['error'])) {
+            self::respuestaJSON([
+                'success' => false,
+                'tipo' => 'error_db',
+                'mensaje' => 'No se pudo validar el credito en la cartera de Gastos Cobranza. Intente mas tarde.',
+            ]);
             return;
         }
 
