@@ -164,7 +164,6 @@ class CapHum extends Model
         $documentosRrhh = [
             8 => 'CURP',
             9 => 'Identificacion Oficial (INE)',
-            10 => 'RFC',
             11 => 'Comprobante de Domicilio',
             12 => 'Acta de Nacimiento',
             13 => 'Certificado de Estudios',
@@ -474,8 +473,6 @@ class CapHum extends Model
 
         return $perfiles;
     }
-    private const DOCUMENTO_RFC_RRHH = 10;
-    private const DOCUMENTO_CONSTANCIA_FISCAL_RRHH = 22;
     public const DOCUMENTO_CARTA_COMPROMISO_GESTOR = 27;
     private const DOCUMENTOS_RRHH_EXTRA_CATALOGO = [
         ['id' => 28, 'clave' => 'CONTRATO_FIRMADO', 'nombre' => 'Contrato firmado'],
@@ -490,8 +487,11 @@ class CapHum extends Model
         ['id' => 37, 'clave' => 'FINIQUITO', 'nombre' => 'Finiquito'],
         ['id' => 38, 'clave' => 'COMPROBANTE_PAGO_FINIQUITO', 'nombre' => 'Comprobante de pago finiquito'],
     ];
-    private const DOCUMENTOS_EXCLUIDOS_RRHH = [19, 20, 21];
+    // RFC heredado se consolida bajo Constancia de situacion fiscal.
+    // Conservamos sus cargas mediante el alias para no perder expedientes previos.
+    private const DOCUMENTOS_EXCLUIDOS_RRHH = [10, 19, 20, 21];
     private const DOCUMENTOS_ALIAS_RRHH = [
+        10 => 22, // RFC heredado -> Constancia de situacion fiscal
         19 => 12, // Acta de nacimiento certificada -> Acta de Nacimiento
         20 => 9,  // Identificacion oficial duplicada -> Identificacion Oficial (INE)
     ];
@@ -3967,17 +3967,6 @@ class CapHum extends Model
             return ['cargado' => true, 'info' => $info, 'cubierto_por' => null];
         }
 
-        if ($idDocumento === self::DOCUMENTO_RFC_RRHH) {
-            $infoConstancia = $mapaCargados[self::DOCUMENTO_CONSTANCIA_FISCAL_RRHH] ?? null;
-            if ($infoConstancia !== null && (int) ($infoConstancia['total_archivos'] ?? 0) > 0) {
-                return [
-                    'cargado' => true,
-                    'info' => $infoConstancia,
-                    'cubierto_por' => 'Constancia de situacion fiscal',
-                ];
-            }
-        }
-
         return ['cargado' => false, 'info' => null, 'cubierto_por' => null];
     }
 
@@ -6132,7 +6121,7 @@ class CapHum extends Model
                         CASE a.id_documento
                             WHEN 8 THEN 'CURP'
                             WHEN 9 THEN 'Identificacion Oficial (INE)'
-                            WHEN 10 THEN 'RFC'
+                            WHEN 10 THEN 'Constancia de Situacion Fiscal'
                             WHEN 11 THEN 'Comprobante de Domicilio'
                             WHEN 12 THEN 'Acta de Nacimiento'
                             WHEN 13 THEN 'Certificado de Estudios'
@@ -6166,7 +6155,7 @@ class CapHum extends Model
                         CASE a.id_documento
                             WHEN 8 THEN 'CURP'
                             WHEN 9 THEN 'Identificacion Oficial (INE)'
-                            WHEN 10 THEN 'RFC'
+                            WHEN 10 THEN 'Constancia de Situacion Fiscal'
                             WHEN 11 THEN 'Comprobante de Domicilio'
                             WHEN 12 THEN 'Acta de Nacimiento'
                             WHEN 13 THEN 'Certificado de Estudios'

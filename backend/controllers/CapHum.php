@@ -45,7 +45,6 @@ class CapHum extends Controller
     private const MODULOS_DOCUMENTO_RRHH = [
         8 => 155,
         9 => 156,
-        10 => 157,
         11 => 158,
         12 => 159,
         13 => 160,
@@ -213,7 +212,6 @@ class CapHum extends Controller
         return [
             8 => 'CURP',
             9 => 'Identificacion Oficial (INE)',
-            10 => 'RFC',
             11 => 'Comprobante de Domicilio',
             12 => 'Acta de Nacimiento',
             13 => 'Certificado de Estudios',
@@ -264,7 +262,11 @@ class CapHum extends Controller
             return true;
         }
         $idModulo = self::moduloTipoDocumentoRrhh($idDocumento);
+        // El permiso RFC heredado mantiene acceso a la constancia fiscal durante
+        // la transicion del catalogo, sin publicar RFC como tipo independiente.
+        $permisoFiscalHeredado = $idDocumento === 22 && self::tieneModuloWeb(157);
         return ($idModulo > 0 && self::tieneModuloWeb($idModulo))
+            || $permisoFiscalHeredado
             || self::tieneModuloWeb(3000 + $idDocumento);
     }
 
@@ -278,17 +280,20 @@ class CapHum extends Controller
     }
 
     /**
-     * Tipos que pueden adjuntarse desde Control de Bajas. Cada uno conserva
-     * su permiso documental propio; no se reutiliza el permiso genérico de
-     * carga de documentos de Gestión de Personal.
+     * Tipos que pueden consultarse o adjuntarse desde Control de Bajas.
+     * Cada uno conserva su permiso documental propio; no se reutiliza el
+     * permiso genérico de carga de documentos de Gestión de Personal.
      */
     private static function tiposDocumentoControlBajasPermitidos(): array
     {
         $catalogo = self::documentosRrhhConPermisoEspecial();
+        // La constancia fiscal es el único documento fiscal del flujo.
+        // RFC heredado no se presenta como un tipo independiente.
+        unset($catalogo[10]);
         $permitidos = [];
-        foreach ([15, 37, 38] as $idDocumento) {
+        foreach ($catalogo as $idDocumento => $nombreDocumento) {
             if (self::puedeUsarTipoDocumentoRrhh($idDocumento)) {
-                $permitidos[$idDocumento] = $catalogo[$idDocumento];
+                $permitidos[$idDocumento] = $nombreDocumento;
             }
         }
         return $permitidos;
@@ -8228,7 +8233,7 @@ class CapHum extends Controller
                 const mapaDocumentos = {
                     'CURP': 8,
                     'Identificación Oficial (INE)': 9,
-                    'RFC': 10,
+                    'Constancia de situacion fiscal': 22,
                     'Comprobante de Domicilio': 11,
                     'Acta de Nacimiento': 12,
                     'Carta de compromiso del Gestor': 27,
@@ -8747,7 +8752,7 @@ class CapHum extends Controller
                 const mapeo = {
                     8: 'CURP',
                     9: 'Identificación Oficial (INE)',
-                    10: 'RFC',
+                    10: 'Constancia de situacion fiscal',
                     11: 'Comprobante de Domicilio',
                     12: 'Acta de Nacimiento',
                     27: 'Carta de compromiso del Gestor',
@@ -9255,7 +9260,7 @@ class CapHum extends Controller
             const mapaDocumentosIds = {
                 'CURP': 8,
                 'Identificación Oficial (INE)': 9,
-                'RFC': 10,
+                'Constancia de situacion fiscal': 22,
                 'Comprobante de Domicilio': 11,
                 'Acta de Nacimiento': 12,
                 'Carta de compromiso del Gestor': 27,
@@ -20195,7 +20200,7 @@ class CapHum extends Controller
         if (strpos($t, 'RETENCION') !== false || strpos($t, 'FONACOT') !== false || strpos($t, 'INFONAVIT') !== false || strpos($t, 'NO CREDITO') !== false || strpos($t, 'NO CREDITOS') !== false || strpos($t, 'NO ADEUDO') !== false) return 24;
         if (strpos($t, 'CURP') !== false) return 8;
         if (strpos($t, 'IDENTIFIC') !== false || strpos($t, 'INE') !== false) return 9;
-        if (strpos($t, 'FISCAL') !== false || strpos($t, 'RFC') !== false) return 10;
+        if (strpos($t, 'FISCAL') !== false || strpos($t, 'RFC') !== false) return 22;
         if (strpos($t, 'DOMICILIO') !== false) return 11;
         if (strpos($t, 'ACTA') !== false || strpos($t, 'NACIMIENTO') !== false) return 12;
         if (strpos($t, 'ESTUDIO') !== false || strpos($t, 'CERTIFICADO') !== false) return 13;
@@ -25918,7 +25923,7 @@ class CapHum extends Controller
                 const mapaDocumentos = {
                     'CURP': 8,
                     'Identificación Oficial (INE)': 9,
-                    'RFC': 10,
+                    'Constancia de situacion fiscal': 22,
                     'Comprobante de Domicilio': 11,
                     'Acta de Nacimiento': 12,
                     'Carta de compromiso del Gestor': 27,
@@ -26088,7 +26093,7 @@ class CapHum extends Controller
                 const mapeo = {
                     8: 'CURP',
                     9: 'Identificación Oficial (INE)',
-                    10: 'RFC',
+                    10: 'Constancia de situacion fiscal',
                     11: 'Comprobante de Domicilio',
                     12: 'Acta de Nacimiento',
                     27: 'Carta de compromiso del Gestor',
@@ -26493,7 +26498,7 @@ class CapHum extends Controller
             const mapaDocumentosIds = {
                 'CURP': 8,
                 'Identificación Oficial (INE)': 9,
-                'RFC': 10,
+                'Constancia de situacion fiscal': 22,
                 'Comprobante de Domicilio': 11,
                 'Acta de Nacimiento': 12,
                 'Carta de compromiso del Gestor': 27,
@@ -30824,7 +30829,7 @@ public function getEstadosMunicipiosMexico()
         $nombres = [
             8 => 'CURP',
             9 => 'INE',
-            10 => 'RFC',
+            10 => 'Constancia_de_situacion_fiscal',
             11 => 'Comprobante_de_domicilio',
             12 => 'Acta_de_nacimiento',
             13 => 'Certificado_de_estudios',
