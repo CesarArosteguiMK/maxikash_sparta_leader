@@ -3798,6 +3798,7 @@ body.dark-mode .trk-step-nombre { color: #e2e8f0; }
 .trk-badge-en_sitio   { background: #fef3c7; color: #92400e; }
 .trk-badge-recolectada { background: #dcfce7; color: #15803d; }
 .trk-badge-completado  { background: #dcfce7; color: #15803d; } /* alias */
+.trk-badge-entregada_cedis { background: #dbeafe; color: #1d4ed8; }
 .trk-badge-incidencia  { background: #fee2e2; color: #b91c1c; }
 #modalRegistrarRuta.trk-planner-active .trk-timeline {
     display: flex;
@@ -5619,6 +5620,10 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                             <button type="button" class="btn btn-sm btn-label-primary w-100" id="btnAgregarTodosUbicacion" disabled
                                     title="Agrega todos los créditos restantes del estado o municipio seleccionado">
                                 <i class="fa-solid fa-layer-group me-1"></i>Agregar todos
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary ms-2 flex-shrink-0" id="btnLimpiarFiltrosCrd"
+                                    title="Limpiar filtros" aria-label="Limpiar filtros">
+                                <i class="fa-solid fa-eraser"></i>
                             </button>
                         </div>
                     </div>
@@ -11212,8 +11217,11 @@ function _trkAlmacenOtpCellHtml(det) {
     const idDetalle = Number(det?.id_detalle || 0);
     const folio = String(det?.folio_unidad || '');
     const estatus = String(det?.estatus_inventario || '').trim().toLowerCase();
-    const recolectada = ['recolectada', 'recolectado', 'completado', 'completada']
-        .includes(String(det?.estatus_recoleccion || '').trim().toLowerCase());
+    const estatusRecoleccion = String(det?.estatus_recoleccion || '').trim().toLowerCase();
+    if (estatusRecoleccion === 'entregada_cedis') {
+        return '<span class="text-primary small fw-semibold"><i class="fa-solid fa-warehouse me-1"></i>Ingresada a CEDIS</span>';
+    }
+    const recolectada = ['recolectada', 'recolectado', 'completado', 'completada'].includes(estatusRecoleccion);
     if (!recolectada) {
         return '<span class="text-muted small">Disponible al recolectar</span>';
     }
@@ -11228,7 +11236,7 @@ function _trkAlmacenOtpCellHtml(det) {
         data-id-credito="${idCredito}"
         data-id-detalle="${idDetalle}"
         data-folio="${_trkChatEscapeHtml(folio)}">
-        <i class="fa-solid fa-shield-halved me-1"></i>Generar OTP entrega
+        <i class="fa-solid fa-shield-halved me-1"></i>OTP emergencia
     </button>`;
 }
 
@@ -11244,17 +11252,17 @@ async function _trkGenerarOtpEntregaAlmacen({ idUnidad, idCredito, idDetalle, fo
     if (!idUnidad && !idCredito) return;
     const confirmar = await _trkSwalConFocoModalRuta({
         icon: 'warning',
-        title: 'Generar OTP de entrega',
+        title: 'Generar OTP de emergencia',
         html: `<div class="text-start small">
-            <p class="mb-2">Se generara el codigo que el transportista capturara en MotoTrack al llegar al CEDIS.</p>
+            <p class="mb-2">El flujo normal exige que el almacenista genere el OTP desde MotoTrack. Usa este codigo solo si ese flujo no esta disponible.</p>
             <div class="border rounded p-2 bg-light">
                 <b>${_trkChatEscapeHtml(folio || (idUnidad ? `Unidad #${idUnidad}` : 'Unidad recolectada'))}</b><br>
                 <span class="text-muted">Credito #${_trkChatEscapeHtml(idCredito || 'N/A')}</span>
             </div>
-            <p class="text-danger fw-semibold mt-2 mb-0">Comparte el codigo solo con el transportista asignado a esta ruta.</p>
+            <p class="text-danger fw-semibold mt-2 mb-0">El uso queda registrado como contingencia de Torre de Control.</p>
         </div>`,
         showCancelButton: true,
-        confirmButtonText: 'Generar codigo',
+        confirmButtonText: 'Generar emergencia',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#172033',
         reverseButtons: true,
@@ -11299,7 +11307,7 @@ async function _trkGenerarOtpEntregaAlmacen({ idUnidad, idCredito, idDetalle, fo
 
         Swal.fire({
             icon: 'success',
-            title: 'OTP listo para el transportista',
+            title: 'OTP de emergencia listo',
             html: `<div class="text-center">
                 <div class="small text-muted mb-2">El transportista debe capturar este codigo en MotoTrack dentro del CEDIS.</div>
                 <div class="display-5 fw-bold" style="letter-spacing:.2em;">${_trkChatEscapeHtml(codigo)}</div>
@@ -11784,6 +11792,13 @@ function _trkInicializarModal() {
 
     // Filtro de creditos por municipio
     $('#crdFiltroMunicipio').on('change', _trkRefrescarSelectCreditos);
+
+    $('#btnLimpiarFiltrosCrd').on('click', function () {
+        $('#crdFiltroEstado').val('').trigger('change.select2');
+        _trkPoblarFiltroMunicipiosCrd('');
+        $('#crdFiltroMunicipio').val('').trigger('change.select2');
+        _trkRefrescarSelectCreditos();
+    });
 
     // Mapa refresh
     $('#btnRefreshMap').on('click', _trkRenderizarMapa);
@@ -18475,6 +18490,7 @@ function _trkRTRenderizar(ruta) {
         en_camino:   'En camino',
         en_sitio:    'En sitio',
         recolectada: 'Recolectada',
+        entregada_cedis: 'Entregada en CEDIS',
         completado:  'Recolectada', // alias por compatibilidad
         incidencia:  'Incidencia',
     };
@@ -18483,6 +18499,7 @@ function _trkRTRenderizar(ruta) {
         en_camino:   'fa-motorcycle',
         en_sitio:    'fa-location-dot',
         recolectada: 'fa-circle-check',
+        entregada_cedis: 'fa-warehouse',
         completado:  'fa-circle-check', // alias
         incidencia:  'fa-triangle-exclamation',
     };
@@ -18491,7 +18508,7 @@ function _trkRTRenderizar(ruta) {
     creditos.forEach(c => {
         const est     = c.estatus_recoleccion || 'pendiente';
         const esAct   = puntoAct && puntoAct.id_detalle === c.id_detalle;
-        const esDone  = est === 'recolectada' || est === 'completado';
+        const esDone  = est === 'recolectada' || est === 'completado' || est === 'entregada_cedis';
         const stepCls = esDone ? 'done' : (esAct ? 'activo' : (est === 'en_sitio' ? 'en_sitio' : (est === 'incidencia' ? 'incidencia' : '')));
         const icon    = ICONS[est] || ICONS.pendiente;
         const label   = LABELS[est] || est;
@@ -18549,7 +18566,7 @@ function _trkRTAplicarChanges(changes) {
     }
     // Recalcular progreso
     const total       = creditos.length;
-    const esTerminado = e => e === 'recolectada' || e === 'completado';
+    const esTerminado = e => e === 'recolectada' || e === 'completado' || e === 'entregada_cedis';
     const completados = creditos.filter(c => esTerminado(c.estatus_recoleccion)).length;
     if (_trkRT.estado.progreso) {
         _trkRT.estado.progreso.completados  = completados;
@@ -18977,6 +18994,49 @@ function _trkRTProcesarEvento(data) {
             break;
         case 'route.destination.changed':
             _trkAplicarEventoCambioCedisDestino(data.data || data);
+            break;
+        case 'almacen.delivery.pending': {
+            const payload = data.data || data;
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'info',
+                title: `Unidad #${payload.id_unidad || '-'} esperando OTP del almacenista`,
+                showConfirmButton: false,
+                timer: 3500,
+            });
+            break;
+        }
+        case 'almacen.otp.generated': {
+            const payload = data.data || data;
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: `OTP del almacenista listo para la unidad #${payload.id_unidad || '-'}`,
+                showConfirmButton: false,
+                timer: 3500,
+            });
+            break;
+        }
+        case 'almacen.entry.confirmed': {
+            const payload = data.data || data;
+            if (payload.id_detalle) {
+                _trkRTAplicarChanges([{ id_detalle: payload.id_detalle, estatus_recoleccion: 'entregada_cedis' }]);
+            }
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: `Entrega confirmada en CEDIS: unidad #${payload.id_unidad || '-'}`,
+                showConfirmButton: false,
+                timer: 3500,
+            });
+            break;
+        }
+        case 'ruta.concluida':
+            _trkRTCargarEstado();
+            _trkCargarRutas();
             break;
         case 'otp.generated': {
             const payload = data.data || data;

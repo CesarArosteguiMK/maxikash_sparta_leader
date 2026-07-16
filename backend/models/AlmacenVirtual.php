@@ -3219,6 +3219,49 @@ class AlmacenVirtual extends Model
         ];
     }
 
+    public function asegurarUnidadRecolectadaPorCredito(int $idCredito, int $idUsuario = 0, string $nombreUsuario = ''): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'Credito invalido.'];
+        }
+        if (!$this->tablaExiste('adj_operacion') || !$this->tablaExiste('av_unidades')) {
+            return ['success' => false, 'message' => 'No estan disponibles las tablas de operacion e inventario.'];
+        }
+
+        $existente = $this->db->queryOne(
+            "SELECT id_unidad
+             FROM av_unidades
+             WHERE id_credito = :id_credito
+               AND deleted_at IS NULL
+             ORDER BY id_unidad DESC
+             LIMIT 1",
+            ['id_credito' => $idCredito]
+        );
+        if ($existente && (int) ($existente['id_unidad'] ?? 0) > 0) {
+            return [
+                'success' => true,
+                'ya_existe' => true,
+                'message' => 'La unidad ya tiene prealta en Almacen Virtual.',
+                'unidad' => $this->obtenerUnidadPorId((int) $existente['id_unidad']),
+            ];
+        }
+
+        $operacion = $this->db->queryOne(
+            "SELECT id
+             FROM adj_operacion
+             WHERE id_credito = :id_credito
+             ORDER BY id DESC
+             LIMIT 1",
+            ['id_credito' => $idCredito]
+        );
+        $idOperacion = (int) ($operacion['id'] ?? 0);
+        if ($idOperacion <= 0) {
+            return ['success' => false, 'message' => 'No se encontro una operacion adjudicada para el credito.'];
+        }
+
+        return $this->crearDesdeMotosAdjudicadas($idOperacion, $idUsuario, $nombreUsuario);
+    }
+
     public function listarPendientesMotosAdjudicadas(array $filtros = []): array
     {
         if (!$this->tablaExiste('adj_operacion')) {
