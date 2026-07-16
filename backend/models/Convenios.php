@@ -11,6 +11,103 @@ class Convenios extends Model
     // Buckets elegibles para cualquier oferta (mora 8+ dias)
     private static $BUCKETS_ELEGIBLES = ['c) 8 a 14 dias', 'd) 15 a 21 dias', 'e) 22 a 30 dias', 'f) 31 a 60 dias', 'g) 61 a 90 dias', 'h) 91 a 120 dias', 'i) 121+ dias'];
 
+    /**
+     * Resuelve los datos operativos del credito en Segundometro.
+     * La semana actual tiene prioridad y el historico conserva la ultima fotografia disponible.
+     */
+    private static function _obtenerCreditoSegundometro(DatabaseSegundometro $db, int $idCredito): ?array
+    {
+        $credito = $db->queryOne(
+            "SELECT
+                Id_credito,
+                Nombre_cliente,
+                Bucket_Morosidad_Real,
+                Dias_mora,
+                Avance_Pago_Plazo,
+                Numero_amortizaciones,
+                Num_cuotas_pagadas,
+                Saldo_total_capital,
+                Saldo_para_liquidar_hoy AS Adeudo_total,
+                Monto_otorgado,
+                Rango_Monto,
+                Sucursal,
+                Gestor_Asignado
+             FROM tbl_segundometro_semana
+             WHERE Id_credito = :id
+             LIMIT 1",
+            ['id' => $idCredito]
+        );
+
+        if ($credito) {
+            return ['credito' => $credito, 'origen' => 'semana'];
+        }
+
+        $credito = $db->queryOne(
+            "SELECT
+                id_credito AS Id_credito,
+                Nombre_cliente,
+                Bucket_Morosidad_Real,
+                Dias_mora,
+                Avance_Pago_Plazo,
+                Numero_amortizaciones,
+                Num_cuotas_pagadas,
+                Saldo_total_capital,
+                Saldo_para_liquidar_hoy AS Adeudo_total,
+                Monto_otorgado,
+                Rango_Monto,
+                Sucursal,
+                Gestor_Asignado
+             FROM tbl_segundometro_histo
+             WHERE id_credito = :id
+             ORDER BY fecha_hora_insert DESC, id_segundometro_histo DESC
+             LIMIT 1",
+            ['id' => $idCredito]
+        );
+
+        return $credito ? ['credito' => $credito, 'origen' => 'historico'] : null;
+    }
+
+    /**
+     * Recupera la ultima fotografia persistida al crear un convenio.
+     */
+    private static function _obtenerSnapshotConvenio(Database $db, int $idCredito): ?array
+    {
+        return $db->queryOne(
+            "SELECT
+                id_credito,
+                nombre_cliente,
+                bucket_morosidad_real,
+                dias_mora,
+                avance_pago_plazo,
+                adeudo_total_original,
+                estatus
+             FROM convenio_cliente
+             WHERE id_credito = :id
+             ORDER BY id DESC
+             LIMIT 1",
+            ['id' => $idCredito]
+        ) ?: null;
+    }
+
+    private static function _creditoDesdeSnapshotConvenio(array $convenio): array
+    {
+        return [
+            'Id_credito'            => $convenio['id_credito'],
+            'Nombre_cliente'        => $convenio['nombre_cliente'],
+            'Bucket_Morosidad_Real' => $convenio['bucket_morosidad_real'],
+            'Dias_mora'             => $convenio['dias_mora'],
+            'Avance_Pago_Plazo'     => $convenio['avance_pago_plazo'],
+            'Numero_amortizaciones' => null,
+            'Num_cuotas_pagadas'    => null,
+            'Adeudo_total'          => $convenio['adeudo_total_original'],
+            'Saldo_total_capital'   => $convenio['adeudo_total_original'],
+            'Monto_otorgado'        => null,
+            'Rango_Monto'           => null,
+            'Sucursal'              => null,
+            'Gestor_Asignado'       => null,
+        ];
+    }
+
     // ─────────────────────────────────────────────
     // BÚSQUEDA DE CRÉDITO
     // ─────────────────────────────────────────────
@@ -25,13 +122,13 @@ class Convenios extends Model
             $termino = trim($termino);
 
             if (is_numeric($termino)) {
-                $rows = $db->queryAll(
-                    "SELECT Id_credito, Nombre_cliente, Bucket_Morosidad_Real, Dias_mora
-                     FROM tbl_segundometro_semana
-                     WHERE Id_credito = :id
-                     LIMIT 10",
-                    ['id' => (int) $termino]
-                );
+                $fuente = self::_obtenerCreditoSegundometro($db, (int) $termino);
+                if ($fuente) {
+                    $rows = [$fuente['credito']];
+                } else {
+                    $snapshot = self::_obtenerSnapshotConvenio(new Database(), (int) $termino);
+                    $rows = $snapshot ? [self::_creditoDesdeSnapshotConvenio($snapshot)] : [];
+                }
             } else {
                 $rows = $db->queryAll(
                     "SELECT Id_credito, Nombre_cliente, Bucket_Morosidad_Real, Dias_mora
@@ -40,6 +137,48 @@ class Convenios extends Model
                      LIMIT 10",
                     ['nombre' => '%' . $termino . '%']
                 );
+
+                if (!$rows) {
+                    $rows = $db->queryAll(
+                        "SELECT
+                            h.id_credito AS Id_credito,
+                            h.Nombre_cliente,
+                            h.Bucket_Morosidad_Real,
+                            h.Dias_mora
+                         FROM tbl_segundometro_histo h
+                         INNER JOIN (
+                            SELECT id_credito, MAX(id_segundometro_histo) AS id_ultimo
+                            FROM tbl_segundometro_histo
+                            WHERE Nombre_cliente LIKE :nombre_hist
+                            GROUP BY id_credito
+                         ) ult ON ult.id_ultimo = h.id_segundometro_histo
+                         LIMIT 10",
+                        ['nombre_hist' => '%' . $termino . '%']
+                    );
+                }
+
+                if (!$rows) {
+                    $dbLocal = new Database();
+                    $snapshots = $dbLocal->queryAll(
+                        "SELECT cc.id_credito, cc.nombre_cliente, cc.bucket_morosidad_real,
+                                cc.dias_mora, cc.avance_pago_plazo, cc.adeudo_total_original, cc.estatus
+                         FROM convenio_cliente cc
+                         INNER JOIN (
+                            SELECT id_credito, MAX(id) AS id_ultimo
+                            FROM convenio_cliente
+                            WHERE nombre_cliente LIKE :nombre_local
+                            GROUP BY id_credito
+                         ) ult ON ult.id_ultimo = cc.id
+                         LIMIT 10",
+                        ['nombre_local' => '%' . $termino . '%']
+                    );
+                    $rows = array_map(
+                        function (array $snapshot) {
+                            return self::_creditoDesdeSnapshotConvenio($snapshot);
+                        },
+                        $snapshots ?: []
+                    );
+                }
             }
 
             return self::resultado(true, 'Búsqueda completada.', $rows ?: []);
@@ -55,26 +194,13 @@ class Convenios extends Model
     {
         try {
             $db = new DatabaseSegundometro();
-            $row = $db->queryOne(
-                "SELECT
-                    Id_credito,
-                    Nombre_cliente,
-                    Bucket_Morosidad_Real,
-                    Dias_mora,
-                    Avance_Pago_Plazo,
-                    Numero_amortizaciones,
-                    Num_cuotas_pagadas,
-                    Saldo_total_capital,
-                    Saldo_para_liquidar_hoy   AS Adeudo_total,
-                    Monto_otorgado,
-                    Rango_Monto,
-                    Sucursal,
-                    Gestor_Asignado
-                 FROM tbl_segundometro_semana
-                 WHERE Id_credito = :id
-                 LIMIT 1",
-                ['id' => (int) $id_credito]
-            );
+            $fuente = self::_obtenerCreditoSegundometro($db, (int) $id_credito);
+            $row = $fuente['credito'] ?? null;
+
+            if (!$row) {
+                $snapshot = self::_obtenerSnapshotConvenio(new Database(), (int) $id_credito);
+                $row = $snapshot ? self::_creditoDesdeSnapshotConvenio($snapshot) : null;
+            }
 
             if (!$row) {
                 return self::resultado(false, 'Crédito no encontrado.');
@@ -100,53 +226,31 @@ class Convenios extends Model
         $db    = new Database();
 
         // 1. Datos del crédito
-        $credito = $dbSeg->queryOne(
-            "SELECT
-                Id_credito,
-                Nombre_cliente,
-                Bucket_Morosidad_Real,
-                Dias_mora,
-                Avance_Pago_Plazo,
-                Saldo_total_capital,
-                Saldo_para_liquidar_hoy AS Adeudo_total,
-                Rango_Monto
-             FROM tbl_segundometro_semana
-             WHERE Id_credito = :id
-             LIMIT 1",
-            ['id' => (int) $id_credito]
-        );
+        $fuenteCredito = self::_obtenerCreditoSegundometro($dbSeg, (int) $id_credito);
+        $credito = $fuenteCredito['credito'] ?? null;
+        $convenioPrevio = null;
+
+        if (!$fuenteCredito || $fuenteCredito['origen'] !== 'semana') {
+            $convenioPrevio = self::_obtenerSnapshotConvenio($db, (int) $id_credito);
+        }
+
+        if (!$credito && $convenioPrevio) {
+            $credito = self::_creditoDesdeSnapshotConvenio($convenioPrevio);
+        }
+
+        if ($credito && $convenioPrevio && ($convenioPrevio['estatus'] ?? '') === 'completado') {
+            return self::resultado(true, 'OK', [
+                'credito'              => $credito,
+                'ofertas'              => [],
+                'ofertas_reactivables' => [],
+                'elegible'             => false,
+                'razon'                => 'convenio_completado',
+                'productos_bloqueados' => [],
+            ]);
+        }
 
         if (!$credito) {
-            // Puede ser un crédito cuyo convenio ya fue completado y salió de segundometro.
-            // Verificar si existe un convenio completado en convenio_cliente.
-            $convenioComp = $db->queryOne(
-                "SELECT id_credito, nombre_cliente, bucket_morosidad_real,
-                        dias_mora, avance_pago_plazo, adeudo_total_original
-                 FROM convenio_cliente
-                 WHERE id_credito = :id AND estatus = 'completado'
-                 ORDER BY fecha_alta DESC
-                 LIMIT 1",
-                ['id' => (int) $id_credito]
-            );
-            if ($convenioComp) {
-                $creditoSintetico = [
-                    'Id_credito'            => $convenioComp['id_credito'],
-                    'Nombre_cliente'        => $convenioComp['nombre_cliente'],
-                    'Bucket_Morosidad_Real' => $convenioComp['bucket_morosidad_real'],
-                    'Dias_mora'             => $convenioComp['dias_mora'],
-                    'Avance_Pago_Plazo'     => $convenioComp['avance_pago_plazo'],
-                    'Adeudo_total'          => $convenioComp['adeudo_total_original'],
-                    'Saldo_total_capital'   => $convenioComp['adeudo_total_original'],
-                    'Rango_Monto'           => null,
-                ];
-                return self::resultado(true, 'OK', [
-                    'credito'              => $creditoSintetico,
-                    'ofertas'              => [],
-                    'elegible'             => false,
-                    'razon'                => 'convenio_completado',
-                    'productos_bloqueados' => [],
-                ]);
-            }
+            // No existe en las fuentes operativas ni en el respaldo local de convenios.
             return self::resultado(false, 'Crédito no encontrado.');
         }
 
@@ -1439,7 +1543,7 @@ public static function getConvenioCualquierEstatus($id_credito)
 private static function _getPagosS2Movil($id_credito)
 {
     try {
-        $url     = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+        $url     = ENDPOINT;
         $payload = json_encode([
             'idCredito'  => $id_credito,
             'fechaCorte' => date('Y-m-d'),
@@ -2647,7 +2751,7 @@ public static function registrarPago($id_convenio, $numero_semana, $id_credito)
         }
 
         // 2. Buscar en S2Movil un pago con fechaValor en el rango de esta semana
-        $url     = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+        $url     = ENDPOINT;
         $payload = json_encode([
             'idCredito'  => (int) $id_credito,
             'fechaCorte' => date('Y-m-d'),
@@ -2759,7 +2863,7 @@ public static function registrarPago($id_convenio, $numero_semana, $id_credito)
 public static function getEstadoCuenta($id_credito)
 {
     try {
-        $url        = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+        $url        = ENDPOINT;
         $fechaCorte = date('Y-m-d');
 
         $payload = json_encode([
@@ -2841,7 +2945,7 @@ public static function getEstadoCuenta($id_credito)
 private static function _buscarCuotaOriginal($id_credito, $fecha_pago_convenio)
 {
     try {
-        $url     = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+        $url     = ENDPOINT;
         $payload = json_encode([
             'idCredito'  => (int) $id_credito,
             'fechaCorte' => date('Y-m-d'),
@@ -3226,7 +3330,7 @@ public static function migrarConvenio($datos)
 private static function _marcarSemanasDesdeS2Movil($idConvenio, $idCredito, $fechaInicio, $semanas, $db)
 {
     try {
-        $url     = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+        $url     = ENDPOINT;
         $payload = json_encode([
             'idCredito'  => $idCredito,
             'fechaCorte' => date('Y-m-d'),
@@ -3442,7 +3546,7 @@ public static function getConciliacionSemana($id_convenio, $numero_semana, $id_c
         );
 
         // ── Traer pagos S2Movil ───────────────────────────────
-        $url     = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+        $url     = ENDPOINT;
         $payload = json_encode([
             'idCredito'  => (int) $id_credito,
             'fechaCorte' => date('Y-m-d'),
