@@ -2331,11 +2331,15 @@ JS;
             if (($nombre === null || trim((string) $nombre) === '')
                 && ($idCreditoLista === null || trim((string) $idCreditoLista) === '')
                 && (int) $idCredito > 0) {
-                $resolucionPost = EmpresasDAO::resolverIdCreditoCarteraEstadoCuenta((int) $idCredito);
-                $idCreditoPostResuelto = (int) ($resolucionPost['datos']['id_credito'] ?? 0);
-                if (!empty($resolucionPost['success']) && $idCreditoPostResuelto > 0) {
-                    $idCredito = $idCreditoPostResuelto;
-                    $_POST['idCredito'] = $idCreditoPostResuelto;
+                $creditoMxPost = EmpresasDAO::creditoTieneOfertaEnMx((int) $idCredito);
+                $esCreditoMxExacto = !empty($creditoMxPost['success']) && !empty($creditoMxPost['datos']);
+                if (!$esCreditoMxExacto) {
+                    $resolucionPost = EmpresasDAO::resolverIdCreditoCarteraEstadoCuenta((int) $idCredito);
+                    $idCreditoPostResuelto = (int) ($resolucionPost['datos']['id_credito'] ?? 0);
+                    if (!empty($resolucionPost['success']) && $idCreditoPostResuelto > 0) {
+                        $idCredito = $idCreditoPostResuelto;
+                        $_POST['idCredito'] = $idCreditoPostResuelto;
+                    }
                 }
             }
             $fechaCortePost = isset($_POST['fechaCorte']) ? trim((string) $_POST['fechaCorte']) : null;
@@ -3755,6 +3759,18 @@ JS;
         }
 
         // ✅ Solo consultas locales — sin API externa
+        $creditoMxExacto = EmpresasDAO::creditoTieneOfertaEnMx($idAValidar);
+        if (!empty($creditoMxExacto['success']) && !empty($creditoMxExacto['datos'])) {
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => 'ID de credito valido',
+                'idCredito' => $idAValidar,
+                'idIngresado' => $idAValidar,
+                'tipoResolucion' => 'id_credito',
+            ]);
+            return;
+        }
+
         $resolucionCartera = EmpresasDAO::resolverIdCreditoCarteraEstadoCuenta($idAValidar);
         $idResuelto = (int) ($resolucionCartera['datos']['id_credito'] ?? 0);
         if (!empty($resolucionCartera['success']) && $idResuelto > 0) {
