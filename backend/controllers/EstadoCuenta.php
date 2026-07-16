@@ -8012,6 +8012,7 @@ public function descargarReporteDictamen()
                     $this->setEcAclaracionesUltimoPagoMetaParaVista($idCredNotasGt);
 
                     self::set("titulo", "Estado de Cuenta - Guatemala");
+                    self::set('layoutVendorLite', false);
                     self::set("paisData", ['nombre_pais' => 'Guatemala', 'codigo_iso' => 'gt', 'pais_activo' => 1]);
                     self::set("referencias", []);
                     self::set("datosGuat", $datosGuat);
@@ -8047,6 +8048,7 @@ public function descargarReporteDictamen()
 
         // GET o sin resultados → mostrar formulario de búsqueda
         self::set("titulo", "Estados de Cuenta - Guatemala");
+        self::set('layoutVendorLite', false);
         self::set("paisData", ['nombre_pais' => 'Guatemala', 'codigo_iso' => 'gt', 'pais_activo' => 1]);
         if (!empty($alertaBusqueda)) {
             self::set("alertaBusqueda", $alertaBusqueda);

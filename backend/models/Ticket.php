@@ -2680,7 +2680,7 @@ class Ticket extends Model
                 "h.fue_todas_direcciones, h.direcciones_fue, h.pago_semana_si, h.pago_semana_count, h.pago_semana_consultado, " .
                 "h.ilocalizable_auto, h.ilocalizable_override, h.activo, h.detectado_en, h.actualizado_en, " .
                 "COALESCE(NULLIF(h.nombre_gestor, ''), TRIM(CONCAT(TRIM(IFNULL(p.nombres,'')), ' ', TRIM(IFNULL(p.apellidop,''))))) AS gestor_nombre_resuelto " .
-                "FROM __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico h " .
+                "FROM sabueso_ilocalizables_historico h " .
                 "LEFT JOIN ticket t ON t.id_ticket = h.id_ticket " .
                 "LEFT JOIN persona p ON p.id = COALESCE(h.id_gestor, t.id_persona_creador) " .
                 "WHERE h.activo = 1 AND LOWER(COALESCE(h.origen, '')) = 'manual' " .
@@ -4529,7 +4529,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             return;
         }
         $db->CRUD("
-            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico (
+            CREATE TABLE IF NOT EXISTS sabueso_ilocalizables_historico (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 id_ticket INT NOT NULL,
                 id_credito INT NULL,
@@ -4564,9 +4564,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
         foreach ([
-            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico ADD INDEX idx_sabueso_iloc_activo_actualizado (activo, actualizado_en, id)",
-            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico ADD INDEX idx_sabueso_iloc_activo_origen (activo, origen)",
-            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico ADD INDEX idx_sabueso_iloc_credito_activo (id_credito, activo, actualizado_en)",
+            "ALTER TABLE sabueso_ilocalizables_historico ADD INDEX idx_sabueso_iloc_activo_actualizado (activo, actualizado_en, id)",
+            "ALTER TABLE sabueso_ilocalizables_historico ADD INDEX idx_sabueso_iloc_activo_origen (activo, origen)",
+            "ALTER TABLE sabueso_ilocalizables_historico ADD INDEX idx_sabueso_iloc_credito_activo (id_credito, activo, actualizado_en)",
         ] as $sqlIndex) {
             try {
                 $db->CRUD($sqlIndex);
@@ -4623,7 +4623,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             }
         }
         $db->CRUD("
-            INSERT INTO __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico (
+            INSERT INTO sabueso_ilocalizables_historico (
                 id_ticket, id_credito, folio, semana_inicio, semana_fin, dictamen_envio,
                 id_gestor, nombre_gestor, nombre_cliente, tipo_contacto, motivo, origen,
                 dictamen_tipo_sabueso, resultado_ds, fue_todas_direcciones, direcciones_fue,
@@ -4709,7 +4709,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         }
         self::asegurarHistoricoIlocalizablesSchema($db);
         $db->CRUD(
-            "UPDATE __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico
+            "UPDATE sabueso_ilocalizables_historico
              SET activo = 0, actualizado_en = :actualizado_en
              WHERE id_ticket = :id_ticket
                AND activo = 1
@@ -4890,7 +4890,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     private static function consultarCreditoIlocalizableActivo(Database $db, int $idCredito): ?array
     {
         $row = $db->queryOne(
-            "SELECT * FROM __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico " .
+            "SELECT * FROM sabueso_ilocalizables_historico " .
             "WHERE id_credito = :id_credito AND activo = 1 " .
             "ORDER BY COALESCE(dictamen_envio, actualizado_en) DESC, id DESC LIMIT 1",
             ['id_credito' => $idCredito]
@@ -4972,7 +4972,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $whereSql = implode(' AND ', $where);
             $totalRow = $db->queryOne(
                 "SELECT COUNT(*) AS total, COUNT(DISTINCT id_credito) AS total_creditos
-                 FROM __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico
+                 FROM sabueso_ilocalizables_historico
                  WHERE " . $whereSql,
                 $params
             );
@@ -4984,7 +4984,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $offset = ($page - 1) * $perPage;
             }
             $rows = $db->queryAll(
-                "SELECT * FROM __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico
+                "SELECT * FROM sabueso_ilocalizables_historico
                  WHERE " . $whereSql . "
                  ORDER BY actualizado_en DESC, id DESC
                  LIMIT " . $perPage . " OFFSET " . $offset,

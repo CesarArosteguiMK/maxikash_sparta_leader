@@ -11,6 +11,148 @@ use Core\Database;
  */
 class Perfil extends Model
 {
+    private static function asegurarTablaInvitacionPareja(Database $db): void
+    {
+        $db->CRUD(
+            "CREATE TABLE IF NOT EXISTS perfil_invitacion_pareja (
+                id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                id_emisor INT NOT NULL,
+                id_destinataria INT NOT NULL,
+                estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+                notificado_emisor TINYINT(1) NOT NULL DEFAULT 0,
+                fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                fecha_respuesta DATETIME NULL,
+                INDEX idx_destinataria_estado (id_destinataria, estado),
+                INDEX idx_emisor_notificado (id_emisor, notificado_emisor)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+    }
+
+    public static function crearInvitacionPareja(int $idEmisor, int $idDestinataria): bool
+    {
+        try {
+            $db = new Database();
+            self::asegurarTablaInvitacionPareja($db);
+            $db->CRUD(
+                "UPDATE perfil_invitacion_pareja
+                    SET estado = 'cerrada', fecha_respuesta = NOW()
+                  WHERE id_emisor = :id_emisor AND id_destinataria = :id_destinataria AND estado = 'pendiente'",
+                ['id_emisor' => $idEmisor, 'id_destinataria' => $idDestinataria]
+            );
+            $db->CRUD(
+                "INSERT INTO perfil_invitacion_pareja (id_emisor, id_destinataria, estado)
+                 VALUES (:id_emisor, :id_destinataria, 'pendiente')",
+                ['id_emisor' => $idEmisor, 'id_destinataria' => $idDestinataria]
+            );
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    public static function getInvitacionParejaPendiente(int $idDestinataria): ?array
+    {
+        try {
+            $db = new Database();
+            self::asegurarTablaInvitacionPareja($db);
+            return $db->queryOne(
+                "SELECT id FROM perfil_invitacion_pareja
+                  WHERE id_destinataria = :id_destinataria AND estado = 'pendiente'
+                  ORDER BY id DESC LIMIT 1",
+                ['id_destinataria' => $idDestinataria]
+            );
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    public static function responderInvitacionPareja(int $idInvitacion, int $idDestinataria, string $estado): bool
+    {
+        if (!in_array($estado, ['aceptada', 'cerrada'], true)) {
+            return false;
+        }
+        try {
+            $db = new Database();
+            self::asegurarTablaInvitacionPareja($db);
+            $db->CRUD(
+                "UPDATE perfil_invitacion_pareja
+                    SET estado = :estado, fecha_respuesta = NOW(), notificado_emisor = 0
+                  WHERE id = :id AND id_destinataria = :id_destinataria AND estado = 'pendiente'",
+                ['estado' => $estado, 'id' => $idInvitacion, 'id_destinataria' => $idDestinataria]
+            );
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    public static function consumirRespuestasInvitacionPareja(int $idEmisor): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarTablaInvitacionPareja($db);
+            $rows = $db->queryAll(
+                "SELECT id, estado FROM perfil_invitacion_pareja
+                  WHERE id_emisor = :id_emisor AND estado IN ('aceptada', 'cerrada') AND notificado_emisor = 0
+                  ORDER BY id ASC",
+                ['id_emisor' => $idEmisor]
+            ) ?: [];
+            if ($rows) {
+                $ids = array_map(static fn ($row) => (int) $row['id'], $rows);
+                $params = [];
+                $marks = [];
+                foreach ($ids as $index => $id) {
+                    $key = 'id_' . $index;
+                    $marks[] = ':' . $key;
+                    $params[$key] = $id;
+                }
+                $db->CRUD('UPDATE perfil_invitacion_pareja SET notificado_emisor = 1 WHERE id IN (' . implode(',', $marks) . ')', $params);
+            }
+            return $rows;
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    public static function eliminarNotificacionesInvitacionPareja(int $idPersona): void
+    {
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "DELETE FROM notificacion WHERE id_persona = :id_persona AND tipo LIKE 'invitacion_pareja%'",
+                ['id_persona' => $idPersona]
+            );
+        } catch (\Exception $e) {
+            // Esta limpieza no debe afectar el flujo de invitacion directa.
+        }
+    }
+
+    /**
+     * Busca colaboradores por el inicio de su nombre completo sin guardar IDs
+     * de personas directamente en el codigo.
+     */
+    public static function buscarPersonasPorNombreInicio(string $nombre): array
+    {
+        $nombre = strtoupper(trim(preg_replace('/\s+/', ' ', $nombre)));
+        if ($nombre === '') {
+            return [];
+        }
+
+        try {
+            $db = new Database();
+            return $db->queryAll(
+                "SELECT id, TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre_completo
+                   FROM persona
+                  WHERE UPPER(TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom))) LIKE :nombre
+                  ORDER BY id ASC
+                  LIMIT 5",
+                ['nombre' => $nombre . '%']
+            ) ?: [];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
     /**
      * Obtiene datos de persona por id (tabla persona, __SPARTA_SECRET_REDACTED__).
      */
