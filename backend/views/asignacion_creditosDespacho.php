@@ -1620,7 +1620,12 @@ function buscarCredito() {
             // Limpiar campo de búsqueda
             document.getElementById('idCredito').value = '';
         } else {
-            Swal.fire('No encontrado', `${idCredito} CREDITO NO EXISTENTE`, 'warning');
+            const servicioNoDisponible = data && data.error_type === 'service_unavailable';
+            Swal.fire(
+                servicioNoDisponible ? 'Servicio no disponible' : 'No encontrado',
+                (data && data.message) ? data.message : `No se encontro el credito ${idCredito}`,
+                servicioNoDisponible ? 'error' : 'warning'
+            );
         }
     })
     .catch(error => {

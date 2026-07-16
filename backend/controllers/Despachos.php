@@ -187,10 +187,20 @@ class Despachos extends Controller
                     'message' => 'Crédito no encontrado'
                 ]);
             }
-        } catch (\Exception $e) {
+        } catch (\RuntimeException $e) {
+            http_response_code(503);
             echo json_encode([
                 'success' => false,
-                'message' => 'Error al buscar crédito: ' . $e->getMessage()
+                'message' => $e->getMessage(),
+                'error_type' => 'service_unavailable'
+            ]);
+        } catch (\Throwable $e) {
+            error_log('Error inesperado al buscar credito: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Ocurrio un error inesperado al buscar el credito.',
+                'error_type' => 'internal_error'
             ]);
         }
     }
