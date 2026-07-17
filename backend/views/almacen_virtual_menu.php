@@ -217,6 +217,60 @@ $modulosAlmacenVirtual = [
     flex-shrink: 0;
     font-size: 1.05rem;
 }
+body.dark-mode #av-menu {
+    color: #e2e8f0;
+}
+body.dark-mode #av-menu .av-menu-head,
+body.dark-mode #av-menu .av-roadmap-strip {
+    background: #172033;
+    border-color: #334155;
+    box-shadow: 0 .35rem 1rem rgba(2, 6, 23, .18);
+}
+body.dark-mode #av-menu .av-menu-head-icon {
+    background: #0c4a6e;
+    color: #7dd3fc;
+}
+body.dark-mode #av-menu .av-eyebrow {
+    color: #7dd3fc;
+}
+body.dark-mode #av-menu .av-menu-head h4,
+body.dark-mode #av-menu .av-roadmap-title,
+body.dark-mode #av-menu .av-module-card h5 {
+    color: #f8fafc;
+}
+body.dark-mode #av-menu .text-muted,
+body.dark-mode #av-menu .av-module-card .text-muted {
+    color: #b6c2d2 !important;
+}
+body.dark-mode #av-menu .av-roadmap-strip .badge {
+    background: #172554 !important;
+    color: #93c5fd !important;
+    border: 1px solid #1d4ed8;
+}
+body.dark-mode #av-menu .av-module-card,
+body.dark-mode #av-menu .av-module-card.is-roadmap {
+    background: #1e293b;
+    border-color: #3b4a60;
+}
+body.dark-mode #av-menu .av-module-card.is-active {
+    border-color: #496582;
+}
+body.dark-mode #av-menu .av-module-card:hover {
+    border-color: #60a5fa;
+    box-shadow: 0 .55rem 1.25rem rgba(2, 6, 23, .35) !important;
+}
+body.dark-mode #av-menu .av-module-card .btn-secondary,
+body.dark-mode #av-menu .av-module-card .btn-dark,
+body.dark-mode #av-menu .av-module-card .btn-label-secondary {
+    background: #334155;
+    border-color: #475569;
+    color: #f8fafc;
+}
+body.dark-mode #av-menu .av-module-card .btn-secondary:hover,
+body.dark-mode #av-menu .av-module-card .btn-dark:hover {
+    background: #475569;
+    border-color: #64748b;
+}
 @media (max-width: 575.98px) {
     #av-menu .av-roadmap-strip {
         align-items: flex-start;

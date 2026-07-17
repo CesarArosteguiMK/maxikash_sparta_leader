@@ -1,3 +1,5 @@
+<link rel="stylesheet" href="/assets/css/almacen-virtual-dark.css?v=20260716">
+
 <style>
     .avmigrado-shell {
         min-height: 60vh;

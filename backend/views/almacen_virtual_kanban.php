@@ -1,5 +1,7 @@
 <?php $puedeOverrideKanban = !empty($av_kanban_puede_override); ?>
 
+<link rel="stylesheet" href="/assets/css/almacen-virtual-dark.css?v=20260716">
+
 <style>
     .avk-shell {
         display: flex;

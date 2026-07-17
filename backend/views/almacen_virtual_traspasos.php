@@ -2,6 +2,8 @@
 $titulo = 'Traspasos';
 ?>
 
+<link rel="stylesheet" href="/assets/css/almacen-virtual-dark.css?v=20260716">
+
 <div id="avt" class="container-fluid py-3 px-3 px-md-4">
     <div class="avt-head mb-3">
         <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-center">

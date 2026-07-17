@@ -1,3 +1,5 @@
+<link rel="stylesheet" href="/assets/css/almacen-virtual-dark.css?v=20260716">
+
 <style>
     .avr-shell {
         display: flex;
@@ -129,6 +131,7 @@
         white-space: nowrap;
     }
     .avr-status-pendiente_recepcion { background: #fef3c7; color: #92400e; }
+    .avr-status-pendiente_entrega_cedis { background: #dbeafe; color: #1d4ed8; }
     .avr-status-en_recepcion { background: #dbeafe; color: #1d4ed8; }
     .avr-status-incidencia_recepcion { background: #fee2e2; color: #991b1b; }
     .avr-status-pendiente_revision { background: #f3e8ff; color: #7e22ce; }

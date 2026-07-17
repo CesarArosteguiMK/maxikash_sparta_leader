@@ -1,0 +1,736 @@
+body.dark-mode {
+    --avd-surface: #1e293b;
+    --avd-surface-elevated: #172033;
+    --avd-surface-soft: #111827;
+    --avd-border: #3b4a60;
+    --avd-border-strong: #526176;
+    --avd-text: #f8fafc;
+    --avd-text-soft: #d7e0eb;
+    --avd-muted: #aebccd;
+}
+
+body.dark-mode :is(
+    .av-shell,
+    .avr-shell,
+    .avm-shell,
+    .avk-shell,
+    #avp,
+    #avt,
+    .ave-shell,
+    .avmigrado-shell
+) {
+    color: var(--avd-text-soft);
+}
+
+body.dark-mode :is(
+    .av-shell,
+    .avr-shell,
+    .avm-shell,
+    .avk-shell,
+    #avp,
+    #avt,
+    .ave-shell,
+    .avmigrado-shell
+) :is(h1, h2, h3, h4, h5, h6) {
+    color: var(--avd-text);
+}
+
+body.dark-mode :is(
+    .av-shell,
+    .avr-shell,
+    .avm-shell,
+    .avk-shell,
+    #avp,
+    #avt,
+    .ave-shell,
+    .avmigrado-shell
+) .text-muted {
+    color: var(--avd-muted) !important;
+}
+
+body.dark-mode :is(
+    .av-head,
+    .avr-head,
+    .avm-head,
+    .avk-head,
+    #avp .avp-head,
+    #avt .avt-head,
+    .ave-head,
+    .avmigrado-panel
+) {
+    background: var(--avd-surface-elevated);
+    border-color: var(--avd-border);
+    box-shadow: 0 .4rem 1rem rgba(2, 6, 23, .2);
+}
+
+body.dark-mode :is(
+    .av-kpi,
+    .avr-kpi,
+    .avm-kpi,
+    #avp .avp-kpi,
+    #avt .avt-kpi,
+    .ave-kpi,
+    .av-toolbar,
+    .avr-toolbar,
+    .avm-toolbar,
+    .avk-toolbar,
+    #avp .avp-filters,
+    .ave-toolbar,
+    .av-table-wrap,
+    .avr-table-wrap,
+    .avm-table-wrap,
+    #avp .avp-table-wrap,
+    #avt .avt-panel,
+    .ave-table-wrap,
+    .avk-board-wrap,
+    .avk-summary-chip,
+    .avk-ficha-block
+) {
+    background: var(--avd-surface);
+    border-color: var(--avd-border);
+}
+
+body.dark-mode :is(
+    .av-kpi-value,
+    .avr-kpi-value,
+    .avm-kpi-value,
+    #avp .avp-kpi-value,
+    #avt .avt-kpi-value,
+    .ave-kpi-value,
+    .avk-summary-chip strong,
+    .av-unit-main,
+    .avr-unit-main,
+    .avm-unit-main,
+    .ave-unit-main
+) {
+    color: var(--avd-text);
+}
+
+body.dark-mode :is(
+    .av-kpi-label,
+    .avr-kpi-label,
+    .avm-kpi-label,
+    .ave-kpi-label,
+    .av-sync-status,
+    .avr-sync-status,
+    .ave-sync-status,
+    .av-unit-sub,
+    .avr-unit-sub,
+    .avm-unit-sub,
+    .ave-unit-sub,
+    .av-empty,
+    .avr-empty,
+    .avm-empty,
+    .avk-empty,
+    .ave-empty,
+    .avk-summary-chip span,
+    #avp .avp-eyebrow,
+    #avt .avt-eyebrow
+) {
+    color: var(--avd-muted);
+}
+
+body.dark-mode :is(
+    .av-datatable-controls,
+    .avr-datatable-controls,
+    .avm-datatable-controls,
+    #avp .avp-datatable-controls,
+    .ave-datatable-controls,
+    .av-datatable-footer,
+    .avr-datatable-footer,
+    .avm-datatable-footer,
+    #avp .avp-datatable-footer,
+    #avt .avt-footer,
+    .ave-datatable-footer,
+    #avt .avt-panel-head,
+    #avt .avt-filters
+) {
+    background: var(--avd-surface);
+    border-color: var(--avd-border);
+}
+
+body.dark-mode :is(
+    .av-datatable-controls,
+    .avr-datatable-controls,
+    .avm-datatable-controls,
+    #avp .avp-datatable-controls,
+    .ave-datatable-controls,
+    .av-datatable-footer,
+    .avr-datatable-footer,
+    .avm-datatable-footer,
+    #avp .avp-datatable-footer,
+    #avt .avt-footer,
+    .ave-datatable-footer
+) :is(label, .dataTables_info) {
+    color: var(--avd-muted);
+}
+
+body.dark-mode :is(
+    .av-table,
+    .avr-table,
+    .avm-table,
+    .avk-shell .table,
+    #avp .avp-table,
+    #avt .avt-table,
+    .ave-table
+) {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--avd-text-soft);
+    --bs-table-border-color: var(--avd-border);
+    --bs-table-hover-bg: #263449;
+    --bs-table-hover-color: var(--avd-text);
+    color: var(--avd-text-soft);
+    border-color: var(--avd-border);
+}
+
+body.dark-mode :is(
+    .av-table,
+    .avr-table,
+    .avm-table,
+    .avk-shell .table,
+    #avp .avp-table,
+    #avt .avt-table,
+    .ave-table
+) thead th {
+    background: var(--avd-surface-soft);
+    border-color: var(--avd-border);
+    color: #b8c6d8;
+}
+
+body.dark-mode :is(
+    .av-table,
+    .avr-table,
+    .avm-table,
+    .avk-shell .table,
+    #avp .avp-table,
+    #avt .avt-table,
+    .ave-table
+) tbody td {
+    background: var(--avd-surface);
+    border-color: var(--avd-border);
+    color: var(--avd-text-soft);
+}
+
+body.dark-mode :is(
+    .av-shell,
+    .avr-shell,
+    .avm-shell,
+    .avk-shell,
+    #avp,
+    #avt,
+    .ave-shell,
+    #av-modal-ficha,
+    #avr-modal-recepcion,
+    #avm-modal-revision,
+    #avk-modal-ficha,
+    #avk-modal-venta,
+    #avk-modal-override,
+    #avt-create-modal,
+    #avt-receive-modal,
+    #ave-modal-evidencias
+) :is(.form-control, .form-select, .input-group-text) {
+    background-color: var(--avd-surface-soft);
+    border-color: var(--avd-border-strong);
+    color: var(--avd-text);
+}
+
+body.dark-mode :is(
+    .av-shell,
+    .avr-shell,
+    .avm-shell,
+    .avk-shell,
+    #avp,
+    #avt,
+    .ave-shell,
+    #av-modal-ficha,
+    #avr-modal-recepcion,
+    #avm-modal-revision,
+    #avk-modal-ficha,
+    #avk-modal-venta,
+    #avk-modal-override,
+    #avt-create-modal,
+    #avt-receive-modal,
+    #ave-modal-evidencias
+) :is(.form-control, .form-select):focus {
+    background-color: #0f172a;
+    border-color: #60a5fa;
+    color: var(--avd-text);
+    box-shadow: 0 0 0 .2rem rgba(59, 130, 246, .18);
+}
+
+body.dark-mode :is(
+    .av-shell,
+    .avr-shell,
+    .avm-shell,
+    .avk-shell,
+    #avp,
+    #avt,
+    .ave-shell,
+    #av-modal-ficha,
+    #avr-modal-recepcion,
+    #avm-modal-revision,
+    #avk-modal-ficha,
+    #avk-modal-venta,
+    #avk-modal-override,
+    #avt-create-modal,
+    #avt-receive-modal,
+    #ave-modal-evidencias
+) .form-control::placeholder {
+    color: #75859a;
+}
+
+body.dark-mode :is(
+    .av-shell,
+    .avr-shell,
+    .avm-shell,
+    .avk-shell,
+    #avp,
+    #avt,
+    .ave-shell,
+    #av-modal-ficha,
+    #avr-modal-recepcion,
+    #avm-modal-revision,
+    #avk-modal-ficha,
+    #avk-modal-venta,
+    #avk-modal-override,
+    #avt-create-modal,
+    #avt-receive-modal,
+    #ave-modal-evidencias
+) :is(.form-label, .form-check-label) {
+    color: var(--avd-text-soft);
+}
+
+body.dark-mode :is(
+    .av-shell,
+    .avr-shell,
+    .avm-shell,
+    .avk-shell,
+    #avp,
+    #avt,
+    .ave-shell,
+    .avmigrado-shell
+) :is(.btn-label-secondary, .btn-outline-secondary) {
+    background: #29384d;
+    border-color: #526176;
+    color: var(--avd-text);
+}
+
+body.dark-mode :is(
+    .av-shell,
+    .avr-shell,
+    .avm-shell,
+    .avk-shell,
+    #avp,
+    #avt,
+    .ave-shell,
+    .avmigrado-shell
+) :is(.btn-label-secondary, .btn-outline-secondary):hover {
+    background: #3b4a60;
+    border-color: #64748b;
+    color: #fff;
+}
+
+body.dark-mode :is(
+    .av-shell,
+    .avr-shell,
+    .avm-shell,
+    .avk-shell,
+    #avp,
+    #avt,
+    .ave-shell
+) .page-link {
+    background: var(--avd-surface-soft);
+    border-color: var(--avd-border);
+    color: #bfdbfe;
+}
+
+body.dark-mode :is(
+    .av-shell,
+    .avr-shell,
+    .avm-shell,
+    .avk-shell,
+    #avp,
+    #avt,
+    .ave-shell
+) .page-item.active .page-link {
+    background: #2563eb;
+    border-color: #3b82f6;
+    color: #fff;
+}
+
+body.dark-mode :is(.av-head-icon, .av-menu-head-icon) {
+    background: #0c4a6e;
+    color: #7dd3fc;
+}
+body.dark-mode .avr-head-icon,
+body.dark-mode #avp .avp-head-icon {
+    background: #064e3b;
+    color: #6ee7b7;
+}
+body.dark-mode .avm-head-icon {
+    background: #4c1d24;
+    color: #fca5a5;
+}
+body.dark-mode .avk-head-icon {
+    background: #312e81;
+    color: #c7d2fe;
+}
+body.dark-mode #avt .avt-head-icon,
+body.dark-mode :is(.ave-head-icon, .avmigrado-icon) {
+    background: #431407;
+    color: #fdba74;
+}
+
+body.dark-mode :is(
+    .av-ficha-hero,
+    .av-ficha-section,
+    .av-ficha-timeline-wrap,
+    .av-ficha-kv,
+    .av-ficha-list-item
+) {
+    background: var(--avd-surface-soft);
+    border-color: var(--avd-border);
+}
+body.dark-mode :is(
+    .av-ficha-title,
+    .av-ficha-section-title,
+    .av-ficha-kv .value,
+    .av-ficha-list-title,
+    .av-ficha-step-label
+) {
+    color: var(--avd-text);
+}
+body.dark-mode :is(
+    .av-ficha-moto,
+    .av-ficha-kv .label,
+    .av-ficha-list-meta,
+    .av-ficha-step-status
+) {
+    color: var(--avd-muted);
+}
+body.dark-mode .av-ficha-timeline::before {
+    background: #475569;
+}
+body.dark-mode .av-ficha-step-dot {
+    background: var(--avd-surface);
+    border-color: #64748b;
+    color: #cbd5e1;
+}
+
+body.dark-mode :is(
+    .avr-modal-summary,
+    .avr-review-panel,
+    .avr-cedis-lock,
+    .avr-formulario-item,
+    .avr-evidence-cell,
+    .avr-evidence-empty,
+    .avm-modal-summary,
+    .avm-section,
+    .avm-check-row,
+    .avm-reception-item,
+    .ave-modal-summary,
+    .ave-file-card,
+    .ave-form-section,
+    .ave-category-option
+) {
+    background: var(--avd-surface-soft);
+    border-color: var(--avd-border);
+}
+body.dark-mode :is(
+    .avr-review-title,
+    .avr-formulario-item .value,
+    .avr-cedis-lock .value,
+    .avm-section-title,
+    .avm-check-row .form-check-label,
+    .ave-section-title
+) {
+    color: var(--avd-text);
+}
+body.dark-mode :is(
+    .avr-formulario-item .label,
+    .avr-cedis-lock .label,
+    .avr-evidence-cell .meta,
+    .avm-reception-item strong,
+    .ave-file-hint
+) {
+    color: var(--avd-muted);
+}
+body.dark-mode .avr-evidence-cell img {
+    background: #0f172a;
+}
+body.dark-mode .avr-otp-panel {
+    background: #102a46;
+    border-color: #2563eb;
+}
+body.dark-mode .avr-otp-panel.is-empty {
+    background: var(--avd-surface-soft);
+    border-color: var(--avd-border);
+}
+body.dark-mode .avr-otp-label {
+    color: #93c5fd;
+}
+body.dark-mode .avr-otp-code {
+    color: var(--avd-text);
+}
+body.dark-mode .avr-otp-meta {
+    color: #cbd5e1;
+}
+body.dark-mode .avr-otp-chip {
+    background: #172554;
+    color: #93c5fd;
+}
+
+body.dark-mode .avk-column {
+    background: var(--avd-surface-soft);
+    border-color: var(--avd-border);
+}
+body.dark-mode .avk-column-head {
+    border-color: var(--avd-border);
+}
+body.dark-mode :is(.avk-column-title, .avk-card-title, .avk-card-meta strong, .avk-ficha-title, .avk-timeline-item strong) {
+    color: var(--avd-text);
+}
+body.dark-mode :is(.avk-card-sub, .avk-card-meta span, .avk-timeline-item span) {
+    color: var(--avd-muted);
+}
+body.dark-mode :is(.avk-count, .avk-card) {
+    background: var(--avd-surface);
+    border-color: var(--avd-border);
+}
+body.dark-mode .avk-card {
+    box-shadow: 0 .4rem .9rem rgba(2, 6, 23, .25);
+}
+body.dark-mode :is(.avk-card-media, .avk-card-fallback, .avk-card-meta) {
+    background: #172033;
+    border-color: var(--avd-border);
+}
+body.dark-mode .avk-card-fallback {
+    color: #8291a6;
+}
+body.dark-mode .avk-timeline-item {
+    border-color: #64748b;
+}
+body.dark-mode .avk-color-purple { color: #d8b4fe; }
+body.dark-mode .avk-color-blue { color: #7dd3fc; }
+body.dark-mode .avk-color-green { color: #86efac; }
+body.dark-mode .avk-color-red { color: #fca5a5; }
+body.dark-mode .avk-color-gray { color: #cbd5e1; }
+body.dark-mode .avk-color-teal { color: #99f6e4; }
+body.dark-mode .avk-color-orange { color: #fdba74; }
+
+body.dark-mode :is(#avp .avp-thumb, #avp .avp-thumb-empty, #avt .avt-thumb, #avt .avt-thumb-empty) {
+    background: var(--avd-surface-soft);
+    color: #8291a6;
+}
+body.dark-mode #avt .avt-panel-head {
+    border-color: var(--avd-border);
+}
+
+body.dark-mode .ave-code-box {
+    background: #3b270c;
+    border-color: #d97706;
+}
+body.dark-mode .ave-code-value {
+    color: #fbbf24;
+}
+body.dark-mode .ave-file-card.optional {
+    background: #172033;
+}
+body.dark-mode .avmigrado-flow {
+    background: var(--avd-surface-soft);
+    border-color: var(--avd-border);
+}
+body.dark-mode .avmigrado-step {
+    color: var(--avd-text-soft);
+}
+body.dark-mode .avmigrado-step i {
+    background: #172554;
+    color: #93c5fd;
+}
+
+body.dark-mode :is(
+    #av-modal-ficha,
+    #avr-modal-recepcion,
+    #avm-modal-revision,
+    #avk-modal-ficha,
+    #avk-modal-venta,
+    #avk-modal-override,
+    #avt-create-modal,
+    #avt-receive-modal,
+    #ave-modal-evidencias
+) .modal-content {
+    background: var(--avd-surface-elevated);
+    border: 1px solid var(--avd-border);
+    color: var(--avd-text-soft);
+}
+body.dark-mode :is(
+    #av-modal-ficha,
+    #avr-modal-recepcion,
+    #avm-modal-revision,
+    #avk-modal-ficha,
+    #avk-modal-venta,
+    #avk-modal-override,
+    #avt-create-modal,
+    #avt-receive-modal,
+    #ave-modal-evidencias
+) :is(.modal-header, .modal-footer) {
+    border-color: var(--avd-border);
+}
+body.dark-mode :is(
+    #av-modal-ficha,
+    #avr-modal-recepcion,
+    #avm-modal-revision,
+    #avk-modal-ficha,
+    #avk-modal-venta,
+    #avk-modal-override,
+    #avt-create-modal,
+    #avt-receive-modal,
+    #ave-modal-evidencias
+) :is(.modal-title, h5, h6) {
+    color: var(--avd-text);
+}
+body.dark-mode :is(
+    #av-modal-ficha,
+    #avr-modal-recepcion,
+    #avm-modal-revision,
+    #avk-modal-ficha,
+    #avk-modal-venta,
+    #avk-modal-override,
+    #avt-create-modal,
+    #avt-receive-modal,
+    #ave-modal-evidencias
+) .text-muted {
+    color: var(--avd-muted) !important;
+}
+body.dark-mode :is(
+    #av-modal-ficha,
+    #avr-modal-recepcion,
+    #avm-modal-revision,
+    #avk-modal-ficha,
+    #avk-modal-venta,
+    #avk-modal-override,
+    #avt-create-modal,
+    #avt-receive-modal,
+    #ave-modal-evidencias
+) :is(.border, .border-top, .border-bottom) {
+    border-color: var(--avd-border) !important;
+}
+body.dark-mode :is(
+    #av-modal-ficha,
+    #avr-modal-recepcion,
+    #avm-modal-revision,
+    #avk-modal-ficha,
+    #avk-modal-venta,
+    #avk-modal-override,
+    #avt-create-modal,
+    #avt-receive-modal,
+    #ave-modal-evidencias
+) .btn-close {
+    filter: invert(1) grayscale(100%) brightness(180%);
+}
+body.dark-mode :is(
+    #av-modal-ficha,
+    #avr-modal-recepcion,
+    #avm-modal-revision,
+    #avk-modal-ficha,
+    #avk-modal-venta,
+    #avk-modal-override,
+    #avt-create-modal,
+    #avt-receive-modal,
+    #ave-modal-evidencias
+) .btn-label-secondary {
+    background: #29384d;
+    border-color: #526176;
+    color: var(--avd-text);
+}
+body.dark-mode :is(
+    #av-modal-ficha,
+    #avr-modal-recepcion,
+    #avm-modal-revision,
+    #avk-modal-ficha,
+    #avk-modal-venta,
+    #avk-modal-override,
+    #avt-create-modal,
+    #avt-receive-modal,
+    #ave-modal-evidencias
+) .btn-label-secondary:hover {
+    background: #3b4a60;
+    border-color: #64748b;
+    color: #fff;
+}
+
+body.dark-mode :is(
+    .av-status-pendiente_evidencias,
+    .av-status-pendiente_recepcion,
+    .avr-status-pendiente_recepcion,
+    .ave-status-pendiente_evidencias,
+    .avk-history-badge.warning,
+    .avk-sla-atencion
+) { background: #422006; color: #fde68a; }
+
+body.dark-mode :is(
+    .av-status-incidencia_evidencias,
+    .av-status-incidencia_recepcion,
+    .av-status-fuera_presupuesto,
+    .avr-status-incidencia_recepcion,
+    .avm-status-fuera_presupuesto,
+    .ave-status-incidencia_evidencias,
+    .avk-history-badge.danger,
+    .avk-sla-vencido
+) { background: #4c1d24; color: #fca5a5; }
+
+body.dark-mode :is(
+    .av-status-pendiente_entrega_cedis,
+    .av-status-en_recepcion,
+    .avr-status-pendiente_entrega_cedis,
+    .avr-status-en_recepcion,
+    .ave-status-pendiente_entrega_cedis,
+    .avk-history-badge.info
+) { background: #172554; color: #93c5fd; }
+
+body.dark-mode :is(
+    .av-status-pendiente_revision,
+    .avr-status-pendiente_revision,
+    .avm-status-pendiente_revision
+) { background: #3b1d5c; color: #d8b4fe; }
+
+body.dark-mode :is(
+    .av-status-en_revision,
+    .avm-status-en_revision
+) { background: #0c4a6e; color: #7dd3fc; }
+
+body.dark-mode :is(
+    .av-status-recolectada,
+    .av-status-recolectado,
+    .av-status-completado,
+    .av-status-completada,
+    .av-status-reparada,
+    .avr-status-recolectada,
+    .avr-status-recolectado,
+    .avr-status-completado,
+    .avr-status-completada,
+    .avm-status-recolectada,
+    .avm-status-recolectado,
+    .avm-status-completado,
+    .avm-status-completada,
+    .avm-status-reparada,
+    .ave-status-pendiente_recepcion,
+    .ave-status-recolectada,
+    .ave-status-recolectado,
+    .ave-status-completado,
+    .ave-status-completada,
+    .avk-history-badge.success,
+    .avk-sla-normal
+) { background: #064e3b; color: #86efac; }
+
+body.dark-mode :is(
+    .av-status-irreparable,
+    .avm-status-irreparable
+) { background: #334155; color: #cbd5e1; }
+
+body.dark-mode .av-status-lista_venta { background: #134e4a; color: #99f6e4; }
+body.dark-mode .av-status-en_traspaso { background: #431407; color: #fdba74; }
+body.dark-mode :is(.av-status-default, .avr-status-default, .avm-status-default, .ave-status-default) {
+    background: #312e81;
+    color: #c7d2fe;
+}

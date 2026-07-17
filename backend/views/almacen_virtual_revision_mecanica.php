@@ -2,6 +2,8 @@
 $checklistRevision = is_array($av_revision_checklist ?? null) ? $av_revision_checklist : [];
 ?>
 
+<link rel="stylesheet" href="/assets/css/almacen-virtual-dark.css?v=20260716">
+
 <style>
     .avm-shell {
         display: flex;

@@ -1,3 +1,5 @@
+<link rel="stylesheet" href="/assets/css/almacen-virtual-dark.css?v=20260716">
+
 <style>
     .ave-shell {
         display: flex;
@@ -130,6 +132,7 @@
         white-space: nowrap;
     }
     .ave-status-pendiente_evidencias { background: #fef3c7; color: #92400e; }
+    .ave-status-pendiente_entrega_cedis { background: #dbeafe; color: #1d4ed8; }
     .ave-status-incidencia_evidencias { background: #fee2e2; color: #991b1b; }
     .ave-status-pendiente_recepcion { background: #dcfce7; color: #15803d; }
     .ave-status-recolectada,

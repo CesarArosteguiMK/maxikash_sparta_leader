@@ -2,6 +2,8 @@
 $titulo = 'Piso de Venta';
 ?>
 
+<link rel="stylesheet" href="/assets/css/almacen-virtual-dark.css?v=20260716">
+
 <div id="avp" class="container-fluid py-3 px-3 px-md-4">
     <div class="avp-head mb-3">
         <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-center">
