@@ -7194,10 +7194,16 @@ class CapHum extends Model
         $departamento = "LOWER(CONVERT(COALESCE(NULLIF(TRIM(pdr.departamento_texto), ''), dep.nombre, '') USING utf8mb4)) COLLATE utf8mb4_general_ci";
 
         return "
-                  AND $direccion LIKE '%administracion%finanzas%'
-                  AND $area LIKE '%recursos%humanos%'
-                  AND $departamento NOT LIKE '%servicios%generales%'
-                  AND $departamento NOT LIKE '%mantenimiento%'
+                  AND (
+                      (
+                          $direccion LIKE '%administracion%finanzas%'
+                          AND $area LIKE '%recursos%humanos%'
+                          AND $departamento NOT LIKE '%servicios%generales%'
+                          AND $departamento NOT LIKE '%mantenimiento%'
+                      )
+                      -- Miembro adicional autorizado para administrar accesos sin cambiar su adscripción laboral.
+                      OR p.id IN (1090)
+                  )
         ";
     }
 

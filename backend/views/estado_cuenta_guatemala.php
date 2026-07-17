@@ -5,6 +5,9 @@ date_default_timezone_set('America/Mexico_City');
    Helpers locales
    ---------------------- */
 function format_currency($v) {
+    if ($v === null || $v === '') {
+        return '—';
+    }
     return 'Q' . number_format((float)$v, 2, '.', ',');
 }
 function format_date($d, $fallback = '—') {
@@ -101,7 +104,6 @@ if (!empty($apiSaldos) && is_array($apiSaldos)) {
             break;
         }
     }
-    if (empty($saldoGT)) $saldoGT = $apiSaldos[0] ?? [];
 }
 
 /* ----------- CROOP API: Tabla de amortización (Bandera=401) ----------- */
@@ -1009,6 +1011,17 @@ $paisNombre = $paisData['nombre_pais'] ?? 'México';
 $paisActivo = $paisData['pais_activo'] ?? 1;
 $clasePais = strtolower($paisCodigo) === 'gt' ? 'pais-guatemala' : 'pais-' . strtolower($paisCodigo);
 $colorBanner = strtolower($paisCodigo) === 'gt' ? '#4997d0' : '#d32f2f';
+$datosFinancierosDisponibles = !empty($debugCroop['datos_financieros_disponibles']);
+$mensajeFinancieroNoDisponible = trim((string) ($debugCroop['error'] ?? ''));
+$mostrarMontoFinanciero = static function ($valor) use ($datosFinancierosDisponibles): string {
+    return $datosFinancierosDisponibles ? format_currency($valor) : '—';
+};
+$mostrarCantidadFinanciera = static function ($valor, string $sufijo = '') use ($datosFinancierosDisponibles): string {
+    return $datosFinancierosDisponibles ? htmlspecialchars((string) $valor) . $sufijo : '—';
+};
+$mostrarFechaFinanciera = static function ($valor) use ($datosFinancierosDisponibles): string {
+    return $datosFinancierosDisponibles ? format_date($valor) : '—';
+};
 $gradienteBanner = strtolower($paisCodigo) === 'gt'
     ? 'linear-gradient(135deg, rgba(227, 242, 253, 0.95) 0%, rgba(255, 255, 255, 0.92) 100%)'
     : 'linear-gradient(135deg, rgba(255, 235, 238, 0.95) 0%, rgba(255, 255, 255, 0.92) 100%)';
@@ -1066,6 +1079,22 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
       </div>
     </div>
   </div>
+
+  <?php if (!$datosFinancierosDisponibles): ?>
+  <div class="col-12 mb-3">
+    <div class="alert alert-warning d-flex align-items-start gap-2 mb-0" role="alert">
+      <i class="fa-solid fa-triangle-exclamation mt-1"></i>
+      <div>
+        <strong>Consulta financiera temporalmente no disponible.</strong>
+        Los datos generales del crédito se cargaron desde Guatemala, pero CROOP no devolvió saldos, cuotas ni movimientos.
+        No interpretes los valores vacíos o en cero como datos financieros reales.
+        <?php if ($mensajeFinancieroNoDisponible !== ''): ?>
+          <span class="d-block small mt-1"><?= htmlspecialchars($mensajeFinancieroNoDisponible) ?></span>
+        <?php endif; ?>
+      </div>
+    </div>
+  </div>
+  <?php endif; ?>
 
   <!-- SIDEBAR CLIENTE -->
   <div class="col-xl-4 col-lg-5 order-1 order-lg-0 sidebar-cliente">
@@ -1135,7 +1164,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                             </div>
                         </div>
                         <div class="text-end text-truncate">
-                            <h5 class="mb-0 text-truncate"><?= format_currency($dataOtrosDatos["saldoTotalVencido"] ?? 0) ?></h5>
+                            <h5 class="mb-0 text-truncate"><?= $mostrarMontoFinanciero($dataOtrosDatos["saldoTotalVencido"] ?? null) ?></h5>
                             <span class="small">Saldo Total Vencido</span>
                         </div>
                     </div>
@@ -1148,70 +1177,70 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                         <i class="fa fa-money-bill fa-lg"></i>
                         <div class="info-label">
                             <span class="fw-medium">Monto Otorgado:</span>
-                            <span>Q<?= number_format($dataEstadoCuenta["montoOtorgado"] ?? 0, 2, '.', ',') ?></span>
+                            <span><?= $mostrarMontoFinanciero($dataEstadoCuenta["montoOtorgado"] ?? null) ?></span>
                         </div>
                     </li>
                     <li>
                         <i class="fa fa-money-bill-wave fa-lg"></i>
                         <div class="info-label">
                             <span class="fw-medium">Saldo Total Pagado:</span>
-                            <span><?= format_currency((float)($dataEstadoCuenta["montoOtorgado"] ?? 0) - (float)($dataOtrosDatos["saldoTotalVigente"] ?? 0)) ?></span>
+                            <span><?= $datosFinancierosDisponibles ? $mostrarMontoFinanciero((float)($dataEstadoCuenta["montoOtorgado"] ?? 0) - (float)($dataOtrosDatos["saldoTotalVigente"] ?? 0)) : '—' ?></span>
                         </div>
                     </li>
                     <li>
                         <i class="fa fa-list-ol fa-lg"></i>
                         <div class="info-label">
                             <span class="fw-medium">Cuotas Contratadas:</span>
-                            <span><?= htmlspecialchars($dataOtrosDatos["cuotasContratadas"] ?? '') ?> cuotas</span>
+                            <span><?= $mostrarCantidadFinanciera($dataOtrosDatos["cuotasContratadas"] ?? '', ' cuotas') ?></span>
                         </div>
                     </li>
                     <li>
                         <i class="fa fa-check-circle fa-lg"></i>
                         <div class="info-label">
                             <span class="fw-medium">Cuotas Pagadas:</span>
-                            <span><?= htmlspecialchars($dataOtrosDatos["cuotasPagadas"] ?? '') ?> cuotas</span>
+                            <span><?= $mostrarCantidadFinanciera($dataOtrosDatos["cuotasPagadas"] ?? '', ' cuotas') ?></span>
                         </div>
                     </li>
                     <li>
                         <i class="fa fa-hourglass fa-lg"></i>
                         <div class="info-label">
                             <span class="fw-medium">Cuotas Faltantes:</span>
-                            <span><?= $cuotasFaltantes ?> cuotas</span>
+                            <span><?= $mostrarCantidadFinanciera($cuotasFaltantes, ' cuotas') ?></span>
                         </div>
                     </li>
                     <li>
                         <i class="fa fa-credit-card fa-lg"></i>
                         <div class="info-label">
                             <span class="fw-medium">Saldo Vigente Capital:</span>
-                            <span><?= format_currency($dataOtrosDatos["saldoVigenteCapital"] ?? 0) ?></span>
+                            <span><?= $mostrarMontoFinanciero($dataOtrosDatos["saldoVigenteCapital"] ?? null) ?></span>
                         </div>
                     </li>
                     <li>
                         <i class="fa fa-credit-card fa-lg"></i>
                         <div class="info-label">
                             <span class="fw-medium">Saldo para Liquidar:</span>
-                            <span><?= format_currency($dataOtrosDatos["saldoParaLiquidarV2"] ?? 0) ?></span>
+                            <span><?= $mostrarMontoFinanciero($dataOtrosDatos["saldoParaLiquidarV2"] ?? null) ?></span>
                         </div>
                     </li>
                     <li>
                         <i class="fa fa-exclamation-triangle fa-lg"></i>
                         <div class="info-label">
                             <span class="fw-medium">Mora Máximo:</span>
-                            <span><?= htmlspecialchars($dataOtrosDatos["diasMoraMaximo"] ?? 0) ?> días</span>
+                            <span><?= $mostrarCantidadFinanciera($dataOtrosDatos["diasMoraMaximo"] ?? 0, ' días') ?></span>
                         </div>
                     </li>
                     <li>
                         <i class="fa fa-clock fa-lg"></i>
                         <div class="info-label">
                             <span class="fw-medium">Mora:</span>
-                            <span><?= htmlspecialchars($dataOtrosDatos["diasMora"] ?? 0) ?> días</span>
+                            <span><?= $mostrarCantidadFinanciera($dataOtrosDatos["diasMora"] ?? 0, ' días') ?></span>
                         </div>
                     </li>
                     <li>
                         <i class="fa fa-calendar-alt fa-lg"></i>
                         <div class="info-label">
                             <span class="fw-medium">Fecha Inicio:</span>
-                            <span><?= format_date($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
+                            <span><?= $mostrarFechaFinanciera($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
                         </div>
                     </li>
 
@@ -1221,21 +1250,21 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                         <i class="fa fa-calendar-day fa-lg"></i>
                         <div class="info-label">
                             <span class="fw-medium">Primer Vencimiento:</span>
-                            <span><?= format_date($dataEstadoCuenta["primerVencimiento"] ?? null) ?></span>
+                            <span><?= $mostrarFechaFinanciera($dataEstadoCuenta["primerVencimiento"] ?? null) ?></span>
                         </div>
                     </li>
                     <li>
                         <i class="fa fa-calendar-check fa-lg"></i>
                         <div class="info-label">
                             <span class="fw-medium">Último Vencimiento:</span>
-                            <span><?= format_date($dataEstadoCuenta["ultimoVencimiento"] ?? null) ?></span>
+                            <span><?= $mostrarFechaFinanciera($dataEstadoCuenta["ultimoVencimiento"] ?? null) ?></span>
                         </div>
                     </li>
                     <li>
                         <i class="fa fa-calendar-check fa-lg"></i>
                         <div class="info-label">
                             <span class="fw-medium">Fecha de Liquidación:</span>
-                            <span><?= format_date($dataEstadoCuenta["fechaLiquidacion"] ?? null) ?></span>
+                            <span><?= $mostrarFechaFinanciera($dataEstadoCuenta["fechaLiquidacion"] ?? null) ?></span>
                         </div>
                     </li>
 
@@ -1292,7 +1321,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                             </div>
                                         </div>
                                         <div class="text-end text-truncate">
-                                            <h5 class="mb-0 text-truncate"><?= format_currency($dataOtrosDatos["saldoTotalVencido"] ?? 0) ?></h5>
+                                            <h5 class="mb-0 text-truncate"><?= $mostrarMontoFinanciero($dataOtrosDatos["saldoTotalVencido"] ?? null) ?></h5>
                                             <span class="small">Saldo Total Vencido</span>
                                         </div>
                                     </div>
@@ -1304,42 +1333,42 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-money-bill fa-lg"></i>
                                         <span class="fw-medium mx-2">Monto Otorgado:</span>
-                                        <span>Q<?= number_format($dataEstadoCuenta["montoOtorgado"] ?? 0, 2, '.', ',') ?></span>
+                                        <span><?= $mostrarMontoFinanciero($dataEstadoCuenta["montoOtorgado"] ?? null) ?></span>
                                     </li>
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-list-ol fa-lg"></i>
                                         <span class="fw-medium mx-2">Cuotas Contratadas:</span>
-                                        <span><?= htmlspecialchars($dataOtrosDatos["cuotasContratadas"] ?? '') ?> cuotas</span>
+                                        <span><?= $mostrarCantidadFinanciera($dataOtrosDatos["cuotasContratadas"] ?? '', ' cuotas') ?></span>
                                     </li>
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-check-circle fa-lg"></i>
                                         <span class="fw-medium mx-2">Cuotas Pagadas:</span>
-                                        <span><?= htmlspecialchars($dataOtrosDatos["cuotasPagadas"] ?? '') ?> cuotas</span>
+                                        <span><?= $mostrarCantidadFinanciera($dataOtrosDatos["cuotasPagadas"] ?? '', ' cuotas') ?></span>
                                     </li>
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-hourglass fa-lg"></i>
                                         <span class="fw-medium mx-2">Cuotas Faltantes:</span>
-                                        <span><?= $cuotasFaltantes ?> cuotas</span>
+                                        <span><?= $mostrarCantidadFinanciera($cuotasFaltantes, ' cuotas') ?></span>
                                     </li>
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-credit-card fa-lg"></i>
                                         <span class="fw-medium mx-2">Saldo para Liquidar:</span>
-                                        <span><?= format_currency($dataOtrosDatos["saldoParaLiquidarV2"] ?? 0) ?></span>
+                                        <span><?= $mostrarMontoFinanciero($dataOtrosDatos["saldoParaLiquidarV2"] ?? null) ?></span>
                                     </li>
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-exclamation-triangle fa-lg"></i>
                                         <span class="fw-medium mx-2">Mora Máximo:</span>
-                                        <span><?= htmlspecialchars($dataOtrosDatos["diasMoraMaximo"] ?? 0) ?> días</span>
+                                        <span><?= $mostrarCantidadFinanciera($dataOtrosDatos["diasMoraMaximo"] ?? 0, ' días') ?></span>
                                     </li>
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-clock fa-lg"></i>
                                         <span class="fw-medium mx-2">Mora:</span>
-                                        <span><?= htmlspecialchars($dataOtrosDatos["diasMora"] ?? 0) ?> días</span>
+                                        <span><?= $mostrarCantidadFinanciera($dataOtrosDatos["diasMora"] ?? 0, ' días') ?></span>
                                     </li>
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-calendar-alt fa-lg"></i>
                                         <span class="fw-medium mx-2">Fecha Inicio:</span>
-                                        <span><?= format_date($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
+                                        <span><?= $mostrarFechaFinanciera($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
                                     </li>
 
                                     <hr class="my-2 w-100">
@@ -1347,17 +1376,17 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-calendar-day fa-lg"></i>
                                         <span class="fw-medium mx-2">Primer Vencimiento:</span>
-                                        <span><?= format_date($dataEstadoCuenta["primerVencimiento"] ?? null) ?></span>
+                                        <span><?= $mostrarFechaFinanciera($dataEstadoCuenta["primerVencimiento"] ?? null) ?></span>
                                     </li>
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-calendar-check fa-lg"></i>
                                         <span class="fw-medium mx-2">Último Vencimiento:</span>
-                                        <span><?= format_date($dataEstadoCuenta["ultimoVencimiento"] ?? null) ?></span>
+                                        <span><?= $mostrarFechaFinanciera($dataEstadoCuenta["ultimoVencimiento"] ?? null) ?></span>
                                     </li>
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-calendar-check fa-lg"></i>
                                         <span class="fw-medium mx-2">Fecha de Liquidación:</span>
-                                        <span><?= format_date($dataEstadoCuenta["fechaLiquidacion"] ?? null) ?></span>
+                                        <span><?= $mostrarFechaFinanciera($dataEstadoCuenta["fechaLiquidacion"] ?? null) ?></span>
                                     </li>
 
 
@@ -1451,7 +1480,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                     </div>
                                 </div>
                                 <div class="min-w-0 flex-grow-1 ec-metrica-pago-text">
-                                    <h5 class="mb-0 ec-fit-dynamic"><?= format_currency($dataEstadoCuenta["cuota"] ?? 0) ?></h5>
+                                            <h5 class="mb-0 ec-fit-dynamic"><?= $mostrarMontoFinanciero($dataEstadoCuenta["cuota"] ?? null) ?></h5>
                                     <span>Cuota Semanal</span>
                                 </div>
                             </div>

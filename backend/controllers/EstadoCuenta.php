@@ -3980,6 +3980,13 @@ JS;
             ];
         }
 
+        // Una referencia STP puede superar el límite seguro de enteros de JavaScript.
+        // Se conserva como texto para evitar pérdida de dígitos al enviarla al navegador.
+        if (array_key_exists('referenciaSTP', $json['estadoCuenta'])) {
+            $referenciaSTP = trim((string) $json['estadoCuenta']['referenciaSTP']);
+            $json['estadoCuenta']['referenciaSTP'] = $referenciaSTP !== '' ? $referenciaSTP : null;
+        }
+
         return [
             'ok'     => true,
             'status' => 200,
@@ -8024,12 +8031,10 @@ public function descargarReporteDictamen()
                         'datosGuat_count'   => count($datosGuat['datos'] ?? []),
                         'referencias_count' => 0,
                         'login_ok'          => false,
-                        'token_preview'     => null,
                         'saldos_count'      => 0,
-                        'saldos_raw'        => null,
                         'amort_count'       => 0,
-                        'amort_raw_first'   => null,
                         'pagos_count'       => 0,
+                        'datos_financieros_disponibles' => false,
                         'error'             => null,
                     ];
 
@@ -8038,11 +8043,9 @@ public function descargarReporteDictamen()
                         $croopToken  = $loginResult['token'] ?? null;
 
                         $debugCroop['login_ok'] = !empty($croopToken);
-                        $debugCroop['token_preview'] = $croopToken ? substr($croopToken, 0, 20) . '...' : null;
                         $debugCroop['login_http_code'] = $loginResult['http_code'] ?? null;
                         $debugCroop['login_curl_error'] = $loginResult['curl_error'] ?? null;
                         $debugCroop['login_success'] = $loginResult['success'] ?? false;
-                        $debugCroop['login_raw'] = $loginResult['raw'] ?? null;
 
                         if ($croopToken) {
                             // FK_Empresa del session de login (355 para Guatemala)
@@ -8050,17 +8053,28 @@ public function descargarReporteDictamen()
                             // 401 usa el ID local del crédito; 445 y 404 requieren FK_Empresa del session
                             $pkeyParaSaldos  = $pkeyInterno ?? $pkeyCredito;
 
-                            $apiSaldos       = $this->croop_get("clsCredito/Listar?Bandera=445&PKey={$pkeyParaSaldos}&FK_Empresa={$fkEmpresaLogin}", $croopToken);
-                            $apiAmortizacion = $this->croop_get("clsCredito/Listar?Bandera=401&PKey={$pkeyCredito}", $croopToken);
-                            $apiPagos        = $this->croop_get("clsPagos/Listar?Bandera=404&FK_Credito={$pkeyParaSaldos}", $croopToken);
+                            $croopApiBaseUrl = $loginResult['api_base_url'] ?? null;
+                            $apiSaldos       = $this->croop_get("clsCredito/Listar?Bandera=445&PKey={$pkeyParaSaldos}&FK_Empresa={$fkEmpresaLogin}", $croopToken, $croopApiBaseUrl);
+                            $apiAmortizacion = $this->croop_get("clsCredito/Listar?Bandera=401&PKey={$pkeyCredito}", $croopToken, $croopApiBaseUrl);
+                            $apiPagos        = $this->croop_get("clsPagos/Listar?Bandera=404&FK_Credito={$pkeyParaSaldos}", $croopToken, $croopApiBaseUrl);
+
+                            // CROOP a veces responde una tabla como columnas de arreglos. Además,
+                            // validamos el PKey solicitado para nunca mostrar datos de otro contrato.
+                            $apiSaldos = array_values(array_filter($apiSaldos, static function (array $fila) use ($pkeyParaSaldos): bool {
+                                return isset($fila['PKey']) && (string) $fila['PKey'] === (string) $pkeyParaSaldos;
+                            }));
 
                             $debugCroop['saldos_count'] = count($apiSaldos);
-                            $debugCroop['saldos_raw'] = $apiSaldos[0] ?? null;
                             $debugCroop['amort_count'] = count($apiAmortizacion);
-                            $debugCroop['amort_raw_first'] = $apiAmortizacion[0] ?? null;
                             $debugCroop['pagos_count'] = count($apiPagos);
+                            $debugCroop['datos_financieros_disponibles'] = !empty($apiSaldos);
+                            if (empty($apiSaldos)) {
+                                $apiAmortizacion = [];
+                                $apiPagos = [];
+                                $debugCroop['error'] = 'CROOP no devolvió una coincidencia exacta para el crédito solicitado.';
+                            }
                         } else {
-                            $debugCroop['error'] = 'Login fallido: token null';
+                            $debugCroop['error'] = $loginResult['mensaje'] ?? 'No fue posible autenticar la consulta financiera de CROOP.';
                         }
                     } else {
                         $debugCroop['error'] = 'pkeyCredito es null — no se llamó a CROOP';
@@ -8137,19 +8151,57 @@ public function descargarReporteDictamen()
        ---------------------------------------------------------------- */
     private function croop_login(): array
     {
-        $ch = curl_init("https://api.croop.mx/api/access/Signin");
+        \Core\EnvLoader::load();
+
+        // Puede sobrescribirse por entorno cuando CROOP cambie de instancia.
+        $apiBaseUrl = rtrim((string) (getenv('CROOP_API_URL') ?: 'https://apides.croop.mx:8085/api'), '/');
+        $email = trim((string) (getenv('CROOP_API_EMAIL') ?: ''));
+        $password = (string) (getenv('CROOP_API_PASSWORD') ?: '');
+        $appId = trim((string) (getenv('CROOP_API_APP_ID') ?: ''));
+        $serverUrl = rtrim((string) (getenv('CROOP_API_SERVER_URL') ?: $apiBaseUrl), '/');
+        $ipAddress = trim((string) (getenv('CROOP_API_IP_ADDRESS') ?: ''));
+
+        if ($email === '' || $password === '' || $appId === '' || $serverUrl === '' || $ipAddress === '') {
+            return [
+                'token' => null,
+                'fk_empresa' => null,
+                'http_code' => null,
+                'curl_error' => null,
+                'success' => false,
+                'api_base_url' => $apiBaseUrl ?: null,
+                'mensaje' => 'Faltan credenciales seguras para consultar la integración financiera de CROOP en este servidor.',
+            ];
+        }
+
+        $bloqueoActual = $_SESSION['croop_login_bloqueo'] ?? null;
+        $huellaConfiguracion = hash('sha256', $apiBaseUrl . "\0" . $email . "\0" . $appId);
+        if (is_array($bloqueoActual)
+            && ($bloqueoActual['huella'] ?? '') === $huellaConfiguracion
+            && (int) ($bloqueoActual['hasta'] ?? 0) > time()) {
+            return [
+                'token' => null,
+                'fk_empresa' => null,
+                'http_code' => 429,
+                'curl_error' => null,
+                'success' => false,
+                'api_base_url' => $apiBaseUrl,
+                'mensaje' => $bloqueoActual['mensaje'] ?? 'CROOP bloqueó temporalmente los intentos de inicio de sesión. Intenta nuevamente en unos minutos.',
+            ];
+        }
+
+        $ch = curl_init($apiBaseUrl . '/access/Signin');
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => json_encode([
-                "Email"     => "__SPARTA_SECRET_REDACTED__@__SPARTA_SECRET_REDACTED__.mx",
-                "Password"  => "Ruvalcaba227$",
-                "IPAddress" => "200.188.109.202",
+                "Email"     => $email,
+                "Password"  => $password,
+                "IPAddress" => $ipAddress,
                 "UserAgent" => "Mozilla/5.0",
-                "ServerURL" => "https://api.croop.mx/api",
+                "ServerURL" => $serverUrl,
             ]),
             CURLOPT_HTTPHEADER     => [
                 "Content-Type: application/json",
-                "AppID: 2739CAE2-9353-E811-9457-22000A244A86",
+                "AppID: {$appId}",
                 "Cache-Control: no-cache",
             ],
             CURLOPT_RETURNTRANSFER => true,
@@ -8162,29 +8214,46 @@ public function descargarReporteDictamen()
         $curlError = curl_error($ch);
         curl_close($ch);
 
-        error_log("[croop_login] http_code={$httpCode} curl_error=" . ($curlError ?: 'none') . " response_body=" . ($response ?: 'EMPTY'));
-
         $json  = $response ? (json_decode($response, true) ?? []) : [];
         $token = $json['Token'] ?? null;
+        $mensaje = trim((string) ($json['Message'] ?? $json['mensaje'] ?? ''));
+
+        if (!$token && $mensaje !== '' && preg_match('/(\d+)\s*minuto/i', $mensaje, $coincidencia)) {
+            $_SESSION['croop_login_bloqueo'] = [
+                'huella' => $huellaConfiguracion,
+                'hasta' => time() + max(1, (int) $coincidencia[1]) * 60,
+                'mensaje' => 'CROOP bloqueó temporalmente los intentos de inicio de sesión. Intenta nuevamente en unos minutos.',
+            ];
+        } elseif ($token) {
+            unset($_SESSION['croop_login_bloqueo']);
+        }
+
+        error_log("[croop_login] http_code={$httpCode} success=" . (!empty($json['Success']) ? 'true' : 'false') . " curl_error=" . ($curlError ?: 'none'));
 
         return [
             'token'      => $token,
             'fk_empresa' => $json['FK_Empresa'] ?? null,
             'http_code'  => $httpCode,
             'curl_error' => $curlError ?: null,
-            'raw'        => $response ? substr($response, 0, 300) : null,
             'success'    => !empty($json['Success']),
+            'api_base_url' => $apiBaseUrl,
+            'mensaje' => $mensaje !== '' ? $mensaje : 'No fue posible autenticar la consulta financiera de CROOP.',
         ];
     }
 
-    private function croop_get(string $path, string $token): array
+    private function croop_get(string $path, string $token, ?string $apiBaseUrl = null): array
     {
-        $url = "https://api.croop.mx/api/" . ltrim($path, '/');
-        error_log("[croop_get] GET {$url}");
+        $apiBaseUrl = rtrim((string) ($apiBaseUrl ?: getenv('CROOP_API_URL') ?: 'https://apides.croop.mx:8085/api'), '/');
+        $appId = trim((string) (getenv('CROOP_API_APP_ID') ?: ''));
+        if ($apiBaseUrl === '' || $appId === '') {
+            return [];
+        }
+
+        $url = $apiBaseUrl . '/' . ltrim($path, '/');
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_HTTPHEADER     => [
-                "AppID: 2739CAE2-9353-E811-9457-22000A244A86",
+                "AppID: {$appId}",
                 "Token: {$token}",
             ],
             CURLOPT_RETURNTRANSFER => true,
@@ -8196,10 +8265,52 @@ public function descargarReporteDictamen()
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
         curl_close($ch);
-        error_log("[croop_get] http_code={$httpCode} curl_error=" . ($curlError ?: 'none') . " response_body=" . ($response ?: 'EMPTY'));
-        if (!$response) return ['__debug_error' => $curlError, '__http_code' => $httpCode];
+        error_log("[croop_get] http_code={$httpCode} curl_error=" . ($curlError ?: 'none'));
+        if (!$response) return [];
         $json = json_decode($response, true);
-        return is_array($json) ? $json : ['__debug_raw' => substr($response, 0, 300), '__http_code' => $httpCode];
+        return $this->normalizarTablaCroop($json);
+    }
+
+    /** Convierte la respuesta tabular por columnas de CROOP en filas homogéneas. */
+    private function normalizarTablaCroop($respuesta): array
+    {
+        if (!is_array($respuesta)) {
+            return [];
+        }
+
+        if (array_is_list($respuesta)) {
+            if (count($respuesta) !== 1 || !isset($respuesta[0]) || !is_array($respuesta[0])) {
+                return $respuesta;
+            }
+            $respuesta = $respuesta[0];
+        }
+
+        if ($respuesta === [] || array_is_list($respuesta)) {
+            return $respuesta;
+        }
+
+        $columnas = array_filter($respuesta, static fn ($valor): bool => is_array($valor) && array_is_list($valor));
+        if (count($columnas) < 2) {
+            return [$respuesta];
+        }
+
+        $totalFilas = max(array_map('count', $columnas));
+        if ($totalFilas === 0) {
+            return [];
+        }
+
+        $filas = [];
+        for ($indice = 0; $indice < $totalFilas; $indice++) {
+            $fila = [];
+            foreach ($respuesta as $campo => $valor) {
+                $fila[$campo] = is_array($valor) && array_is_list($valor)
+                    ? ($valor[$indice] ?? null)
+                    : $valor;
+            }
+            $filas[] = $fila;
+        }
+
+        return $filas;
     }
 
     private function procesarGastosCobranza(array $notasCargos, $idCredito): array

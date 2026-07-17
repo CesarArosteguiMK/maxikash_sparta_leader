@@ -23873,14 +23873,13 @@ class CapHum extends Controller
     }
 
     /**
-     * Lee variables MAIL_* del archivo .env en la raíz del proyecto (sin depender de getenv/putenv).
+     * Lee variables MAIL_* desde la configuración segura, sin depender de getenv/putenv.
      * @return array<string, string>
      */
     private function leerEnvMail(): array
     {
         $env = [];
-        $root = defined('RAIZ') ? dirname(RAIZ) : (__DIR__ . '/../..');
-        $envFile = $root . '/.env';
+        $envFile = getenv('SPARTA_ENV_FILE') ?: 'C:\\xampp\\secure\\sparta_ledger.env';
         if (!is_file($envFile) || !is_readable($envFile)) {
             return $env;
         }
