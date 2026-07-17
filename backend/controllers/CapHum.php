@@ -15961,7 +15961,7 @@ class CapHum extends Controller
     public function obtenerPlantillaSolicitudPdf()
     {
         $dirPlantillas = defined('RAIZ') ? (RAIZ . '/storage/plantillas_candidatos') : (__DIR__ . '/../storage/plantillas_candidatos');
-        $archivo = $dirPlantillas . '/solicitud_interna_AcroForm.pdf';
+        $archivo = $this->resolverPlantillaSolicitud($dirPlantillas, true);
         if (!is_file($archivo)) {
             header('HTTP/1.0 404 Not Found');
             echo 'Plantilla no disponible.';
@@ -16013,7 +16013,7 @@ class CapHum extends Controller
 
         // PDF con AcroForm para llenar en línea en el navegador (solicitud_interna_AcroForm.pdf)
         if ($tipo === 'solicitud_llenar') {
-            $archivo = $dirPlantillas . '/solicitud_interna_AcroForm.pdf';
+            $archivo = $this->resolverPlantillaSolicitud($dirPlantillas, true);
             if (!is_file($archivo)) {
                 header('HTTP/1.0 404 Not Found');
                 echo 'Documento no disponible. Contacte al área de Recursos Humanos.';
@@ -16027,7 +16027,7 @@ class CapHum extends Controller
 
         if ($tipo === 'solicitud_interna') {
             // Plantilla en blanco (sin AcroForm): el candidato la llena como quiera (a mano o en computadora)
-            $archivo = $dirPlantillas . '/solicitud_interna.pdf';
+            $archivo = $this->resolverPlantillaSolicitud($dirPlantillas, false);
             if (!is_file($archivo)) {
                 header('HTTP/1.0 404 Not Found');
                 echo 'Documento no disponible. Contacte al área de Recursos Humanos.';
@@ -16038,6 +16038,26 @@ class CapHum extends Controller
             readfile($archivo);
             return;
         }
+    }
+
+    /**
+     * Resuelve el nombre actual o histórico de la plantilla, para conservar
+     * funcionando los enlaces enviados antes de sustituir el archivo PDF.
+     */
+    private function resolverPlantillaSolicitud(string $dirPlantillas, bool $acroForm): ?string
+    {
+        $archivos = $acroForm
+            ? ['solicitud_interna_AcroForm.pdf', 'solicitud_interna_maxikash_AcroForm.pdf']
+            : ['solicitud_interna.pdf', 'solicitud_interna_maxikash.pdf'];
+
+        foreach ($archivos as $nombre) {
+            $archivo = $dirPlantillas . '/' . $nombre;
+            if (is_file($archivo) && is_readable($archivo)) {
+                return $archivo;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -602,7 +602,7 @@ class LegacyUserSync extends Model
 
     private static function asegurarBitacora(Database $db): void
     {
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.legacy_user_sync_bitacora (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS legacy_user_sync_bitacora (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             origen VARCHAR(80) NOT NULL,
             id_persona INT NULL,
@@ -632,14 +632,14 @@ class LegacyUserSync extends Model
 
     private static function asegurarConfiguracionAlcance(Database $db): void
     {
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.legacy_user_sync_config (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS legacy_user_sync_config (
             clave VARCHAR(80) NOT NULL PRIMARY KEY,
             valor VARCHAR(255) NULL,
             actualizado_por INT NULL,
             actualizado_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.legacy_user_sync_config_alcance (
+        $db->CRUD("CREATE TABLE IF NOT EXISTS legacy_user_sync_config_alcance (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             tipo ENUM('puesto','departamento') NOT NULL,
             referencia_id INT NOT NULL,
@@ -667,19 +667,19 @@ class LegacyUserSync extends Model
                     pl.id AS puesto_legacy_id,
                     pl.clave AS legacy_clave,
                     pl.nombre AS legacy_nombre
-                FROM __SPARTA_SECRET_REDACTED__.puesto p
-                INNER JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = p.departamento_id
-                INNER JOIN __SPARTA_SECRET_REDACTED__.equivalencias_legacy_puestos el
+                FROM puesto p
+                INNER JOIN departamento d ON d.id = p.departamento_id
+                INNER JOIN equivalencias_legacy_puestos el
                     ON el.id_puesto = p.id
-                INNER JOIN __SPARTA_SECRET_REDACTED__.puestos_legacy pl
+                INNER JOIN puestos_legacy pl
                     ON pl.id = el.id_puesto_legacy
                    AND TRIM(COALESCE(pl.clave, '')) <> ''
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                LEFT JOIN departamento_organizacional dorg
                     ON dorg.id = d.id_departamento_organizacional
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                LEFT JOIN asigna_direcciones ad
                     ON ad.id_departamento_organizacional = d.id_departamento_organizacional
                    AND COALESCE(ad.activo, 1) = 1
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                LEFT JOIN direcciones_organizacion dir
                     ON dir.id = ad.id_direccion
                 WHERE COALESCE(p.activo, 1) = 1
                   AND COALESCE(d.activo, 1) = 1
@@ -754,13 +754,13 @@ class LegacyUserSync extends Model
             ", ['direccion_cobranza' => self::DIRECCION_COBRANZA_ID]);
             $departamentos = $db->queryAll("
                 SELECT DISTINCT d.id, d.nombre
-                FROM __SPARTA_SECRET_REDACTED__.departamento d
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                FROM departamento d
+                LEFT JOIN departamento_organizacional dorg
                     ON dorg.id = d.id_departamento_organizacional
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                LEFT JOIN asigna_direcciones ad
                     ON ad.id_departamento_organizacional = d.id_departamento_organizacional
                    AND COALESCE(ad.activo, 1) = 1
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                LEFT JOIN direcciones_organizacion dir
                     ON dir.id = ad.id_direccion
                 WHERE COALESCE(d.activo, 1) = 1
                   AND (
@@ -772,12 +772,12 @@ class LegacyUserSync extends Model
             ", ['direccion_cobranza' => self::DIRECCION_COBRANZA_ID]);
             $rows = $db->queryAll("
                 SELECT tipo, referencia_id, activo
-                FROM __SPARTA_SECRET_REDACTED__.legacy_user_sync_config_alcance
+                FROM legacy_user_sync_config_alcance
                 WHERE activo = 1
             ");
             $config = $db->queryOne("
                 SELECT valor
-                FROM __SPARTA_SECRET_REDACTED__.legacy_user_sync_config
+                FROM legacy_user_sync_config
                 WHERE clave = 'alcance_configurado'
                 LIMIT 1
             ");
@@ -826,11 +826,11 @@ class LegacyUserSync extends Model
             $departamentos = self::departamentosDesdePuestosSeleccionados($db, $puestos);
             $db->beginTransaction();
             $db->CRUD("
-                INSERT INTO __SPARTA_SECRET_REDACTED__.legacy_user_sync_config (clave, valor, actualizado_por)
+                INSERT INTO legacy_user_sync_config (clave, valor, actualizado_por)
                 VALUES ('alcance_configurado', '1', :usuario)
                 ON DUPLICATE KEY UPDATE valor = VALUES(valor), actualizado_por = VALUES(actualizado_por), actualizado_at = NOW()
             ", ['usuario' => $idSesion > 0 ? $idSesion : null]);
-            $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.legacy_user_sync_config_alcance SET activo = 0, actualizado_por = :usuario", [
+            $db->CRUD("UPDATE legacy_user_sync_config_alcance SET activo = 0, actualizado_por = :usuario", [
                 'usuario' => $idSesion > 0 ? $idSesion : null,
             ]);
             foreach ($departamentos as $id) {
@@ -920,7 +920,7 @@ class LegacyUserSync extends Model
             return;
         }
         $db->CRUD("
-            INSERT INTO __SPARTA_SECRET_REDACTED__.legacy_user_sync_config_alcance
+            INSERT INTO legacy_user_sync_config_alcance
                 (tipo, referencia_id, activo, creado_por, actualizado_por)
             VALUES
                 (:tipo, :referencia_id, 1, :usuario, :usuario)
@@ -947,8 +947,8 @@ class LegacyUserSync extends Model
         }
         $rows = $db->queryAll("
             SELECT d.id
-            FROM __SPARTA_SECRET_REDACTED__.puesto p
-            INNER JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = p.departamento_id
+            FROM puesto p
+            INNER JOIN departamento d ON d.id = p.departamento_id
             WHERE p.id IN (" . implode(',', $placeholders) . ")
               AND COALESCE(p.activo, 1) = 1
               AND COALESCE(d.activo, 1) = 1
@@ -995,8 +995,8 @@ class LegacyUserSync extends Model
                 d.nombre,
                 COUNT(DISTINCT CASE WHEN p.id IN ($puestosCase) THEN p.id END) AS puestos_seleccionados,
                 COUNT(DISTINCT p.id) AS puestos_activos_departamento
-            FROM __SPARTA_SECRET_REDACTED__.departamento d
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto p
+            FROM departamento d
+            LEFT JOIN puesto p
                 ON p.departamento_id = d.id
                AND COALESCE(p.activo, 1) = 1
             WHERE COALESCE(d.activo, 1) = 1
@@ -1010,19 +1010,19 @@ class LegacyUserSync extends Model
     {
         $puestos = $db->queryAll("
             SELECT DISTINCT p.id
-            FROM __SPARTA_SECRET_REDACTED__.puesto p
-            INNER JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = p.departamento_id
-            INNER JOIN __SPARTA_SECRET_REDACTED__.equivalencias_legacy_puestos el
+            FROM puesto p
+            INNER JOIN departamento d ON d.id = p.departamento_id
+            INNER JOIN equivalencias_legacy_puestos el
                 ON el.id_puesto = p.id
-            INNER JOIN __SPARTA_SECRET_REDACTED__.puestos_legacy pl
+            INNER JOIN puestos_legacy pl
                 ON pl.id = el.id_puesto_legacy
                AND TRIM(COALESCE(pl.clave, '')) <> ''
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+            LEFT JOIN departamento_organizacional dorg
                 ON dorg.id = d.id_departamento_organizacional
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+            LEFT JOIN asigna_direcciones ad
                 ON ad.id_departamento_organizacional = d.id_departamento_organizacional
                AND COALESCE(ad.activo, 1) = 1
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+            LEFT JOIN direcciones_organizacion dir
                 ON dir.id = ad.id_direccion
             WHERE COALESCE(p.activo, 1) = 1
               AND COALESCE(d.activo, 1) = 1
@@ -1060,11 +1060,11 @@ class LegacyUserSync extends Model
         ];
 
         foreach ($columnas as $nombre => $definicion) {
-            $existe = $db->queryOne("SHOW COLUMNS FROM __SPARTA_SECRET_REDACTED__.legacy_user_sync_bitacora LIKE :columna", [
+            $existe = $db->queryOne("SHOW COLUMNS FROM legacy_user_sync_bitacora LIKE :columna", [
                 'columna' => $nombre,
             ]);
             if (!$existe) {
-                $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.legacy_user_sync_bitacora ADD COLUMN {$nombre} {$definicion}");
+                $db->CRUD("ALTER TABLE legacy_user_sync_bitacora ADD COLUMN {$nombre} {$definicion}");
             }
         }
     }
@@ -1089,12 +1089,12 @@ class LegacyUserSync extends Model
                 d.id AS id_departamento,
                 d.nombre AS departamento_nombre,
                 pl.clave AS role_legacy
-            FROM __SPARTA_SECRET_REDACTED__.persona per
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto p ON p.id = ap.id_puesto
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = p.departamento_id
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.equivalencias_legacy_puestos el ON el.id_puesto = p.id
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.puestos_legacy pl ON pl.id = el.id_puesto_legacy
+            FROM persona per
+            LEFT JOIN asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
+            LEFT JOIN puesto p ON p.id = ap.id_puesto
+            LEFT JOIN departamento d ON d.id = p.departamento_id
+            LEFT JOIN equivalencias_legacy_puestos el ON el.id_puesto = p.id
+            LEFT JOIN puestos_legacy pl ON pl.id = el.id_puesto_legacy
             WHERE per.id = :id_persona
               AND COALESCE(per.estatus, '') <> 'Baja'
             ORDER BY ap.id DESC
@@ -1123,12 +1123,12 @@ class LegacyUserSync extends Model
                 d.id AS id_departamento,
                 d.nombre AS departamento_nombre,
                 pl.clave AS role_legacy
-            FROM __SPARTA_SECRET_REDACTED__.persona per
-            INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
-            INNER JOIN __SPARTA_SECRET_REDACTED__.puesto p ON p.id = ap.id_puesto
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = p.departamento_id
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.equivalencias_legacy_puestos el ON el.id_puesto = p.id
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.puestos_legacy pl ON pl.id = el.id_puesto_legacy
+            FROM persona per
+            INNER JOIN asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
+            INNER JOIN puesto p ON p.id = ap.id_puesto
+            LEFT JOIN departamento d ON d.id = p.departamento_id
+            LEFT JOIN equivalencias_legacy_puestos el ON el.id_puesto = p.id
+            LEFT JOIN puestos_legacy pl ON pl.id = el.id_puesto_legacy
             WHERE COALESCE(per.estatus, '') <> 'Baja'
               AND TRIM(COALESCE(per.numero_empleado, '')) <> ''
               AND TRIM(COALESCE(per.numero_empleado, '')) REGEXP '^[0-9]+$'
@@ -1159,12 +1159,12 @@ class LegacyUserSync extends Model
                 d.id AS id_departamento,
                 d.nombre AS departamento_nombre,
                 pl.clave AS role_legacy
-            FROM __SPARTA_SECRET_REDACTED__.persona per
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto p ON p.id = ap.id_puesto
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = p.departamento_id
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.equivalencias_legacy_puestos el ON el.id_puesto = p.id
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.puestos_legacy pl ON pl.id = el.id_puesto_legacy
+            FROM persona per
+            LEFT JOIN asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
+            LEFT JOIN puesto p ON p.id = ap.id_puesto
+            LEFT JOIN departamento d ON d.id = p.departamento_id
+            LEFT JOIN equivalencias_legacy_puestos el ON el.id_puesto = p.id
+            LEFT JOIN puestos_legacy pl ON pl.id = el.id_puesto_legacy
             WHERE COALESCE(per.estatus, '') = 'Baja'
               AND TRIM(COALESCE(per.numero_empleado, '')) <> ''
               AND TRIM(COALESCE(per.numero_empleado, '')) REGEXP '^[0-9]+$'
@@ -1192,12 +1192,12 @@ class LegacyUserSync extends Model
                 d.id AS id_departamento,
                 d.nombre AS departamento_nombre,
                 pl.clave AS role_legacy
-            FROM __SPARTA_SECRET_REDACTED__.persona per
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto p ON p.id = ap.id_puesto
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = p.departamento_id
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.equivalencias_legacy_puestos el ON el.id_puesto = p.id
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.puestos_legacy pl ON pl.id = el.id_puesto_legacy
+            FROM persona per
+            LEFT JOIN asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
+            LEFT JOIN puesto p ON p.id = ap.id_puesto
+            LEFT JOIN departamento d ON d.id = p.departamento_id
+            LEFT JOIN equivalencias_legacy_puestos el ON el.id_puesto = p.id
+            LEFT JOIN puestos_legacy pl ON pl.id = el.id_puesto_legacy
             WHERE per.id = :id_persona
             ORDER BY ap.id DESC
             LIMIT 1
@@ -1275,13 +1275,13 @@ class LegacyUserSync extends Model
             self::asegurarConfiguracionAlcance($db);
             $config = $db->queryOne("
                 SELECT valor
-                FROM __SPARTA_SECRET_REDACTED__.legacy_user_sync_config
+                FROM legacy_user_sync_config
                 WHERE clave = 'alcance_configurado'
                 LIMIT 1
             ");
             $rows = $db->queryAll("
                 SELECT tipo, referencia_id
-                FROM __SPARTA_SECRET_REDACTED__.legacy_user_sync_config_alcance
+                FROM legacy_user_sync_config_alcance
                 WHERE activo = 1
             ");
             $out = [
@@ -1330,13 +1330,13 @@ class LegacyUserSync extends Model
             aj_actual AS (
                 SELECT aj.id_persona,
                        COALESCE(aj.id_jefe, vp.id_jefe) AS id_jefe
-                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+                FROM asigna_jefe aj
                 INNER JOIN (
                     SELECT id_persona, MAX(id) AS max_id
-                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                    FROM asigna_jefe
                     GROUP BY id_persona
                 ) ult ON ult.max_id = aj.id
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal vp ON vp.id = aj.id_vacante_jefe
+                LEFT JOIN vacantes_personal vp ON vp.id = aj.id_vacante_jefe
             ),
             jerarquia AS (
                 SELECT :id_persona_base AS persona_id, aj.id_jefe, 1 AS lvl
@@ -1358,10 +1358,10 @@ class LegacyUserSync extends Model
                 TRIM(CONCAT_WS(' ', per.apellidop, per.apellidom, per.nombres, per.segundo_nombre)) AS nombre,
                 pl.clave AS role_legacy
             FROM jerarquia j
-            INNER JOIN __SPARTA_SECRET_REDACTED__.persona per ON per.id = j.id_jefe
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.equivalencias_legacy_puestos el ON el.id_puesto = ap.id_puesto
-            LEFT JOIN __SPARTA_SECRET_REDACTED__.puestos_legacy pl ON pl.id = el.id_puesto_legacy
+            INNER JOIN persona per ON per.id = j.id_jefe
+            LEFT JOIN asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
+            LEFT JOIN equivalencias_legacy_puestos el ON el.id_puesto = ap.id_puesto
+            LEFT JOIN puestos_legacy pl ON pl.id = el.id_puesto_legacy
             WHERE j.id_jefe IS NOT NULL
             ORDER BY j.lvl ASC
         ", ['id_persona_base' => $idPersona, 'id_persona_anchor' => $idPersona]);
@@ -1796,7 +1796,7 @@ class LegacyUserSync extends Model
             : json_encode($detalle, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         $db->CRUD("
-            INSERT INTO __SPARTA_SECRET_REDACTED__.legacy_user_sync_bitacora
+            INSERT INTO legacy_user_sync_bitacora
                 (origen, id_persona, external_id, id_puesto, puesto_nombre, departamento_nombre,
                  id_usuario_legacy, role_legacy, resultado, mensaje, detalle_json, creado_por,
                  creado_por_usuario, creado_por_nombre, ip_origen, user_agent)
