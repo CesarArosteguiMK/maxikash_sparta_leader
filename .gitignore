@@ -164,6 +164,11 @@ yarn-error.log*
 # ========== Artefactos temporales locales de Codex (validaciones; no versionar) ==========
 .codex-tmp/
 
+# Checkpoint operativo del agente de gastos; cambia en cada corrida del servidor.
+backend/services/gastos-cobranza-agent/reporte/descargo_estatus3/guia_descargo.json
+backend/services/gastos-cobranza-agent/reporte/descargo_estatus3/guia_descargo.json.bak
+backend/services/gastos-cobranza-agent/reporte/descargo_estatus3/guia_descargo.json.tmp
+
 # ========== API zbar ==========
 # Se versionan DLLs portables en backend/API/tools/zbar/bin para evitar
 # dependencia de System32 y tambien evitar descarga en servidores sin internet.
