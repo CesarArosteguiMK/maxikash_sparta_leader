@@ -86,6 +86,14 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+_SECURE_ENV_PRIORITY_KEYS = {
+    "DB_HOST", "DB_PUERTO", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_ESQUEMA",
+    "SEGUNDOMETRO_DB_HOST", "SEGUNDOMETRO_DB_PORT", "SEGUNDOMETRO_DB_USER",
+    "SEGUNDOMETRO_DB_PASSWORD", "SEGUNDOMETRO_DB_NAME",
+    "GASTOS_COBRANZA_GCHAT_URL", "GASTOS_GC_REPORTE_CHAT_WEBHOOK_URL",
+}
+
+
 def _load_env_file(path: str | None = None) -> None:
     env_path = path or os.environ.get("SPARTA_ENV_FILE") or r"C:\xampp\secure\sparta___SPARTA_SECRET_REDACTED__.env"
     if not os.path.isfile(env_path):
@@ -101,10 +109,16 @@ def _load_env_file(path: str | None = None) -> None:
             key, value = line.split("=", 1)
             key = key.strip()
             value = value.strip().strip('"').strip("'")
+            if value == "__SPARTA_SECRET_REDACTED__":
+                continue
             # A service can retain an old placeholder from a previous deployment.
-            # It must not override the actual value in the secure environment file.
+            # The secure file must win for connection and report notification settings.
             current_value = os.environ.get(key, "").strip()
-            if key and (not current_value or current_value == "__SPARTA_SECRET_REDACTED__"):
+            if key and (
+                key in _SECURE_ENV_PRIORITY_KEYS
+                or not current_value
+                or current_value == "__SPARTA_SECRET_REDACTED__"
+            ):
                 os.environ[key] = value
 
 
