@@ -69,17 +69,23 @@ def _guia_descargo_basename() -> str:
 
 
 def _load_default_env_file() -> None:
-    env_path = Path(os.getenv("SPARTA_ENV_FILE") or r"C:\xampp\secure\sparta___SPARTA_SECRET_REDACTED__.env")
+    canonical_path = Path(r"C:\xampp\secure\sparta_ledger.env")
+    fallback_path = Path(os.getenv("SPARTA_ENV_FILE", "").strip()) if os.getenv("SPARTA_ENV_FILE") else None
+    env_path = canonical_path if canonical_path.is_file() else fallback_path
+    if env_path is None:
+        return
     if not env_path.is_file():
         return
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+    for raw_line in env_path.read_text(encoding="utf-8-sig").splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
         key = key.strip()
         value = value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
+        if value == "__SPARTA_SECRET_REDACTED__":
+            continue
+        if key and (key.startswith(("DB_", "SEGUNDOMETRO_DB_")) or key not in os.environ):
             os.environ[key] = value
 
 

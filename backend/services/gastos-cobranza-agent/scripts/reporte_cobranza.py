@@ -90,14 +90,28 @@ _SECURE_ENV_PRIORITY_KEYS = {
     "DB_HOST", "DB_PUERTO", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_ESQUEMA",
     "SEGUNDOMETRO_DB_HOST", "SEGUNDOMETRO_DB_PORT", "SEGUNDOMETRO_DB_USER",
     "SEGUNDOMETRO_DB_PASSWORD", "SEGUNDOMETRO_DB_NAME",
+    "S2_ESTADO_CUENTA_URL", "S2_ESTADO_CUENTA_TOKEN",
     "GASTOS_COBRANZA_GCHAT_URL", "GASTOS_GC_REPORTE_CHAT_WEBHOOK_URL",
 }
 
 
+_CANONICAL_ENV_PATH = r"C:\xampp\secure\sparta_ledger.env"
+_LOADED_ENV_PATH = ""
+
+
 def _load_env_file(path: str | None = None) -> None:
-    env_path = path or os.environ.get("SPARTA_ENV_FILE") or r"C:\xampp\secure\sparta___SPARTA_SECRET_REDACTED__.env"
-    if not os.path.isfile(env_path):
+    global _LOADED_ENV_PATH
+
+    # C:\xampp\secure es la fuente canonica en el agente de Windows. La
+    # variable queda como respaldo para instalaciones no estandar.
+    candidates = [path] if path else [
+        _CANONICAL_ENV_PATH,
+        os.environ.get("SPARTA_ENV_FILE", "").strip(),
+    ]
+    env_path = next((candidate for candidate in candidates if candidate and os.path.isfile(candidate)), "")
+    if not env_path:
         return
+    _LOADED_ENV_PATH = os.path.abspath(env_path)
     with open(env_path, encoding="utf-8") as fh:
         for index, raw_line in enumerate(fh):
             # Remove a UTF-8 BOM from the first key when the file was saved by Windows editors.
@@ -157,13 +171,30 @@ DB_CONFIG = {
     "cursorclass":     pymysql.cursors.DictCursor,
 }
 
+
+def _mysql_identifier(value: str, setting_name: str) -> str:
+    identifier = (value or "").strip()
+    if not identifier or identifier == "__SPARTA_SECRET_REDACTED__":
+        raise RuntimeError(f"Falta configurar {setting_name} en {_CANONICAL_ENV_PATH}.")
+    if any(ord(char) < 32 for char in identifier):
+        raise RuntimeError(f"{setting_name} contiene un nombre de esquema MySQL no valido.")
+    return f"`{identifier.replace('`', '``')}`"
+
+
+# La tabla de despachos pertenece a la base principal, aunque la consulta se
+# ejecute con la conexion del Segundometro en el mismo servidor MySQL.
+MAIN_DB_SCHEMA = os.environ.get("DB_NAME") or DB_CONFIG["database"]
+
 # Defaults alineados con Core\DatabaseAWS (__SPARTA_SECRET_REDACTED__). Sobreescribir vía REPORTE_COBRANZA_AWS_* (ver docstring).
 _DEFAULT_AWS_MOVIL_HOST = ""
 _DEFAULT_AWS_MOVIL_USER = ""
 _DEFAULT_AWS_MOVIL_PASSWORD = ""
 _DEFAULT_AWS_MOVIL_DATABASE = ""
 
-S2_URL     = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta"
+S2_URL     = (
+    os.environ.get("S2_ESTADO_CUENTA_URL", "")
+    or "https://servicios.s2movil.net/s2maxikash/estadocuenta"
+)
 S2_TOKEN   = os.environ.get("S2_ESTADO_CUENTA_TOKEN", "")
 S2_HEADERS = {"Content-Type": "application/json", "Token": S2_TOKEN}
 
@@ -174,6 +205,30 @@ GCHAT_URL = (
     os.environ.get("GASTOS_GC_REPORTE_CHAT_WEBHOOK_URL", "")
     or os.environ.get("GASTOS_COBRANZA_GCHAT_URL", "")
 )
+
+
+def validar_configuracion() -> None:
+    if not _LOADED_ENV_PATH:
+        raise RuntimeError(f"No se encontro el archivo seguro {_CANONICAL_ENV_PATH}.")
+
+    required = {
+        "host": "SEGUNDOMETRO_DB_HOST o DB_HOST",
+        "user": "SEGUNDOMETRO_DB_USER o DB_USER",
+        "password": "SEGUNDOMETRO_DB_PASSWORD o DB_PASSWORD",
+        "database": "SEGUNDOMETRO_DB_NAME o DB_NAME",
+    }
+    missing = [label for key, label in required.items() if not str(DB_CONFIG.get(key) or "").strip()]
+    if missing:
+        raise RuntimeError(f"Falta configurar {', '.join(missing)} en {_CANONICAL_ENV_PATH}.")
+
+    _mysql_identifier(DB_CONFIG["database"], "SEGUNDOMETRO_DB_NAME o DB_NAME")
+    _mysql_identifier(MAIN_DB_SCHEMA, "DB_NAME")
+    if "__SPARTA_SECRET_REDACTED__" in S2_URL:
+        raise RuntimeError(f"S2_ESTADO_CUENTA_URL contiene un valor redactado en {_CANONICAL_ENV_PATH}.")
+
+    log.info("Configuracion segura cargada desde: %s", _LOADED_ENV_PATH)
+    if not GCHAT_URL.startswith("https://chat.googleapis.com/"):
+        log.warning("Webhook de Google Chat no configurado o invalido; el reporte continuara sin aviso.")
 
 FECHA_CORTE_GASTOS = date(2026, 1, 28)
 CONCEPTO_GC        = "NOTA DE DE CARGO GASTOS DE COBRANZA"
@@ -554,6 +609,7 @@ def sql_query_ids_principal(fecha_filtro: date, inicio_semana_op: date) -> str:
     """fecha_filtro = DATE(Fecha_ultimo_pago_efectivo); inicio_semana_op = martes semana operativa (lista negra)."""
     fs = fecha_filtro.isoformat()
     ins = inicio_semana_op.isoformat()
+    dispatch_schema = _mysql_identifier(MAIN_DB_SCHEMA, "DB_NAME")
     return f"""
 SELECT
     g.`Id_credito`  AS id_credito,
@@ -583,7 +639,7 @@ WHERE g.`condonado` = 0
   AND DATE(s.`Fecha_ultimo_pago_efectivo`) = '{fs}'
   AND NOT EXISTS (
       SELECT 1
-      FROM `__SPARTA_SECRET_REDACTED__`.`asigna_creditos_despacho` AS d
+      FROM {dispatch_schema}.`asigna_creditos_despacho` AS d
       WHERE d.`id_credito` = g.`Id_credito`
         AND d.`estatus`    = '1'
   )
@@ -1695,6 +1751,7 @@ def generar_excel(
 
 
 def main() -> None:
+    validar_configuracion()
     t0 = time.time()
     hoy, ahora_cdmx = fecha_negocio_y_reloj_cdmx()
     fecha_calendario_cdmx = ahora_cdmx.date()
