@@ -496,6 +496,35 @@ class CapHum extends Model
         20 => 9,  // Identificacion oficial duplicada -> Identificacion Oficial (INE)
     ];
 
+    /**
+     * Expediente documental base para colaboradores activos.
+     * Los demas tipos permanecen disponibles en el sistema, pero no se
+     * contabilizan como requisito ni como faltante en Expedientes RR.HH.
+     */
+    private const DOCUMENTOS_EXPEDIENTE_RRHH = [
+        17, // Solicitud interna
+        18, // CV o Solicitud de Trabajo
+        12, // Acta de Nacimiento
+        8,  // CURP
+        11, // Comprobante de Domicilio
+        22, // Constancia de Situacion Fiscal
+        9,  // Identificacion Oficial
+        23, // Numero de Seguridad Social
+        24, // Hoja de Retencion FONACOT o INFONAVIT / Carta de No Credito
+        25, // Estado de Cuenta
+        30, // Validacion SAT
+        28, // Contrato firmado
+        29, // Archivo .FAD
+        31, // Llave vector
+        32, // Prueba centavo
+        33, // Semanas cotizadas IMSS
+    ];
+
+    private static function idsDocumentosExpedienteRrhh(): string
+    {
+        return implode(',', self::DOCUMENTOS_EXPEDIENTE_RRHH);
+    }
+
     public static function asegurarDocumentoCartaCompromisoGestor(): void
     {
         try {
@@ -4000,9 +4029,8 @@ class CapHum extends Model
                 SELECT id, nombre, clave, obligatorio
                 FROM estado_cuenta.documento
                 WHERE activo = 1
-                  AND id NOT IN (15, 16, " . implode(',', self::DOCUMENTOS_EXCLUIDOS_RRHH) . ")
-                  AND clave <> 'OTROS'
-                ORDER BY obligatorio DESC, nombre ASC
+                  AND id IN (" . self::idsDocumentosExpedienteRrhh() . ")
+                ORDER BY FIELD(id, " . self::idsDocumentosExpedienteRrhh() . ")
             ");
 
             $idsConsulta = array_values(array_unique(array_merge(
@@ -4098,9 +4126,8 @@ class CapHum extends Model
                 SELECT id, nombre, clave, obligatorio
                 FROM estado_cuenta.documento
                 WHERE activo = 1
-                  AND id NOT IN (15, 16, " . implode(',', self::DOCUMENTOS_EXCLUIDOS_RRHH) . ")
-                  AND clave <> 'OTROS'
-                ORDER BY obligatorio DESC, nombre ASC
+                  AND id IN (" . self::idsDocumentosExpedienteRrhh() . ")
+                ORDER BY FIELD(id, " . self::idsDocumentosExpedienteRrhh() . ")
             ");
 
             $personas = $db->queryAll("
