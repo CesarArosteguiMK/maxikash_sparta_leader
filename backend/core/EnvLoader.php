@@ -34,7 +34,12 @@ class EnvLoader
             return;
         }
 
-        foreach ($lines as $line) {
+        foreach ($lines as $index => $line) {
+            // Algunos editores guardan el primer caracter como UTF-8 BOM.
+            // Sin removerlo, la primera clave (por ejemplo DB_HOST) no coincide.
+            if ($index === 0) {
+                $line = preg_replace('/^\xEF\xBB\xBF/', '', $line) ?? $line;
+            }
             $line = trim($line);
             if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) {
                 continue;

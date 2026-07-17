@@ -91,14 +91,20 @@ def _load_env_file(path: str | None = None) -> None:
     if not os.path.isfile(env_path):
         return
     with open(env_path, encoding="utf-8") as fh:
-        for raw_line in fh:
+        for index, raw_line in enumerate(fh):
+            # Remove a UTF-8 BOM from the first key when the file was saved by Windows editors.
+            if index == 0:
+                raw_line = raw_line.lstrip("\ufeff")
             line = raw_line.strip()
             if not line or line.startswith("#") or "=" not in line:
                 continue
             key, value = line.split("=", 1)
             key = key.strip()
             value = value.strip().strip('"').strip("'")
-            if key and key not in os.environ:
+            # A service can retain an old placeholder from a previous deployment.
+            # It must not override the actual value in the secure environment file.
+            current_value = os.environ.get(key, "").strip()
+            if key and (not current_value or current_value == "__SPARTA_SECRET_REDACTED__"):
                 os.environ[key] = value
 
 
@@ -149,8 +155,11 @@ S2_HEADERS = {"Content-Type": "application/json", "Token": S2_TOKEN}
 
 TZ_CDMX = ZoneInfo("America/Mexico_City")
 
-# Google Chat (espacio Gastos Cobranza). Sobreescribir con GASTOS_COBRANZA_GCHAT_URL en el entorno.
-GCHAT_URL = os.environ.get("GASTOS_COBRANZA_GCHAT_URL", "")
+# Google Chat del reporte de Gastos Cobranza. Keep the legacy variable as fallback.
+GCHAT_URL = (
+    os.environ.get("GASTOS_GC_REPORTE_CHAT_WEBHOOK_URL", "")
+    or os.environ.get("GASTOS_COBRANZA_GCHAT_URL", "")
+)
 
 FECHA_CORTE_GASTOS = date(2026, 1, 28)
 CONCEPTO_GC        = "NOTA DE DE CARGO GASTOS DE COBRANZA"
