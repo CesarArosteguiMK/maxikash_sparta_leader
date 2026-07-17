@@ -203,6 +203,7 @@ class Candidatos extends Model
                 c.fecha_reingreso_detectado,
                 c.fecha_registro,
                 c.fecha_actualizacion,
+                (SELECT COUNT(*) FROM candidato_documento cd WHERE cd.id_candidato = c.id) AS total_documentos,
                 pais.nombre AS nombre_pais,
                 COALESCE(div1.nombre, div2_padre.nombre, div3_estado.nombre) AS nombre_div_nivel1,
                 COALESCE(div2.nombre, div3_municipio.nombre) AS nombre_div_nivel2,

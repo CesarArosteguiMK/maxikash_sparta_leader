@@ -9645,6 +9645,9 @@ class CapHum extends Controller
             var candidatoPrecargandoDomicilio = false;
             var candidatosFiltrosLlenos = false;
             var candidatosDataTableDisponible = false;
+            // Evita que una respuesta antigua vuelva a pintar la tabla tras un filtro nuevo.
+            var candidatosCargaConsecutivo = 0;
+            var candidatosCargaErrorMostrado = false;
             var CANDIDATO_DIRECCION_COBRANZA_ID = 12;
             window.miUsuarioId = Number(window.miUsuarioId || 0);
 
@@ -9751,7 +9754,7 @@ class CapHum extends Controller
                     return est === "Pendiente de validacion final" || est === "Ingreso programado";
                 }).length) || 0;
                 var enviadas = (datos && datos.filter(function(c){
-                    return Array.isArray(c.documentos) && c.documentos.length >= 10;
+                    return Number(c.total_documentos || 0) >= 10;
                 }).length) || 0;
                 var elTotal = document.getElementById("kpi-total-candidatos");
                 var elPorEval = document.getElementById("kpi-por-evaluar");
@@ -9794,6 +9797,7 @@ class CapHum extends Controller
             }
 
             function getCandidatos() {
+                var cargaActual = ++candidatosCargaConsecutivo;
                 var selDepto = document.getElementById("UserRole");
                 var selPuesto = document.getElementById("UserPlan");
                 var selEstatus = document.getElementById("FilterTransaction");
@@ -9817,6 +9821,7 @@ class CapHum extends Controller
                     data: data,
                     showLoader: false,
                     onSuccess: function(resp) {
+                        if (cargaActual !== candidatosCargaConsecutivo) return;
                         try {
                             if (!resp || !resp.success || !resp.datos) {
                                 console.warn('getCandidatos: respuesta vacía o sin éxito', resp);
@@ -9827,6 +9832,8 @@ class CapHum extends Controller
                                 console.error('getCandidatos: resp.datos no es un array', resp);
                                 return;
                             }
+
+                            candidatosCargaErrorMostrado = false;
 
                             actualizarIndicadoresCandidatos(resp.datos);
 
@@ -9890,6 +9897,7 @@ class CapHum extends Controller
                                         contrato_firmado_en: candidato.contrato_firmado_en,
                                         fecha_registro: candidato.fecha_registro,
                                         fecha_actualizacion: candidato.fecha_actualizacion,
+                                        total_documentos: candidato.total_documentos || 0,
                                         documentos: candidato.documentos || [],
                                         verificacion_expediente: candidato.verificacion_expediente || null,
                                         metricas: candidato.metricas || null,
@@ -10125,6 +10133,9 @@ class CapHum extends Controller
                         }
                     },
                     onError: function(err) {
+                        if (cargaActual !== candidatosCargaConsecutivo) return;
+                        if (candidatosCargaErrorMostrado) return;
+                        candidatosCargaErrorMostrado = true;
                         console.error('getCandidatos: Error en la petición', err);
                         if (typeof Swal !== "undefined") {
                             Swal.fire({
@@ -13899,6 +13910,7 @@ class CapHum extends Controller
         }
 
             function editarCandidato(id) {
+        var abrirEditor = function() {
         candidatoEditId = id;
         window.candidatoModalModo = "edit";
         var modalCandidato = document.getElementById("offcanvasAddCandidato");
@@ -13987,6 +13999,30 @@ class CapHum extends Controller
             })
             .catch(function(){ if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; });
         }).catch(function(){ if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se pudo cargar el candidato." }); });
+        };
+
+        // Al editar desde Documentación, cerramos primero el expediente para no
+        // superponer dos diálogos ni duplicar sus fondos de pantalla.
+        var modalDocumentacion = document.getElementById("modalDocumentacionCandidato");
+        var documentacionAbierta = modalDocumentacion && modalDocumentacion.classList.contains("show");
+        if (!documentacionAbierta) {
+            abrirEditor();
+            return;
+        }
+        var abrirAlCerrar = function() {
+            modalDocumentacion.removeEventListener("hidden.bs.modal", abrirAlCerrar);
+            abrirEditor();
+        };
+        modalDocumentacion.addEventListener("hidden.bs.modal", abrirAlCerrar);
+        if (window.bootstrap && window.bootstrap.Modal) {
+            var instanciaDocumentacion = window.bootstrap.Modal.getInstance(modalDocumentacion);
+            if (instanciaDocumentacion) instanciaDocumentacion.hide();
+            else abrirAlCerrar();
+        } else {
+            modalDocumentacion.classList.remove("show");
+            modalDocumentacion.style.display = "none";
+            abrirAlCerrar();
+        }
         }
 
             function abrirOffcanvasCandidato() {
@@ -15080,7 +15116,9 @@ class CapHum extends Controller
         }
 
         // Eager Loading: Incluir documentos, verificación y métricas de cada candidato
-        if ($resultado['success'] && !empty($resultado['datos']) && is_array($resultado['datos'])) {
+        // La lista permanece ligera; el expediente completo se carga bajo demanda.
+        $incluirExpedienteEnListado = false;
+        if ($incluirExpedienteEnListado && $resultado['success'] && !empty($resultado['datos']) && is_array($resultado['datos'])) {
             $idsCandidatos = array_values(array_filter(array_map(static function ($candidato) {
                 return (int) ($candidato['id'] ?? 0);
             }, $resultado['datos'])));
@@ -15124,6 +15162,17 @@ class CapHum extends Controller
                 }
             }
             unset($candidato); // Liberar referencia
+        }
+
+        if ($resultado['success'] && !empty($resultado['datos']) && is_array($resultado['datos'])) {
+            foreach ($resultado['datos'] as &$candidato) {
+                $candidato['es_direccion_cobranza'] = self::candidatoEsDireccionCobranza($candidato);
+                $candidato['puede_validar_documental'] = self::puedeValidarDocumentalCandidato($candidato);
+                $candidato['documentos'] = [];
+                $candidato['verificacion_expediente'] = null;
+                $candidato['metricas'] = null;
+            }
+            unset($candidato);
         }
 
         echo json_encode($resultado);
