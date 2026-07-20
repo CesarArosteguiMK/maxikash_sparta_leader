@@ -9397,6 +9397,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
   function badgeCambioEstructura(estado) {
     if (estado === 'error') return '<span class="badge bg-label-danger text-danger">Error</span>';
     if (estado === 'cambio') return '<span class="badge bg-label-warning text-warning">Con cambios</span>';
+    if (estado === 'omitido') return '<span class="badge bg-label-secondary text-secondary">Omitido</span>';
     return '<span class="badge bg-label-success text-success">Sin cambios</span>';
   }
 
@@ -9518,6 +9519,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
           <div class="col"><div class="border rounded p-2 text-center"><div class="fw-bold">${Number(resumen.total || 0)}</div><small>Total</small></div></div>
           <div class="col"><div class="border rounded p-2 text-center"><div class="fw-bold text-success">${Number(resumen.encontrados || 0)}</div><small>Encontrados</small></div></div>
           <div class="col"><div class="border rounded p-2 text-center"><div class="fw-bold text-warning">${Number(resumen.con_cambios || 0)}</div><small>Con cambios</small></div></div>
+          <div class="col"><div class="border rounded p-2 text-center"><div class="fw-bold text-secondary">${Number(resumen.omitidos || 0)}</div><small>Omitidos</small></div></div>
           <div class="col"><div class="border rounded p-2 text-center"><div class="fw-bold text-danger">${Number(resumen.errores || 0)}</div><small>Errores</small></div></div>
         </div>
         <div class="alert alert-info py-2">
@@ -9596,18 +9598,20 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       const tieneErrores = Number(resumen.errores || 0) > 0;
       const tieneCambios = Number(resumen.con_cambios || 0) > 0;
       const confirmacion = await Swal.fire({
-        title: tieneErrores ? 'No se aplicaron cambios' : 'Previsualizacion lista',
+        title: tieneErrores ? 'Previsualizacion con observaciones' : 'Previsualizacion lista',
         html: resumenCambioEstructuraHtml(prevalidacion.datos),
         icon: tieneErrores ? 'warning' : 'info',
         width: '1100px',
-        showCancelButton: !tieneErrores && tieneCambios,
+        showCancelButton: tieneCambios,
         showConfirmButton: true,
-        confirmButtonText: tieneErrores ? 'Entendido' : (tieneCambios ? 'Aplicar cambios' : 'Cerrar'),
+        confirmButtonText: tieneCambios
+          ? (tieneErrores ? `Aplicar ${Number(resumen.con_cambios || 0)} cambios validos` : 'Aplicar cambios')
+          : 'Cerrar',
         cancelButtonText: 'Cancelar',
         customClass: { htmlContainer: 'text-start' }
       });
 
-      if (tieneErrores || !tieneCambios || !confirmacion.isConfirmed) return;
+      if (!tieneCambios || !confirmacion.isConfirmed) return;
 
       Swal.fire({
         title: 'Aplicando cambios...',

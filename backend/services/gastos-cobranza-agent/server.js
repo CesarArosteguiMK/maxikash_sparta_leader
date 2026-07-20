@@ -47,7 +47,16 @@ const https = require('https');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 try {
-  require('dotenv').config({ path: path.join(__dirname, '.env') });
+  const dotenv = require('dotenv');
+  const secureEnvPath = String(
+    process.env.SPARTA_ENV_FILE ||
+      (process.platform === 'win32' ? 'C:\\xampp\\secure\\sparta_ledger.env' : '/opt/sparta/secure/sparta_ledger.env'),
+  ).trim();
+  if (secureEnvPath && fs.existsSync(secureEnvPath)) {
+    dotenv.config({ path: secureEnvPath, override: false });
+  }
+  // Compatibilidad local. Nunca reemplaza valores ya cargados desde entorno/archivo seguro.
+  dotenv.config({ path: path.join(__dirname, '.env'), override: false });
 } catch (_) {}
 
 const express = require('express');
@@ -1463,29 +1472,47 @@ function postGoogleChatWebhook(urlStr, text) {
 }
 
 function spawnPhpEnviarReporteGcMail(xlsxAbs) {
-  const backendRoot = path.resolve(__dirname, '..', '..');
-  const script = path.join(backendRoot, 'cronjobs', 'enviar_reporte_gc_excel.php');
-  const php = resolvePhpExe();
-  if (!fs.existsSync(script)) {
-    appendLog('[post-reporte] No existe cronjobs/enviar_reporte_gc_excel.php');
-    return;
-  }
-  appendLog('[post-reporte] Enviando correo vía PHP (Reporteria / PHPMailer)…');
-  const ch = spawn(php, [script, xlsxAbs], {
-    env: { ...process.env },
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  ch.stdout.on('data', (d) => {
-    const s = d.toString().replace(/\r/g, '').trim();
-    if (s) appendLog('[correo-gc] ' + s);
-  });
-  ch.stderr.on('data', (d) => {
-    const s = d.toString().replace(/\r/g, '').trim();
-    if (s) appendLog('[correo-gc][err] ' + s);
-  });
-  ch.on('exit', (c) => {
-    if (c !== 0) appendLog('[post-reporte] PHP correo exit code ' + c);
+  return new Promise((resolve) => {
+    const backendRoot = path.resolve(__dirname, '..', '..');
+    const script = path.join(backendRoot, 'cronjobs', 'enviar_reporte_gc_excel.php');
+    const php = resolvePhpExe();
+    if (!fs.existsSync(script)) {
+      const stderr = 'No existe cronjobs/enviar_reporte_gc_excel.php';
+      appendLog('[post-reporte] ' + stderr);
+      resolve({ ok: false, code: null, stdout: '', stderr });
+      return;
+    }
+
+    appendLog('[post-reporte] Enviando correo via PHP (Reporteria / PHPMailer)...');
+    let stdout = '';
+    let stderr = '';
+    const ch = spawn(php, [script, xlsxAbs], {
+      env: { ...process.env },
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    ch.stdout.on('data', (d) => {
+      const raw = d.toString();
+      const s = raw.replace(/\r/g, '').trim();
+      stdout += raw;
+      if (s) appendLog('[correo-gc] ' + s);
+    });
+    ch.stderr.on('data', (d) => {
+      const raw = d.toString();
+      const s = raw.replace(/\r/g, '').trim();
+      stderr += raw;
+      if (s) appendLog('[correo-gc][err] ' + s);
+    });
+    ch.on('error', (err) => {
+      const msg = err && err.message ? err.message : String(err);
+      appendLog('[post-reporte] No se pudo iniciar PHP correo: ' + msg);
+      resolve({ ok: false, code: null, stdout, stderr: stderr || msg });
+    });
+    ch.on('close', (code) => {
+      const ok = code === 0;
+      appendLog(`[post-reporte] PHP correo finalizo codigo=${code} ok=${ok ? '1' : '0'}`);
+      resolve({ ok, code, stdout, stderr });
+    });
   });
 }
 
@@ -1583,48 +1610,61 @@ function releasePostReporteNotifyLock(lp) {
 let postReporteEntregaChain = Promise.resolve();
 
 async function runPostReporteEntregasImpl(xlsxAbs) {
-  if (!reportePostRunNotifyEnabled()) return;
+  if (!reportePostRunNotifyEnabled()) return true;
   if (!xlsxAbs || !fs.existsSync(xlsxAbs)) {
     appendLog('[post-reporte] Sin .xlsx para notificar.');
-    return;
+    return false;
   }
   let st;
   try {
     st = fs.statSync(xlsxAbs);
   } catch (_) {
     appendLog('[post-reporte] No se pudo leer el .xlsx.');
-    return;
+    return false;
   }
-  if (!st.isFile()) return;
+  if (!st.isFile()) return false;
   const base = path.basename(xlsxAbs);
   const fp = fingerprintPostReporteXlsx(st, base);
   const prev = readPostReporteDedupeRecord();
   const win = postReporteDedupeWindowMs();
   if (prev && prev.fp === fp && Date.now() - prev.t < win) {
     appendLog('[post-reporte] Omitido: ya se envió correo/Chat para este mismo archivo (dedupe).');
-    return;
+    return true;
   }
 
   const lockPath = acquirePostReporteNotifyLock(fp);
-  if (!lockPath) return;
+  if (!lockPath) return false;
 
   try {
     const kb = Math.max(1, Math.round(st.size / 1024));
 
-    if (reporteMailAfterRunEnabled()) {
-      spawnPhpEnviarReporteGcMail(xlsxAbs);
-    }
+    const mailEnabled = reporteMailAfterRunEnabled();
+    const mailResult = mailEnabled
+      ? await spawnPhpEnviarReporteGcMail(xlsxAbs)
+      : { ok: true, code: null, stdout: '', stderr: '', disabled: true };
 
     const hook = reporteChatWebhookUrl();
+    let chatOk = true;
     if (hook) {
+      const entrega = mailEnabled
+        ? mailResult.ok
+          ? 'Correo: envio confirmado por PHPMailer.'
+          : `Correo: ERROR (codigo ${mailResult.code == null ? 'sin proceso' : mailResult.code}). Revise el log del agente.`
+        : 'Correo: envio desactivado por configuracion.';
       const text =
-        `📊 *Reporte Gastos Cobranza*\n` +
+        `📎 *Entrega final del Reporte Gastos Cobranza*\n` +
         `Archivo: \`${base}\` (~${kb} KB)\n` +
-        `El Excel se envió por correo a los destinatarios configurados (PHPMailer).`;
-      await postGoogleChatWebhook(hook, text);
+        entrega;
+      chatOk = await postGoogleChatWebhook(hook, text);
     }
 
-    writePostReporteDedupeRecord(fp);
+    if (mailResult.ok && chatOk) {
+      writePostReporteDedupeRecord(fp);
+      return true;
+    } else {
+      appendLog('[post-reporte] Entrega incompleta; no se registra dedupe para permitir reintento.');
+      return false;
+    }
   } finally {
     releasePostReporteNotifyLock(lockPath);
   }
@@ -1650,6 +1690,14 @@ let reporteChild = null;
 function runReporteCobranza(res, opts = {}) {
   const autoRunMarkYmd = typeof opts.autoRunMarkYmd === 'string' ? opts.autoRunMarkYmd.trim() : '';
   const regenerar = !!(opts && opts.regenerar);
+  const reporteAntes = resolveReporteXlsxPathAfterRun();
+  let huellaReporteAntes = '';
+  try {
+    if (reporteAntes && fs.existsSync(reporteAntes)) {
+      const stAntes = fs.statSync(reporteAntes);
+      huellaReporteAntes = fingerprintPostReporteXlsx(stAntes, path.basename(reporteAntes));
+    }
+  } catch (_) {}
   if (reporteRunBusy) {
     const msg = 'Ya hay una ejecución del reporte en curso.';
     appendLog('[run] ' + msg);
@@ -1758,24 +1806,72 @@ function runReporteCobranza(res, opts = {}) {
     });
   });
 
-  child.on('close', (code) => {
-    reporteRunBusy = false;
+  child.on('close', async (code) => {
     reporteChild = null;
-    enviar({
-      success: code === 0,
-      codigo_salida: code,
-      stdout: stdout.slice(-8000),
-      stderr: stderr.slice(-8000),
-    });
+    let entregaOk = code === 0;
     if (code === 0) {
-      if (autoRunMarkYmd) writeAutoRunLastYmd(autoRunMarkYmd);
       const xlsx = resolveReporteXlsxPathAfterRun();
-      runPostReporteEntregas(xlsx).catch((e) => appendLog('[post-reporte] ' + (e?.message || e)));
+      let huellaReporteDespues = '';
+      try {
+        if (xlsx && fs.existsSync(xlsx)) {
+          const stDespues = fs.statSync(xlsx);
+          huellaReporteDespues = fingerprintPostReporteXlsx(stDespues, path.basename(xlsx));
+        }
+      } catch (_) {}
+      const reporteSinRegenerar = stdout.includes('REPORTE_EXISTENTE_SIN_REGENERAR=1');
+      const archivoSinCambios = !!huellaReporteAntes && huellaReporteAntes === huellaReporteDespues;
+      entregaOk = true;
+      if (reporteSinRegenerar || (!regenerar && archivoSinCambios)) {
+        if (autoRunMarkYmd) {
+          appendLog('[post-reporte] El Excel ya existia; verificando entrega pendiente del auto-run.');
+          try {
+            entregaOk = await runPostReporteEntregas(xlsx);
+          } catch (e) {
+            entregaOk = false;
+            appendLog('[post-reporte] ' + (e?.message || e));
+          }
+        } else {
+          appendLog('[post-reporte] Omitido: el Excel ya existia y no fue regenerado en esta corrida.');
+        }
+      } else {
+        try {
+          entregaOk = await runPostReporteEntregas(xlsx);
+        } catch (e) {
+          entregaOk = false;
+          appendLog('[post-reporte] ' + (e?.message || e));
+        }
+      }
+      if (autoRunMarkYmd) {
+        if (entregaOk) {
+          writeAutoRunLastYmd(autoRunMarkYmd);
+          appendLog(`[auto-run] Corrida y entrega completadas; dia marcado: ${autoRunMarkYmd}.`);
+        } else {
+          appendLog(
+            `[auto-run] El reporte quedo generado, pero la entrega no termino; no se marca ${autoRunMarkYmd} y se reintentara dentro de la ventana.`,
+          );
+        }
+      }
     } else if (autoRunMarkYmd) {
       appendLog(
         `[auto-run] El script terminó con código ${code}; no se marca el día como enviado — dentro de la ventana se reintentará.`,
       );
     }
+
+    const reporteOk = code === 0;
+    enviar({
+      success: reporteOk && entregaOk,
+      codigo_salida: code,
+      stdout: stdout.slice(-8000),
+      stderr: stderr.slice(-8000),
+      reporte_generado: reporteOk,
+      entrega_ok: reporteOk ? entregaOk : false,
+      mensaje: !reporteOk
+        ? `No se pudo generar el reporte (código de salida ${code}).`
+        : entregaOk
+          ? 'Reporte generado y entrega configurada completada.'
+          : 'El Excel se generó, pero no se pudo completar el correo o la notificación final. Se permitirá reintentar la entrega.',
+    });
+    reporteRunBusy = false;
   });
   return true;
 }
@@ -2569,6 +2665,12 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   }
 
   const env = { ...process.env, FECHA_CORTE: fechaCorte };
+  if (tipo === 'worker') {
+    const workerHook = ecWorkflowWebhookUrl();
+    if (workerHook) env.GOOGLE_CHAT_WEBHOOK_URL = workerHook;
+    if (process.env.S2_ESTADO_CUENTA_TOKEN) env.TOKEN = process.env.S2_ESTADO_CUENTA_TOKEN;
+    if (process.env.S2_ESTADO_CUENTA_URL) env.ENDPOINT = process.env.S2_ESTADO_CUENTA_URL;
+  }
   if (tipo === 'worker' && ejecutadoPor) {
     env.EC_WORKER_EJECUTADO_POR = ejecutadoPor;
   }

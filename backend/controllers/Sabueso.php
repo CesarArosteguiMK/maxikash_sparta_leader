@@ -4835,7 +4835,11 @@ class Sabueso extends Controller
         // Misma fuente que usa Estado de Cuenta cuando el ID de cliente de
         // Megareporte no coincide con el que tiene guardado el INE en S2.
         try {
-            $endpoint = 'https://servicios.s2movil.net/s2maxikash/estadocuenta';
+            $endpoint = (string) (getenv('S2_ESTADO_CUENTA_URL') ?: 'https://servicios.s2movil.net/s2maxikash/estadocuenta');
+            $tokenS2 = (string) (getenv('S2_ESTADO_CUENTA_TOKEN') ?: '');
+            if ($tokenS2 === '') {
+                throw new \RuntimeException('S2_ESTADO_CUENTA_TOKEN no configurado.');
+            }
             $payload = json_encode(['idCredito' => $idCredito, 'fechaCorte' => date('Y-m-d')]);
             $ch = curl_init($endpoint);
             curl_setopt_array($ch, [
@@ -4843,7 +4847,7 @@ class Sabueso extends Controller
                 CURLOPT_POST => true,
                 CURLOPT_HTTPHEADER => [
                     'Content-Type: application/json',
-                    'Token: 3oJVoAHtwWn7oBT4o340gFkvq9uWRRmpFo7p',
+                    'Token: ' . $tokenS2,
                 ],
                 CURLOPT_POSTFIELDS => $payload,
                 CURLOPT_TIMEOUT => 12,

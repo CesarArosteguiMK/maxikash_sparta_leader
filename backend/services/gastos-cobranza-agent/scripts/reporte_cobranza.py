@@ -65,9 +65,12 @@ import logging
 import os
 import re
 import shutil
+import socket
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -191,8 +194,10 @@ _DEFAULT_AWS_MOVIL_USER = ""
 _DEFAULT_AWS_MOVIL_PASSWORD = ""
 _DEFAULT_AWS_MOVIL_DATABASE = ""
 
-S2_URL     = (
-    os.environ.get("S2_ESTADO_CUENTA_URL", "")
+# La ruta de S2 es sensible a su representacion exacta. No decodificar ni
+# reescribir segmentos: debe consumirse tal como fue configurada en secure.
+S2_URL = (
+    os.environ.get("S2_ESTADO_CUENTA_URL", "").strip()
     or "https://servicios.s2movil.net/s2maxikash/estadocuenta"
 )
 S2_TOKEN   = os.environ.get("S2_ESTADO_CUENTA_TOKEN", "")
@@ -225,6 +230,10 @@ def validar_configuracion() -> None:
     _mysql_identifier(MAIN_DB_SCHEMA, "DB_NAME")
     if "__SPARTA_SECRET_REDACTED__" in S2_URL:
         raise RuntimeError(f"S2_ESTADO_CUENTA_URL contiene un valor redactado en {_CANONICAL_ENV_PATH}.")
+    if not S2_URL.startswith("https://"):
+        raise RuntimeError(f"S2_ESTADO_CUENTA_URL no contiene una URL HTTPS valida en {_CANONICAL_ENV_PATH}.")
+    if not S2_TOKEN:
+        raise RuntimeError(f"Falta configurar S2_ESTADO_CUENTA_TOKEN en {_CANONICAL_ENV_PATH}.")
 
     log.info("Configuracion segura cargada desde: %s", _LOADED_ENV_PATH)
     if not GCHAT_URL.startswith("https://chat.googleapis.com/"):
@@ -371,7 +380,7 @@ def _guardar_guia_descargo(
     ultimo_id_credito: int,
     ultimo_id_tabla: int,
     ultimo_registrado_en_cdmx: str,
-) -> None:
+) -> bool:
     os.makedirs(DESCARGO_ESTATUS3_DIR, exist_ok=True)
     payload = {
         "ultimo_id_tabla": ultimo_id_tabla,
@@ -394,7 +403,7 @@ def _guardar_guia_descargo(
         json.loads(text)
     except (TypeError, ValueError, json.JSONDecodeError) as e:
         log.warning("Serialización JSON de guía inválida; no se escribe: %s", e)
-        return
+        return False
     try:
         if os.path.isfile(p) and os.path.getsize(p) > 0:
             try:
@@ -405,6 +414,7 @@ def _guardar_guia_descargo(
             f.write(text)
         os.replace(tmp, p)
         log.info("Guía descargo actualizada: %s", os.path.basename(p))
+        return True
     except OSError as e:
         log.warning("No se pudo guardar la guía descargo: %s", e)
         try:
@@ -412,6 +422,7 @@ def _guardar_guia_descargo(
                 os.unlink(tmp)
         except OSError:
             pass
+        return False
 
 
 def _dt_descargo_a_str(val) -> str:
@@ -667,22 +678,38 @@ def fecha_negocio_y_reloj_cdmx() -> tuple[date, datetime]:
     return ayer, ahora_cdmx
 
 
-def notificar_google_chat(texto: str) -> None:
+def notificar_google_chat(texto: str) -> bool:
     """Aviso al webhook Google Chat; no interrumpe el reporte si falla."""
     u = (GCHAT_URL or "").strip()
     if not u.startswith("http"):
-        return
+        log.warning("Google Chat omitido: webhook del reporte no configurado.")
+        return False
     try:
-        r = requests.post(
+        # El requests incluido en pydeps reescribe segmentos de la URL
+        # (por ejemplo /v1/ como /v%31/) y Google Chat responde 404.
+        # urllib conserva intacta la URL firmada del webhook.
+        payload = json.dumps({"text": texto[:8000]}, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(
             u,
-            json={"text": texto[:8000]},
+            data=payload,
             headers={"Content-Type": "application/json; charset=UTF-8"},
-            timeout=20,
+            method="POST",
         )
-        if r.status_code >= 400:
-            log.warning("Google Chat HTTP %s: %s", r.status_code, (r.text or "")[:200])
+        with urllib.request.urlopen(req, timeout=20) as response:
+            status = int(response.getcode() or 0)
+            body = response.read(500).decode("utf-8", errors="replace")
+        if status >= 400:
+            log.warning("Google Chat HTTP %s: %s", status, body[:200])
+            return False
+        log.info("Google Chat detalle OK: HTTP %s.", status)
+        return True
+    except urllib.error.HTTPError as e:
+        body = e.read(500).decode("utf-8", errors="replace")
+        log.warning("Google Chat HTTP %s: %s", e.code, body[:200])
+        return False
     except Exception as e:
         log.warning("Google Chat error: %s", e)
+        return False
 
 
 # ─── QUERY LISTA NEGRA: IDs ya verificados esta semana ───────────────────────
@@ -1201,26 +1228,141 @@ def get_session():
     return _thread_local.session
 
 
+def reset_session() -> None:
+    """Descarta la conexion HTTP del hilo para evitar reutilizar un nodo S2 defectuoso."""
+    session = getattr(_thread_local, "session", None)
+    if session is not None:
+        try:
+            session.close()
+        except Exception:
+            pass
+        delattr(_thread_local, "session")
+
+
+class _S2Response:
+    def __init__(self, status_code: int, content: bytes, headers=None):
+        self.status_code = status_code
+        self.content = content
+        self.headers = headers or {}
+
+    @property
+    def text(self) -> str:
+        return self.content.decode("utf-8", errors="replace")
+
+    def json(self):
+        return json.loads(self.content.decode("utf-8"))
+
+
+def post_s2(payload: dict):
+    """Envia a S2 sin reescribir el segmento codificado de su ruta."""
+    body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    request = urllib.request.Request(
+        S2_URL,
+        data=body,
+        headers=S2_HEADERS,
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT_S2) as response:
+            return _S2Response(response.status, response.read(), response.headers)
+    except urllib.error.HTTPError as exc:
+        return _S2Response(exc.code, exc.read(), exc.headers)
+    except (TimeoutError, socket.timeout) as exc:
+        raise requests.exceptions.Timeout(str(exc)) from exc
+    except urllib.error.URLError as exc:
+        raise requests.exceptions.ConnectionError(str(exc)) from exc
+
+
 def consultar_s2(id_credito, fecha_corte):
     payload = {"idCredito": id_credito, "fechaCorte": fecha_corte}
     for intento in range(1, MAX_REINTENTOS + 1):
         try:
-            resp = get_session().post(S2_URL, json=payload, timeout=TIMEOUT_S2)
-            resp.raise_for_status()
+            resp = post_s2(payload)
+            if resp.status_code < 200 or resp.status_code >= 300:
+                log.warning(
+                    "[%s] S2 HTTP %s intento %s/%s; se renueva conexion.",
+                    id_credito,
+                    resp.status_code,
+                    intento,
+                    MAX_REINTENTOS,
+                )
+                reset_session()
+                if intento < MAX_REINTENTOS:
+                    time.sleep(0.35 * intento)
+                    continue
+                return None
             data = resp.json()
             if data.get("http") == 200:
                 return data
             return None
         except requests.exceptions.Timeout:
             log.warning(f"[{id_credito}] Timeout intento {intento}")
+            reset_session()
         except requests.exceptions.ConnectionError:
             log.warning(f"[{id_credito}] ConexionError intento {intento}")
+            reset_session()
         except Exception as e:
             log.error(f"[{id_credito}] Error: {e}")
-            return None
+            reset_session()
+            if intento >= MAX_REINTENTOS:
+                return None
         if intento < MAX_REINTENTOS:
             time.sleep(2.0 * intento)
     return None
+
+
+def validar_disponibilidad_s2(ids_credito, fecha_corte) -> None:
+    """Comprueba S2 con una muestra antes de iniciar la corrida masiva."""
+    muestra = list(dict.fromkeys(str(value) for value in ids_credito if value))[:10]
+    ultimo_error = ""
+
+    for posicion, id_credito in enumerate(muestra, start=1):
+        payload = {"idCredito": id_credito, "fechaCorte": fecha_corte}
+        try:
+            resp = post_s2(payload)
+            if resp.status_code in (401, 403):
+                raise RuntimeError(f"HTTP {resp.status_code}: credencial rechazada")
+            if resp.status_code < 200 or resp.status_code >= 300:
+                ultimo_error = f"HTTP {resp.status_code} para muestra {posicion}/{len(muestra)}"
+                log.warning("Prevalidacion S2: %s.", ultimo_error)
+                reset_session()
+                continue
+
+            try:
+                data = resp.json()
+            except ValueError:
+                ultimo_error = "respuesta no JSON"
+                log.warning("Prevalidacion S2: %s.", ultimo_error)
+                continue
+
+            if not isinstance(data, dict):
+                ultimo_error = "respuesta JSON sin estructura esperada"
+                log.warning("Prevalidacion S2: %s.", ultimo_error)
+                continue
+
+            log.info(
+                "Prevalidacion S2 correcta: HTTP %s con muestra %s/%s.",
+                resp.status_code,
+                posicion,
+                len(muestra),
+            )
+            return
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+            ultimo_error = type(exc).__name__
+            reset_session()
+            log.warning(
+                "Prevalidacion S2: muestra %s/%s fallo por %s.",
+                posicion,
+                len(muestra),
+                ultimo_error,
+            )
+        except RuntimeError:
+            raise
+
+    raise RuntimeError(
+        "S2 no esta disponible o rechazo la configuracion "
+        f"({ultimo_error or 'sin respuesta'}). No se genero el Excel ni se avanzo la guia de descargo."
+    )
 
 
 def calcular_gc(ec, fecha_limite):
@@ -1780,6 +1922,7 @@ def main() -> None:
             f"{'=' * 65}"
         )
         print(aviso, flush=True)
+        print("[reporte-cobranza] REPORTE_EXISTENTE_SIN_REGENERAR=1", flush=True)
         log.warning("Reporte del día ya existe: %s — proceso terminado sin regenerar.", ruta_excel)
         return
 
@@ -1868,6 +2011,14 @@ def main() -> None:
         f"🚫 **Lista negra** semana `{inicio_semana}`: se quitan **{descartados_negra:,}** · "
         f"**{len(ids_rows):,}** van a S2."
     )
+
+    # No iniciar miles de consultas ni tocar la guia de descargo si la URL,
+    # credencial o disponibilidad general de S2 son incorrectas.
+    if ids_rows:
+        validar_disponibilidad_s2(
+            (row["id_credito"] for row in ids_rows[:10]),
+            fecha_corte,
+        )
 
     total = len(ids_rows)
     resultados_raw: list = [None] * total
@@ -2030,7 +2181,10 @@ def main() -> None:
         f"(excl. post-S2: **{excluidos_s2:,}**). Fusionando descargo…"
     )
 
-    # PASO 3: Descargo incremental (estatus=3) + merge con el reporte
+    # PASO 3: Descargo incremental (estatus=3) + merge con el reporte.
+    # El checkpoint se confirma solo despues de guardar correctamente el Excel.
+    checkpoint_descargo_pendiente: dict | None = None
+    filas_descargo_pendientes = 0
     if SIN_DESCARGO:
         log.info("Descargo: omitido (REPORTE_COBRANZA_SIN_DESCARGO=1). guia_descargo.json no se consulta ni se escribe.")
         print("--- descargo incremental: OMITIDO (prueba SIN_DESCARGO) ---", flush=True)
@@ -2062,18 +2216,22 @@ def main() -> None:
                     "**guía no guardada** (prueba)."
                 )
             else:
-                _guardar_guia_descargo(
-                    ultimo_id_credito=int(ult.get("id_credito", 0) or 0),
-                    ultimo_id_tabla=int(ult.get("id", 0) or 0),
-                    ultimo_registrado_en_cdmx=_dt_descargo_a_str(ult.get("registrado_en_cdmx")),
-                )
+                checkpoint_descargo_pendiente = {
+                    "ultimo_id_credito": int(ult.get("id_credito", 0) or 0),
+                    "ultimo_id_tabla": int(ult.get("id", 0) or 0),
+                    "ultimo_registrado_en_cdmx": _dt_descargo_a_str(
+                        ult.get("registrado_en_cdmx")
+                    ),
+                }
+                filas_descargo_pendientes = len(rows_descargo)
                 print(
                     f"Descargo: {len(rows_descargo)} fila(s) nueva(s) en esta corrida. "
-                    "Guía actualizada.",
+                    "Guía pendiente de confirmar al guardar el Excel.",
                     flush=True,
                 )
                 notificar_google_chat(
-                    f"🔀 **Descargo estatus-3**: **{len(rows_descargo):,}** fila(s) nueva(s) fusionadas al reporte."
+                    f"🔀 **Descargo estatus-3**: **{len(rows_descargo):,}** fila(s) nueva(s) "
+                    "fusionadas; checkpoint pendiente hasta guardar el Excel."
                 )
         else:
             log.info("Descargo: sin filas nuevas en esta corrida. La guía no se actualiza.")
@@ -2127,6 +2285,22 @@ def main() -> None:
         fecha_generacion_cdmx=fecha_generacion_cdmx,
         inicio_semana_operativa=inicio_semana,
     )
+
+    if checkpoint_descargo_pendiente is not None:
+        if not _guardar_guia_descargo(**checkpoint_descargo_pendiente):
+            raise RuntimeError(
+                "El Excel se guardó, pero no se pudo confirmar la guía incremental de descargo. "
+                "La guía quedó sin avanzar para evitar pérdida de filas."
+            )
+        print(
+            f"Descargo: {filas_descargo_pendientes} fila(s) confirmadas. "
+            "Guía actualizada después de guardar el Excel.",
+            flush=True,
+        )
+        notificar_google_chat(
+            f"✅ **Descargo estatus-3**: checkpoint confirmado para "
+            f"**{filas_descargo_pendientes:,}** fila(s) después de guardar el Excel."
+        )
 
     elapsed = time.time() - t0
     log.info("=" * 65)

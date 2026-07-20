@@ -5621,8 +5621,9 @@ class Reporteria extends Controller
     }
 
     /**
-     * Cron / agente Node: envía el Excel del reporte Gastos Cobranza con la misma SMTP que [mail] en config.ini
-     * (mismo criterio que enviarCorreoHtmlVencimientos / correos programados).
+     * Cron / agente Node: envía el Excel del reporte Gastos Cobranza.
+     * Prioriza la configuración segura MAIL_SMTP_* cargada por EnvLoader y conserva [mail]
+     * de config.ini únicamente como compatibilidad con instalaciones anteriores.
      */
     public function enviarCorreoReporteGastosCobranza(array $destinatarios, string $rutaAdjuntoAbs, string $asunto = ''): array
     {
@@ -5658,16 +5659,25 @@ class Reporteria extends Controller
             $ini = is_file($configPath) ? parse_ini_file($configPath, true) : [];
             $mail = $ini['mail'] ?? [];
 
-            $smtpHost = trim((string) ($mail['smtp_host'] ?? ''));
-            $smtpPort = (int) ($mail['smtp_port'] ?? 587);
-            $smtpSecure = strtolower(trim((string) ($mail['smtp_secure'] ?? 'tls')));
-            $smtpUser = trim((string) ($mail['smtp_user'] ?? ''));
-            $smtpPass = trim((string) ($mail['smtp_pass'] ?? ''));
-            $from = trim((string) ($mail['mail_from'] ?? $smtpUser));
-            $fromName = trim((string) ($mail['mail_from_name'] ?? 'Sparta Ledger'));
+            $envOrIni = static function (string $envKey, string $iniKey, string $default = '') use ($mail): string {
+                $envValue = getenv($envKey);
+                if ($envValue !== false && trim((string) $envValue) !== '') {
+                    return trim((string) $envValue);
+                }
+
+                return trim((string) ($mail[$iniKey] ?? $default));
+            };
+
+            $smtpHost = $envOrIni('MAIL_SMTP_HOST', 'smtp_host');
+            $smtpPort = (int) ($envOrIni('MAIL_SMTP_PORT', 'smtp_port', '587') ?: 587);
+            $smtpSecure = strtolower($envOrIni('MAIL_SMTP_SECURE', 'smtp_secure', 'tls'));
+            $smtpUser = $envOrIni('MAIL_SMTP_USER', 'smtp_user');
+            $smtpPass = $envOrIni('MAIL_SMTP_PASS', 'smtp_pass');
+            $from = $envOrIni('MAIL_FROM', 'mail_from', $smtpUser);
+            $fromName = $envOrIni('MAIL_FROM_NAME', 'mail_from_name', 'Sparta Ledger');
 
             if ($smtpHost === '' || $smtpUser === '' || $smtpPass === '') {
-                return self::respuesta(false, 'Falta configuración SMTP en backend/config/config.ini sección [mail].');
+                return self::respuesta(false, 'Falta configuración SMTP: revise MAIL_SMTP_HOST, MAIL_SMTP_USER y MAIL_SMTP_PASS en el entorno seguro.');
             }
 
             $baseName = basename($rutaAdjuntoAbs);

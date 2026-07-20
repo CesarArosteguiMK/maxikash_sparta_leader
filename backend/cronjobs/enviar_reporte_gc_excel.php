@@ -22,6 +22,9 @@ if (!defined('RAIZ')) {
     define('RAIZ', $projectRoot);
 }
 
+require_once RAIZ . '/core/EnvLoader.php';
+\Core\EnvLoader::load();
+
 $envFile = dirname($projectRoot) . '/.env';
 if (is_file($envFile) && is_readable($envFile)) {
     $lines = @file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -40,6 +43,10 @@ if (is_file($envFile) && is_readable($envFile)) {
                 continue;
             }
             if (strpos($key, 'MAIL_') !== 0 && strpos($key, 'GASTOS_GC_REPORTE_') !== 0) {
+                continue;
+            }
+            $current = getenv($key);
+            if ($current !== false && trim((string) $current) !== '') {
                 continue;
             }
             $value = trim(str_replace(["\r", "\n"], '', substr($line, $eq + 1)));
