@@ -85,6 +85,11 @@ $execution = $service->ejecutar($preview['propuesta_especificacion']['payload'],
 spreadsheetAssert(($execution['tipo'] ?? '') === 'agente_ejecucion_exitosa', 'La confirmacion debe ejecutar el lote valido.');
 spreadsheetAssert($structureCalls[1]['apply'] === false && $structureCalls[2]['apply'] === true, 'Debe revalidar antes de aplicar.');
 
+$reorderedNamePath = spreadsheetFile(['nombre_completo', 'puesto', 'departamento'], [['Perez Cruz Jose', 'Gestor', 'Campo 1-7']]);
+$reorderedName = $service->analizar(spreadsheetToken($reorderedNamePath), 'actualiza estructura', spreadsheetContext());
+spreadsheetAssert(isset($reorderedName['propuesta_especificacion']), 'Debe reconocer un nombre completo aunque venga en orden apellidos-nombres.');
+spreadsheetAssert(end($structureCalls)['rows'][0]['external_id'] === '101', 'El nombre reordenado debe conservar el numero_empleado real de la persona.');
+
 $conflictPath = spreadsheetFile(['external_id', 'codigo_contpac', 'puesto', 'departamento'], [['100', '901', 'Gestor', 'Campo 1-7']]);
 $conflict = $service->analizar(spreadsheetToken($conflictPath), 'actualiza estructura', spreadsheetContext());
 spreadsheetAssert(!isset($conflict['propuesta_especificacion']), 'Identificadores de personas distintas deben bloquear el lote.');
@@ -94,6 +99,16 @@ $ambiguousPath = spreadsheetFile(['nombre_completo', 'puesto', 'departamento'], 
 $ambiguous = $service->analizar(spreadsheetToken($ambiguousPath), 'actualiza estructura', spreadsheetContext());
 spreadsheetAssert(!isset($ambiguous['propuesta_especificacion']), 'Un nombre ambiguo nunca debe actualizar automaticamente.');
 spreadsheetAssert(str_contains($ambiguous['reporte']['filas'][0]['detalle'], 'varias personas'), 'Debe identificar la ambiguedad por nombre.');
+
+$duplicateIdPeople = $personas;
+$duplicateIdPeople[] = ['id' => 5, 'numero_empleado' => '100', 'codigo_contpac' => '999', 'curp' => 'EEEE900101HDFRRN05', 'estatus' => 'Activo', 'nombre_completo' => 'OTRA PERSONA'];
+$duplicateIdService = new LeonidasSpreadsheetService([
+    'personas' => static fn(): array => $duplicateIdPeople,
+    'estructura_importar' => static fn(array $rows, int $actor, bool $apply): array => ['success' => true, 'datos' => ['detalles' => []]],
+]);
+$duplicateIdPath = spreadsheetFile(['external_id', 'nombre_completo', 'puesto', 'departamento'], [['100', 'Maria Lopez Diaz', 'Gestor', 'Campo 1-7']]);
+$duplicateIdResult = $duplicateIdService->analizar(spreadsheetToken($duplicateIdPath), 'actualiza estructura', spreadsheetContext());
+spreadsheetAssert(isset($duplicateIdResult['propuesta_especificacion']), 'Un nombre unico debe desambiguar un external_id repetido.');
 
 $mixedPath = spreadsheetFile(
     ['nombre_completo', 'puesto', 'departamento'],

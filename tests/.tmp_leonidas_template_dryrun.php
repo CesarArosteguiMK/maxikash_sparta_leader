@@ -17,22 +17,26 @@ $_SESSION['leonidas_spreadsheet_uploads'][$token] = [
     'hash' => hash_file('sha256', $path),
     'expira_en' => time() + 600,
 ];
-$service = new Services\LeonidasSpreadsheetService([
-    'estructura_importar' => static fn(array $rows, int $actor, bool $apply): array => [
-        'success' => true,
-        'datos' => ['detalles' => []],
-    ],
-]);
+$service = new Services\LeonidasSpreadsheetService();
 $response = $service->analizar($token, 'actualiza la estructura', [
     'actor_id' => 878,
     'permisos_agente' => ['estructura' => true],
 ]);
+$problemas = array_values(array_filter(
+    $response['reporte']['filas'],
+    static fn(array $row): bool => $row['estado'] === 'error'
+));
+$causas = [];
+foreach ($problemas as $problema) {
+    $detalle = (string) ($problema['detalle'] ?? 'Sin detalle');
+    $causas[$detalle] = ($causas[$detalle] ?? 0) + 1;
+}
+arsort($causas);
 echo json_encode([
     'mensaje' => $response['mensaje'],
     'total' => $response['reporte']['total'],
     'propuesta' => isset($response['propuesta_especificacion']),
-    'problemas' => array_values(array_filter(
-        $response['reporte']['filas'],
-        static fn(array $row): bool => $row['estado'] === 'error'
-    )),
+    'problemas_total' => count($problemas),
+    'causas' => $causas,
+    'primeros_problemas' => array_slice($problemas, 0, 20),
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), PHP_EOL;

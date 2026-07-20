@@ -291,7 +291,7 @@ final class LeonidasSpreadsheetService
     private function indicePersonas(): array
     {
         $rows = ($this->adapters['personas'])();
-        $indice = ['id' => [], 'numero_empleado' => [], 'codigo_contpac' => [], 'curp' => [], 'nombre' => []];
+        $indice = ['id' => [], 'numero_empleado' => [], 'codigo_contpac' => [], 'curp' => [], 'nombre' => [], 'nombre_firma' => []];
         foreach ($rows as $row) {
             $row['id'] = (int) $row['id'];
             foreach (['id', 'numero_empleado', 'codigo_contpac', 'curp'] as $campo) {
@@ -299,7 +299,11 @@ final class LeonidasSpreadsheetService
                 if ($valor !== '') $indice[$campo][$valor][] = $row;
             }
             $nombre = $this->normalizarTexto((string) $row['nombre_completo']);
-            if ($nombre !== '') $indice['nombre'][$nombre][] = $row;
+            if ($nombre !== '') {
+                $indice['nombre'][$nombre][] = $row;
+                $firma = $this->firmaNombre($nombre);
+                if ($firma !== '') $indice['nombre_firma'][$firma][] = $row;
+            }
         }
         return $indice;
     }
@@ -313,7 +317,8 @@ final class LeonidasSpreadsheetService
             'curp' => ['curp'],
             'nombre' => ['nombre_completo', 'nombre'],
         ];
-        $coincidencias = [];
+        $candidatos = null;
+        $personasPorId = [];
         $usados = [];
         foreach ($mapa as $tipo => $aliases) {
             foreach ($aliases as $alias) {
@@ -321,20 +326,42 @@ final class LeonidasSpreadsheetService
                 if ($valor === '') continue;
                 $clave = $tipo === 'nombre' ? $this->normalizarTexto($valor) : $this->normalizarIdentificador($valor);
                 $encontradas = $indice[$tipo][$clave] ?? [];
-                $usados[] = $alias;
-                if (count($encontradas) !== 1) {
-                    return ['persona' => null, 'error' => count($encontradas) > 1
-                        ? 'El ' . $alias . ' coincide con varias personas; usa un identificador adicional.'
-                        : 'No encontre una persona unica por ' . $alias . '.'];
+                if ($tipo === 'nombre' && !$encontradas) {
+                    $encontradas = $indice['nombre_firma'][$this->firmaNombre($clave)] ?? [];
                 }
-                $coincidencias[(int) $encontradas[0]['id']] = $encontradas[0];
+                $usados[] = $alias;
+                if (!$encontradas) {
+                    return ['persona' => null, 'error' => 'No encontre ninguna persona por ' . $alias . '.'];
+                }
+                $idsCriterio = [];
+                foreach ($encontradas as $persona) {
+                    $id = (int) $persona['id'];
+                    $idsCriterio[$id] = true;
+                    $personasPorId[$id] = $persona;
+                }
+                $candidatos = $candidatos === null
+                    ? $idsCriterio
+                    : array_intersect_key($candidatos, $idsCriterio);
             }
         }
-        if (!$usados) return ['persona' => null, 'error' => 'Falta identificar a la persona por nombre, ID, numero_empleado, CURP o Código CONTPAC.'];
-        if (count($coincidencias) !== 1) {
-            return ['persona' => null, 'error' => 'Los identificadores de la fila apuntan a personas distintas. Verifica nombre, ID, numero_empleado y Código CONTPAC.'];
+        if (!$usados) {
+            return ['persona' => null, 'error' => 'Falta identificar a la persona por nombre, ID, numero_empleado, CURP o Codigo CONTPAC.'];
         }
-        return ['persona' => array_values($coincidencias)[0], 'error' => null];
+        if (!$candidatos) {
+            return ['persona' => null, 'error' => 'Los identificadores de la fila apuntan a personas distintas. Verifica nombre, ID, numero_empleado y Codigo CONTPAC.'];
+        }
+        if (count($candidatos) > 1) {
+            return ['persona' => null, 'error' => 'Los datos proporcionados coinciden con varias personas; agrega otro identificador para resolver la ambiguedad.'];
+        }
+        $id = (int) array_key_first($candidatos);
+        return ['persona' => $personasPorId[$id], 'error' => null];
+    }
+
+    private function firmaNombre(string $nombre): string
+    {
+        $tokens = array_values(array_filter(preg_split('/\s+/u', $this->normalizarTexto($nombre)) ?: []));
+        sort($tokens, SORT_STRING);
+        return implode('|', $tokens);
     }
 
     private function detectarOperacion(string $mensaje, string $ruta): string
