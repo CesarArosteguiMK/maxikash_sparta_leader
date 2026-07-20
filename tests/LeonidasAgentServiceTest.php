@@ -3,6 +3,7 @@
 require_once dirname(__DIR__) . '/backend/services/LeonidasAgentService.php';
 
 use Services\LeonidasAgentService;
+use Services\LeonidasCapitalHumanoService;
 
 function assertTrue(bool $condition, string $message): void
 {
@@ -169,5 +170,55 @@ $denied = newService()->resolver(
     context(['permisos_agente' => ['convenio' => false, 'motos' => false, 'id_celula' => null]])
 );
 assertSameValue('agente_denegado', $denied['tipo'], 'Debe bloquear el flujo sin permisos.');
+
+$_SESSION = [];
+$capitalHumano = new LeonidasCapitalHumanoService([
+    'persona_buscar' => static fn(string $criterio): array => ['success' => true, 'datos' => [[
+        'id' => 31,
+        'nombre_completo' => 'JENIFER ITZEL PEINADO ALCALA',
+    ]]],
+    'persona_detalle' => static fn(int $id): array => ['success' => true, 'datos' => [
+        'id' => $id,
+        'nombres' => 'JENIFER',
+        'segundo_nombre' => 'ITZEL',
+        'apellidop' => 'PEINADO',
+        'apellidom' => 'ALCALA',
+        'estatus' => 'Activo',
+        'numero_empleado' => '999999080',
+        'codigo_contpac' => '31',
+        'puesto' => 'Gerente',
+        'departamento' => 'Atencion a Clientes',
+    ]],
+    'persona_documentos' => static fn(int $id): array => ['success' => true, 'datos' => ['total' => 10]],
+    'vacaciones_resumen' => static fn(int $id): array => ['success' => true, 'datos' => ['periodo' => ['dias_disponibles' => 8]]],
+    'permiso_actualizar' => static fn(int $persona, int $modulo, bool $asignado): array => [
+        'success' => true,
+        'mensaje' => 'Permiso actualizado.',
+    ],
+    'auditar' => static function (array $evento): void {
+    },
+]);
+$capitalAgent = newService(['capital_humano_service' => $capitalHumano]);
+$capitalContext = context(['permisos_agente' => [
+    'rrhh_lectura' => true,
+    'vacaciones' => true,
+    'permisos' => true,
+]]);
+$ficha = $capitalAgent->resolver('ficha 360 de Jenifer Peinado', 'ficha 360 de jenifer peinado', $capitalContext);
+assertSameValue('rrhh_ficha_360', $ficha['tipo'], 'El agente principal debe delegar la ficha 360 a Capital Humano.');
+assertTrue(str_contains($ficha['mensaje'], 'JENIFER ITZEL PEINADO ALCALA'), 'La ficha 360 debe regresar por el chat principal.');
+
+$permiso = $capitalAgent->resolver(
+    'otorga el permiso 191 a la persona 31',
+    'otorga el permiso 191 a la persona 31',
+    $capitalContext
+);
+assertSameValue('agente_propuesta', $permiso['tipo'], 'El agente principal debe preparar acciones de Capital Humano.');
+$permisoEjecutado = $capitalAgent->ejecutar(
+    'permiso_actualizar',
+    $permiso['propuesta_especificacion']['payload'],
+    $capitalContext
+);
+assertSameValue('agente_ejecucion_exitosa', $permisoEjecutado['tipo'], 'El agente principal debe ejecutar la accion confirmada de Capital Humano.');
 
 echo "LeonidasAgentService: OK\n";

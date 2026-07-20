@@ -9447,13 +9447,66 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     return `
       <div class="alert alert-danger text-start">
         <div class="fw-bold mb-2">
-          No se aplico ningun cambio porque el archivo tiene ${errores.length} fila(s) con errores.
+          ${errores.length} fila(s) no se pueden actualizar hasta corregir el problema indicado.
         </div>
         <div class="small mb-2">
-          Corrige estos puntos en el Excel o en el catalogo/base de datos y vuelve a cargar el archivo.
+          Las filas validas se pueden aplicar; estas se excluyen para evitar una estructura incorrecta.
         </div>
         ${items}
         ${errores.length > visibles.length ? `<div class="small fw-semibold mt-2">Hay ${errores.length - visibles.length} error(es) adicional(es). Revisa la tabla inferior para verlos.</div>` : ''}
+      </div>
+    `;
+  }
+
+  function panelOmitidosCambioEstructura(detalles) {
+    const omitidos = detalles.filter(item => item.estado === 'omitido');
+    if (!omitidos.length) return '';
+    const visibles = omitidos.slice(0, 10).map(item => {
+      const motivo = Array.isArray(item.mensajes) && item.mensajes.length
+        ? item.mensajes.join(' ')
+        : 'La fila fue omitida durante la validacion.';
+      const estructuraActual = `${item.departamento_actual || 'Sin departamento'} / ${item.puesto_actual || 'Sin puesto'}`;
+      const estructuraPropuesta = `${item.departamento_nuevo || 'Sin departamento'} / ${item.puesto_nuevo || 'Sin puesto'}`;
+      return `
+        <li>
+          <strong>Fila ${escapeCambioEstructuraHtml(item.fila || '')}</strong>
+          - ${escapeCambioEstructuraHtml(item.persona_nombre || item.nombre_excel || 'Sin persona')}
+          <span class="text-muted">(External ID: ${escapeCambioEstructuraHtml(item.external_id || 'Sin dato')})</span>:
+          ${escapeCambioEstructuraHtml(motivo)}<br>
+          <small>Se conserva: ${escapeCambioEstructuraHtml(estructuraActual)}. El archivo proponia: ${escapeCambioEstructuraHtml(estructuraPropuesta)}.</small>
+        </li>
+      `;
+    }).join('');
+    return `
+      <div class="alert alert-secondary py-2 text-start">
+        <div class="fw-bold mb-1">${omitidos.length} persona(s) omitida(s)</div>
+        <div class="small mb-1">No se modifican para proteger su informacion actual.</div>
+        <ul class="mb-0 ps-3">${visibles}</ul>
+        ${omitidos.length > 10 ? `<div class="small fw-semibold mt-2">Hay ${omitidos.length - 10} omitida(s) adicional(es).</div>` : ''}
+      </div>
+    `;
+  }
+
+  function panelCambiosCambioEstructura(detalles) {
+    const cambios = detalles.filter(item => item.estado === 'cambio');
+    if (!cambios.length) return '';
+    const visibles = cambios.slice(0, 12).map(item => `
+      <li class="mb-1">
+        <strong>${escapeCambioEstructuraHtml(item.persona_nombre || item.nombre_excel || 'Sin persona')}</strong>
+        <span class="text-muted">(External ID: ${escapeCambioEstructuraHtml(item.external_id || 'Sin dato')})</span><br>
+        <small>
+          ${escapeCambioEstructuraHtml(item.departamento_actual || 'Sin departamento')} / ${escapeCambioEstructuraHtml(item.puesto_actual || 'Sin puesto')}
+          <strong>&rarr;</strong>
+          ${escapeCambioEstructuraHtml(item.departamento_nuevo || 'Sin departamento')} / ${escapeCambioEstructuraHtml(item.puesto_nuevo || 'Sin puesto')}
+          ${item.jefe_actual !== item.jefe_nuevo ? `<br>Jefe: ${escapeCambioEstructuraHtml(item.jefe_actual || 'Sin jefe')} <strong>&rarr;</strong> ${escapeCambioEstructuraHtml(item.jefe_nuevo || 'Sin jefe')}` : ''}
+        </small>
+      </li>
+    `).join('');
+    return `
+      <div class="alert alert-success py-2 text-start">
+        <div class="fw-bold mb-1">${cambios.length} cambio(s) listo(s) para aplicar</div>
+        <ul class="mb-0 ps-3">${visibles}</ul>
+        ${cambios.length > 12 ? `<div class="small fw-semibold mt-2">Hay ${cambios.length - 12} cambio(s) adicional(es) en la tabla.</div>` : ''}
       </div>
     `;
   }
@@ -9488,7 +9541,15 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
   function resumenCambioEstructuraHtml(datos) {
     const resumen = datos?.resumen || {};
     const detalles = Array.isArray(datos?.detalles) ? datos.detalles : [];
-    const primeros = detalles.slice(0, 18);
+    const prioridad = { error: 0, omitido: 1, cambio: 2, sin_cambio: 3 };
+    const detallesOrdenados = [...detalles].sort((a, b) => (prioridad[a.estado] ?? 9) - (prioridad[b.estado] ?? 9));
+    const primeros = detallesOrdenados.slice(0, 18);
+    const totalErrores = Number(resumen.errores || 0);
+    const totalOmitidos = Number(resumen.omitidos || 0);
+    const totalCambios = Number(resumen.con_cambios || 0);
+    const estadoGeneral = totalErrores === 0 && totalOmitidos === 0
+      ? `<div class="alert alert-success py-2"><strong>Validacion limpia:</strong> 0 errores, 0 omitidos y ${totalCambios} cambio(s) listo(s) para aplicar.</div>`
+      : `<div class="alert alert-info py-2"><strong>Resultado de la validacion:</strong> ${totalErrores} error(es), ${totalOmitidos} omitido(s) y ${totalCambios} cambio(s) valido(s).</div>`;
     const filas = primeros.map(item => {
       const mensajes = Array.isArray(item.mensajes) ? item.mensajes.join(' ') : '';
       return `
@@ -9526,7 +9587,10 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
           La llave de busqueda es <strong>external_id</strong> del Excel contra <strong>numero_empleado</strong> en persona.
           No se modifica <strong>codigo_contpac</strong>.
         </div>
+        ${estadoGeneral}
         ${panelErroresCambioEstructura(detalles)}
+        ${panelOmitidosCambioEstructura(detalles)}
+        ${panelCambiosCambioEstructura(detalles)}
         ${panelAvisosCambioEstructura(detalles)}
         <div class="table-responsive" style="max-height: 420px;">
           <table class="table table-sm align-middle">

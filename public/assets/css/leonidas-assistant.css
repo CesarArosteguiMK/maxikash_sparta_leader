@@ -416,10 +416,45 @@
 
 .leonidas-composer {
     display: flex;
+    flex-wrap: wrap;
     gap: .45rem;
     padding: .75rem .85rem;
     border-top: 1px solid #e7ebf2;
 }
+
+.leonidas-composer__attachment {
+    flex: 0 0 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .4rem .55rem;
+    border: 1px solid #cfe2ff;
+    border-radius: .4rem;
+    background: #e7f1ff;
+    color: #234b7c;
+    font-size: .72rem;
+}
+.leonidas-composer__attachment[hidden] { display: none; }
+.leonidas-composer__attachment button {
+    border: 0;
+    background: transparent;
+    color: #596b82;
+    cursor: pointer;
+}
+.leonidas-composer__attach {
+    width: 2.3rem;
+    min-height: 2.3rem;
+    display: grid;
+    place-items: center;
+    align-self: flex-end;
+    border: 1px solid #cfd8e5;
+    border-radius: .45rem;
+    background: #f7f9fc;
+    color: #3e5575;
+    cursor: pointer;
+}
+.leonidas-composer__attach.is-uploading { opacity: .55; cursor: wait; }
 
 .leonidas-composer textarea {
     min-width: 0;

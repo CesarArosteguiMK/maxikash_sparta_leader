@@ -2,6 +2,9 @@
 
 namespace Services;
 
+require_once __DIR__ . '/LeonidasCapitalHumanoService.php';
+require_once __DIR__ . '/LeonidasSpreadsheetService.php';
+
 /**
  * Stateful, deterministic workflows for actions Leonidas may execute.
  * The language model never supplies authoritative business values.
@@ -13,9 +16,15 @@ class LeonidasAgentService
 
     /** @var array<string, callable> */
     private array $adapters;
+    private LeonidasCapitalHumanoService $capitalHumano;
 
     public function __construct(array $adapters = [])
     {
+        $capitalHumano = $adapters['capital_humano_service'] ?? null;
+        unset($adapters['capital_humano_service']);
+        $this->capitalHumano = $capitalHumano instanceof LeonidasCapitalHumanoService
+            ? $capitalHumano
+            : new LeonidasCapitalHumanoService();
         $this->adapters = $adapters + [
             'convenio_ofertas' => static fn(int $idCredito): array => \Models\Convenios::getOfertasElegibles($idCredito),
             'convenio_guardar' => static fn(array $datos): array => \Models\Convenios::guardarConvenio($datos),
@@ -26,8 +35,26 @@ class LeonidasAgentService
         ];
     }
 
+    public static function accionesEjecutables(): array
+    {
+        return array_merge(
+            ['convenio_crear', 'moto_asignar', 'excel_aplicar'],
+            LeonidasCapitalHumanoService::accionesEjecutables()
+        );
+    }
+
+    public static function puedeEjecutar(string $accion): bool
+    {
+        return in_array($accion, self::accionesEjecutables(), true);
+    }
+
     public function resolver(string $mensaje, string $normalizado, array $contexto): ?array
     {
+        $capitalHumano = $this->capitalHumano->resolver($mensaje, $normalizado, $contexto);
+        if ($capitalHumano !== null) {
+            return $capitalHumano;
+        }
+
         $tarea = $this->tareaActual((int) ($contexto['actor_id'] ?? 0));
         if ($tarea !== null) {
             if (preg_match('/\b(cancelar|cancela|olvida|deten|detener)\b/u', $normalizado)) {
@@ -67,11 +94,17 @@ class LeonidasAgentService
 
     public function ejecutar(string $accion, array $payload, array $contexto): array
     {
+        if ($accion === 'excel_aplicar') {
+            return (new LeonidasSpreadsheetService())->ejecutar($payload, $contexto);
+        }
         if ($accion === 'convenio_crear') {
             return $this->ejecutarConvenio($payload, $contexto);
         }
         if ($accion === 'moto_asignar') {
             return $this->ejecutarMoto($payload, $contexto);
+        }
+        if (LeonidasCapitalHumanoService::puedeEjecutar($accion)) {
+            return $this->capitalHumano->ejecutar($accion, $payload, $contexto);
         }
 
         throw new \RuntimeException('Leónidas no reconoce el ejecutor solicitado.');
@@ -80,6 +113,7 @@ class LeonidasAgentService
     public function limpiarTarea(): void
     {
         unset($_SESSION[self::TASK_KEY]);
+        $this->capitalHumano->limpiarTarea();
     }
 
     private function continuarConvenio(string $mensaje, string $normalizado, array $tarea, array $contexto): array

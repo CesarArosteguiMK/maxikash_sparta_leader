@@ -4516,8 +4516,9 @@ SQL;
             if ($url === '' || !preg_match('#^https?://#i', $url)) {
                 continue;
             }
-            $this->upsertEvidenciaDictumApp($idOperacion, $slot, $url, $idUsuario, $ahora);
-            $procesado = true;
+            if ($this->upsertEvidenciaDictumApp($idOperacion, $slot, $url, $idUsuario, $ahora)) {
+                $procesado = true;
+            }
         }
 
         if (!$procesado) {
@@ -4686,8 +4687,9 @@ SQL;
             if ($url === '' || !preg_match('#^https?://#i', $url)) {
                 continue;
             }
-            $this->upsertEvidenciaDictumApp($idOperacion, $slot, $url, $idUsuario, $ahora);
-            $procesado = true;
+            if ($this->upsertEvidenciaDictumApp($idOperacion, $slot, $url, $idUsuario, $ahora)) {
+                $procesado = true;
+            }
         }
 
         if (!$procesado) {
@@ -4798,9 +4800,14 @@ SQL;
         return $datos;
     }
 
-    private function upsertEvidenciaDictumApp(int $idOperacion, string $slot, string $url, int $idUsuario, string $fecha): void
+    private function upsertEvidenciaDictumApp(int $idOperacion, string $slot, string $url, int $idUsuario, string $fecha): bool
     {
-        $tipo = $this->tipoEvidenciaPorUrl($url);
+        $urlRespaldada = $this->respaldarEvidenciaDictumApp($idOperacion, $slot, $url);
+        if ($urlRespaldada === null) {
+            return false;
+        }
+
+        $tipo = $this->tipoEvidenciaPorUrl($urlRespaldada);
         $old = $this->db->queryOne(
             'SELECT id, url, estatus FROM adj_evidencia WHERE id_operacion = :id AND slot = :slot LIMIT 1',
             ['id' => $idOperacion, 'slot' => $slot]
@@ -4808,7 +4815,7 @@ SQL;
 
         if ($old) {
             if ($this->operacionTieneEnvioAtencionMarcado($idOperacion)) {
-                return;
+                return true;
             }
             $historialRechazo = $this->db->queryOne(
                 'SELECT 1 AS ok
@@ -4822,18 +4829,18 @@ SQL;
                 ]
             );
             if ($historialRechazo) {
-                return;
+                return true;
             }
 
             $urlAnterior = trim((string) ($old['url'] ?? ''));
-            if ($urlAnterior === trim($url)) {
+            if ($urlAnterior === $urlRespaldada) {
                 $this->db->CRUD(
                     "UPDATE adj_evidencia
                      SET estatus = 'recibido'
                      WHERE id_operacion = :id AND slot = :slot AND estatus <> 'recibido'",
                     ['id' => $idOperacion, 'slot' => $slot]
                 );
-                return;
+                return true;
             }
 
             if ($this->adjEvidenciaTieneColumnasAtn() && !$this->operacionTieneEnvioAtencionMarcado($idOperacion)) {
@@ -4842,31 +4849,150 @@ SQL;
                      SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = 'recibido',
                          val_atn = NULL, comentario_atn = NULL
                      WHERE id_operacion = :id AND slot = :slot",
-                    ['tipo' => $tipo, 'url' => $url, 'fecha' => $fecha, 'id' => $idOperacion, 'slot' => $slot]
+                    ['tipo' => $tipo, 'url' => $urlRespaldada, 'fecha' => $fecha, 'id' => $idOperacion, 'slot' => $slot]
                 );
             } elseif ($this->adjEvidenciaTieneColumnasAtn()) {
                 $this->db->CRUD(
                     "UPDATE adj_evidencia
                      SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = 'recibido'
                      WHERE id_operacion = :id AND slot = :slot",
-                    ['tipo' => $tipo, 'url' => $url, 'fecha' => $fecha, 'id' => $idOperacion, 'slot' => $slot]
+                    ['tipo' => $tipo, 'url' => $urlRespaldada, 'fecha' => $fecha, 'id' => $idOperacion, 'slot' => $slot]
                 );
             } else {
                 $this->db->CRUD(
                     "UPDATE adj_evidencia
                      SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = 'recibido'
                      WHERE id_operacion = :id AND slot = :slot",
-                    ['tipo' => $tipo, 'url' => $url, 'fecha' => $fecha, 'id' => $idOperacion, 'slot' => $slot]
+                    ['tipo' => $tipo, 'url' => $urlRespaldada, 'fecha' => $fecha, 'id' => $idOperacion, 'slot' => $slot]
                 );
             }
-            return;
+            return true;
         }
 
         $this->db->CRUD(
             "INSERT INTO adj_evidencia (id_operacion, tipo, slot, url, fecha_alta, alta, estatus)
              VALUES (:id, :tipo, :slot, :url, :fecha, :alta, 'recibido')",
-            ['id' => $idOperacion, 'tipo' => $tipo, 'slot' => $slot, 'url' => $url, 'fecha' => $fecha, 'alta' => $idUsuario ?: 0]
+            ['id' => $idOperacion, 'tipo' => $tipo, 'slot' => $slot, 'url' => $urlRespaldada, 'fecha' => $fecha, 'alta' => $idUsuario ?: 0]
         );
+
+        return true;
+    }
+
+    /**
+     * La app movil entrega enlaces temporales de Firebase. Conservamos una copia
+     * local antes de registrar la evidencia para que no dependa del origen remoto.
+     */
+    private function respaldarEvidenciaDictumApp(int $idOperacion, string $slot, string $url): ?string
+    {
+        if (!function_exists('sparta_uploads_join')) {
+            require_once dirname(__DIR__) . '/core/UploadsPaths.php';
+        }
+
+        $url = trim($url);
+        if ($idOperacion <= 0 || $slot === '' || !preg_match('#^https?://#i', $url)) {
+            return null;
+        }
+
+        $ext = $this->extensionEvidenciaRemotaDictum($url, $slot);
+        $hash = substr(hash('sha256', $url), 0, 20);
+        $nombreArchivo = 'dictum_' . $slot . '_' . $hash . '.' . $ext;
+        $rutaRelativa = 'operaciones/' . $idOperacion . '/' . $nombreArchivo;
+        $rutaDestino = sparta_uploads_join($rutaRelativa);
+
+        if (is_file($rutaDestino) && filesize($rutaDestino) > 0) {
+            return '/uploads/' . str_replace('\\', '/', $rutaRelativa);
+        }
+
+        $directorio = dirname($rutaDestino);
+        if (!is_dir($directorio) && !mkdir($directorio, 0755, true) && !is_dir($directorio)) {
+            return null;
+        }
+
+        $temporal = tempnam(sys_get_temp_dir(), 'sp_dictum_ev_');
+        if ($temporal === false) {
+            return null;
+        }
+
+        $descargado = false;
+        try {
+            if (function_exists('curl_init')) {
+                $archivoTemporal = fopen($temporal, 'wb');
+                if ($archivoTemporal !== false) {
+                    $curl = curl_init($url);
+                    curl_setopt_array($curl, [
+                        CURLOPT_FILE => $archivoTemporal,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_MAXREDIRS => 3,
+                        CURLOPT_CONNECTTIMEOUT => 10,
+                        CURLOPT_TIMEOUT => 90,
+                        CURLOPT_FAILONERROR => true,
+                        CURLOPT_USERAGENT => 'sparta-evidencias/1.0',
+                    ]);
+                    $descargado = curl_exec($curl) === true;
+                    curl_close($curl);
+                    fclose($archivoTemporal);
+                }
+            }
+
+            if (!$descargado || !is_file($temporal) || filesize($temporal) <= 0 || filesize($temporal) > 100 * 1024 * 1024) {
+                return null;
+            }
+
+            $mime = $this->mimeEvidenciaRemotaDictum($temporal);
+            if (!$this->mimeCorrespondeAEvidenciaDictum($slot, $mime)) {
+                return null;
+            }
+
+            if (!@rename($temporal, $rutaDestino)) {
+                return null;
+            }
+            $temporal = '';
+
+            return '/uploads/' . str_replace('\\', '/', $rutaRelativa);
+        } finally {
+            if ($temporal !== '' && is_file($temporal)) {
+                @unlink($temporal);
+            }
+        }
+    }
+
+    private function extensionEvidenciaRemotaDictum(string $url, string $slot): string
+    {
+        $path = rawurldecode((string) (parse_url($url, PHP_URL_PATH) ?: ''));
+        $ext = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+        if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'mp4'], true)) {
+            return $ext;
+        }
+
+        return in_array($slot, ['fis_360_encendida', 'fis_video_cliente_acuerdo', 'fis_video_vuelta_prueba'], true)
+            ? 'mp4'
+            : 'jpg';
+    }
+
+    private function mimeEvidenciaRemotaDictum(string $archivo): string
+    {
+        if (!function_exists('finfo_open')) {
+            return '';
+        }
+
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo === false) {
+            return '';
+        }
+        $mime = (string) finfo_file($finfo, $archivo);
+        finfo_close($finfo);
+
+        return strtolower($mime);
+    }
+
+    private function mimeCorrespondeAEvidenciaDictum(string $slot, string $mime): bool
+    {
+        $esVideo = in_array($slot, ['fis_360_encendida', 'fis_video_cliente_acuerdo', 'fis_video_vuelta_prueba'], true);
+        if ($esVideo) {
+            return in_array($mime, ['video/mp4', 'application/octet-stream'], true);
+        }
+
+        return in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true);
     }
 
     private function tipoEvidenciaPorUrl(string $url): string

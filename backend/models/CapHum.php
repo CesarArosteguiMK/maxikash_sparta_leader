@@ -5487,10 +5487,20 @@ class CapHum extends Model
                     $avisos[] = 'El nombre del Excel no coincide exactamente con la persona encontrada por external_id.';
                 }
                 if (strcasecmp(trim((string)($persona['estatus'] ?? '')), 'Baja') === 0) {
+                    $puestosActuales = $puestosActivosPorPersona[(int)$persona['id']] ?? [];
+                    $puestoActual = array_values($puestosActuales)[0] ?? null;
+                    $jefeActual = $jefesActualesPorPersona[(int)$persona['id']] ?? null;
+                    $detalle['puesto_actual'] = (string)($puestoActual['nombre_puesto'] ?? 'Sin puesto');
+                    $detalle['departamento_actual'] = (string)($puestoActual['nombre_departamento'] ?? 'Sin departamento');
+                    $detalle['jefe_actual'] = $jefeActual ? (string)$jefeActual['nombre'] : 'Sin jefe';
+                    $detalle['jefe_nuevo'] = 'No evaluado por estatus Baja';
                     // Las bajas pueden venir en la misma plantilla que los activos. Se
                     // informan y se omiten, sin bloquear la actualizacion de los demas.
                     $detalle['estado'] = 'omitido';
-                    $detalle['mensajes'] = ['La persona esta en estatus Baja; se omitio de la actualizacion de estructura.'];
+                    $detalle['mensajes'] = [
+                        'La persona esta en estatus Baja; se omitio de la actualizacion de estructura.',
+                        'El archivo proponia asignar ' . $detalle['puesto_nuevo'] . ' en ' . $detalle['departamento_nuevo'] . '. No se evaluo ni aplico el cambio de puesto o jefe.',
+                    ];
                     $detalles[] = $detalle;
                     $resumen['omitidos']++;
                     continue;

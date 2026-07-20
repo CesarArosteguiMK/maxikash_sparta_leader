@@ -16,7 +16,7 @@ class LeonidasAssistantService
     private const MAX_PENDING = 12;
     private ?array $modulosAutorizados = null;
 
-    public function conversar(string $mensaje): array
+    public function conversar(string $mensaje, ?string $archivoToken = null): array
     {
         $mensaje = trim($mensaje);
         if ($mensaje === '') {
@@ -29,7 +29,16 @@ class LeonidasAssistantService
         $contexto = $this->contextoSeguro();
         $normalizado = $this->normalizar($mensaje);
 
-        if ($this->esProvocacionComica($normalizado)) {
+        if ($archivoToken !== null && $archivoToken !== '') {
+            $respuesta = (new LeonidasSpreadsheetService())->analizar($archivoToken, $mensaje, $contexto);
+            if (is_array($respuesta['propuesta_especificacion'] ?? null)) {
+                $respuesta['propuesta'] = $this->registrarPropuesta(
+                    $respuesta['propuesta_especificacion'],
+                    $contexto
+                );
+                unset($respuesta['propuesta_especificacion']);
+            }
+        } elseif ($this->esProvocacionComica($normalizado)) {
             $respuesta = $this->responderProvocacionComica($normalizado, $contexto);
         } elseif ($this->esConsultaIdentidad($normalizado)) {
             $respuesta = [
@@ -54,8 +63,6 @@ class LeonidasAssistantService
             ];
         } elseif ($flujoMensaje = $this->resolverFlujoMensaje($mensaje, $normalizado, $contexto)) {
             $respuesta = $flujoMensaje;
-        } elseif ($flujoVacaciones = $this->resolverFlujoVacaciones($mensaje, $normalizado)) {
-            $respuesta = $flujoVacaciones;
         } elseif ($flujoAgente = (new LeonidasAgentService())->resolver($mensaje, $normalizado, $contexto)) {
             $respuesta = $flujoAgente;
             if (is_array($respuesta['propuesta_especificacion'] ?? null)) {
@@ -65,6 +72,8 @@ class LeonidasAssistantService
                 );
                 unset($respuesta['propuesta_especificacion']);
             }
+        } elseif ($flujoVacaciones = $this->resolverFlujoVacaciones($mensaje, $normalizado)) {
+            $respuesta = $flujoVacaciones;
         } elseif ($this->esSaludo($normalizado)) {
             $respuesta = [
                 'mensaje' => 'Hola, ' . $contexto['nombre_corto'] . '. ¿Qué necesitas resolver?',
@@ -85,6 +94,8 @@ class LeonidasAssistantService
                     'navegar_nombre' => $destino['nombre'],
                 ];
             }
+        } elseif ($consultaAnalitica = (new LeonidasAnaliticaService())->resolver($mensaje, $normalizado, $contexto)) {
+            $respuesta = $consultaAnalitica;
         } elseif ($this->esConsultaS2($normalizado)) {
             $respuesta = (new LeonidasSemanticQueryService())->resolver($mensaje, $contexto['actor_id']);
         } elseif ($segmentoCampo = $this->resolverReporteGestoresCampo($normalizado)) {
@@ -181,7 +192,7 @@ class LeonidasAssistantService
             ];
         }
 
-        if (in_array(($accion['accion'] ?? ''), ['convenio_crear', 'moto_asignar'], true)) {
+        if (LeonidasAgentService::puedeEjecutar((string) ($accion['accion'] ?? ''))) {
             $payload = is_array($accion['payload'] ?? null) ? $accion['payload'] : [];
             try {
                 $resultado = (new LeonidasAgentService())->ejecutar((string) $accion['accion'], $payload, $contexto);
@@ -310,7 +321,24 @@ class LeonidasAssistantService
                 'convenio' => $this->tieneAccesoModulo(46) && $this->tieneAccesoModulo(32),
                 'motos' => $this->tieneAccesoModulo(62) || $this->tieneAccesoModulo(80),
                 'id_celula' => $this->resolverCelulaConvenio(),
+                'rrhh_lectura' => $this->tieneAccesoModulo(4) || $this->tieneAccesoModulo(34) || $this->tieneAccesoModulo(154),
+                'auditoria_rrhh' => $this->tieneAccesoModulo(154),
+                'rrhh_registrar' => $this->tieneAccesoModulo(143),
+                'rrhh_editar' => $this->tieneAccesoModulo(4),
+                'estructura' => $this->tieneAccesoModulo(86) || $this->tieneAccesoModulo(191),
+                'bajas' => $this->tieneAccesoModulo(13),
+                'reingresos' => $this->tieneAccesoModulo(13),
+                'vacaciones' => $this->tieneAccesoModulo(147),
+                'vacaciones_admin' => $this->tieneAccesoModulo(4),
+                'candidatos' => $this->tieneAccesoModulo(42),
+                'documentos' => $this->tieneAccesoModulo(93),
+                'permisos' => $this->tieneAccesoModulo(140),
+                'salarios' => $this->tieneAccesoModulo(153),
+                'analitica' => $this->tieneAlgunoDeLosModulos([6, 7, 19, 47, 49, 60, 61, 65, 66, 67, 68, 77, 81, 90, 189, 190]),
+                'bucket' => $this->tieneAccesoModulo(77),
+                'comparativas' => $this->tieneAccesoModulo(60) || $this->tieneAccesoModulo(81),
             ],
+            'salario_totp_vigente' => (int) ($_SESSION['rrhh_salario_sensible_totp_until'] ?? 0) >= time(),
         ];
     }
 
@@ -514,6 +542,7 @@ class LeonidasAssistantService
             || str_starts_with($tipo, 'consulta_')
             || str_starts_with($tipo, 'vacaciones_')
             || str_starts_with($tipo, 'agente_')
+            || str_starts_with($tipo, 'analitica_')
             || in_array($tipo, [
             'conversacion',
             'metrica_personal',
@@ -533,6 +562,17 @@ class LeonidasAssistantService
             'explicacion_sparta',
             'fuera_de_sparta',
         ], true);
+    }
+
+    /** @param list<int> $modulos */
+    private function tieneAlgunoDeLosModulos(array $modulos): bool
+    {
+        foreach ($modulos as $moduloId) {
+            if ($this->tieneAccesoModulo($moduloId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function resolverExplicacionSparta(string $mensaje): ?array
@@ -1256,7 +1296,7 @@ class LeonidasAssistantService
         $accion = trim((string) ($especificacion['accion'] ?? ''));
         $resumen = trim((string) ($especificacion['resumen'] ?? ''));
         $payload = is_array($especificacion['payload'] ?? null) ? $especificacion['payload'] : [];
-        if (!in_array($accion, ['convenio_crear', 'moto_asignar'], true) || $resumen === '' || !$payload) {
+        if (!LeonidasAgentService::puedeEjecutar($accion) || $resumen === '' || !$payload) {
             throw new \RuntimeException('La propuesta operativa está incompleta y no puede confirmarse.');
         }
 

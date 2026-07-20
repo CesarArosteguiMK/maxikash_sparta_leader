@@ -1871,6 +1871,11 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                 </article>
             </div>
             <form class="leonidas-composer" data-leonidas-form>
+                <div class="leonidas-composer__attachment" data-leonidas-attachment hidden></div>
+                <label class="leonidas-composer__attach" title="Adjuntar Excel" aria-label="Adjuntar Excel">
+                    <i class="fa-solid fa-paperclip"></i>
+                    <input type="file" accept=".xlsx,.xls" data-leonidas-file hidden>
+                </label>
                 <label class="visually-hidden" for="leonidasPrompt">Mensaje para Leónidas</label>
                 <textarea id="leonidasPrompt" rows="1" maxlength="500" autocomplete="off" placeholder="Escribe una instrucción..." data-leonidas-input></textarea>
                 <button type="submit" class="leonidas-composer__send" aria-label="Enviar mensaje a Leónidas">

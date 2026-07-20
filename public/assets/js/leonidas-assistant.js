@@ -10,6 +10,9 @@
     var voiceButton = root.querySelector('[data-leonidas-voice]');
     var form = root.querySelector('[data-leonidas-form]');
     var input = root.querySelector('[data-leonidas-input]');
+    var fileInput = root.querySelector('[data-leonidas-file]');
+    var attachmentBox = root.querySelector('[data-leonidas-attachment]');
+    var attachButton = root.querySelector('.leonidas-composer__attach');
     var messages = root.querySelector('[data-leonidas-messages]');
     var sendButton = form ? form.querySelector('button[type="submit"]') : null;
     var isOwner = root.getAttribute('data-leonidas-owner') === '1';
@@ -31,6 +34,7 @@
     var voiceStreamSources = [];
     var pendingVoiceText = '';
     var welcomeSpoken = false;
+    var currentAttachment = null;
     firstName = firstName.charAt(0).toLocaleUpperCase('es-MX') + firstName.slice(1);
 
     if (form && !isOwner) form.hidden = true;
@@ -686,6 +690,56 @@
         });
     }
 
+    function renderAttachment() {
+        if (!attachmentBox) return;
+        attachmentBox.replaceChildren();
+        attachmentBox.hidden = !currentAttachment;
+        if (!currentAttachment) return;
+
+        var label = document.createElement('span');
+        var remove = document.createElement('button');
+        label.innerHTML = '<i class="fa-solid fa-file-excel" aria-hidden="true"></i> ';
+        label.appendChild(document.createTextNode(currentAttachment.nombre || 'Excel adjunto'));
+        remove.type = 'button';
+        remove.setAttribute('aria-label', 'Quitar archivo adjunto');
+        remove.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+        remove.addEventListener('click', function () {
+            currentAttachment = null;
+            if (fileInput) fileInput.value = '';
+            renderAttachment();
+        });
+        attachmentBox.appendChild(label);
+        attachmentBox.appendChild(remove);
+    }
+
+    function uploadExcel(file) {
+        var data = new FormData();
+        data.append('archivo', file);
+        if (attachButton) attachButton.classList.add('is-uploading');
+        if (fileInput) fileInput.disabled = true;
+
+        return window.fetch('/Leonidas/adjuntar', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' },
+            body: data
+        }).then(function (response) {
+            return response.json().catch(function () {
+                return { success: false, error: 'El servidor no devolvio una respuesta valida.' };
+            });
+        }).then(function (payload) {
+            if (!payload || payload.success !== true || !payload.respuesta || !payload.respuesta.token) {
+                throw new Error((payload && payload.error) || 'No se pudo adjuntar el Excel.');
+            }
+            currentAttachment = payload.respuesta;
+            renderAttachment();
+            if (input) input.focus();
+        }).finally(function () {
+            if (attachButton) attachButton.classList.remove('is-uploading');
+            if (fileInput) fileInput.disabled = false;
+        });
+    }
+
     function addProposal(proposal) {
         if (!proposal || !proposal.token || !proposal.requiere_confirmacion) return;
         var wrapper = document.createElement('div');
@@ -788,6 +842,7 @@
         root.classList.toggle('is-consulting', sending);
         if (input) input.disabled = sending;
         if (sendButton) sendButton.disabled = sending;
+        if (fileInput) fileInput.disabled = sending;
     }
 
     function reactionLabel(code) {
@@ -969,6 +1024,19 @@
             form.requestSubmit();
         });
 
+        if (fileInput) {
+            fileInput.addEventListener('change', function () {
+                var file = fileInput.files && fileInput.files[0];
+                if (!file) return;
+                uploadExcel(file).catch(function (error) {
+                    currentAttachment = null;
+                    renderAttachment();
+                    addMessage(error.message || 'No se pudo adjuntar el Excel.', 'assistant');
+                    fileInput.value = '';
+                });
+            });
+        }
+
         form.addEventListener('submit', function (event) {
             event.preventDefault();
             // Conserva el permiso de audio dentro del gesto del usuario. Algunos
@@ -982,10 +1050,19 @@
             resizeComposer();
             setSending(true);
             var thinkingIndicator = addThinkingIndicator();
-            request('/Leonidas/conversar', { mensaje: value })
+            var requestAttachment = currentAttachment;
+            request('/Leonidas/conversar', {
+                mensaje: value,
+                archivo_token: requestAttachment ? requestAttachment.token : null
+            }, requestAttachment ? 90000 : undefined)
                 .then(function (response) {
                     thinkingIndicator.remove();
                     renderResponse(response);
+                    if (requestAttachment && currentAttachment && currentAttachment.token === requestAttachment.token) {
+                        currentAttachment = null;
+                        if (fileInput) fileInput.value = '';
+                        renderAttachment();
+                    }
                 })
                 .catch(function (error) {
                     thinkingIndicator.remove();

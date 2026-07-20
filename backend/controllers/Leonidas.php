@@ -6,6 +6,7 @@ use Core\Controller;
 use Services\LeonidasAssistantService;
 use Services\LeonidasMessagingService;
 use Services\LeonidasRealtimeTtsService;
+use Services\LeonidasSpreadsheetService;
 use Services\LeonidasTtsService;
 
 class Leonidas extends Controller
@@ -14,12 +15,13 @@ class Leonidas extends Controller
     {
         $payload = $this->payloadJson();
         $mensaje = is_string($payload['mensaje'] ?? null) ? $payload['mensaje'] : '';
+        $archivoToken = is_string($payload['archivo_token'] ?? null) ? trim($payload['archivo_token']) : null;
 
         try {
             $servicio = new LeonidasAssistantService();
             self::respuestaJSON([
                 'success' => true,
-                'respuesta' => $servicio->conversar($mensaje),
+                'respuesta' => $servicio->conversar($mensaje, $archivoToken),
             ]);
         } catch (\InvalidArgumentException $error) {
             http_response_code(422);
@@ -28,6 +30,29 @@ class Leonidas extends Controller
             error_log('[Leonidas] Conversacion fallida: ' . $error->getMessage());
             http_response_code(500);
             self::respuestaJSON(['success' => false, 'error' => 'Leonidas no pudo procesar la solicitud. No se realizo ningun cambio.']);
+        }
+    }
+
+    public function adjuntar(): void
+    {
+        try {
+            if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
+                throw new \InvalidArgumentException('Este endpoint requiere una solicitud POST.');
+            }
+            $actor = LeonidasMessagingService::actorSesion();
+            $archivo = is_array($_FILES['archivo'] ?? null) ? $_FILES['archivo'] : [];
+            $carga = (new LeonidasSpreadsheetService())->guardarCarga($archivo, (int) $actor['actor_id']);
+            self::respuestaJSON(['success' => true, 'respuesta' => $carga]);
+        } catch (\InvalidArgumentException $error) {
+            http_response_code(422);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\RuntimeException $error) {
+            http_response_code(401);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\Throwable $error) {
+            error_log('[Leonidas] Carga de Excel fallida: ' . $error->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'error' => 'No se pudo adjuntar el Excel. No se realizo ningun cambio.']);
         }
     }
 
