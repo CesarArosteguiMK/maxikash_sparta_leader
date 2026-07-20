@@ -2598,7 +2598,11 @@ class CapHum extends Model
             return 0;
         }
 
-        self::asegurarTablaPermisosPuesto($db);
+        // CREATE TABLE provoca un commit implícito en MySQL. Dentro de una
+        // transacción, quien invoca debe haber garantizado el esquema antes.
+        if (!$db->inTransaction()) {
+            self::asegurarTablaPermisosPuesto($db);
+        }
         $modulos = self::modulosPlantillaPuesto($db, $idPuesto);
         if (empty($modulos)) {
             return 0;
@@ -5321,6 +5325,9 @@ class CapHum extends Model
     {
         try {
             $db = new Database();
+            // MySQL confirma implícitamente sentencias DDL; el esquema debe
+            // prepararse antes de abrir la transacción de la importación.
+            self::asegurarTablaPermisosPuesto($db);
             self::asegurarAsignaJefeSoportaVacante($db);
             $plan = self::prepararCambiosEstructuraPorExternalId($db, $filas);
 
@@ -5328,15 +5335,13 @@ class CapHum extends Model
                 return self::resultado(true, 'Prevalidacion de estructura finalizada.', $plan);
             }
 
-            if ((int)($plan['resumen']['errores'] ?? 0) > 0) {
-                return self::resultado(false, 'Corrige los errores del archivo antes de aplicar cambios.', $plan);
-            }
-
             if ((int)($plan['resumen']['con_cambios'] ?? 0) <= 0) {
                 return self::resultado(true, 'El archivo no contiene cambios pendientes por aplicar.', $plan);
             }
 
+            $transaccionIniciada = false;
             $db->beginTransaction();
+            $transaccionIniciada = true;
             $aplicados = 0;
             foreach (($plan['detalles'] ?? []) as $detalle) {
                 if (($detalle['estado'] ?? '') === 'error') {
@@ -5369,11 +5374,22 @@ class CapHum extends Model
                 $aplicados++;
             }
 
+            if (!$db->inTransaction()) {
+                throw new \RuntimeException('La transacción de la importación se cerró antes de finalizar.');
+            }
+
             $db->commit();
+            $transaccionIniciada = false;
             $plan['resumen']['aplicados'] = $aplicados;
-            return self::resultado(true, 'Cambios de estructura aplicados correctamente.', $plan);
+            $errores = (int)($plan['resumen']['errores'] ?? 0);
+            $omitidos = (int)($plan['resumen']['omitidos'] ?? 0);
+            $mensaje = 'Cambios de estructura aplicados correctamente.';
+            if ($errores > 0 || $omitidos > 0) {
+                $mensaje .= ' Se omitieron ' . $errores . ' fila(s) con error y ' . $omitidos . ' fila(s) en estatus Baja.';
+            }
+            return self::resultado(true, $mensaje, $plan);
         } catch (\Throwable $e) {
-            if (isset($db) && $db instanceof Database && $db->inTransaction()) {
+            if (!empty($transaccionIniciada) && isset($db) && $db instanceof Database && $db->inTransaction()) {
                 try { $db->rollback(); } catch (\Throwable $rollbackError) {}
             }
             return self::resultado(false, 'No se pudo importar el cambio de estructura.', null, $e->getMessage());
@@ -5393,6 +5409,7 @@ class CapHum extends Model
             'encontrados' => 0,
             'con_cambios' => 0,
             'sin_cambios' => 0,
+            'omitidos' => 0,
             'errores' => 0,
             'aplicados' => 0,
         ];
@@ -5470,7 +5487,13 @@ class CapHum extends Model
                     $avisos[] = 'El nombre del Excel no coincide exactamente con la persona encontrada por external_id.';
                 }
                 if (strcasecmp(trim((string)($persona['estatus'] ?? '')), 'Baja') === 0) {
-                    $errores[] = 'La persona esta en estatus Baja; no se actualiza estructura de bajas.';
+                    // Las bajas pueden venir en la misma plantilla que los activos. Se
+                    // informan y se omiten, sin bloquear la actualizacion de los demas.
+                    $detalle['estado'] = 'omitido';
+                    $detalle['mensajes'] = ['La persona esta en estatus Baja; se omitio de la actualizacion de estructura.'];
+                    $detalles[] = $detalle;
+                    $resumen['omitidos']++;
+                    continue;
                 } else {
                     $resumen['encontrados']++;
                 }
@@ -5504,13 +5527,39 @@ class CapHum extends Model
                 $acciones['cambiar_puesto'] = $cambiaPuesto;
             }
 
-            $supervisor = self::resolverPersonaActivaPorNombreCambioEstructura($personasPorNombre, $detalle['supervisor'], 'supervisor', $errores);
-            $subgerente = self::resolverPersonaActivaPorNombreCambioEstructura($personasPorNombre, $detalle['subgerente'], 'subgerente', $errores);
-            $gerente = self::resolverPersonaActivaPorNombreCambioEstructura($personasPorNombre, $detalle['gerente'], 'gerente', $errores);
-            $subdirector = self::resolverPersonaActivaPorNombreCambioEstructura($personasPorNombre, $detalle['subdirector'], 'subdirector', $errores);
+            // El puesto y departamento de la persona vienen de su propia fila. Las
+            // columnas jerarquicas solo sirven para elegir su jefe directo segun ese
+            // puesto, no para inferir el puesto de la persona.
+            $rolPuesto = self::rolPuestoCambioEstructura($puestoExcel);
+            $cadenaJerarquica = ['supervisor', 'subgerente', 'gerente', 'subdirector'];
+            $inicioCadenaPorRol = [
+                'gestor' => 0,
+                'supervisor' => 1,
+                'subgerente' => 2,
+                'gerente' => 3,
+                'subdirector' => 3,
+            ];
+            $inicioCadena = $inicioCadenaPorRol[$rolPuesto] ?? null;
+            $jefeDirectoRol = '';
+            $jefeDirectoNombre = '';
+            if ($inicioCadena !== null) {
+                // Si el nivel inmediato viene vacio, se busca el siguiente nivel de
+                // la cadena. Un nombre informado pero invalido no se salta: debe
+                // corregirse para evitar una reasignacion incorrecta.
+                foreach (array_slice($cadenaJerarquica, $inicioCadena) as $rolJerarquico) {
+                    $nombreJefe = trim((string)($detalle[$rolJerarquico] ?? ''));
+                    if ($nombreJefe !== '') {
+                        $jefeDirectoRol = $rolJerarquico;
+                        $jefeDirectoNombre = $nombreJefe;
+                        break;
+                    }
+                }
+            }
+            $jefeDirecto = $jefeDirectoNombre === ''
+                ? null
+                : self::resolverPersonaActivaPorNombreCambioEstructura($personasPorNombre, $jefeDirectoNombre, $jefeDirectoRol, $errores);
 
             if ($persona) {
-                $jefeDirecto = $supervisor ?: ($subgerente ?: ($gerente ?: $subdirector));
                 $jefeActual = $jefesActualesPorPersona[(int)$persona['id']] ?? null;
                 $detalle['jefe_actual'] = $jefeActual ? (string)$jefeActual['nombre'] : 'Sin jefe';
                 if ($jefeDirecto) {
@@ -5525,7 +5574,11 @@ class CapHum extends Model
                     }
                 } else {
                     $detalle['jefe_nuevo'] = $detalle['jefe_actual'] ?: 'Sin jefe';
-                    $avisos[] = 'No se recibio supervisor, subgerente, gerente ni subdirector; se conserva el jefe actual.';
+                    if ($jefeDirectoRol !== '') {
+                        $avisos[] = 'No se recibio ' . $jefeDirectoRol . ' para el puesto ' . $puestoExcel . '; se conserva el jefe actual.';
+                    } else {
+                        $avisos[] = 'No existe una regla de jefe directo para el puesto ' . $puestoExcel . '; se conserva el jefe actual.';
+                    }
                 }
             }
 
