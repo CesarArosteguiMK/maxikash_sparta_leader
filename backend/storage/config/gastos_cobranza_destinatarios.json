@@ -1,22 +1,22 @@
 {
     "destinatarios": [
         {
-            "email": "__SPARTA_SECRET_REDACTED__.martinez@__SPARTA_SECRET_REDACTED__.mx",
+            "email": "jonathan.martinez@maxikash.mx",
             "activo": true
         },
         {
-            "email": "__SPARTA_SECRET_REDACTED__@__SPARTA_SECRET_REDACTED__.mx",
+            "email": "jesus.ruvalcaba@maxikash.mx",
             "activo": true
         },
         {
-            "email": "cartera.maxi@__SPARTA_SECRET_REDACTED__.mx",
+            "email": "cartera.maxi@maxikash.mx",
             "activo": true
         },
         {
-            "email": "lazaro.leyva@__SPARTA_SECRET_REDACTED__.mx",
+            "email": "lazaro.leyva@maxikash.mx",
             "activo": true
         }
     ],
-    "updated_at": "2026-05-12T11:43:31-06:00",
+    "updated_at": "2026-07-21T12:00:00-06:00",
     "updated_by": 1
 }
