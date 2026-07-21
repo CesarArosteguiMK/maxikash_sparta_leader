@@ -269,7 +269,9 @@ def test_internal_crosscheck_error_is_recoverable():
     )
 
     assert result["dictamen_ia"] == "requiere_revision"
-    assert result["modo_verificacion"] == "v2_alibaba_crosscheck_error_recuperable"
+    assert result["modo_verificacion"] == (
+        f"v2_{routes._doc_ai_provider_tag()}_crosscheck_error_recuperable"
+    )
     assert result["api_pendiente"] is True
     assert len(result["documentos_analizados_v2"]) == 10
 

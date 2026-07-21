@@ -1150,6 +1150,7 @@ class Empresa extends Model
             ['key' => 'monto', 'titulo' => 'MONTO', 'excel_tipo' => 'moneda'],
             ['key' => 'fecha_ultimo_pago_efectivo', 'titulo' => 'FECHA ÚLT. PAGO EFECTIVO', 'excel_tipo' => 'texto'],
             ['key' => 'cuota', 'titulo' => 'CUOTA', 'excel_tipo' => 'moneda'],
+            ['key' => 'cuotas_pagadas', 'titulo' => 'CUOTAS PAGADAS', 'excel_tipo' => 'texto'],
             ['key' => 'kt', 'titulo' => 'KT', 'excel_tipo' => 'texto'],
             ['key' => 'inicio', 'titulo' => 'INICIO', 'excel_tipo' => 'texto'],
             ['key' => 'bucket_respuesta', 'titulo' => 'BUCKET RESPUESTA', 'excel_tipo' => 'texto'],
@@ -1182,6 +1183,7 @@ SELECT
     t.`Monto_otorgado` AS `MONTO`,
     t.`Fecha_ultimo_pago_efectivo` AS `FECHA_ULTIMO_PAGO_EFECTIVO`,
     t.`Cuota` AS `CUOTA`,
+    COALESCE(s.`Num_cuotas_pagadas`, t.`Num_cuotas_pagadas`, 0) AS `CUOTAS_PAGADAS`,
     t.`KT` AS `KT`,
     t.`Fecha_inicio` AS `INICIO`,
     t.`Bucket_Morosidad_Final` AS `BUCKET_RESPUESTA`,
@@ -1195,6 +1197,8 @@ SELECT
     t.`Nombre_referencia_02` AS `NOMBRE_REFERENCIA_02`,
     t.`Telefono_referencia_02` AS `TELEFONO_REFERENCIA_02`
 FROM `__SPARTA_SECRET_REDACTED__`.`tbl_segundometro_primeros_pagos` t
+LEFT JOIN `__SPARTA_SECRET_REDACTED__`.`tbl_segundometro_semana` s
+       ON s.`Id_credito` = t.`Id_credito`
 SQL;
     }
 
