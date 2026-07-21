@@ -1977,13 +1977,13 @@ class Segundometro extends Controller
      * - Si no hay key, solo localhost.
      *
      * Regla operativa:
-     * - Solo martes 07:00–07:29 CDMX (ventana alineada con el agente; poll cada 5 min).
+     * - Solo martes 07:00-07:29 CDMX.
      */
     public function truncarAutomaticoAgente()
     {
         $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
         $esLocal = in_array($remoteAddr, ['127.0.0.1', '::1'], true);
-        $expectedKey = trim((string) (CONFIGURACION['segundometro_agent_key'] ?? ''));
+        $expectedKey = $this->agenteApiKey();
         $providedKey = trim((string) ($_SERVER['HTTP_X_AGENT_KEY'] ?? ''));
 
         if ($expectedKey !== '') {
@@ -2005,10 +2005,11 @@ class Segundometro extends Controller
             $hora = (int)$ahora->format('G');
             $minuto = (int)$ahora->format('i');
 
-            if ($diaSemana != 2 || $hora !== 7 || $minuto >= 30) {
+            $minutosDia = ($hora * 60) + $minuto;
+            if ($diaSemana != 2 || $minutosDia < (7 * 60) || $minutosDia >= (7 * 60 + 30)) {
                 self::respuestaJSON([
                     'success' => false,
-                    'mensaje' => 'Fuera de ventana para truncar automático. Solo martes 07:00–07:29 CDMX.',
+                    'mensaje' => 'Fuera de ventana para truncar automatico. Solo martes 07:00-07:29 CDMX.',
                     'hora_cdmx' => $ahora->format('Y-m-d H:i:s') . ' CDMX'
                 ]);
                 return;
@@ -2039,7 +2040,7 @@ class Segundometro extends Controller
     {
         $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
         $esLocal = in_array($remoteAddr, ['127.0.0.1', '::1'], true);
-        $expectedKey = trim((string) (CONFIGURACION['segundometro_agent_key'] ?? ''));
+        $expectedKey = $this->agenteApiKey();
         $providedKey = trim((string) ($_SERVER['HTTP_X_AGENT_KEY'] ?? ''));
 
         if ($expectedKey !== '') {

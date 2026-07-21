@@ -19,6 +19,7 @@ final class LeonidasAnaliticaService
             'bucket_historico' => static fn(?string $semana, ?string $corte): array => \Models\AvanceBucket::calcularHistorico($semana, $corte),
             'bucket_estresado' => static fn(?string $corte): array => \Models\AvanceBucket::calcularEstresado($corte),
             'bucket_comparativo' => static fn(?string $corte, ?string $conciliacion): array => \Models\ComparativoCierreSemanal::calcular($corte, $conciliacion),
+            'bucket_diagnostico' => static fn(array $criterios): array => (new \Services\LeonidasBucketDiagnosticService())->analizar($criterios),
             'segundometro' => static fn(?string $fecha): array => \Models\SegundometroComparativaSemanal::calcular($fecha),
             'primeros_pagos' => static fn(int $semanas): array => \Models\PrimerosPagosHistoricoSegundometro::resumenUltimasNSemanas($semanas),
             'gastos_cobranza' => static fn(string $periodo, string $grupo, ?string $inicio, ?string $fin): array => \Models\GastosCobranzaEstadistica::getDashboard($periodo, $grupo, $inicio, $fin),
@@ -30,6 +31,19 @@ final class LeonidasAnaliticaService
     {
         if (!$this->esConsultaAnalitica($normalizado)) {
             return null;
+        }
+
+        if ($this->esDiagnosticoBucket($normalizado)) {
+            if (empty($contexto['permisos_agente']['analitica']) || empty($contexto['permisos_agente']['bucket'])) {
+                return $this->denegado('el diagnostico de Bucket');
+            }
+            if ($this->mencionaComparativa($normalizado) && empty($contexto['permisos_agente']['comparativas'])) {
+                return $this->denegado('Comparativas de Bucket');
+            }
+            if ($this->esSegundometro($normalizado) && empty($contexto['permisos_agente']['segundometro'])) {
+                return $this->denegado('Segundometro');
+            }
+            return $this->resolverDiagnosticoBucket($normalizado);
         }
 
         if ($this->esPreguntaConceptual($normalizado)) {
@@ -110,6 +124,23 @@ final class LeonidasAnaliticaService
         return preg_match('/\b(bucket|buckets|morosidad|avance de cartera)\b/u', $mensaje) === 1;
     }
 
+    private function esDiagnosticoBucket(string $mensaje): bool
+    {
+        $mencionaCredito = preg_match('/\bcredito\s*(?:numero|no\.?|id|#)?\s*[:#-]?\s*\d{1,12}\b/u', $mensaje) === 1;
+        $mencionaSemana = preg_match('/\bsemana\s+\d{1,2}(?:[\s-]+\d{4})?\b/u', $mensaje) === 1;
+        $mencionaVistaBucket = $this->esBucket($mensaje)
+            || $this->esSegundometro($mensaje)
+            || preg_match('/\b(historic[a-z]*|comparativ[a-z]*|current|1[\s-]*7|8[\s-]*30|121\+)\b/u', $mensaje) === 1;
+        $pideExplicacion = preg_match('/\b(por que|porque|xq|diferent[a-z]*|no coincide[n]?|no cuadra[n]?|aparece|reconcili[a-z]*|concili[a-z]*|diagnostic[a-z]*|compar[a-z]*|resumen|explica|total|cantidad)\b/u', $mensaje) === 1;
+
+        return $mencionaVistaBucket && $pideExplicacion && ($mencionaCredito || $mencionaSemana);
+    }
+
+    private function mencionaComparativa(string $mensaje): bool
+    {
+        return preg_match('/\b(comparativ[a-z]*|semana pasada|contra la semana|versus|vs|otra pantalla)\b/u', $mensaje) === 1;
+    }
+
     private function esSegundometro(string $mensaje): bool
     {
         return preg_match('/\b(segundometro|cobranza por hora|pagaron puntual|cobrado hoy|creditos cobrados)\b/u', $mensaje) === 1;
@@ -153,6 +184,527 @@ final class LeonidasAnaliticaService
             'tipo' => 'analitica_explicacion',
             'fuente' => 'reglas_analitica_sparta',
         ];
+    }
+
+    private function resolverDiagnosticoBucket(string $mensaje): array
+    {
+        $criterios = [
+            'corte' => $this->extraerCorte($mensaje),
+            'bucket' => $this->extraerBucketDiagnostico($mensaje),
+        ];
+
+        if (preg_match('/\bcredito\s*(?:numero|no\.?|id|#)?\s*[:#-]?\s*(\d{1,12})\b/u', $mensaje, $m)) {
+            $criterios['id_credito'] = (int) $m[1];
+        } elseif (preg_match('/\bsemana\s+(\d{1,2})(?:[\s-]+(\d{4}))?\b/u', $mensaje, $m)) {
+            $criterios['semana'] = !empty($m[2])
+                ? 'Semana ' . (int) $m[1] . '-' . (int) $m[2]
+                : (string) (int) $m[1];
+        }
+
+        try {
+            $datos = ($this->adapters['bucket_diagnostico'])($criterios);
+        } catch (\InvalidArgumentException $e) {
+            return $this->error($e->getMessage());
+        } catch (\Throwable $e) {
+            error_log('LeonidasAnaliticaService diagnostico bucket: ' . $e->getMessage());
+            return $this->error('No pude conciliar las fuentes de Bucket. No se invento ningun resultado; revisa la disponibilidad de Segundometro e intenta nuevamente.');
+        }
+
+        if (($datos['modo'] ?? '') === 'credito') {
+            return $this->formatearDiagnosticoCredito($datos, $mensaje);
+        }
+        return $this->formatearDiagnosticoSemana($datos);
+    }
+
+    private function formatearDiagnosticoCredito(array $datos, string $pregunta): array
+    {
+        $credito = (int) ($datos['id_credito'] ?? 0);
+        if (empty($datos['encontrado'])) {
+            return [
+                'mensaje' => sprintf(
+                    'Revise el credito %s en la semana actual y en las ultimas semanas historicas disponibles, pero no aparece en esas fuentes de Bucket. No puedo confirmar una ubicacion sin evidencia; indica la pantalla y la semana donde lo viste para ampliar la conciliacion.',
+                    number_format($credito)
+                ),
+                'tipo' => 'analitica_bucket_diagnostico',
+                'fuente' => 'conciliacion_bucket_sparta',
+                'metricas' => ['dataset' => 'diagnostico_bucket_credito', 'id_credito' => $credito, 'encontrado' => false],
+            ];
+        }
+
+        $cliente = trim((string) ($datos['cliente'] ?? ''));
+        $semana = (string) ($datos['semana'] ?? 'semana no identificada');
+        $corte = (string) ($datos['corte'] ?? 'corte no identificado');
+        $dia = (string) ($datos['dia_corte'] ?? 'dia no identificado');
+        $conclusion = is_array($datos['conclusion'] ?? null) ? $datos['conclusion'] : [];
+        $nivelConclusion = (string) ($conclusion['nivel'] ?? 'evidencia_parcial');
+        $textoConclusion = trim((string) ($conclusion['texto'] ?? 'No hay evidencia suficiente para atribuir la diferencia a una sola causa.'));
+        $vistas = array_values(array_filter((array) ($datos['vistas'] ?? []), 'is_array'));
+        $movimientos = array_values(array_filter((array) ($datos['movimientos'] ?? []), 'is_array'));
+        $fuentes = is_array($datos['fuentes_estado'] ?? null) ? $datos['fuentes_estado'] : [];
+        $s2 = is_array($datos['s2'] ?? null) ? $datos['s2'] : [];
+        $metricasS2 = is_array($s2['metricas'] ?? null) ? $s2['metricas'] : [];
+        $condonaciones = is_array($datos['condonaciones'] ?? null) ? $datos['condonaciones'] : [];
+        $convenios = is_array($datos['convenios'] ?? null) ? $datos['convenios'] : [];
+
+        $lineas = [
+            sprintf('Diagnostico individual del credito %s%s', number_format($credito), $cliente !== '' ? ' - ' . $cliente : ''),
+            '',
+            'Conclusion (' . str_replace('_', ' ', $nivelConclusion) . '): ' . $textoConclusion,
+            '',
+            'Clasificacion comprobada:',
+            '- Bucket de nacimiento: ' . $this->valorDiagnostico($datos['bucket_nacimiento'] ?? $datos['bucket_real'] ?? null) . '.',
+            '- Bucket actual dentro de la fotografia consultada (Segundometro/Avance): ' . $this->valorDiagnostico($datos['bucket_actual'] ?? $datos['bucket_segundometro'] ?? null) . '.',
+            '- Bucket de cierre ajustado de esa fotografia (Historico): ' . $this->valorDiagnostico($datos['bucket_cierre_ajustado'] ?? $datos['bucket_historico'] ?? null) . '.',
+            '- Comparativo: ' . $this->valorDiagnostico($datos['bucket_comparativo'] ?? null) . '; conciliado: ' . $this->valorDiagnostico($datos['bucket_comparativo_conciliado'] ?? null) . '.',
+            '',
+            'Detalle por vista:',
+        ];
+
+        $filas = [];
+        foreach ($vistas as $vista) {
+            $nombreVista = trim((string) ($vista['vista'] ?? 'Vista sin nombre'));
+            $bucketVista = $this->valorDiagnostico($vista['bucket'] ?? null);
+            $diasVista = isset($vista['dias_mora']) && $vista['dias_mora'] !== null
+                ? (int) $vista['dias_mora'] . ' dias'
+                : 'no informados';
+            $corteVista = $this->valorDiagnostico($vista['corte'] ?? null);
+            $fechaVista = $this->valorDiagnostico($vista['fecha_hora_fuente'] ?? null);
+            $fuenteVista = $this->valorDiagnostico($vista['fuente'] ?? null);
+            $antiguedad = $this->antiguedadDiagnostico($vista['antiguedad_minutos'] ?? null);
+            $formula = trim((string) ($vista['formula'] ?? 'Formula no documentada.'));
+            $filtrosVista = array_values(array_filter(array_map('strval', (array) ($vista['filtros'] ?? []))));
+
+            $lineas[] = sprintf(
+                '- %s: %s; mora usada: %s; corte: %s; fotografia: %s (%s); fuente: %s.',
+                $nombreVista,
+                $bucketVista,
+                $diasVista,
+                $corteVista,
+                $fechaVista,
+                $antiguedad,
+                $fuenteVista
+            );
+            $lineas[] = '  Formula exacta: ' . $formula;
+            $lineas[] = '  Filtros aplicados: ' . ($filtrosVista !== [] ? implode(', ', $filtrosVista) : 'ninguno informado') . '.';
+            $filas[] = [
+                'nombre' => $nombreVista,
+                'estado' => $bucketVista,
+                'detalle' => $diasVista . ' | ' . $corteVista . ' | ' . $fechaVista,
+                'fuente' => $fuenteVista,
+                'formula' => $formula,
+            ];
+        }
+
+        if ($vistas === []) {
+            $lineas[] = '- No fue posible desglosar las vistas; solo esta disponible la clasificacion resumida.';
+        }
+
+        $lineas[] = '';
+        $lineas[] = 'Pagos y estado de cuenta S2:';
+        if (($s2['estado'] ?? '') === 'disponible') {
+            $lineas[] = sprintf(
+                '- Mora reportada por S2: %s; saldo: %s; saldo vencido: %s; estatus: %s.',
+                $this->valorDiagnostico($metricasS2['mora'] ?? null),
+                $this->dineroDiagnostico($metricasS2['saldo'] ?? null),
+                $this->dineroDiagnostico($metricasS2['saldo_vencido'] ?? null),
+                $this->valorDiagnostico($metricasS2['estatus'] ?? null)
+            );
+            $lineas[] = sprintf(
+                '- Ultimo pago reflejado: %s por %s; pagos localizados: %s; fecha de corte informada por S2: %s; consulta S2: %s.',
+                $this->valorDiagnostico($metricasS2['ultimo_pago_fecha'] ?? null),
+                $this->dineroDiagnostico($metricasS2['ultimo_pago_monto'] ?? null),
+                number_format((int) ($metricasS2['pagos_registrados'] ?? 0)),
+                $this->valorDiagnostico($metricasS2['fecha_corte'] ?? null),
+                $this->valorDiagnostico($s2['consultado_at'] ?? null)
+            );
+        } else {
+            $lineas[] = '- S2 no estuvo disponible: ' . $this->valorDiagnostico($s2['error'] ?? null) . '.';
+        }
+
+        $lineas[] = '';
+        $lineas[] = 'Movimientos que pueden cambiar el bucket:';
+        if ($movimientos === []) {
+            $lineas[] = '- No se encontraron pagos, condonaciones, convenios o reestructuras recientes en las fuentes disponibles.';
+        } else {
+            foreach (array_slice($movimientos, 0, 8) as $movimiento) {
+                $lineas[] = sprintf(
+                    '- %s | %s | %s | %s.',
+                    $this->valorDiagnostico($movimiento['fecha'] ?? null),
+                    $this->valorDiagnostico($movimiento['titulo'] ?? $movimiento['tipo'] ?? null),
+                    $this->valorDiagnostico($movimiento['detalle'] ?? null),
+                    $this->valorDiagnostico($movimiento['fuente'] ?? null)
+                );
+            }
+        }
+        $lineas[] = '- Condonaciones: ' . $this->estadoMovimientoDiagnostico($condonaciones) . '.';
+        $lineas[] = '- Convenios o reestructuras: ' . $this->estadoMovimientoDiagnostico($convenios) . '.';
+
+        $razones = array_values(array_filter(array_map('strval', (array) ($datos['razones'] ?? []))));
+        if ($razones !== []) {
+            $lineas[] = '';
+            $lineas[] = 'Reglas que influyeron:';
+            foreach ($razones as $razon) {
+                $lineas[] = '- ' . rtrim(trim($razon), '.') . '.';
+            }
+        }
+        if (empty($datos['en_semana_actual'])) {
+            $lineas[] = '';
+            $lineas[] = 'Advertencia: No aparece en la semana actual; el diagnostico usa su registro historico mas reciente (' . $semana . ').';
+        }
+        if (preg_match('/\b8[\s-]*(?:a[\s-]*)?30\b/u', $pregunta)) {
+            $lineas[] = 'Aclaracion: 8-30 no es un bucket nativo; agrupa 8-14, 15-21 y 22-30.';
+        }
+
+        $lineas[] = '';
+        $lineas[] = 'Fuentes y vigencia:';
+        foreach ($fuentes as $nombreFuente => $estadoFuente) {
+            $lineas[] = '- ' . str_replace('_', ' ', (string) $nombreFuente) . ': ' . str_replace('_', ' ', (string) $estadoFuente) . '.';
+        }
+        $lineas[] = '- Evidencia Bucket: ' . $semana . ', corte ' . $dia . ' ' . $corte . ', fotografia ' . $this->valorDiagnostico($datos['fecha_hora_fuente'] ?? null) . ' (' . $this->antiguedadDiagnostico($datos['antiguedad_minutos'] ?? null) . ').';
+        $lineas[] = '- Diagnostico generado: ' . $this->valorDiagnostico($datos['consultado_at'] ?? null) . '.';
+
+        $mensaje = implode("\n", $lineas);
+
+        return [
+            'mensaje' => $mensaje,
+            'tipo' => 'analitica_bucket_diagnostico',
+            'fuente' => 'conciliacion_bucket_sparta_s2_movimientos',
+            'reporte' => ['titulo' => 'Diagnostico de Bucket del credito ' . $credito, 'total' => 1, 'filas' => $filas],
+            'metricas' => [
+                'dataset' => 'diagnostico_bucket_credito',
+                'id_credito' => $credito,
+                'semana' => $semana,
+                'corte' => $corte,
+                'encontrado' => true,
+                'nivel_conclusion' => $nivelConclusion,
+                'fuentes' => $fuentes,
+                'movimientos_encontrados' => count($movimientos),
+            ],
+        ];
+    }
+
+    private function valorDiagnostico(mixed $valor): string
+    {
+        if ($valor === null || trim((string) $valor) === '') {
+            return 'no informado';
+        }
+        return trim((string) $valor);
+    }
+
+    private function dineroDiagnostico(mixed $valor): string
+    {
+        return is_numeric($valor) ? '$' . number_format((float) $valor, 2) : 'no informado';
+    }
+
+    private function antiguedadDiagnostico(mixed $minutos): string
+    {
+        if (!is_numeric($minutos)) {
+            return 'antiguedad no calculable';
+        }
+        $total = max(0, (int) $minutos);
+        if ($total < 60) {
+            return $total . ' min de antiguedad';
+        }
+        if ($total >= 1440) {
+            $dias = intdiv($total, 1440);
+            $horas = intdiv($total % 1440, 60);
+            return $dias . ' d ' . $horas . ' h de antiguedad';
+        }
+        $horas = intdiv($total, 60);
+        $resto = $total % 60;
+        return $horas . ' h ' . $resto . ' min de antiguedad';
+    }
+
+    private function estadoMovimientoDiagnostico(array $fuente): string
+    {
+        $estado = (string) ($fuente['estado'] ?? 'no_disponible');
+        if ($estado === 'disponible') {
+            return number_format((int) ($fuente['total'] ?? 0)) . ' movimiento(s) encontrado(s)';
+        }
+        if ($estado === 'sin_movimientos') {
+            return 'sin movimientos registrados';
+        }
+        return 'fuente no disponible (' . $this->valorDiagnostico($fuente['error'] ?? null) . ')';
+    }
+
+    private function formatearDiagnosticoSemana(array $datos): array
+    {
+        $semana = (string) ($datos['semana'] ?? 'Semana no identificada');
+        $corte = (string) ($datos['corte'] ?? 'corte no identificado');
+        $dia = (string) ($datos['dia_corte'] ?? 'dia no identificado');
+        $comparacionDisponible = !array_key_exists('comparacion_disponible', $datos)
+            || !empty($datos['comparacion_disponible']);
+        $historico = (array) ($datos['historico'] ?? []);
+        $comparativo = (array) ($datos['comparativo'] ?? []);
+        $totalHistorico = (int) ($historico['total'] ?? 0);
+        $totalComparable = (int) ($historico['total_comparable'] ?? 0);
+        $total121 = (int) ($historico['total_121'] ?? 0);
+        $totalComparativo = (int) ($comparativo['total_visible'] ?? 0);
+        $diferenciaPantallas = $comparacionDisponible
+            ? (int) ($datos['diferencia_total_pantallas'] ?? ($totalComparativo - $totalHistorico))
+            : null;
+        $diferenciaComparable = $comparacionDisponible
+            ? (int) ($datos['diferencia_total_comparable'] ?? ($totalComparativo - $totalComparable))
+            : null;
+        $creditosDiferencia = array_values(array_filter((array) ($datos['creditos_diferencia'] ?? []), 'is_array'));
+        $resumenDiferencia = is_array($datos['resumen_creditos_diferencia'] ?? null)
+            ? $datos['resumen_creditos_diferencia']
+            : [];
+        $bucket = is_array($datos['bucket_solicitado'] ?? null) ? $datos['bucket_solicitado'] : null;
+
+        if (!$comparacionDisponible) {
+            $mensaje = sprintf(
+                '%s sigue abierta. Comparativo registra %s creditos al corte %s %s, pero Historico aun no tiene un cierre para esa semana.',
+                $semana,
+                number_format($totalComparativo),
+                $dia,
+                $corte
+            );
+            if ($bucket !== null) {
+                $mensaje .= sprintf(
+                    ' En %s hay %s creditos en el corte operativo.',
+                    (string) ($bucket['solicitado'] ?? 'el bucket solicitado'),
+                    number_format((int) ($bucket['comparativo'] ?? 0))
+                );
+            }
+            $mensaje .= ' No calculare una diferencia contra cero ni atribuire creditos como entrada o salida hasta que exista el cierre historico. Para una conciliacion exacta, consulta una semana cerrada.';
+
+            $filas = [[
+                'nombre' => 'Comparativo operativo',
+                'estado' => number_format($totalComparativo) . ' creditos',
+                'detalle' => 'Corte ' . $dia . ' ' . $corte,
+            ]];
+            if ($bucket !== null) {
+                $filas[] = [
+                    'nombre' => 'Bucket ' . (string) ($bucket['solicitado'] ?? ''),
+                    'estado' => number_format((int) ($bucket['comparativo'] ?? 0)) . ' creditos',
+                    'detalle' => 'Sin cierre historico comparable',
+                ];
+            }
+
+            $series = [];
+            foreach ((array) ($comparativo['buckets'] ?? []) as $clave => $valor) {
+                $series[] = ['etiqueta' => $this->limpiarBucket((string) $clave), 'valor' => (int) $valor];
+            }
+
+            return [
+                'mensaje' => $mensaje,
+                'tipo' => 'analitica_bucket_diagnostico',
+                'fuente' => 'conciliacion_bucket_sparta',
+                'reporte' => ['titulo' => 'Corte operativo ' . $semana . ' - ' . $dia . ' ' . $corte, 'total' => $totalComparativo, 'filas' => $filas],
+                'grafica' => ['titulo' => 'Distribucion operativa por bucket', 'series' => $series],
+                'metricas' => [
+                    'dataset' => 'diagnostico_bucket_semana',
+                    'semana' => $semana,
+                    'corte' => $corte,
+                    'estado_semana' => (string) ($datos['estado_semana'] ?? 'abierta_sin_cierre_historico'),
+                    'comparacion_disponible' => false,
+                    'total_comparativo' => $totalComparativo,
+                    'total_historico' => null,
+                    'diferencia_comparable' => null,
+                ],
+            ];
+        }
+
+        $mensaje = sprintf(
+            '%s al corte %s %s: Historico muestra %s creditos; Comparativo muestra %s. La diferencia visible es %s.',
+            $semana,
+            $dia,
+            $corte,
+            number_format($totalHistorico),
+            number_format($totalComparativo),
+            $this->numeroConSigno($diferenciaPantallas)
+        );
+        if ($total121 > 0) {
+            $mensaje .= sprintf(
+                ' Historico incluye %s creditos en 121+, mientras que el total visible del Comparativo termina en 91-120. Al excluir 121+ de ambos universos, la diferencia queda en %s.',
+                number_format($total121),
+                $this->numeroConSigno($diferenciaComparable)
+            );
+        }
+
+        if ($bucket !== null) {
+            $mensaje .= sprintf(
+                ' En %s: Historico tiene %s y Comparativo %s; diferencia %s.',
+                (string) ($bucket['solicitado'] ?? 'el bucket solicitado'),
+                number_format((int) ($bucket['historico'] ?? 0)),
+                number_format((int) ($bucket['comparativo'] ?? 0)),
+                $this->numeroConSigno((int) ($bucket['diferencia'] ?? 0))
+            );
+        }
+
+        $transiciones = array_values(array_filter((array) ($datos['transiciones'] ?? []), 'is_array'));
+        if ($diferenciaComparable !== 0 || $bucket !== null) {
+            $mensaje .= ' La causa restante es de clasificacion: Historico usa el cierre semanal consolidado y Comparativo recalcula los dias de mora del corte seleccionado.';
+            if ($transiciones !== []) {
+                $principales = array_slice($transiciones, 0, 3);
+                $movimientos = array_map(static fn(array $fila): string => sprintf(
+                    '%s a %s: %s',
+                    (string) ($fila['historico'] ?? 'Sin bucket'),
+                    (string) ($fila['comparativo'] ?? 'Sin bucket'),
+                    number_format((int) ($fila['creditos'] ?? 0))
+                ), $principales);
+                $mensaje .= ' Principales reclasificaciones: ' . implode('; ', $movimientos) . '.';
+            }
+        }
+
+        if ($bucket !== null && $creditosDiferencia !== []) {
+            $afectados = (int) ($resumenDiferencia['afectados'] ?? count($creditosDiferencia));
+            $entran = (int) ($resumenDiferencia['entran'] ?? 0);
+            $salen = (int) ($resumenDiferencia['salen'] ?? 0);
+            $neto = (int) ($resumenDiferencia['neto'] ?? ($entran - $salen));
+            $diferenciaBucket = (int) ($bucket['diferencia'] ?? 0);
+            $detalleCuadra = array_key_exists('detalle_cuadra', $bucket)
+                ? !empty($bucket['detalle_cuadra'])
+                : $neto === $diferenciaBucket;
+            $diferenciaNoExplicada = array_key_exists('diferencia_no_explicada', $bucket)
+                ? (int) ($bucket['diferencia_no_explicada'] ?? 0)
+                : $diferenciaBucket - $neto;
+            if ($detalleCuadra) {
+                $mensaje .= sprintf(
+                    ' La diferencia neta de %s en %s queda reconciliada exactamente y se forma con %s credito(s) que entran y %s que salen: %s credito(s) afectados en total.',
+                    $this->numeroConSigno($neto),
+                    (string) ($bucket['solicitado'] ?? 'el bucket solicitado'),
+                    number_format($entran),
+                    number_format($salen),
+                    number_format($afectados)
+                );
+            } else {
+                $mensaje .= sprintf(
+                    ' El detalle identificado produce un neto de %s, pero la diferencia del bucket es %s. Quedan %s credito(s) sin reconciliar y no dare la diferencia por explicada.',
+                    $this->numeroConSigno($neto),
+                    $this->numeroConSigno($diferenciaBucket),
+                    $this->numeroConSigno($diferenciaNoExplicada)
+                );
+            }
+            $mensaje .= ' Creditos concretos que explican el movimiento:';
+            foreach (array_slice($creditosDiferencia, 0, 20) as $credito) {
+                $idCredito = (int) ($credito['id_credito'] ?? 0);
+                $cliente = trim((string) ($credito['cliente'] ?? ''));
+                $movimiento = trim((string) ($credito['movimiento'] ?? 'reclasificado'));
+                $historicoCredito = $this->valorDiagnostico($credito['bucket_historico'] ?? null);
+                $comparativoCredito = $this->valorDiagnostico($credito['bucket_comparativo'] ?? null);
+                $diasMora = isset($credito['dias_mora_corte']) && $credito['dias_mora_corte'] !== null
+                    ? (int) $credito['dias_mora_corte'] . ' dia(s) de mora'
+                    : 'mora no informada';
+                $motivo = trim((string) ($credito['motivo'] ?? 'La clasificacion cambio por la regla del corte.'));
+                $mensaje .= sprintf(
+                    ' Credito %s%s: %s; %s -> %s; %s. %s',
+                    number_format($idCredito),
+                    $cliente !== '' ? ' - ' . $cliente : '',
+                    $movimiento,
+                    $historicoCredito,
+                    $comparativoCredito,
+                    $diasMora,
+                    rtrim($motivo, '.') . '.'
+                );
+            }
+            if (count($creditosDiferencia) > 20 || !empty($datos['detalle_creditos_truncado'])) {
+                $mensaje .= ' El reporte adjunto conserva el desglose disponible; el texto muestra los primeros 20 para mantenerlo legible.';
+            }
+        } elseif ($bucket !== null && (int) ($bucket['diferencia'] ?? 0) !== 0) {
+            $mensaje .= ' No fue posible identificar creditos individuales suficientes para reconciliar esa diferencia; no atribuire la causa sin evidencia.';
+        }
+        $mensaje .= ' Por eso dos cantidades pueden ser correctas dentro de sus propias reglas, pero no son comparables hasta igualar semana, dia, hora de corte, conciliacion y buckets visibles.';
+
+        $filas = [
+            ['nombre' => 'Historico completo', 'estado' => number_format($totalHistorico) . ' creditos', 'detalle' => 'Incluye Current hasta 121+'],
+            ['nombre' => 'Historico comparable', 'estado' => number_format($totalComparable) . ' creditos', 'detalle' => 'Excluye 121+'],
+            ['nombre' => 'Comparativo visible', 'estado' => number_format($totalComparativo) . ' creditos', 'detalle' => 'Current hasta 91-120'],
+        ];
+        if ($bucket !== null) {
+            $filas[] = [
+                'nombre' => 'Bucket ' . (string) ($bucket['solicitado'] ?? ''),
+                'estado' => number_format((int) ($bucket['historico'] ?? 0)) . ' historico',
+                'detalle' => number_format((int) ($bucket['comparativo'] ?? 0)) . ' comparativo',
+            ];
+        }
+        foreach (array_slice($transiciones, 0, 5) as $movimiento) {
+            $filas[] = [
+                'nombre' => (string) ($movimiento['historico'] ?? 'Sin bucket') . ' -> ' . (string) ($movimiento['comparativo'] ?? 'Sin bucket'),
+                'estado' => number_format((int) ($movimiento['creditos'] ?? 0)) . ' creditos',
+                'detalle' => 'Reclasificacion por regla de corte',
+            ];
+        }
+        foreach ($creditosDiferencia as $credito) {
+            $idCredito = (int) ($credito['id_credito'] ?? 0);
+            $cliente = trim((string) ($credito['cliente'] ?? ''));
+            $filas[] = [
+                'nombre' => 'Credito ' . number_format($idCredito) . ($cliente !== '' ? ' - ' . $cliente : ''),
+                'estado' => $this->valorDiagnostico($credito['bucket_historico'] ?? null)
+                    . ' -> ' . $this->valorDiagnostico($credito['bucket_comparativo'] ?? null),
+                'detalle' => ucfirst((string) ($credito['movimiento'] ?? 'reclasificado'))
+                    . ' | ' . $this->valorDiagnostico($credito['dias_mora_corte'] ?? null) . ' dia(s) de mora'
+                    . ' | ' . trim((string) ($credito['motivo'] ?? '')),
+                'fuente' => $this->valorDiagnostico($credito['fecha_hora_fuente'] ?? null),
+                'movimiento' => (string) ($credito['movimiento'] ?? 'reclasificado'),
+                'bucket_nacimiento' => $this->valorDiagnostico($credito['bucket_nacimiento'] ?? null),
+                'bucket_historico' => $this->valorDiagnostico($credito['bucket_historico'] ?? null),
+                'bucket_comparativo' => $this->valorDiagnostico($credito['bucket_comparativo'] ?? null),
+                'bucket_por_mora' => $this->valorDiagnostico($credito['bucket_por_mora'] ?? null),
+                'dias_mora_corte' => $credito['dias_mora_corte'] ?? null,
+                'cierre_actual' => $this->valorDiagnostico($credito['cierre_actual'] ?? null),
+                'bucket_ajustado_ghost' => $this->valorDiagnostico($credito['bucket_ajustado_ghost'] ?? null),
+                'variable_8' => $this->valorDiagnostico($credito['variable_8'] ?? null),
+                'ghost' => $this->valorDiagnostico($credito['ghost'] ?? null),
+                'formula_historico' => trim((string) ($credito['formula_historico'] ?? '')),
+                'formula_comparativo' => trim((string) ($credito['formula_comparativo'] ?? '')),
+            ];
+        }
+
+        $series = [];
+        foreach ((array) ($historico['buckets'] ?? []) as $clave => $valor) {
+            $series[] = ['etiqueta' => $this->limpiarBucket((string) $clave), 'valor' => (int) $valor];
+        }
+
+        return [
+            'mensaje' => $mensaje,
+            'tipo' => 'analitica_bucket_diagnostico',
+            'fuente' => 'conciliacion_bucket_sparta',
+            'reporte' => ['titulo' => 'Conciliacion ' . $semana . ' - ' . $dia . ' ' . $corte, 'total' => $totalHistorico, 'filas' => $filas],
+            'grafica' => ['titulo' => 'Distribucion historica por bucket', 'series' => $series],
+            'metricas' => [
+                'dataset' => 'diagnostico_bucket_semana',
+                'semana' => $semana,
+                'corte' => $corte,
+                'total_historico' => $totalHistorico,
+                'total_comparativo' => $totalComparativo,
+                'diferencia_comparable' => $diferenciaComparable,
+                'creditos_afectados' => (int) ($resumenDiferencia['afectados'] ?? count($creditosDiferencia)),
+                'creditos_entran' => (int) ($resumenDiferencia['entran'] ?? 0),
+                'creditos_salen' => (int) ($resumenDiferencia['salen'] ?? 0),
+                'diferencia_neta_detalle' => (int) ($resumenDiferencia['neto'] ?? 0),
+                'detalle_cuadra' => $bucket !== null ? !empty($bucket['detalle_cuadra']) : null,
+                'diferencia_no_explicada' => $bucket['diferencia_no_explicada'] ?? null,
+            ],
+        ];
+    }
+
+    private function extraerBucketDiagnostico(string $mensaje): ?string
+    {
+        $patrones = [
+            '121+' => '/\b121\s*\+/u',
+            '91-120' => '/\b91\s*(?:a|-)\s*120\b/u',
+            '61-90' => '/\b61\s*(?:a|-)\s*90\b/u',
+            '31-60' => '/\b31\s*(?:a|-)\s*60\b/u',
+            '8-30' => '/\b8\s*(?:a|-)\s*30\b/u',
+            '22-30' => '/\b22\s*(?:a|-)\s*30\b/u',
+            '15-21' => '/\b15\s*(?:a|-)\s*21\b/u',
+            '8-14' => '/\b8\s*(?:a|-)\s*14\b/u',
+            '1-7' => '/\b1\s*(?:a|-)\s*7\b/u',
+            'Current' => '/\bcurrent\b/u',
+        ];
+        foreach ($patrones as $bucket => $patron) {
+            if (preg_match($patron, $mensaje)) {
+                return $bucket;
+            }
+        }
+        return null;
+    }
+
+    private function numeroConSigno(int $valor): string
+    {
+        return ($valor >= 0 ? '+' : '') . number_format($valor);
     }
 
     private function resolverSegundometro(string $mensaje): array

@@ -56,6 +56,7 @@ require_once $projectRoot . '/../vendor/autoload.php';
 
 // Cargar clases del core manualmente
 require_once $projectRoot . '/core/DatabaseSegundometro.php';
+require_once $projectRoot . '/core/Database.php';
 
 // Definir constantes necesarias si no están definidas
 if (!defined('RAIZ')) {
@@ -331,6 +332,7 @@ class CronMorosidad
 {
     private $logger;
     private $db;
+    private $dbPrincipal;
     private $dryRun;
     private $force;
 
@@ -343,6 +345,7 @@ class CronMorosidad
         // Usar la clase DatabaseSegundometro del proyecto
         try {
             $this->db = new \Core\DatabaseSegundometro();
+            $this->dbPrincipal = new \Core\Database();
             $this->logger->success("Conexión a base de datos establecida exitosamente");
         } catch (\Exception $e) {
             $this->logger->error("Error al conectar a la base de datos: " . $e->getMessage());
@@ -514,11 +517,11 @@ class CronMorosidad
         $inList = implode(',', $marcadores);
 
         $sql = "SELECT DISTINCT id_credito
-                FROM __SPARTA_SECRET_REDACTED__.asigna_creditos_despacho
+                FROM asigna_creditos_despacho
                 WHERE estatus = '1'
                   AND id_credito IN ($inList)";
 
-        $rows = $this->db->queryAll($sql, $params);
+        $rows = $this->dbPrincipal->queryAll($sql, $params);
         $map = [];
         foreach ($rows as $row) {
             $map[(int) ($row['id_credito'] ?? 0)] = true;
@@ -779,7 +782,11 @@ class CronMorosidad
                     $this->logger->error("DEMASIADOS ERRORES ($errores). Haciendo ROLLBACK...");
                     $this->db->rollback();
                     $this->logger->error("ROLLBACK completado. Ningún cambio fue guardado en la DB.");
-                    throw new \Exception("Proceso abortado por exceso de errores. Rollback ejecutado.");
+                    $causaInicial = trim((string)preg_split('/\R/', $e->getMessage(), 2)[0]);
+                    throw new \Exception(
+                        "Proceso abortado por exceso de errores. Rollback ejecutado. Causa inicial: "
+                        . substr($causaInicial, 0, 500)
+                    );
                 }
             }
         }

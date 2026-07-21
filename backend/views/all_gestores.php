@@ -9394,6 +9394,53 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       .replace(/'/g, '&#039;');
   }
 
+  function escaparCsvCambioEstructura(value) {
+    return `"${String(value ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
+  }
+
+  function descargarReporteCambioEstructura(datos) {
+    const detalles = Array.isArray(datos?.detalles) ? datos.detalles : [];
+    const filas = detalles.filter(item => {
+      const mensajes = Array.isArray(item.mensajes) ? item.mensajes : [];
+      return item.estado !== 'sin_cambio' || mensajes.some(msg => {
+        const texto = String(msg || '').toLowerCase();
+        return !texto.includes('sin cambios detectados') && !texto.includes('listo para actualizar');
+      });
+    });
+    const encabezados = [
+      'Fila', 'External ID', 'Nombre en Excel', 'Persona encontrada', 'Estado',
+      'Departamento actual', 'Puesto actual', 'Departamento propuesto', 'Puesto propuesto',
+      'Jefe actual', 'Jefe propuesto', 'Motivo o detalle'
+    ];
+    const lineas = [encabezados, ...filas.map(item => [
+      item.fila,
+      item.external_id,
+      item.nombre_excel,
+      item.persona_nombre,
+      item.estado,
+      item.departamento_actual,
+      item.puesto_actual,
+      item.departamento_nuevo,
+      item.puesto_nuevo,
+      item.jefe_actual,
+      item.jefe_nuevo,
+      Array.isArray(item.mensajes) ? item.mensajes.join(' | ') : ''
+    ])].map(columnas => columnas.map(escaparCsvCambioEstructura).join(';'));
+
+    const contenido = `\uFEFF${lineas.join('\r\n')}`;
+    const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement('a');
+    const ahora = new Date();
+    const sello = `${ahora.getFullYear()}${String(ahora.getMonth() + 1).padStart(2, '0')}${String(ahora.getDate()).padStart(2, '0')}_${String(ahora.getHours()).padStart(2, '0')}${String(ahora.getMinutes()).padStart(2, '0')}`;
+    enlace.href = url;
+    enlace.download = `reporte_validacion_estructura_${sello}.csv`;
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
+    URL.revokeObjectURL(url);
+  }
+
   function badgeCambioEstructura(estado) {
     if (estado === 'error') return '<span class="badge bg-label-danger text-danger">Error</span>';
     if (estado === 'cambio') return '<span class="badge bg-label-warning text-warning">Con cambios</span>';
@@ -9552,25 +9599,42 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       : `<div class="alert alert-info py-2"><strong>Resultado de la validacion:</strong> ${totalErrores} error(es), ${totalOmitidos} omitido(s) y ${totalCambios} cambio(s) valido(s).</div>`;
     const filas = primeros.map(item => {
       const mensajes = Array.isArray(item.mensajes) ? item.mensajes.join(' ') : '';
+      const nombreExcel = String(item.nombre_excel || '').trim();
+      const nombrePersona = String(item.persona_nombre || nombreExcel || 'Sin persona').trim();
+      const mostrarNombreExcel = nombreExcel && nombreExcel.toLowerCase() !== nombrePersona.toLowerCase();
+      const estructuraActual = `${item.departamento_actual || 'Sin departamento'} / ${item.puesto_actual || 'Sin puesto'}`;
+      const estructuraNueva = `${item.departamento_nuevo || 'Sin departamento'} / ${item.puesto_nuevo || 'Sin puesto'}`;
       return `
-        <tr>
-          <td class="text-nowrap">${escapeCambioEstructuraHtml(item.fila || '')}</td>
-          <td class="text-nowrap fw-semibold">${escapeCambioEstructuraHtml(item.external_id || '')}</td>
-          <td>
-            <div class="fw-semibold">${escapeCambioEstructuraHtml(item.persona_nombre || item.nombre_excel || 'Sin persona')}</div>
-            <small class="text-muted">${escapeCambioEstructuraHtml(item.nombre_excel || '')}</small>
-          </td>
-          <td>
-            <div><small class="text-muted">Actual:</small> ${escapeCambioEstructuraHtml(item.departamento_actual || '')} / ${escapeCambioEstructuraHtml(item.puesto_actual || '')}</div>
-            <div><small class="text-muted">Nuevo:</small> ${escapeCambioEstructuraHtml(item.departamento_nuevo || '')} / ${escapeCambioEstructuraHtml(item.puesto_nuevo || '')}</div>
-          </td>
-          <td>
-            <div><small class="text-muted">Actual:</small> ${escapeCambioEstructuraHtml(item.jefe_actual || '')}</div>
-            <div><small class="text-muted">Nuevo:</small> ${escapeCambioEstructuraHtml(item.jefe_nuevo || '')}</div>
-          </td>
-          <td>${badgeCambioEstructura(item.estado)}</td>
-          <td style="min-width: 220px;">${escapeCambioEstructuraHtml(mensajes)}</td>
-        </tr>
+        <article class="border rounded-3 p-3 mb-2 bg-white shadow-sm">
+          <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+            <div>
+              <div class="fw-bold text-dark">${escapeCambioEstructuraHtml(nombrePersona)}</div>
+              <div class="small text-muted d-flex flex-wrap gap-2 mt-1">
+                <span>Fila ${escapeCambioEstructuraHtml(item.fila || 'Sin dato')}</span>
+                <span>External ID: <strong>${escapeCambioEstructuraHtml(item.external_id || 'Sin dato')}</strong></span>
+              </div>
+              ${mostrarNombreExcel ? `<div class="small text-warning-emphasis mt-1">Nombre en Excel: ${escapeCambioEstructuraHtml(nombreExcel)}</div>` : ''}
+            </div>
+            ${badgeCambioEstructura(item.estado)}
+          </div>
+          <div class="row g-2 small">
+            <div class="col-12 col-lg-6">
+              <div class="border rounded-2 p-2 h-100 bg-light">
+                <div class="text-muted fw-semibold mb-1">Estructura</div>
+                <div><span class="text-muted">Actual:</span> ${escapeCambioEstructuraHtml(estructuraActual)}</div>
+                <div><span class="text-muted">Propuesta:</span> ${escapeCambioEstructuraHtml(estructuraNueva)}</div>
+              </div>
+            </div>
+            <div class="col-12 col-lg-6">
+              <div class="border rounded-2 p-2 h-100 bg-light">
+                <div class="text-muted fw-semibold mb-1">Jefe directo</div>
+                <div><span class="text-muted">Actual:</span> ${escapeCambioEstructuraHtml(item.jefe_actual || 'Sin jefe')}</div>
+                <div><span class="text-muted">Propuesto:</span> ${escapeCambioEstructuraHtml(item.jefe_nuevo || 'Sin jefe')}</div>
+              </div>
+            </div>
+          </div>
+          ${mensajes ? `<div class="small mt-3 pt-2 border-top"><span class="fw-semibold text-muted">Detalle:</span> ${escapeCambioEstructuraHtml(mensajes)}</div>` : ''}
+        </article>
       `;
     }).join('');
 
@@ -9592,21 +9656,14 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         ${panelOmitidosCambioEstructura(detalles)}
         ${panelCambiosCambioEstructura(detalles)}
         ${panelAvisosCambioEstructura(detalles)}
-        <div class="table-responsive" style="max-height: 420px;">
-          <table class="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th>Fila</th>
-                <th>External ID</th>
-                <th>Persona</th>
-                <th>Estructura</th>
-                <th>Jefe</th>
-                <th>Estado</th>
-                <th>Detalle</th>
-              </tr>
-            </thead>
-            <tbody>${filas || '<tr><td colspan="7" class="text-center text-muted">Sin detalles para mostrar.</td></tr>'}</tbody>
-          </table>
+        <div class="mt-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="fw-bold">Detalle de filas revisadas</span>
+            <span class="small text-muted">Se muestran primero los errores, omitidos y cambios.</span>
+          </div>
+          <div style="max-height: 420px; overflow-y: auto; padding-right: .35rem;">
+            ${filas || '<div class="border rounded p-3 text-center text-muted">Sin detalles para mostrar.</div>'}
+          </div>
         </div>
         ${detalles.length > primeros.length ? `<div class="small text-muted mt-2">Mostrando ${primeros.length} de ${detalles.length} filas.</div>` : ''}
       </div>
@@ -9672,7 +9729,28 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
           ? (tieneErrores ? `Aplicar ${Number(resumen.con_cambios || 0)} cambios validos` : 'Aplicar cambios')
           : 'Cerrar',
         cancelButtonText: 'Cancelar',
-        customClass: { htmlContainer: 'text-start' }
+        buttonsStyling: false,
+        footer: `
+          <button type="button" id="descargarReporteCambioEstructura" class="btn btn-outline-primary rounded-pill px-4">
+            <i class="bx bx-download me-1"></i> Descargar reporte de validacion
+          </button>
+        `,
+        didOpen: () => {
+          const botonesAccion = Swal.getPopup()?.querySelectorAll('.swal2-actions button') || [];
+          botonesAccion.forEach((boton) => {
+            boton.style.width = '172px';
+            boton.style.minHeight = '42px';
+          });
+          const botonReporte = document.getElementById('descargarReporteCambioEstructura');
+          if (botonReporte) {
+            botonReporte.addEventListener('click', () => descargarReporteCambioEstructura(prevalidacion.datos));
+          }
+        },
+        customClass: {
+          htmlContainer: 'text-start',
+          confirmButton: 'btn btn-primary rounded-pill px-4 mx-1',
+          cancelButton: 'btn btn-outline-secondary rounded-pill px-4 mx-1'
+        }
       });
 
       if (!tieneCambios || !confirmacion.isConfirmed) return;
@@ -9695,7 +9773,52 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         return;
       }
 
-      Swal.fire({ icon: 'success', title: 'Estructura actualizada', text: aplicado.mensaje || 'Los cambios fueron aplicados correctamente.' });
+      const resumenAplicado = aplicado.datos?.resumen || {};
+      const cambiosAplicados = Number(resumenAplicado.aplicados || 0);
+      const omitidosAplicados = Number(resumenAplicado.omitidos || 0);
+      const erroresAplicados = Number(resumenAplicado.errores || 0);
+      let cambiosPendientesPosteriores = null;
+      try {
+        // Revalidamos el mismo archivo para confirmar que la aplicacion dejo la
+        // estructura exactamente como la propuesta mostrada al usuario.
+        const verificacionPosterior = await enviarCambioEstructuraGestion(file, false);
+        if (verificacionPosterior?.success) {
+          cambiosPendientesPosteriores = Number(verificacionPosterior.datos?.resumen?.con_cambios || 0);
+        }
+      } catch (_) {
+        // La aplicacion ya se confirmo en backend; si falla esta comprobacion no
+        // ocultamos el resultado, solo evitamos afirmar que quedo en cero.
+      }
+
+      const huboPendientesPosteriores = cambiosPendientesPosteriores !== null && cambiosPendientesPosteriores > 0;
+      const huboObservaciones = omitidosAplicados > 0 || erroresAplicados > 0 || huboPendientesPosteriores;
+
+      await Swal.fire({
+        icon: huboObservaciones ? 'warning' : 'success',
+        title: cambiosAplicados > 0 ? 'Cambios realizados' : 'No se realizaron cambios',
+        html: `
+          <div class="text-start">
+            <div class="alert ${cambiosAplicados > 0 ? 'alert-success' : 'alert-info'} py-3 mb-3">
+              <strong>${cambiosAplicados} cambio(s) aplicado(s) correctamente.</strong>
+              <div class="small mt-1">La estructura de puestos y jefaturas ya fue actualizada.</div>
+            </div>
+            ${huboObservaciones ? `
+              <div class="alert alert-warning py-2 mb-0 small">
+                ${omitidosAplicados > 0 ? `<div><strong>${omitidosAplicados}</strong> fila(s) omitida(s) por estar en estatus Baja.</div>` : ''}
+                ${erroresAplicados > 0 ? `<div><strong>${erroresAplicados}</strong> fila(s) no se aplicaron por errores detectados en la validacion.</div>` : ''}
+                ${huboPendientesPosteriores ? `<div><strong>Atencion:</strong> al volver a validar el mismo archivo aun aparecen <strong>${cambiosPendientesPosteriores}</strong> cambio(s) pendiente(s). No se mostrara como aplicacion completa.</div>` : ''}
+              </div>
+            ` : ''}
+            <p class="text-muted small mb-0 mt-3">${escapeCambioEstructuraHtml(aplicado.mensaje || '')}</p>
+          </div>
+        `,
+        confirmButtonText: 'Entendido',
+        buttonsStyling: false,
+        customClass: {
+          htmlContainer: 'text-start',
+          confirmButton: 'btn btn-primary rounded-pill px-4'
+        }
+      });
       if (typeof llenarFiltros === 'function') llenarFiltros();
     } catch (error) {
       Swal.fire({ icon: 'error', title: 'Error', text: error?.message || 'No se pudo procesar el archivo.' });
@@ -15944,12 +16067,26 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     try {
       const response = await fetch('/CapHum/obtenerUsuarioRrhh', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          // Fuerza una respuesta JSON incluso si la ruta no existe o la sesión expira.
+          'Front-Request': 'true'
+        },
         body: JSON.stringify({ id_persona: idPersona })
       });
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.mensaje || 'No se pudo cargar la informacion RR.HH.');
+      const contenido = await response.text();
+      let data = null;
+
+      try {
+        data = contenido ? JSON.parse(contenido) : null;
+      } catch (_) {
+        const estado = response.status ? ` (HTTP ${response.status})` : '';
+        throw new Error(`El servidor no devolvio datos validos para Editar RR.HH.${estado} Revisa que el servidor tenga actualizado el controlador CapHum.`);
+      }
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.mensaje || data?.error || 'No se pudo cargar la informacion RR.HH.');
       }
       if (form.dataset.rrhhLoadToken !== loadToken) return;
       await cargarDatosEnModalRrhh(data.datos || {});
