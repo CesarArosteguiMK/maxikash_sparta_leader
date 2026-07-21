@@ -5,6 +5,8 @@ namespace Services;
 class FactorIntegracionService
 {
     private const DIAS_ANIO = 365;
+    /** La LFT determina el salario diario mensual dividiendo entre treinta, sin variar por calendario. */
+    private const DIAS_MES_SALARIO = 30;
     private const AGUINALDO_DIAS_DEFAULT = 15;
     private const PRIMA_VACACIONAL_DEFAULT = 0.25;
 
@@ -52,10 +54,27 @@ class FactorIntegracionService
 
     public static function calcularSalarioIntegrado(float $salarioDiario, int $aniversario): array
     {
+        if (!is_finite($salarioDiario) || $salarioDiario < 0) {
+            throw new \InvalidArgumentException('El salario diario debe ser un número válido no negativo.');
+        }
+
         $datos = self::calcularFactor($aniversario);
         $datos['salario_diario'] = round($salarioDiario, 2);
         $datos['salario_integrado'] = round($salarioDiario * (float) $datos['factor_integracion'], 2);
 
         return $datos;
+    }
+
+    /**
+     * Calcula el SDI desde el sueldo bruto mensual. No depende de los días
+     * del mes (incluidos febrero y años bisiestos): mensual / 30.
+     */
+    public static function calcularSalarioIntegradoDesdeMensual(float $salarioMensualBruto, int $aniversario): array
+    {
+        if (!is_finite($salarioMensualBruto) || $salarioMensualBruto < 0) {
+            throw new \InvalidArgumentException('El salario mensual bruto debe ser un número válido no negativo.');
+        }
+
+        return self::calcularSalarioIntegrado($salarioMensualBruto / self::DIAS_MES_SALARIO, $aniversario);
     }
 }
