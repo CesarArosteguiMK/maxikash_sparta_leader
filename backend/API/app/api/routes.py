@@ -79,7 +79,9 @@ def _crear_alibaba_ai() -> Optional[AlibabaDocumentAI]:
     if _doc_ai_provider_name() == "gemini":
         api_key = str(getattr(settings, "gemini_api_key", "") or "").strip()
         base_url = str(getattr(settings, "gemini_base_url", "") or "").strip()
-        model = str(getattr(settings, "gemini_model", "") or "").strip()
+        model = str(getattr(settings, "gemini_quick_model", "") or "").strip()
+        if not model:
+            model = str(getattr(settings, "gemini_model", "") or "").strip()
         if not api_key or not base_url or not model:
             return None
         return GeminiDocumentAI(
@@ -5975,7 +5977,7 @@ async def validar_expediente(
                 t_prefill = time.time()
                 quick_ai = _crear_alibaba_ai()
                 if quick_ai is not None and quick_ai.enabled():
-                    quick_ai.timeout_seconds = max(20, min(35, int(getattr(quick_ai, "timeout_seconds", 35) or 35)))
+                    quick_ai.timeout_seconds = max(30, min(60, int(getattr(quick_ai, "timeout_seconds", 60) or 60)))
                     quick_ai.max_pages = min(2, int(getattr(quick_ai, "max_pages", 2) or 2))
                     quick_ai.dpi = max(130, min(150, int(getattr(quick_ai, "dpi", 140) or 140)))
                     # Normalmente solo entra aqui uno o dos documentos sin
