@@ -109,7 +109,8 @@ class Settings(BaseSettings):
 
     # Motor IA documental. Valores:
     # - legacy: usa el motor OCR actual.
-    # - alibaba: usa Alibaba/Qwen para la validacion rapida.
+    # - alibaba: usa Alibaba/Qwen para la validacion rapida (compatibilidad).
+    # - gemini: usa Google Gemini para lectura documental y cruces.
     doc_ai_engine: str = "legacy"
     doc_ai_legacy_fallback: bool = True
     doc_ai_quick_timeout_seconds: int = 35
@@ -131,6 +132,15 @@ class Settings(BaseSettings):
     alibaba_crosscheck_fallback_models: str = ""
     alibaba_fallback_models: str = ""
     alibaba_retry_delays: str = "0,1"
+
+    # Google Gemini API
+    gemini_api_key: str = ""
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    gemini_model: str = "gemini-3.5-flash"
+    gemini_crosscheck_model: str = "gemini-3.5-flash"
+    gemini_crosscheck_fallback_models: str = "gemini-3.1-flash-lite"
+    gemini_fallback_models: str = "gemini-3.1-flash-lite"
+    gemini_retry_delays: str = "0,1"
 
     @property
     def allowed_extensions_list(self) -> List[str]:
