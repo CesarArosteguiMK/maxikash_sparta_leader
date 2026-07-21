@@ -1,35 +1,35 @@
 {
     "destinatarios": [
         {
-            "email": "roman.jimenez@__SPARTA_SECRET_REDACTED__.mx",
+            "email": "roman.jimenez@maxikash.mx",
             "activo": true
         },
         {
-            "email": "marlon.flores@__SPARTA_SECRET_REDACTED__.mx",
+            "email": "marlon.flores@maxikash.mx",
             "activo": true
         },
         {
-            "email": "hector.ruiz@__SPARTA_SECRET_REDACTED__.mx",
+            "email": "hector.ruiz@maxikash.mx",
             "activo": true
         },
         {
-            "email": "guillermo.garcia@__SPARTA_SECRET_REDACTED__.mx",
+            "email": "guillermo.garcia@maxikash.mx",
             "activo": true
         },
         {
-            "email": "__SPARTA_SECRET_REDACTED__@__SPARTA_SECRET_REDACTED__.mx",
+            "email": "jesus.ruvalcaba@maxikash.mx",
             "activo": true
         },
         {
-            "email": "josealberto.hernandez@__SPARTA_SECRET_REDACTED__.mx",
+            "email": "josealberto.hernandez@maxikash.mx",
             "activo": true
         },
         {
-            "email": "josue.aldrete@__SPARTA_SECRET_REDACTED__.mx",
+            "email": "josue.aldrete@maxikash.mx",
             "activo": true
         },
         {
-            "email": "erika.ortiz@__SPARTA_SECRET_REDACTED__.mx",
+            "email": "erika.ortiz@maxikash.mx",
             "activo": true
         },
         {
@@ -37,6 +37,6 @@
             "activo": false
         }
     ],
-    "updated_at": "2026-05-14T15:52:21-06:00",
+    "updated_at": "2026-07-21T12:00:00-06:00",
     "updated_by": 1
 }
