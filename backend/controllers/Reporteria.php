@@ -3285,7 +3285,12 @@ class Reporteria extends Controller
                 if (!host || !VISTA_SIMPLE) return;
                 const arr = Array.isArray(data) ? data : [];
                 const total = arr.length || 0;
+                const conCuotaPagada = arr.reduce((n, r) => {
+                    const cuotas = Number(r?.cuotas_pagadas ?? r?.Cuotas_pagadas ?? 0);
+                    return n + (Number.isFinite(cuotas) && cuotas > 0 ? 1 : 0);
+                }, 0);
                 const cnt = { jue: 0, vie: 0, sab: 0, dom: 0, lun: 0 };
+                let conFechaPago = 0;
                 const parseFechaPago = (raw) => {
                     if (raw == null || raw === '') return null;
                     const s = String(raw).trim();
@@ -3300,6 +3305,7 @@ class Reporteria extends Controller
                 arr.forEach((r) => {
                     const d = parseFechaPago(r.fecha_ultimo_pago_efectivo);
                     if (!d) return;
+                    conFechaPago++;
                     const dow = d.getDay();
                     if (dow === 4) cnt.jue++;
                     else if (dow === 5) cnt.vie++;
@@ -3316,7 +3322,21 @@ class Reporteria extends Controller
                     { k: 'lun', label: 'Pago Lunes', cls: 'bg-label-secondary', icon: 'fa-calendar-day' },
                 ];
                 const fsCard = { bd: '.65rem', num: '1.35rem', pct: '1.02rem', ft: '.6rem', pad: 'py-2 px-2', bdgMb: 'mb-1' };
-                host.innerHTML = meta.map((m) => {
+                const cardCuota = `
+                    <div class="col">
+                        <div class="card text-center h-100 border-0 shadow-sm">
+                            <div class="card-body ${fsCard.pad}">
+                                <div class="badge bg-label-success ${fsCard.bdgMb}" style="font-size:${fsCard.bd};">
+                                    <i class="fa fa-circle-check fa-fw me-1" aria-hidden="true"></i>Con cuota pagada
+                                </div>
+                                <div class="fw-bold text-nowrap" style="font-size:${fsCard.num};line-height:1.2;">
+                                    ${fmtInt(conCuotaPagada)}<span class="text-muted fw-semibold" style="font-size:${fsCard.pct};margin-left:4px;">(${pct(conCuotaPagada)}%)</span>
+                                </div>
+                                <div class="text-muted" style="font-size:${fsCard.ft};">créditos</div>
+                            </div>
+                        </div>
+                    </div>`;
+                const tarjetasPorDia = conFechaPago > 0 ? meta.map((m) => {
                     const n = cnt[m.k] || 0;
                     return `
                     <div class="col">
@@ -3332,7 +3352,18 @@ class Reporteria extends Controller
                             </div>
                         </div>
                     </div>`;
-                }).join('');
+                }).join('') : `
+                    <div class="col">
+                        <div class="card text-center h-100 border-0 shadow-sm">
+                            <div class="card-body ${fsCard.pad}">
+                                <div class="badge bg-label-secondary ${fsCard.bdgMb}" style="font-size:${fsCard.bd};">
+                                    <i class="fa fa-calendar-xmark fa-fw me-1" aria-hidden="true"></i>Sin desglose por fecha
+                                </div>
+                                <div class="text-muted" style="font-size:${fsCard.ft};">La fuente semanal no reportó fechas individuales de pago.</div>
+                            </div>
+                        </div>
+                    </div>`;
+                host.innerHTML = cardCuota + tarjetasPorDia;
             }
 
             function renderStats(data) {

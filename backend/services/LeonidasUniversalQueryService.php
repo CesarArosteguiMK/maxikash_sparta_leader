@@ -12,7 +12,7 @@ use Core\DatabaseSegundometro;
 
 /**
  * Read-only discovery/query gateway for the SQL sources already configured in
- * Sparta. Qwen returns a structured plan; this class validates every
+ * Sparta. Gemini returns a structured plan; this class validates every
  * identifier, operator and limit before compiling a SELECT statement.
  */
 class LeonidasUniversalQueryService
@@ -102,7 +102,7 @@ class LeonidasUniversalQueryService
             $registry->catalogoPublico(),
             static fn(array $item): bool => in_array((string) ($item['id'] ?? ''), $allowedSources, true)
         ));
-        $choice = (new LeonidasQwenClient())->json(
+        $choice = (new LeonidasGeminiClient())->json(
             'Seleccionas una fuente SQL de Sparta. No respondes al usuario ni generas SQL.',
             'Elige una sola fuente para contestar la pregunta. Si ninguna corresponde usa fuente="". '
                 . 'Devuelve exclusivamente JSON: {"fuente":"","confianza":0.0}. '
@@ -223,7 +223,7 @@ class LeonidasUniversalQueryService
             . "\nESQUEMA AUTORIZADO:\n" . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
             . "\nPREGUNTA:\n" . $question;
 
-        $plan = (new LeonidasQwenClient())->json(
+        $plan = (new LeonidasGeminiClient())->json(
             'Eres el planificador seguro de consultas de Leonidas. Solo produces planes JSON de lectura.',
             $prompt,
             1100
@@ -304,7 +304,7 @@ class LeonidasUniversalQueryService
                 'fuente' => $source,
                 'metricas' => ['dataset' => $dataset, 'operacion' => $operation, 'valor' => $value, 'actor_id' => $actorId],
                 'ia_disponible' => true,
-                'modelo_ia' => 'Qwen + pasarela de lectura de Sparta',
+                'modelo_ia' => 'Gemini + pasarela de lectura de Sparta',
             ];
         }
 
@@ -410,7 +410,7 @@ class LeonidasUniversalQueryService
             'fuente' => $source,
             'metricas' => ['dataset' => $dataset, 'total' => $total],
             'ia_disponible' => true,
-            'modelo_ia' => 'Qwen + pasarela de lectura de Sparta',
+            'modelo_ia' => 'Gemini + pasarela de lectura de Sparta',
         ];
     }
 
@@ -425,7 +425,7 @@ class LeonidasUniversalQueryService
             'reporte' => ['titulo' => $title, 'total' => $total, 'filas' => $rows],
             'metricas' => ['dataset' => $dataset, 'total' => $total],
             'ia_disponible' => true,
-            'modelo_ia' => 'Qwen + pasarela de lectura de Sparta',
+            'modelo_ia' => 'Gemini + pasarela de lectura de Sparta',
         ];
     }
 

@@ -9,6 +9,9 @@ from functools import lru_cache
 from typing import List
 
 
+_API_ROOT = Path(__file__).resolve().parents[2]
+
+
 def _default_tesseract_cmd() -> str:
     # Raíz de esta API: .../backend/API  (este archivo está en app/core/config.py)
     api_root = Path(__file__).resolve().parents[2]
@@ -35,7 +38,7 @@ def _default_tesseract_cmd() -> str:
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(_API_ROOT / ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",

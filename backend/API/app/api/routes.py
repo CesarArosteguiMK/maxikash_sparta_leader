@@ -70,6 +70,11 @@ def _doc_ai_provider_name() -> str:
     return str(getattr(settings, "doc_ai_engine", "legacy") or "legacy").strip().lower()
 
 
+def _doc_ai_provider_tag(provider: Optional[str] = None) -> str:
+    value = str(provider or _doc_ai_provider_name() or "ia").strip().lower()
+    return re.sub(r"[^a-z0-9_]+", "_", value).strip("_") or "ia"
+
+
 def _crear_alibaba_ai() -> Optional[AlibabaDocumentAI]:
     if _doc_ai_provider_name() == "gemini":
         api_key = str(getattr(settings, "gemini_api_key", "") or "").strip()
@@ -314,6 +319,8 @@ def _normalizar_dictamen_v2(value: Any) -> str:
 
 
 def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro: Optional[str] = None) -> Dict[str, Any]:
+    provider = str(res.get("provider") or _doc_ai_provider_name() or "ia").strip().lower()
+    provider_tag = _doc_ai_provider_tag(provider)
     analysis = res.get("analysis") or {}
     docs = analysis.get("documentos") if isinstance(analysis.get("documentos"), dict) else {}
     comps = analysis.get("comparaciones") if isinstance(analysis.get("comparaciones"), list) else []
@@ -506,13 +513,13 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
             if isinstance(v, (int, float)) or (isinstance(v, str) and v.strip().isdigit())
         }
     if not tiempos_fase:
-        tiempos_fase = {"alibaba_crosscheck_ms": int(res.get("elapsed_ms") or 0)}
+        tiempos_fase = {f"{provider_tag}_crosscheck_ms": int(res.get("elapsed_ms") or 0)}
 
     return {
         "todo_coincide": todo_coincide,
         "foto_rechazada": False,
         "curp_definitivo": datos_ref.get("curp_principal"),
-        "curp_fuente": "motor_v2_alibaba",
+        "curp_fuente": f"motor_v2_{provider_tag}",
         "checks_ok": checks_ok,
         "checks_totales": checks_totales,
         "checks_fallas": checks_fallas,
@@ -534,8 +541,8 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
         "datos_extraidos": {"motor_v2": analysis},
         "tiempo_proceso_ms": int(res.get("elapsed_ms") or 0),
         "tiempos_fase_ms": tiempos_fase,
-        "modo_verificacion": "v2_alibaba_crosscheck",
-        "motor_ia": "alibaba",
+        "modo_verificacion": f"v2_{provider_tag}_crosscheck",
+        "motor_ia": provider,
         "modelo_ia": res.get("model"),
         "nombre_candidato_registro": nombre_candidato_registro,
     }
@@ -553,6 +560,8 @@ def _respuesta_v2_error_recuperable(
     Evita que FastAPI regrese HTTP 500 al modal; el error queda en logs y el
     expediente puede mostrarse como pendiente/revisable sin perder documentos.
     """
+    provider = _doc_ai_provider_name() or "ia"
+    provider_tag = _doc_ai_provider_tag(provider)
     docs: Dict[str, Any] = {}
     total_docs = 0
     docs_con_lectura = 0
@@ -612,7 +621,7 @@ def _respuesta_v2_error_recuperable(
         "todo_coincide": False,
         "foto_rechazada": False,
         "curp_definitivo": None,
-        "curp_fuente": "motor_v2_alibaba",
+        "curp_fuente": f"motor_v2_{provider_tag}",
         "checks_ok": 0,
         "checks_totales": 0,
         "checks_fallas": 0,
@@ -655,8 +664,8 @@ def _respuesta_v2_error_recuperable(
         },
         "tiempo_proceso_ms": int(elapsed_ms or 0),
         "tiempos_fase_ms": {"v2_error_recuperable_ms": int(elapsed_ms or 0)},
-        "modo_verificacion": "v2_alibaba_crosscheck_error_recuperable",
-        "motor_ia": "alibaba",
+        "modo_verificacion": f"v2_{provider_tag}_crosscheck_error_recuperable",
+        "motor_ia": provider,
         "modelo_ia": "Motor V2",
         "nombre_candidato_registro": nombre_candidato_registro,
     }
@@ -2642,7 +2651,7 @@ def _resultado_v2_reglas_expediente(
         recomendaciones.append("El analisis profundo tardo mas de lo esperado; se uso una revision local para no detener el expediente.")
 
     return {
-        "provider": "alibaba",
+        "provider": _doc_ai_provider_name(),
         "model": "Motor V2",
         "requested_model": "rules",
         "fallback_used": motivo != "rules",
@@ -2683,7 +2692,7 @@ def _respuesta_alibaba_curp(res: Dict[str, Any]) -> Dict[str, Any]:
     valido = _ai_es_doc(res, "curp") and not errores
     curp_raw = campos.get("curp")
     return {
-        # qwen3.5-flash puede confundir un caracter en CURP y aun parecer valida
+        # El modelo visual puede confundir un caracter en CURP y aun parecer valido
         # por formato. Para carga rapida no mostramos identificadores exactos
         # si vienen solo de IA; se dejan como diagnostico interno.
         "curp_extraido": None,
@@ -2697,7 +2706,7 @@ def _respuesta_alibaba_curp(res: Dict[str, Any]) -> Dict[str, Any]:
         "parece_curp": _ai_es_doc(res, "curp"),
         "revision_manual": bool(_ai_advertencias(res)) and not errores,
         "rechazado": bool(errores),
-        "motivo_rechazo": "alibaba_validacion_rapida" if errores else None,
+        "motivo_rechazo": f"{_doc_ai_provider_tag()}_validacion_rapida" if errores else None,
         **_ai_metadata(res),
     }
 
@@ -2727,7 +2736,7 @@ def _respuesta_alibaba_fiscal(res: Dict[str, Any]) -> Dict[str, Any]:
         "regimen_sueldos_salarios": bool(regimen_ok),
         "revision_manual": bool(_ai_advertencias(res)) and not errores,
         "rechazado": bool(errores),
-        "motivo_rechazo": "alibaba_validacion_rapida" if errores else None,
+        "motivo_rechazo": f"{_doc_ai_provider_tag()}_validacion_rapida" if errores else None,
         **_ai_metadata(res),
     }
 
@@ -2758,7 +2767,7 @@ def _respuesta_alibaba_comprobante(res: Dict[str, Any]) -> ComprobanteResponse:
         alertas=errores + advertencias,
         recomendacion=_ai_mensaje(res, "Comprobante verificado." if not rechazado else "Comprobante rechazado."),
         tiempo_proceso_ms=int(res.get("elapsed_ms") or 0),
-        motor_ia="alibaba",
+        motor_ia=str(res.get("provider") or _doc_ai_provider_name()),
         modelo_ia=str(res.get("model") or ""),
     )
 
@@ -2798,7 +2807,7 @@ def _respuesta_alibaba_nss(res: Dict[str, Any]) -> Dict[str, Any]:
         "curp": campos.get("curp"),
         "revision_manual": bool(_ai_advertencias(res)) or bool(errores),
         "rechazado": bool(errores and not _ai_es_doc(res, "nss")),
-        "motivo_rechazo": "alibaba_validacion_rapida" if errores else None,
+        "motivo_rechazo": f"{_doc_ai_provider_tag()}_validacion_rapida" if errores else None,
         **_ai_metadata(res),
     }
 
@@ -4169,7 +4178,7 @@ async def leonidas_conversar(
 
     ai = _crear_alibaba_ai()
     if ai is None:
-        raise HTTPException(status_code=503, detail="Qwen no esta configurado en la API documental.")
+        raise HTTPException(status_code=503, detail="Gemini no esta configurado en la API documental.")
 
     prompt = (
         "Eres Leonidas, asistente interno de Sparta. Responde en espanol claro, cercano y profesional. "
@@ -4194,12 +4203,12 @@ async def leonidas_conversar(
             enable_thinking=False,
         )
     except Exception as exc:
-        logger.exception("Leonidas/Qwen no pudo completar la conversacion: {}", exc)
-        raise HTTPException(status_code=502, detail="Qwen no pudo responder en este momento.")
+        logger.exception("Leonidas/Gemini no pudo completar la conversacion: {}", exc)
+        raise HTTPException(status_code=502, detail="Gemini no pudo responder en este momento.")
 
     texto = str(respuesta.get("respuesta") or "").strip()
     if not texto:
-        raise HTTPException(status_code=502, detail="Qwen devolvio una respuesta sin contenido.")
+        raise HTTPException(status_code=502, detail="Gemini devolvio una respuesta sin contenido.")
 
     return {
         "success": True,
@@ -5600,7 +5609,7 @@ async def extraer_direccion_ine(
         "calidad": extraccion.get("calidad_imagen"),
         "tipo_documento": tipo or None,
         "mensaje": "Direccion del INE extraida." if suficiente else "No se pudo leer un domicilio completo en la imagen del INE.",
-        "motor": "motor_v2_alibaba",
+        "motor": f"motor_v2_{_doc_ai_provider_tag(resultado.get('provider'))}",
         "modelo": resultado.get("model"),
         "tiempo_ms": int(resultado.get("elapsed_ms") or (time.time() - inicio) * 1000),
     }
@@ -5860,7 +5869,8 @@ async def validar_expediente(
     if _doc_ai_alibaba_activo():
         ai = _crear_alibaba_ai_crosscheck()
         if ai is None or not ai.enabled():
-            mensaje = "DOC_AI_ENGINE=alibaba esta activo, pero faltan credenciales/modelo para validacion cruzada."
+            provider = _doc_ai_provider_name()
+            mensaje = f"DOC_AI_ENGINE={provider} esta activo, pero faltan credenciales o modelo para validacion cruzada."
             raise HTTPException(status_code=503, detail=mensaje)
         else:
             docs_v2 = [
@@ -5969,7 +5979,7 @@ async def validar_expediente(
                     quick_ai.max_pages = min(2, int(getattr(quick_ai, "max_pages", 2) or 2))
                     quick_ai.dpi = max(130, min(150, int(getattr(quick_ai, "dpi", 140) or 140)))
                     # Normalmente solo entra aqui uno o dos documentos sin
-                    # lectura util. Limitar la concurrencia evita saturar Qwen
+                    # lectura util. Limitar la concurrencia evita saturar al proveedor
                     # y mantiene estable el tiempo total de la reevaluacion.
                     sem = asyncio.Semaphore(2)
 
@@ -6039,7 +6049,7 @@ async def validar_expediente(
                 )
                 return _respuesta_alibaba_expediente(resultado_alibaba, nombre_candidato_registro)
             except Exception as exc:
-                logger.exception(f"Alibaba crosscheck fallo: {exc}")
+                logger.exception(f"{_doc_ai_provider_name()} crosscheck fallo: {exc}")
                 try:
                     resultado_reglas = _resultado_v2_reglas_expediente(docs_v2, nombre_candidato_registro, motivo="fallback_timeout")
                     return _respuesta_alibaba_expediente(resultado_reglas, nombre_candidato_registro)
@@ -6050,7 +6060,7 @@ async def validar_expediente(
                         nombre_candidato_registro,
                         fallback_exc,
                         timeout_v2 * 1000,
-                        fase="fallback_reglas_tras_fallo_alibaba",
+                        fase=f"fallback_reglas_tras_fallo_{_doc_ai_provider_tag()}",
                     )
 
     if identificacion_pdf_bytes and len(identificacion_pdf_bytes) >= 100:

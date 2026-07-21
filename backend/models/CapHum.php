@@ -10,6 +10,7 @@ class CapHum extends Model
 {
     private static $trayectoriaPuestoTablaAsegurada = false;
     private static $personaEsExternoColumnaAsegurada = false;
+    private static $plantillaActivaExpedientesTablaAsegurada = false;
     public const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
     private const MODULO_MIS_DOCUMENTOS = 141;
     private const MODULO_VACACIONES = 147;
@@ -84,6 +85,36 @@ class CapHum extends Model
         }
         self::$personaEsExternoColumnaAsegurada = true;
         return;
+    }
+
+    /**
+     * El expediente RR.HH. se consulta contra la plantilla vigente importada
+     * desde AEM y Pensionamax; no contra todos los historicos marcados Activo.
+     */
+    private static function asegurarPlantillaActivaExpedientes(Database $db): void
+    {
+        if (self::$plantillaActivaExpedientesTablaAsegurada) {
+            return;
+        }
+
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS estado_cuenta.rrhh_plantilla_activa (
+                curp VARCHAR(18) NOT NULL,
+                id_persona INT NOT NULL,
+                id_empresa INT NOT NULL,
+                origen VARCHAR(64) NOT NULL,
+                nombre_origen VARCHAR(255) NOT NULL,
+                activo TINYINT(1) NOT NULL DEFAULT 1,
+                fecha_sincronizacion DATETIME NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (curp),
+                KEY idx_plantilla_activa_persona (id_persona, activo),
+                KEY idx_plantilla_activa_empresa (id_empresa, activo)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        self::$plantillaActivaExpedientesTablaAsegurada = true;
     }
 
     public static function asegurarModuloAccesosCapitalHumano(): void
@@ -4125,6 +4156,8 @@ class CapHum extends Model
     {
         try {
             $db = new Database();
+            self::asegurarPersonaEsExterno($db);
+            self::asegurarPlantillaActivaExpedientes($db);
 
             $tipos = $db->queryAll("
                 SELECT id, nombre, clave, obligatorio
@@ -4145,6 +4178,9 @@ class CapHum extends Model
                     GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', ') AS departamentos,
                     GROUP_CONCAT(DISTINCT pp.nombre ORDER BY pp.nombre SEPARATOR ', ') AS puestos
                 FROM estado_cuenta.persona p
+                INNER JOIN estado_cuenta.rrhh_plantilla_activa pla
+                    ON pla.id_persona = p.id
+                   AND pla.activo = 1
                 LEFT JOIN estado_cuenta.asigna_puesto ap
                     ON ap.id_persona = p.id
                    AND COALESCE(ap.activo, 1) = 1
@@ -4152,7 +4188,8 @@ class CapHum extends Model
                     ON pp.id = ap.id_puesto
                 LEFT JOIN estado_cuenta.departamento d
                     ON d.id = pp.departamento_id
-                WHERE p.estatus != 'Baja'
+                WHERE p.estatus = 'Activo'
+                  AND COALESCE(p.es_externo, 0) = 0
                 GROUP BY p.id, p.numero_empleado, p.codigo_contpac, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.correo, p.estatus
                 ORDER BY nombre_completo ASC
             ");
@@ -5425,6 +5462,33 @@ class CapHum extends Model
         ];
         $detalles = [];
 
+        // Un mismo external_id puede repetirse en la plantilla solo si conserva
+        // exactamente el mismo puesto y departamento. Si vienen dos destinos
+        // distintos, el resultado dependia del estado anterior y cada carga podia
+        // alternar la asignacion. Se bloquea el conflicto para que se corrija el
+        // Excel antes de modificar personas.
+        $estructurasPorExternal = [];
+        foreach ($filas as $filaConflicto) {
+            $externalConflicto = trim((string)($filaConflicto['external_id'] ?? ''));
+            $puestoConflicto = trim((string)($filaConflicto['puesto_legacy'] ?? ''));
+            $departamentoConflicto = trim((string)($filaConflicto['departamento'] ?? ''));
+            if ($externalConflicto === '' || $puestoConflicto === '' || $departamentoConflicto === '') {
+                continue;
+            }
+
+            $claveEstructura = self::normalizarTextoCambioEstructura($departamentoConflicto)
+                . '|' . self::normalizarTextoCambioEstructura($puestoConflicto);
+            $estructurasPorExternal[$externalConflicto][$claveEstructura] = [
+                'fila' => (int)($filaConflicto['fila'] ?? 0),
+                'puesto' => $puestoConflicto,
+                'departamento' => $departamentoConflicto,
+            ];
+        }
+        $conflictosEstructuraPorExternal = array_filter(
+            $estructurasPorExternal,
+            static fn(array $estructuras): bool => count($estructuras) > 1
+        );
+
         foreach ($filas as $fila) {
             $resumen['total']++;
             $numeroFila = (int)($fila['fila'] ?? 0);
@@ -5465,6 +5529,16 @@ class CapHum extends Model
             }
             if ($departamentoExcel === '') {
                 $errores[] = 'departamento vacio.';
+            }
+
+            if ($external !== '' && isset($conflictosEstructuraPorExternal[$external])) {
+                $destinos = array_map(static function (array $estructura): string {
+                    return 'fila ' . $estructura['fila'] . ': '
+                        . $estructura['departamento'] . ' / ' . $estructura['puesto'];
+                }, $conflictosEstructuraPorExternal[$external]);
+                $errores[] = 'El external_id ' . $external
+                    . ' aparece con estructuras diferentes (' . implode('; ', $destinos)
+                    . '). Corrige o elimina el renglón duplicado antes de aplicar cambios.';
             }
 
             $personas = $personasPorNumero[$external] ?? [];

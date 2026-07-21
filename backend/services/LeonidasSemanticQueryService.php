@@ -9,7 +9,7 @@ use Models\Ticket;
 
 /**
  * Converts natural-language questions into validated read-only queries.
- * Qwen selects from this catalog; it never creates or executes SQL.
+ * Gemini selects from this catalog; it never creates or executes SQL.
  */
 class LeonidasSemanticQueryService
 {
@@ -82,7 +82,7 @@ class LeonidasSemanticQueryService
                 'total' => count($rows),
             ],
             'ia_disponible' => true,
-            'modelo_ia' => 'Qwen + registro de fuentes de Sparta',
+            'modelo_ia' => 'Gemini + registro de fuentes de Sparta',
         ];
     }
 
@@ -187,7 +187,7 @@ class LeonidasSemanticQueryService
             'fuente' => 's2_estado_cuenta',
             'metricas' => $metrics + ['dataset' => 's2_estado_cuenta'],
             'ia_disponible' => true,
-            'modelo_ia' => 'Qwen + adaptador S2 de Sparta',
+            'modelo_ia' => 'Gemini + adaptador S2 de Sparta',
         ];
     }
 
@@ -485,7 +485,7 @@ class LeonidasSemanticQueryService
             'fuente' => $source,
             'metricas' => $metrics + ['dataset' => $dataset],
             'ia_disponible' => true,
-            'modelo_ia' => 'Qwen + fuentes operativas de Sparta',
+            'modelo_ia' => 'Gemini + fuentes operativas de Sparta',
         ];
     }
 
@@ -513,7 +513,7 @@ class LeonidasSemanticQueryService
             . "\nCATALOGO AUTORIZADO:\n" . json_encode($catalogo, JSON_UNESCAPED_SLASHES)
             . "\nPREGUNTA:\n" . $mensaje;
 
-        $plan = (new LeonidasQwenClient())->json(
+        $plan = (new LeonidasGeminiClient())->json(
             'Eres el planificador seguro de Leonidas para Sparta. Clasificas preguntas, no respondes al usuario y nunca generas SQL.',
             $prompt,
             1000
@@ -1060,7 +1060,7 @@ class LeonidasSemanticQueryService
             'tipo' => 'consulta_semantica',
             'metricas' => ['total' => $total, 'dataset' => $dataset, 'criterio' => $context !== '' ? $context : 'sin filtros'],
             'ia_disponible' => true,
-            'modelo_ia' => 'Qwen + consulta segura de Sparta',
+            'modelo_ia' => 'Gemini + consulta segura de Sparta',
         ];
     }
 
@@ -1073,7 +1073,7 @@ class LeonidasSemanticQueryService
             'tipo' => 'consulta_semantica',
             'reporte' => ['titulo' => $title, 'total' => $total, 'filas' => $rows],
             'ia_disponible' => true,
-            'modelo_ia' => 'Qwen + consulta segura de Sparta',
+            'modelo_ia' => 'Gemini + consulta segura de Sparta',
         ];
     }
 

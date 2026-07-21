@@ -173,7 +173,7 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
         <div class="card-header py-2 d-flex flex-wrap align-items-center gap-2">
             <span class="fw-semibold" style="font-size:.82rem;">
                 <i class="fa fa-calendar-check text-primary me-1"></i>
-                Último pago efectivo por día
+                Estatus de pagos reportados
             </span>
         </div>
         <div class="card-body py-2">

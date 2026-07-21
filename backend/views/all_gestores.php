@@ -5362,6 +5362,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <option value="">Todos los usuarios</option>
                         <option value="multiples">Múltiples puestos</option>
                         <option value="unico">Un solo puesto</option>
+                        <option value="externos">Solo externos</option>
                     </select>
                 </div>
             </div>
@@ -9016,7 +9017,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const base = Array.isArray(usuariosData) ? usuariosData : [];
     return base.filter(persona => {
       if (!usuarioCumpleFiltrosBase(persona, filtros.direccion, filtros.area, filtros.departamento, filtros.puesto)) return false;
-      if (!usuarioCumpleTipoPuesto(persona, filtros.multipuesto)) return false;
+      if (!usuarioCumpleFiltroUsuariosGestion(persona, filtros.multipuesto)) return false;
       if (filtros.estatus && String(persona.estatus || '') !== String(filtros.estatus)) return false;
       return true;
     });
@@ -9063,7 +9064,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     if (filtros.area) items.push(['Area', filtros.area]);
     if (filtros.departamento) items.push(['Departamento', filtros.departamento]);
     if (filtros.puesto) items.push(['Puesto', filtros.puesto]);
-    if (filtros.multipuesto) items.push(['Multipuesto', filtros.multipuesto === 'multiples' ? 'Multiples puestos' : 'Un solo puesto']);
+    if (filtros.multipuesto === 'multiples') items.push(['Usuarios', 'Multiples puestos']);
+    if (filtros.multipuesto === 'unico') items.push(['Usuarios', 'Un solo puesto']);
+    if (filtros.multipuesto === 'externos') items.push(['Usuarios', 'Solo externos']);
     if (filtros.estatus) items.push(['Estatus', filtros.estatus]);
     if (!items.length) return '<span class="text-muted">Sin filtros aplicados. Se tomara el alcance completo visible en Gestion de Personal.</span>';
     return items.map(([label, value]) => `<span class="plantilla-filter-chip"><strong>${escapePlantillaGestoresHtml(label)}:</strong> ${escapePlantillaGestoresHtml(value)}</span>`).join('');
@@ -11001,6 +11004,11 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     return true;
   }
 
+  function usuarioCumpleFiltroUsuariosGestion(persona, filtro) {
+    if (filtro === 'externos') return esUsuarioExternoGestion(persona);
+    return usuarioCumpleTipoPuesto(persona, filtro);
+  }
+
   function ordenarValoresFiltro(valores) {
     return Array.from(valores).sort((a, b) => String(a).localeCompare(String(b), 'es', { sensitivity: 'base' }));
   }
@@ -11040,7 +11048,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const departamentos = new Set();
 
     usuariosData.forEach(persona => {
-      if (!usuarioCumpleTipoPuesto(persona, tipoPuesto)) return;
+      if (!usuarioCumpleFiltroUsuariosGestion(persona, tipoPuesto)) return;
       if (direccionSeleccionada && !usuarioTieneDireccion(persona, direccionSeleccionada)) return;
       if (areaSeleccionada && !usuarioTieneArea(persona, areaSeleccionada)) return;
       if (puestoSeleccionado && !usuarioTienePuesto(persona, puestoSeleccionado, '')) return;
@@ -11059,7 +11067,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const areas = new Set();
 
     usuariosData.forEach(persona => {
-      if (!usuarioCumpleTipoPuesto(persona, tipoPuesto)) return;
+      if (!usuarioCumpleFiltroUsuariosGestion(persona, tipoPuesto)) return;
       if (direccionSeleccionada && !usuarioTieneDireccion(persona, direccionSeleccionada)) return;
       if (departamentoSeleccionado && !usuarioTieneDepartamento(persona, departamentoSeleccionado)) return;
       if (puestoSeleccionado && !usuarioTienePuesto(persona, puestoSeleccionado, departamentoSeleccionado || '')) return;
@@ -11079,7 +11087,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const direcciones = new Set();
 
     usuariosData.forEach(persona => {
-      if (!usuarioCumpleTipoPuesto(persona, tipoPuesto)) return;
+      if (!usuarioCumpleFiltroUsuariosGestion(persona, tipoPuesto)) return;
       if (areaSeleccionada && !usuarioTieneArea(persona, areaSeleccionada)) return;
       if (departamentoSeleccionado && !usuarioTieneDepartamento(persona, departamentoSeleccionado)) return;
       if (puestoSeleccionado && !usuarioTienePuesto(persona, puestoSeleccionado, departamentoSeleccionado || '')) return;
@@ -11162,7 +11170,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const puestos = new Set();
 
     usuariosData.forEach(persona => {
-      if (!usuarioCumpleTipoPuesto(persona, tipoPuesto)) return;
+      if (!usuarioCumpleFiltroUsuariosGestion(persona, tipoPuesto)) return;
       if (direccionSeleccionada && !usuarioTieneDireccion(persona, direccionSeleccionada)) return;
       if (areaSeleccionada && !usuarioTieneArea(persona, areaSeleccionada)) return;
       if (departamentoSeleccionado && !usuarioTieneDepartamento(persona, departamentoSeleccionado)) return;
@@ -11187,24 +11195,31 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const datos = Array.isArray(datosBase) ? datosBase : usuariosData;
     const usuariosMultiples = datos.filter(u => u.puestos && u.puestos.length > 1).length;
     const usuariosUnicos = datos.length - usuariosMultiples;
-    const options = selectMultiple.querySelectorAll('option');
+    const usuariosExternos = datos.filter(esUsuarioExternoGestion).length;
+    const optionMultiples = selectMultiple.querySelector('option[value="multiples"]');
+    const optionUnico = selectMultiple.querySelector('option[value="unico"]');
+    const optionExternos = selectMultiple.querySelector('option[value="externos"]');
 
-    if (options[1]) {
-      options[1].textContent = `Múltiples puestos (${usuariosMultiples})`;
-      options[1].disabled = usuariosMultiples === 0;
-      options[1].textContent = `M\u00faltiples puestos (${usuariosMultiples})`;
+    if (optionMultiples) {
+      optionMultiples.textContent = `M\u00faltiples puestos (${usuariosMultiples})`;
+      optionMultiples.disabled = usuariosMultiples === 0;
     }
 
-    if (options[2]) {
-      options[2].textContent = `Ãšnico puesto (${usuariosUnicos})`;
-      options[2].disabled = usuariosUnicos === 0;
-      options[2].textContent = `\u00danico puesto (${usuariosUnicos})`;
+    if (optionUnico) {
+      optionUnico.textContent = `\u00danico puesto (${usuariosUnicos})`;
+      optionUnico.disabled = usuariosUnicos === 0;
+    }
+
+    if (optionExternos) {
+      optionExternos.textContent = `Solo externos (${usuariosExternos})`;
+      optionExternos.disabled = usuariosExternos === 0;
     }
 
     let valorActual = selectMultiple.value;
     const valorInvalido =
       (valorActual === 'multiples' && usuariosMultiples === 0) ||
-      (valorActual === 'unico' && usuariosUnicos === 0);
+      (valorActual === 'unico' && usuariosUnicos === 0) ||
+      (valorActual === 'externos' && usuariosExternos === 0);
 
     if (valorInvalido) {
       selectMultiple.value = '';
@@ -11272,6 +11287,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     );
 
     const datosBase = usuariosData.filter(persona =>
+      usuarioCumpleFiltroUsuariosGestion(persona, tipoPuesto) &&
       usuarioCumpleFiltrosBase(persona, direccion, area, departamento, puesto)
     );
     tipoPuesto = actualizarFiltroMultiplePuestos(datosBase, autoTipo);
@@ -11779,7 +11795,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const datosFiltrados = datosBase.filter(persona => {
       // Filtro MÃšLTIPLES PUESTOS
       if (multiplePuestosSeleccionado) {
-        if (!usuarioCumpleTipoPuesto(persona, multiplePuestosSeleccionado)) {
+        if (!usuarioCumpleFiltroUsuariosGestion(persona, multiplePuestosSeleccionado)) {
           return false;
         }
       }

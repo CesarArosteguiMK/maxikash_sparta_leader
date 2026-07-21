@@ -5039,7 +5039,7 @@ class Sabueso extends Controller
                     (string) $fuente['archivo_referencia'],
                     isset($json['nombre']) ? (string) $json['nombre'] : null,
                     isset($json['curp']) ? (string) $json['curp'] : null,
-                    (string) ($json['motor'] ?? 'motor_v2_alibaba'),
+                    (string) ($json['motor'] ?? 'motor_v2_gemini'),
                     isset($json['modelo']) ? (string) $json['modelo'] : null,
                     (string) ($validacionTitular['detalle'] ?? 'El INE no corresponde al cliente del credito.')
                 );
@@ -5053,7 +5053,7 @@ class Sabueso extends Controller
                 isset($json['nombre']) ? (string) $json['nombre'] : null,
                 isset($json['curp']) ? (string) $json['curp'] : null,
                 isset($json['confianza']) ? (string) $json['confianza'] : null,
-                (string) ($json['motor'] ?? 'motor_v2_alibaba'),
+                (string) ($json['motor'] ?? 'motor_v2_gemini'),
                 isset($json['modelo']) ? (string) $json['modelo'] : null
             );
             return !empty($guardado['success']) ? [
@@ -5463,63 +5463,18 @@ class Sabueso extends Controller
     }
 
     /**
-     * Llama a Google Gemini (gemini-3-flash-preview). Multimodal: acepta texto o array de parts (texto + imágenes base64).
-     * $parts: string (solo texto) o array de partes [ ['text' => '...'], ['inlineData' => ['mimeType'=>'...', 'data'=>'base64']], ... ]
-     * Devuelve ['success' => bool, 'texto' => string, 'mensaje' => string].
+     * Gateway Gemini compartido para evidencias y analítica multimodal.
+     * Acepta texto o partes con inlineData/inline_data.
      */
     private function llamarGemini($systemPrompt, $parts, $maxTokens = 1500)
     {
-        $apiKey = defined('GEMINI_API_KEY') ? (string) GEMINI_API_KEY : '';
-        if ($apiKey === '') {
-            return ['success' => false, 'texto' => '', 'mensaje' => 'No está configurada GEMINI_API_KEY. Guarde la clave en la tabla config_api: php backend/config/set_api_key.php GEMINI_API_KEY "su_clave"'];
-        }
-        $contentParts = is_array($parts) ? $parts : [['text' => (string) $parts]];
-        $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=' . urlencode($apiKey);
-        $body = [
-            'contents' => [['parts' => $contentParts]],
-            'systemInstruction' => ['parts' => [['text' => $systemPrompt]]],
-            'generationConfig' => ['maxOutputTokens' => (int) $maxTokens],
-        ];
-        $payload = json_encode($body);
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $payload,
-            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 60,
-            CURLOPT_SSL_VERIFYPEER => defined('OPENAI_SSL_VERIFY') ? (bool) OPENAI_SSL_VERIFY : true,
-        ]);
-        $resp = curl_exec($ch);
-        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlErr = curl_error($ch);
-        curl_close($ch);
-        if ($resp === false || $curlErr !== '') {
-            return ['success' => false, 'texto' => '', 'mensaje' => 'No se pudo conectar con Gemini. ' . $curlErr];
-        }
-        $json = json_decode($resp, true);
-        $texto = '';
-        if (!empty($json['candidates'][0]['content']['parts']) && is_array($json['candidates'][0]['content']['parts'])) {
-            foreach ($json['candidates'][0]['content']['parts'] as $part) {
-                if (!empty($part['text'])) {
-                    $texto .= (string) $part['text'];
-                }
-            }
-            $texto = trim($texto);
-        }
-        if (!empty($json['promptFeedback']['blockReason']) && $texto === '') {
-            return ['success' => false, 'texto' => '', 'mensaje' => 'Gemini bloqueó la respuesta: ' . $json['promptFeedback']['blockReason']];
-        }
-        if (empty($json['candidates']) && $texto === '' && empty($json['error']['message'])) {
-            return ['success' => false, 'texto' => '', 'mensaje' => 'Gemini no devolvió contenido.'];
-        }
-        if (!empty($json['error']['message'])) {
-            return ['success' => false, 'texto' => $texto, 'mensaje' => 'Gemini: ' . $json['error']['message']];
-        }
-        if ($httpCode >= 400) {
-            return ['success' => false, 'texto' => $texto, 'mensaje' => 'Error del servicio (código ' . $httpCode . ').'];
-        }
-        return ['success' => true, 'texto' => $texto, 'mensaje' => 'OK'];
+        return (new \Services\GeminiClient())->generate(
+            (string) $systemPrompt,
+            $parts,
+            (int) $maxTokens,
+            false,
+            0.1
+        );
     }
 
     /**
