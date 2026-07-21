@@ -185,6 +185,7 @@
                             <th>Sucursal</th>
                             <th>Clasificación</th>
                             <th>Meta créditos</th>
+                            <th>Comisiona desde</th>
                             <th>Meta cash</th>
                             <th class="text-center">Acciones</th>
                         </tr>
@@ -660,6 +661,7 @@
                         </td>
                         <td>${this.renderClasificacionBadge(d)}</td>
                         <td><strong>${this.number(d.meta_creditos)}</strong></td>
+                        <td><span class="atlas-pres-badge atlas-pres-badge-warn">${this.comisionaDesde(d.comisiona_a_partir_de)}</span></td>
                         <td><strong>${this.money(d.meta_cash)}</strong></td>
                         <td class="text-center">
                             <button type="button" class="btn btn-sm btn-label-primary" data-pres-edit="${d.id}" title="Editar meta"><i class="fa-solid fa-pen"></i></button>
@@ -760,6 +762,13 @@
                     : '';
                 const title = row?.clasificacion_id ? ` title="Clasificacion ID ${this.escape(row.clasificacion_id)}"` : '';
                 return `<span class="atlas-pres-badge atlas-pres-badge-info"${style}${title}>${icon ? `<i class="${this.escape(icon)} me-1"></i>` : ''}${this.escape(nombre)}</span>`;
+            },
+
+            comisionaDesde(valor) {
+                if (valor === null || valor === undefined || valor === '') return 'No capturado';
+                const numero = Number(valor);
+                if (!Number.isFinite(numero)) return this.escape(String(valor));
+                return `${this.number(numero)} crédito${Math.abs(numero) === 1 ? '' : 's'}`;
             },
 
             abrirRanking() {
