@@ -16,9 +16,22 @@ class SessionGuard
         $db = new Database();
 
         $sql = <<<SQL
-            SELECT session_version, force_logout
-            FROM persona
-            WHERE id = :id
+            SELECT p.session_version,
+                   p.force_logout,
+                   ap.id_puesto,
+                   pu.nombre AS nombre_puesto,
+                   pu.departamento_id
+            FROM persona p
+            LEFT JOIN asigna_puesto ap ON ap.id = (
+                SELECT ap_actual.id
+                FROM asigna_puesto ap_actual
+                WHERE ap_actual.id_persona = p.id
+                  AND COALESCE(ap_actual.activo, 0) = 1
+                ORDER BY ap_actual.id DESC
+                LIMIT 1
+            )
+            LEFT JOIN puesto pu ON pu.id = ap.id_puesto
+            WHERE p.id = :id
             LIMIT 1
         SQL;
 
@@ -50,6 +63,13 @@ class SessionGuard
             );
             $_SESSION['session_version'] = (int) $row['session_version'];
         }
+
+        // El perfil puede cambiar mientras la sesión sigue abierta. Conservamos en
+        // cabecera e inicio el puesto activo, nunca una asignación histórica.
+        $_SESSION['nivel_puesto'] = (int) ($row['id_puesto'] ?? 0);
+        $_SESSION['id_puesto'] = (int) ($row['id_puesto'] ?? 0);
+        $_SESSION['nombre_puesto'] = trim((string) ($row['nombre_puesto'] ?? '')) ?: 'Usuario';
+        $_SESSION['departamento'] = (int) ($row['departamento_id'] ?? 0);
 
         $_SESSION['last_session_check'] = time();
     }

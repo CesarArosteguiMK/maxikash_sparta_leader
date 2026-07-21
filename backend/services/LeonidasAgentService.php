@@ -30,7 +30,51 @@ class LeonidasAgentService
             'convenio_guardar' => static fn(array $datos): array => \Models\Convenios::guardarConvenio($datos),
             'moto_buscar' => static fn(int $idCredito): array => (new \Models\Adjudicacion())->buscarCreditoPorId($idCredito),
             'moto_responsables' => static fn(): array => (new \Models\Adjudicacion())->obtenerResponsables(),
-            'moto_asignar' => static fn(int $idPersona, int $idCredito, int $actorId): array => (new \Models\Adjudicacion())->asignarCredito($idPersona, $idCredito, $actorId),
+            'moto_asignar' => static function (int $idPersona, int $idCredito, int $actorId): array {
+                $adjudicacion = new \Models\Adjudicacion();
+                $local = $adjudicacion->asignarCredito($idPersona, $idCredito, $actorId);
+                if (empty($local['success'])) {
+                    return $local;
+                }
+
+                $asignacionLocal = null;
+                foreach ($adjudicacion->obtenerHistorialCredito($idCredito) as $fila) {
+                    if ((string) ($fila['estatus'] ?? '') === '1' && (int) ($fila['id_persona'] ?? 0) === $idPersona) {
+                        $asignacionLocal = $fila;
+                        break;
+                    }
+                }
+                if ($asignacionLocal === null) {
+                    return [
+                        'success' => false,
+                        'partial' => true,
+                        'message' => 'La asignacion se registro, pero no pudo verificarse en Sparta. No se intento crear la tarea Legacy.',
+                        'local' => ['success' => false],
+                    ];
+                }
+
+                $legacy = (new \Models\MotosAdjudicadas())->crearTaskLegacyMotoAutorizada(
+                    $idCredito,
+                    $idPersona,
+                    ['nombre_cliente' => trim((string) ($asignacionLocal['nombre_cliente'] ?? ''))]
+                );
+                $completo = !empty($legacy['success']) && !empty($legacy['verificacion']['success']);
+
+                return [
+                    'success' => $completo,
+                    'partial' => !$completo,
+                    'message' => $completo
+                        ? 'Asignacion verificada en Sparta y sincronizada con Legacy.'
+                        : 'La asignacion quedo activa en Sparta, pero fallo la sincronizacion o verificacion en Legacy: '
+                            . trim((string) ($legacy['message'] ?? 'motivo no informado')),
+                    'local' => [
+                        'success' => true,
+                        'id_credito' => $idCredito,
+                        'id_persona' => $idPersona,
+                    ],
+                    'legacy' => $legacy,
+                ];
+            },
             'moto_responsable_activo' => static fn(int $idPersona): bool => (new \Models\Adjudicacion())->idPersonaEsResponsableActivo($idPersona),
         ];
     }
@@ -84,6 +128,10 @@ class LeonidasAgentService
                     'No puedo iniciar la adjudicación porque tu perfil no tiene acceso administrativo a Motos Adjudicadas.',
                     'agente_denegado'
                 );
+            }
+            $directa = $this->prepararMotoDesdeMensajeCompleto($mensaje, $contexto);
+            if ($directa !== null) {
+                return $directa;
             }
             $this->guardarTarea('moto', 'credito', [], $contexto);
             return $this->respuesta('Vamos a asignar el crédito para adjudicación de moto. ¿Cuál es el ID del crédito?', 'agente_pregunta');
@@ -311,6 +359,126 @@ class LeonidasAgentService
                     'id_credito' => (int) $datos['id_credito'],
                     'id_persona' => (int) $responsable['id_persona'],
                     'responsable' => $responsable['nombre'],
+                    'cliente' => (string) $datos['cliente'],
+                    'numero_empleado' => (string) ($responsable['numero_empleado'] ?? ''),
+                    'external_id' => (string) ($responsable['external_id'] ?? ''),
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Interpreta una solicitud completa como:
+     * credito + numero de empleado + nombre + external id.
+     * Regresa null cuando faltan esos datos para conservar el flujo guiado.
+     */
+    private function prepararMotoDesdeMensajeCompleto(string $mensaje, array $contexto): ?array
+    {
+        $limpio = str_replace(['**', '__', '`'], '', $mensaje);
+        if (!preg_match('/\bcr[eé]dito(?:\s+(?:n[uú]mero|no\.?|id))?\s*[:#-]?\s*(\d+)\b/iu', $limpio, $creditoMatch)) {
+            return null;
+        }
+        $idCredito = (int) $creditoMatch[1];
+
+        $numeroEmpleado = '';
+        if (preg_match('/\b(?:no\.?|n[uú]mero)\s*(?:de\s*)?empleado\s*:?\s*(?:\R+\s*)?([A-Z0-9_-]+)/iu', $limpio, $empleadoMatch)) {
+            $numeroEmpleado = trim((string) $empleadoMatch[1]);
+        }
+        $externalId = '';
+        if (preg_match('/\bexternal\s*id\s*:?\s*(?:\R+\s*)?([A-Z0-9_-]+)/iu', $limpio, $externalMatch)) {
+            $externalId = trim((string) $externalMatch[1]);
+        }
+        if ($numeroEmpleado === '' && $externalId === '') {
+            return null;
+        }
+        if ($numeroEmpleado !== '' && $externalId !== '' && $numeroEmpleado !== $externalId) {
+            return $this->respuesta(
+                'Los identificadores no coinciden: el No. empleado es ' . $numeroEmpleado
+                . ' y el External id es ' . $externalId . '. No preparé ninguna asignación.',
+                'agente_error'
+            );
+        }
+
+        $nombreIndicado = '';
+        if (preg_match(
+            '/\b(?:no\.?|n[uú]mero)\s*(?:de\s*)?empleado\s*:?\s*(?:\R+\s*)?[A-Z0-9_-]+\s*\R+\s*([^\r\n]+)/iu',
+            $limpio,
+            $nombreMatch
+        )) {
+            $candidatoNombre = trim((string) $nombreMatch[1]);
+            if (!preg_match('/^external\s*id\b/iu', $candidatoNombre)) {
+                $nombreIndicado = $candidatoNombre;
+            }
+        }
+
+        $identificador = $numeroEmpleado !== '' ? $numeroEmpleado : $externalId;
+        $responsables = array_values(array_filter(
+            $this->responsablesNormalizados(),
+            static fn(array $responsable): bool =>
+                (string) ($responsable['numero_empleado'] ?? '') === $identificador
+                || (string) ($responsable['external_id'] ?? '') === $identificador
+        ));
+        if (count($responsables) !== 1) {
+            $detalle = count($responsables) > 1
+                ? 'El identificador corresponde a más de un responsable activo.'
+                : 'No existe un responsable activo de Motos Adjudicadas con ese No. empleado / External id.';
+            return $this->respuesta($detalle . ' No preparé ninguna asignación.', 'agente_error');
+        }
+        $responsable = $responsables[0];
+        if ($nombreIndicado !== '' && $this->normalizar($nombreIndicado) !== $this->normalizar((string) $responsable['nombre'])) {
+            return $this->respuesta(
+                'Los identificadores ' . $identificador . ' pertenecen a ' . $responsable['nombre']
+                . ', no a ' . $nombreIndicado . '. Revisa los datos; no preparé ninguna asignación.',
+                'agente_error'
+            );
+        }
+
+        $resultado = $this->llamar('moto_buscar', $idCredito);
+        if (empty($resultado['success'])) {
+            return $this->respuesta('No pude consultar el crédito ' . $idCredito . ': ' . $this->mensajeResultado($resultado), 'agente_error');
+        }
+        if (!empty($resultado['asignacion'])) {
+            $nombre = trim((string) ($resultado['asignacion']['nombre_despacho'] ?? 'otro responsable'));
+            return $this->respuesta('El crédito ' . $idCredito . ' ya está asignado a ' . $nombre . '. No hice cambios.', 'agente_error');
+        }
+        if (!$this->creditoEsVencido($resultado)) {
+            $estatus = $this->estatusCredito($resultado);
+            return $this->respuesta(
+                'El crédito ' . $idCredito . ' no puede asignarse: su estatus es '
+                . ($estatus !== '' ? $estatus : 'no identificado') . ' y este proceso requiere estatus Vencido. No hice cambios.',
+                'agente_error'
+            );
+        }
+
+        $credito = is_array($resultado['credito'] ?? null) ? $resultado['credito'] : [];
+        $cliente = trim((string) ($credito['nombre_cliente'] ?? 'Sin nombre'));
+        return $this->propuestaMoto($idCredito, $cliente, $responsable);
+    }
+
+    private function propuestaMoto(int $idCredito, string $cliente, array $responsable): array
+    {
+        $numeroEmpleado = trim((string) ($responsable['numero_empleado'] ?? ''));
+        $externalId = trim((string) ($responsable['external_id'] ?? $numeroEmpleado));
+
+        return [
+            'mensaje' => 'Vista previa de la asignación:'
+                . "\nCrédito: " . $idCredito
+                . "\nCliente: " . $cliente
+                . "\nResponsable: " . (string) $responsable['nombre']
+                . "\nNo. empleado: " . ($numeroEmpleado !== '' ? $numeroEmpleado : 'sin dato')
+                . "\nExternal id esperado en Legacy: " . ($externalId !== '' ? $externalId : 'sin dato')
+                . "\nAl confirmar verificaré la asignación activa en Sparta, la tarea Legacy y su responsable.",
+            'tipo' => 'agente_propuesta',
+            'propuesta_especificacion' => [
+                'accion' => 'moto_asignar',
+                'resumen' => 'asignar el crédito ' . $idCredito . ' a ' . (string) $responsable['nombre'],
+                'payload' => [
+                    'id_credito' => $idCredito,
+                    'id_persona' => (int) $responsable['id_persona'],
+                    'responsable' => (string) $responsable['nombre'],
+                    'cliente' => $cliente,
+                    'numero_empleado' => $numeroEmpleado,
+                    'external_id' => $externalId,
                 ],
             ],
         ];
@@ -417,15 +585,101 @@ class LeonidasAgentService
         if (!$this->llamar('moto_responsable_activo', $idPersona)) {
             throw new \RuntimeException('El responsable seleccionado ya no está activo para adjudicación.');
         }
+
+        $responsables = array_values(array_filter(
+            $this->responsablesNormalizados(),
+            static fn(array $responsable): bool => (int) ($responsable['id_persona'] ?? 0) === $idPersona
+        ));
+        if (count($responsables) !== 1) {
+            throw new \RuntimeException('No pude revalidar de forma única al responsable. No se realizó la asignación.');
+        }
+        $responsableActual = $responsables[0];
+        $numeroEmpleadoActual = trim((string) ($responsableActual['numero_empleado'] ?? ''));
+        $externalIdActual = trim((string) ($responsableActual['external_id'] ?? $numeroEmpleadoActual));
+        $numeroEmpleadoPropuesto = trim((string) ($payload['numero_empleado'] ?? ''));
+        $externalIdPropuesto = trim((string) ($payload['external_id'] ?? ''));
+        if (($numeroEmpleadoPropuesto !== '' && $numeroEmpleadoPropuesto !== $numeroEmpleadoActual)
+            || ($externalIdPropuesto !== '' && $externalIdPropuesto !== $externalIdActual)) {
+            throw new \RuntimeException(
+                'Los identificadores del responsable cambiaron desde la vista previa. '
+                . 'Actualiza la solicitud antes de confirmar; no se realizó la asignación.'
+            );
+        }
+
         $resultado = $this->llamar('moto_asignar', $idPersona, $idCredito, (int) $contexto['actor_id']);
-        if (empty($resultado['success'])) {
+        if (empty($resultado['success']) && empty($resultado['partial'])) {
             throw new \RuntimeException($this->mensajeResultado($resultado));
         }
-        $responsable = trim((string) ($payload['responsable'] ?? 'el responsable seleccionado'));
+
+        $responsable = trim((string) ($responsableActual['nombre'] ?? $payload['responsable'] ?? 'el responsable seleccionado'));
+        $cliente = trim((string) ($payload['cliente'] ?? ''));
+        if ($cliente === '') {
+            $datosCredito = is_array($credito['credito'] ?? null) ? $credito['credito'] : [];
+            $cliente = trim((string) ($datosCredito['nombre_cliente'] ?? 'cliente no identificado'));
+        }
+
+        if (!empty($resultado['partial'])) {
+            return $this->respuesta(
+                'La asignación del crédito ' . $idCredito . ' a ' . $responsable
+                . ' quedó activa en Sparta, pero no pude completar o verificar Motos Adjudicadas Legacy. '
+                . 'Detalle: ' . $this->mensajeResultado($resultado),
+                'agente_ejecucion_parcial'
+            ) + ['ejecucion' => [
+                'accion' => 'moto_asignar',
+                'id_credito' => $idCredito,
+                'id_persona' => $idPersona,
+                'sparta_verificado' => true,
+                'legacy_verificado' => false,
+            ]];
+        }
+
+        $legacy = is_array($resultado['legacy'] ?? null) ? $resultado['legacy'] : [];
+        $verificacion = is_array($legacy['verificacion'] ?? null) ? $legacy['verificacion'] : [];
+        $taskId = (int) ($verificacion['task_id'] ?? $legacy['task_id'] ?? 0);
+        $legacyVerificado = !empty($verificacion['success'])
+            && !empty($verificacion['responsable_correcto'])
+            && !empty($verificacion['asignacion_activa'])
+            && !empty($verificacion['cliente_correcto'])
+            && $taskId > 0;
+        if (!$legacyVerificado) {
+            return $this->respuesta(
+                'La asignación del crédito ' . $idCredito . ' a ' . $responsable
+                . ' quedó activa en Sparta, pero la verificación final de Legacy quedó incompleta. '
+                . 'No afirmaré que la tarea o el responsable quedaron vinculados hasta poder comprobarlo.',
+                'agente_ejecucion_parcial'
+            ) + ['ejecucion' => [
+                'accion' => 'moto_asignar',
+                'id_credito' => $idCredito,
+                'id_persona' => $idPersona,
+                'sparta_verificado' => true,
+                'legacy_verificado' => false,
+            ]];
+        }
+
+        $clienteLegacy = trim((string) ($verificacion['client_name'] ?? ''));
+        if ($clienteLegacy !== '') {
+            $cliente = $clienteLegacy;
+        }
+        $responsableLegacy = trim((string) ($verificacion['responsable'] ?? ''));
+        $externalId = trim((string) ($verificacion['external_id'] ?? $externalIdActual));
+        $accionTarea = !empty($legacy['duplicate']) ? 'actualizada' : 'creada';
         return $this->respuesta(
-            'Crédito ' . $idCredito . ' asignado correctamente a ' . $responsable . '. La operación de Motos Adjudicadas quedó preparada.',
+            'Asigné el crédito ' . $idCredito . ' de ' . $cliente . ' a ' . $responsable
+            . ' (No. empleado / External id: ' . ($externalId !== '' ? $externalId : $numeroEmpleadoActual) . ').'
+            . "\nVerifiqué que quedó:"
+            . "\n- Asignación activa en Sparta."
+            . "\n- Tarea " . $taskId . ' ' . $accionTarea . ' en Motos Adjudicadas Legacy.'
+            . "\n- Responsable Legacy vinculado a " . ($responsableLegacy !== '' ? $responsableLegacy : $responsable) . '.'
+            . "\n- Nombre del cliente registrado en la tarea: " . $cliente . '.',
             'agente_ejecutado'
-        ) + ['ejecucion' => ['accion' => 'moto_asignar', 'id_credito' => $idCredito, 'id_persona' => $idPersona]];
+        ) + ['ejecucion' => [
+            'accion' => 'moto_asignar',
+            'id_credito' => $idCredito,
+            'id_persona' => $idPersona,
+            'task_id' => $taskId,
+            'sparta_verificado' => true,
+            'legacy_verificado' => true,
+        ]];
     }
 
     private function responsablesNormalizados(): array
@@ -435,7 +689,15 @@ class LeonidasAgentService
             $id = (int) ($responsable['id_persona'] ?? 0);
             $nombre = trim((string) ($responsable['nombre_completo'] ?? ''));
             if ($id > 0 && $nombre !== '') {
-                $salida[] = ['id_persona' => $id, 'nombre' => $nombre, 'puesto' => trim((string) ($responsable['puesto'] ?? ''))];
+                $numeroEmpleado = trim((string) ($responsable['numero_empleado'] ?? ''));
+                $salida[] = [
+                    'id_persona' => $id,
+                    'nombre' => $nombre,
+                    'puesto' => trim((string) ($responsable['puesto'] ?? '')),
+                    'numero_empleado' => $numeroEmpleado,
+                    'external_id' => $numeroEmpleado,
+                    'codigo_contpac' => trim((string) ($responsable['codigo_contpac'] ?? '')),
+                ];
             }
         }
         return $salida;

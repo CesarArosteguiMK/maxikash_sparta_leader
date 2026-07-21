@@ -97,6 +97,16 @@ function log_msg(string $nivel, string $msg): void
     echo "[$ts] [$nivel] $msg\n";
 }
 
+/**
+ * Las tablas de este proceso viven en la conexion DatabaseSegundometro.
+ * Elimina calificadores de esquema heredados para que el despliegue use la
+ * base configurada en cada ambiente y no un nombre fijo que puede no existir.
+ */
+function usarEsquemaSegundometroConfigurado(string $sql): string
+{
+    return preg_replace('/`[^`]+`\./', '', $sql) ?? $sql;
+}
+
 // ============================================
 // CONEXIÓN
 // ============================================
@@ -130,7 +140,7 @@ $sqlConteo = "
 ";
 
 try {
-    $rowConteo       = $db->queryOne($sqlConteo);
+    $rowConteo       = $db->queryOne(usarEsquemaSegundometroConfigurado($sqlConteo));
     $totalLiquidados = (int) ($rowConteo['total_liquidados'] ?? 0);
     log_msg('INFO', "Créditos liquidados detectados: {$totalLiquidados}");
 } catch (\Throwable $e) {
@@ -162,7 +172,7 @@ $sqlLista = "
 ";
 
 try {
-    $creditosLiquidados = $db->queryAll($sqlLista);
+    $creditosLiquidados = $db->queryAll(usarEsquemaSegundometroConfigurado($sqlLista));
     log_msg('INFO', 'Lista de Id_credito obtenida: ' . count($creditosLiquidados) . ' registros.');
 
     if ($verbose) {
@@ -216,7 +226,7 @@ $sqlDetalle = "
 ";
 
 try {
-    $detalle = $db->queryAll($sqlDetalle);
+    $detalle = $db->queryAll(usarEsquemaSegundometroConfigurado($sqlDetalle));
     $totalFilas = count($detalle);
     log_msg('INFO', "Detalle GDC liquidados: {$totalFilas} filas (registros individuales de gastos_cobranza).");
 } catch (\Throwable $e) {
@@ -246,7 +256,7 @@ $sqlMontos = "
 ";
 
 try {
-    $rowMontos       = $db->queryOne($sqlMontos);
+    $rowMontos       = $db->queryOne(usarEsquemaSegundometroConfigurado($sqlMontos));
     $montoPendiente  = round((float) ($rowMontos['monto_pendiente']    ?? 0), 2);
     $montoParcial    = round((float) ($rowMontos['monto_pago_parcial'] ?? 0), 2);
     $filasPendiente  = (int) ($rowMontos['filas_pendiente']    ?? 0);
@@ -306,13 +316,13 @@ if ($dryRun) {
         $db->beginTransaction();
         log_msg('INFO', 'Transacción iniciada.');
 
-        $filasInsertadas = $db->CRUD($sqlInsert);
+        $filasInsertadas = $db->CRUD(usarEsquemaSegundometroConfigurado($sqlInsert));
         log_msg('INFO', "INSERT: {$filasInsertadas} filas copiadas a gastos_cobranza_liquidados.");
 
         if ($filasInsertadas === 0) {
             log_msg('INFO', 'Sin filas nuevas — DELETE omitido.');
         } else {
-            $filasEliminadas = $db->CRUD($sqlDelete);
+            $filasEliminadas = $db->CRUD(usarEsquemaSegundometroConfigurado($sqlDelete));
             log_msg('INFO', "DELETE: {$filasEliminadas} filas eliminadas de gastos_cobranza.");
         }
 

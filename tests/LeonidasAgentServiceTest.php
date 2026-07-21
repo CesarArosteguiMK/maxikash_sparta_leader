@@ -75,9 +75,30 @@ function newService(array $overrides = []): LeonidasAgentService
             'id_persona' => 55,
             'nombre_completo' => 'RESPONSABLE UNO',
             'puesto' => 'Analista',
+            'numero_empleado' => '126',
+            'codigo_contpac' => '9001',
         ]],
         'moto_responsable_activo' => static fn(int $id): bool => $id === 55,
-        'moto_asignar' => static fn(int $persona, int $credito, int $actor): array => ['success' => true, 'message' => 'OK'],
+        'moto_asignar' => static fn(int $persona, int $credito, int $actor): array => [
+            'success' => true,
+            'partial' => false,
+            'local' => ['success' => true, 'id_credito' => $credito, 'id_persona' => $persona],
+            'legacy' => [
+                'success' => true,
+                'task_id' => 910661,
+                'duplicate' => false,
+                'verificacion' => [
+                    'success' => true,
+                    'task_id' => 910661,
+                    'external_id' => '126',
+                    'responsable' => 'RESPONSABLE UNO',
+                    'client_name' => 'CLIENTE MOTO',
+                    'responsable_correcto' => true,
+                    'asignacion_activa' => true,
+                    'cliente_correcto' => true,
+                ],
+            ],
+        ],
     ];
     return new LeonidasAgentService($overrides + $base);
 }
@@ -127,6 +148,88 @@ $motoProposal = $moto->resolver('1', '1', context());
 assertSameValue('moto_asignar', $motoProposal['propuesta_especificacion']['accion'], 'Debe preparar la asignacion de moto.');
 $motoExecuted = $moto->ejecutar('moto_asignar', $motoProposal['propuesta_especificacion']['payload'], context());
 assertSameValue('agente_ejecutado', $motoExecuted['tipo'], 'Debe asignar el credito confirmado.');
+assertTrue(str_contains($motoExecuted['mensaje'], 'Tarea 910661 creada'), 'Debe informar la tarea Legacy verificada.');
+assertTrue(str_contains($motoExecuted['mensaje'], 'Asignación activa en Sparta'), 'Debe confirmar la asignacion local verificada.');
+
+$_SESSION = [];
+$leticia = newService([
+    'moto_buscar' => static fn(int $id): array => [
+        'success' => true,
+        'credito' => [
+            'id_credito' => $id,
+            'nombre_cliente' => 'CARLOS NOE CRUZ AGUILAR',
+            'status_credito' => 'Vencido',
+        ],
+        'status_credito' => 'Vencido',
+        'asignacion' => null,
+    ],
+    'moto_responsables' => static fn(): array => [[
+        'id_persona' => 126,
+        'nombre_completo' => 'LETICIA PEREZ CRUZ',
+        'puesto' => 'Analista',
+        'numero_empleado' => '126',
+        'codigo_contpac' => '7821',
+    ]],
+    'moto_responsable_activo' => static fn(int $id): bool => $id === 126,
+    'moto_asignar' => static fn(int $persona, int $credito, int $actor): array => [
+        'success' => true,
+        'partial' => false,
+        'local' => ['success' => true, 'id_credito' => $credito, 'id_persona' => $persona],
+        'legacy' => [
+            'success' => true,
+            'task_id' => 910661,
+            'duplicate' => false,
+            'verificacion' => [
+                'success' => true,
+                'task_id' => 910661,
+                'external_id' => '126',
+                'responsable' => 'LETICIA PEREZ CRUZ',
+                'client_name' => 'CARLOS NOE CRUZ AGUILAR',
+                'responsable_correcto' => true,
+                'asignacion_activa' => true,
+                'cliente_correcto' => true,
+            ],
+        ],
+    ],
+]);
+$solicitudDirecta = "en motos adjudicadas puedes asignar el credito 1254060 que es carlos Noe cruz al usuario\n"
+    . "**No. empleado:**\n**126**\n**LETICIA PEREZ CRUZ**\n**External id:**\n**126**";
+$propuestaDirecta = $leticia->resolver($solicitudDirecta, $solicitudDirecta, context());
+assertSameValue('agente_propuesta', $propuestaDirecta['tipo'], 'Debe interpretar la solicitud completa en un solo mensaje.');
+assertSameValue(1254060, $propuestaDirecta['propuesta_especificacion']['payload']['id_credito'], 'Debe conservar el credito indicado.');
+assertSameValue(126, $propuestaDirecta['propuesta_especificacion']['payload']['id_persona'], 'Debe resolver a Leticia por numero de empleado.');
+assertSameValue('126', $propuestaDirecta['propuesta_especificacion']['payload']['external_id'], 'External id debe corresponder al numero de empleado, no al codigo CONTPAC.');
+$directaEjecutada = $leticia->ejecutar('moto_asignar', $propuestaDirecta['propuesta_especificacion']['payload'], context());
+assertSameValue('agente_ejecutado', $directaEjecutada['tipo'], 'Debe ejecutar la solicitud directa confirmada.');
+assertTrue(str_contains($directaEjecutada['mensaje'], 'CARLOS NOE CRUZ AGUILAR'), 'Debe informar el cliente verificado en Legacy.');
+assertTrue(str_contains($directaEjecutada['mensaje'], 'LETICIA PEREZ CRUZ'), 'Debe informar el responsable verificado.');
+assertSameValue(910661, $directaEjecutada['ejecucion']['task_id'], 'Debe exponer el task Legacy verificado.');
+
+$_SESSION = [];
+$idsDistintos = str_replace("**126**\n**LETICIA PEREZ CRUZ**\n**External id:**\n**126**", "**126**\n**LETICIA PEREZ CRUZ**\n**External id:**\n**999**", $solicitudDirecta);
+$rechazoIds = $leticia->resolver($idsDistintos, $idsDistintos, context());
+assertSameValue('agente_error', $rechazoIds['tipo'], 'Debe rechazar numero de empleado y external id contradictorios.');
+
+$_SESSION = [];
+$nombreIncorrecto = str_replace('LETICIA PEREZ CRUZ', 'OTRA PERSONA', $solicitudDirecta);
+$rechazoNombre = $leticia->resolver($nombreIncorrecto, $nombreIncorrecto, context());
+assertSameValue('agente_error', $rechazoNombre['tipo'], 'Debe rechazar un nombre que no pertenece al identificador.');
+assertTrue(str_contains($rechazoNombre['mensaje'], 'LETICIA PEREZ CRUZ'), 'Debe explicar a quien pertenece realmente el identificador.');
+
+$_SESSION = [];
+$legacyCaido = newService([
+    'moto_asignar' => static fn(int $persona, int $credito, int $actor): array => [
+        'success' => false,
+        'partial' => true,
+        'message' => 'Legacy no respondió.',
+        'local' => ['success' => true],
+        'legacy' => ['success' => false],
+    ],
+]);
+$parcial = $legacyCaido->ejecutar('moto_asignar', $motoProposal['propuesta_especificacion']['payload'], context());
+assertSameValue('agente_ejecucion_parcial', $parcial['tipo'], 'Un fallo Legacy debe reportarse como ejecucion parcial.');
+assertTrue(str_contains($parcial['mensaje'], 'activa en Sparta'), 'Debe explicar que la parte local si quedo activa.');
+assertTrue(str_contains($parcial['mensaje'], 'Legacy'), 'Debe explicar que fallo la parte Legacy.');
 
 $_SESSION = [];
 $assigned = newService(['moto_buscar' => static fn(int $id): array => [

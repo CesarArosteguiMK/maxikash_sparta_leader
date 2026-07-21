@@ -281,6 +281,8 @@ class Adjudicacion extends Model
             pa.id                                                                           AS id_personal_adj,
             pa.id_persona,
             TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre_completo,
+            TRIM(COALESCE(per.numero_empleado, ''))                                         AS numero_empleado,
+            TRIM(COALESCE(per.codigo_contpac, ''))                                          AS codigo_contpac,
             GROUP_CONCAT(DISTINCT pu.nombre ORDER BY pu.nombre SEPARATOR ' - ')            AS puesto,
             pa.numero_tel1,
             pa.correo_1,
@@ -291,6 +293,7 @@ class Adjudicacion extends Model
         LEFT JOIN puesto pu ON pu.id = ap.id_puesto
         WHERE pa.estatus = 'Activo'
         GROUP BY pa.id, pa.id_persona, per.nombres, per.segundo_nombre, per.apellidop, per.apellidom,
+                 per.numero_empleado, per.codigo_contpac,
                  pa.numero_tel1, pa.correo_1, pa.estatus
         ORDER BY nombre_completo
         SQL;

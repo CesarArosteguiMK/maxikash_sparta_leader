@@ -56,6 +56,8 @@ const ESTADO_BD_PATH = 'index.php?url=segundometro/estadoReportesAgente';
 /** Ruta del front PHP para truncar automático (ejecución interna del agente). */
 const TRUNCAR_AUTO_PATH = 'index.php?url=segundometro/truncarAutomaticoAgente';
 const SEGUNDOMETRO_AGENT_KEY = process.env.SEGUNDOMETRO_AGENT_KEY || '';
+const TRUNCAR_AUTO_START_MINUTE = 7 * 60;
+const TRUNCAR_AUTO_END_MINUTE = 7 * 60 + 30;
 /** URL que funcionó la última vez (evita probar en cada request). */
 let estadoBdUrlCached = null;
 let truncarAutoUrlCached = null;
@@ -171,23 +173,24 @@ function getTruncarAutoUrlCandidates() {
   };
   if (fromEnv.includes(',')) {
     fromEnv.split(',').forEach((s) => push(s.trim()));
-    return list;
-  }
-  if (fromEnv) {
+  } else if (fromEnv) {
     push(fromEnv);
-  } else {
+  }
+  if (!fromEnv) {
     getEstadoBdUrlCandidates().forEach((u) => {
       if (u.includes(ESTADO_BD_PATH)) {
         push(u.replace(ESTADO_BD_PATH, TRUNCAR_AUTO_PATH));
       }
     });
-    [
-      'http://localhost:8086/' + TRUNCAR_AUTO_PATH,
-      'http://127.0.0.1:8086/' + TRUNCAR_AUTO_PATH,
-      'http://localhost/' + TRUNCAR_AUTO_PATH,
-      'http://127.0.0.1/' + TRUNCAR_AUTO_PATH,
-    ].forEach(push);
   }
+  // Conservar loopback aunque exista una URL preferida: una URL publica puede
+  // responder JSON de autorizacion fallida y PHP sigue accesible localmente.
+  [
+    'http://localhost:8086/' + TRUNCAR_AUTO_PATH,
+    'http://127.0.0.1:8086/' + TRUNCAR_AUTO_PATH,
+    'http://localhost/' + TRUNCAR_AUTO_PATH,
+    'http://127.0.0.1/' + TRUNCAR_AUTO_PATH,
+  ].forEach(push);
   return list;
 }
 
@@ -207,6 +210,7 @@ async function postTruncarAutomaticoAgente(body, signal) {
   }
 
   let lastErr = null;
+  const attempts = [];
   for (const url of candidates) {
     try {
       const r = await fetch(url, {
@@ -221,19 +225,28 @@ async function postTruncarAutomaticoAgente(body, signal) {
         data = text ? JSON.parse(text) : null;
       } catch (_) {
         lastErr = 'No JSON en ' + url + ' (HTTP ' + r.status + '): ' + String(text).slice(0, 120);
+        attempts.push({ url, status: r.status, success: false, error: lastErr });
         continue;
       }
       if (!data || typeof data !== 'object') {
         lastErr = 'JSON inesperado en ' + url;
+        attempts.push({ url, status: r.status, success: false, error: lastErr });
+        continue;
+      }
+      if (!r.ok || data.success !== true) {
+        lastErr = String(data.mensaje || ('HTTP ' + r.status + ' sin success=true'));
+        attempts.push({ url, status: r.status, success: false, error: lastErr });
         continue;
       }
       if (truncarAutoUrlCached !== url) {
         console.log('[truncar-auto] URL automática:', url);
       }
       truncarAutoUrlCached = url;
-      return { r, data, text, url };
+      attempts.push({ url, status: r.status, success: true });
+      return { r, data, text, url, attempts };
     } catch (e) {
       lastErr = url + ': ' + e.message;
+      attempts.push({ url, status: null, success: false, error: lastErr });
     }
   }
   truncarAutoUrlCached = null;
@@ -242,6 +255,7 @@ async function postTruncarAutomaticoAgente(body, signal) {
     data: null,
     text: null,
     url: null,
+    attempts,
     error: lastErr || 'Ninguna URL candidata respondió JSON válido para truncar automático.',
   };
 }
@@ -303,12 +317,12 @@ function minutosDesdeMedianocheDesdeNowCdmx(nowCdmx) {
   return h * 60 + m;
 }
 
-/** Martes CDMX entre 07:00 y 07:29 (ventana para scheduler cada 5 min). */
+/** Martes CDMX entre 07:00 y 07:29. */
 function esVentanaTruncarMartesCdmx(nowCdmx) {
   if (!esMartesFecha(nowCdmx.fecha)) return false;
   const mm = minutosDesdeMedianocheDesdeNowCdmx(nowCdmx);
   if (mm === null) return false;
-  return mm >= 7 * 60 && mm < 7 * 60 + 30;
+  return mm >= TRUNCAR_AUTO_START_MINUTE && mm < TRUNCAR_AUTO_END_MINUTE;
 }
 
 /** Martes CDMX antes de las 07:30: la UI no lista reportes (la semana operativa arranca con el slot 07:30). */
@@ -802,7 +816,17 @@ async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
     const ok = !!(result && result.r && result.r.ok && result.data && result.data.success);
     if (!ok) {
       const msg = (result && result.data && result.data.mensaje) || (result && result.error) || 'No se pudo ejecutar truncar automático.';
-      ejecutarAhoraState.lastResult = { success: false, mensaje: 'Truncar automático (martes 07:00–07:29 CDMX): ' + msg, tipo: 'truncar_auto' };
+      const failedResult = {
+        success: false,
+        mensaje: 'Truncar automatico (martes 07:00-07:29 CDMX): ' + msg,
+        tipo: 'truncar_auto',
+        fecha: nowCdmx.fecha,
+        hora: nowCdmx.hora,
+      };
+      const failedConfig = autoCopyConfig.readConfig();
+      failedConfig.lastRunResult = failedResult;
+      autoCopyConfig.writeConfig(failedConfig);
+      ejecutarAhoraState.lastResult = failedResult;
       ejecutarAhoraState.finishedAt = new Date().toISOString();
       console.warn('[truncar-auto] Falló:', msg);
       // Importante: NO grabar lastRunBySlot si PHP/red falló — debe poder reintentarse en la misma ventana.
@@ -813,19 +837,30 @@ async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
     c.lastRunBySlot[slotKey] = nowCdmx.fecha;
     c.lastRunResult = {
       success: true,
-      mensaje: (result.data && result.data.mensaje) || 'Truncar automático (martes 07:00–07:29 CDMX) ejecutado.',
+      mensaje: (result.data && result.data.mensaje) || 'Truncar automatico ejecutado el martes entre 07:00 y 07:29 CDMX.',
       tipo: 'truncar_auto',
       fecha: nowCdmx.fecha,
       hora: nowCdmx.hora,
       registros_copiados: result.data && result.data.registros_copiados,
+      url_php: result.url,
     };
     autoCopyConfig.writeConfig(c);
     ejecutarAhoraState.lastResult = c.lastRunResult;
     ejecutarAhoraState.finishedAt = new Date().toISOString();
-    console.log('[truncar-auto] Ejecutado con éxito (ventana martes 07:00–07:29 CDMX).');
+    console.log('[truncar-auto] Ejecutado con exito dentro de la ventana del martes 07:00-07:29 CDMX.');
   } catch (e) {
     const msg = e && e.message ? e.message : 'Error en truncar automático.';
-    ejecutarAhoraState.lastResult = { success: false, mensaje: 'Truncar automático (martes 07:00–07:29 CDMX): ' + msg, tipo: 'truncar_auto' };
+    const failedResult = {
+      success: false,
+      mensaje: 'Truncar automatico (martes 07:00-07:29 CDMX): ' + msg,
+      tipo: 'truncar_auto',
+      fecha: nowCdmx.fecha,
+      hora: nowCdmx.hora,
+    };
+    const failedConfig = autoCopyConfig.readConfig();
+    failedConfig.lastRunResult = failedResult;
+    autoCopyConfig.writeConfig(failedConfig);
+    ejecutarAhoraState.lastResult = failedResult;
     ejecutarAhoraState.finishedAt = new Date().toISOString();
     console.warn('[truncar-auto] Excepción:', msg);
   } finally {
@@ -1429,7 +1464,7 @@ function startAutoCopyScheduler() {
       const nowCdmx = await getCdmxNowForHttp();
       const fecha = nowCdmx.fecha;
 
-    // Truncar automático: martes 07:00–07:29 CDMX, solo si Auto-copy está activo (mismo `enabled`).
+    // Truncar automatico: martes dentro de la ventana configurada, solo si Auto-copy esta activo.
     await ejecutarTruncarAutomaticoSiToca(config, nowCdmx);
 
     // Respaldo: a xx:40; nocturno a 23:52 y respaldo 00:05 (mismo archivo …_23_52_00) consulta BD;
@@ -1552,22 +1587,30 @@ function startAutoCopyScheduler() {
   console.log('Auto Copiar +1s: programador activo (cada 5 min). Horarios CDMX:', (autoCopyConfig.readConfig().horarios || []).join(', '));
 }
 
-/** Poll cada 1 min solo en martes ~06:55–07:35 CDMX (reloj local TZ): el truncar automático no debe depender del ciclo de 5 min. */
+/** Poll cada 1 min durante la ventana del martes; no depende del ciclo principal de 5 min. */
 let truncarVentanaSchedulerInterval = null;
+async function tickTruncarVentanaScheduler() {
+  try {
+    const quick = getCdmxLocalSync();
+    const mm = minutosDesdeMedianocheDesdeNowCdmx(quick);
+    if (
+      !esMartesFecha(quick.fecha) ||
+      mm === null ||
+      mm < TRUNCAR_AUTO_START_MINUTE - 5 ||
+      mm >= TRUNCAR_AUTO_END_MINUTE + 5
+    ) return;
+    const config = autoCopyConfig.readConfig();
+    const nowCdmx = await getCdmxNowForHttp();
+    await ejecutarTruncarAutomaticoSiToca(config, nowCdmx);
+  } catch (e) {
+    console.error('[truncar-auto] Ventana rapida:', e.message);
+  }
+}
+
 function startTruncarVentanaScheduler() {
   if (truncarVentanaSchedulerInterval) return;
-  truncarVentanaSchedulerInterval = setInterval(async () => {
-    try {
-      const quick = getCdmxLocalSync();
-      const mm = minutosDesdeMedianocheDesdeNowCdmx(quick);
-      if (!esMartesFecha(quick.fecha) || mm === null || mm < 6 * 60 + 55 || mm >= 7 * 60 + 35) return;
-      const config = autoCopyConfig.readConfig();
-      const nowCdmx = await getCdmxNowForHttp();
-      await ejecutarTruncarAutomaticoSiToca(config, nowCdmx);
-    } catch (e) {
-      console.error('[truncar-auto] Ventana rápida:', e.message);
-    }
-  }, 60000);
+  void tickTruncarVentanaScheduler();
+  truncarVentanaSchedulerInterval = setInterval(tickTruncarVentanaScheduler, 60000);
 }
 
 app.get('/files', async (req, res) => {

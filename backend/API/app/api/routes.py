@@ -41,6 +41,7 @@ from app.services.alibaba_document_ai import (
     is_digital_bank,
     user_document_name,
 )
+from app.services.gemini_document_ai import GeminiDocumentAI
 from app.core.config import get_settings
 
 try:
@@ -52,7 +53,7 @@ except ImportError:
 router = APIRouter()
 settings = get_settings()
 API_BUILD = "doc-precheck-2026-07-09-selective-reevaluation-v1"
-DOC_AI_QUICK_CACHE_VERSION = "2026-07-09-adaptive-assistance-on-demand-v5"
+DOC_AI_QUICK_CACHE_VERSION = "2026-07-21-provider-aware-gemini-v6"
 
 api_key_header = APIKeyHeader(name=settings.api_key_header, auto_error=False)
 
@@ -62,10 +63,30 @@ MAX_SIZE_BYTES = settings.max_image_size_mb * 1024 * 1024
 
 
 def _doc_ai_alibaba_activo() -> bool:
-    return str(getattr(settings, "doc_ai_engine", "legacy") or "legacy").strip().lower() == "alibaba"
+    return _doc_ai_provider_name() in {"alibaba", "gemini"}
+
+
+def _doc_ai_provider_name() -> str:
+    return str(getattr(settings, "doc_ai_engine", "legacy") or "legacy").strip().lower()
 
 
 def _crear_alibaba_ai() -> Optional[AlibabaDocumentAI]:
+    if _doc_ai_provider_name() == "gemini":
+        api_key = str(getattr(settings, "gemini_api_key", "") or "").strip()
+        base_url = str(getattr(settings, "gemini_base_url", "") or "").strip()
+        model = str(getattr(settings, "gemini_model", "") or "").strip()
+        if not api_key or not base_url or not model:
+            return None
+        return GeminiDocumentAI(
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+            fallback_models=str(getattr(settings, "gemini_fallback_models", "") or ""),
+            retry_delays=str(getattr(settings, "gemini_retry_delays", "0") or "0"),
+            timeout_seconds=int(getattr(settings, "doc_ai_quick_timeout_seconds", 35) or 35),
+            max_pages=int(getattr(settings, "doc_ai_quick_max_pages", 3) or 3),
+            dpi=int(getattr(settings, "doc_ai_quick_dpi", 150) or 150),
+        )
     api_key = str(getattr(settings, "alibaba_api_key", "") or "").strip()
     base_url = str(getattr(settings, "alibaba_base_url", "") or "").strip()
     model = str(getattr(settings, "alibaba_model", "") or "").strip()
@@ -84,6 +105,24 @@ def _crear_alibaba_ai() -> Optional[AlibabaDocumentAI]:
 
 
 def _crear_alibaba_ai_crosscheck() -> Optional[AlibabaDocumentAI]:
+    if _doc_ai_provider_name() == "gemini":
+        api_key = str(getattr(settings, "gemini_api_key", "") or "").strip()
+        base_url = str(getattr(settings, "gemini_base_url", "") or "").strip()
+        model = str(getattr(settings, "gemini_crosscheck_model", "") or "").strip()
+        if not model:
+            model = str(getattr(settings, "gemini_model", "") or "").strip()
+        if not api_key or not base_url or not model:
+            return None
+        return GeminiDocumentAI(
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+            fallback_models=str(getattr(settings, "gemini_crosscheck_fallback_models", "") or ""),
+            retry_delays=str(getattr(settings, "gemini_retry_delays", "0") or "0"),
+            timeout_seconds=int(getattr(settings, "doc_ai_crosscheck_timeout_seconds", 90) or 90),
+            max_pages=int(getattr(settings, "doc_ai_crosscheck_max_pages_per_document", 2) or 2),
+            dpi=int(getattr(settings, "doc_ai_crosscheck_dpi", 135) or 135),
+        )
     api_key = str(getattr(settings, "alibaba_api_key", "") or "").strip()
     base_url = str(getattr(settings, "alibaba_base_url", "") or "").strip()
     model = str(getattr(settings, "alibaba_crosscheck_model", "") or "").strip()
@@ -174,7 +213,9 @@ async def _validar_rapido_alibaba_o_none(file_bytes: bytes, filename: str, expec
         return None
     ai = _crear_alibaba_ai()
     if ai is None or not ai.enabled():
-        mensaje = "DOC_AI_ENGINE=alibaba esta activo, pero faltan ALIBABA_API_KEY, ALIBABA_BASE_URL o ALIBABA_MODEL."
+        provider = _doc_ai_provider_name()
+        prefix = "GEMINI" if provider == "gemini" else "ALIBABA"
+        mensaje = f"DOC_AI_ENGINE={provider} esta activo, pero falta la configuracion {prefix} requerida."
         if bool(getattr(settings, "doc_ai_legacy_fallback", True)):
             logger.warning(mensaje + " Se usara motor legacy por fallback.")
             return None
@@ -193,7 +234,7 @@ async def _validar_rapido_alibaba_o_none(file_bytes: bytes, filename: str, expec
             _doc_ai_quick_cache_write(cache_key, result)
         return result
     except Exception as exc:
-        logger.exception(f"Alibaba document AI fallo para {expected_doc_type}; usando fallback V1/local: {exc}")
+        logger.exception(f"{_doc_ai_provider_name()} document AI fallo para {expected_doc_type}; usando fallback V1/local: {exc}")
         return None
 
 
@@ -245,7 +286,7 @@ def _ai_meses_desde(value: Optional[str]) -> Optional[int]:
 
 def _ai_metadata(res: Dict[str, Any]) -> Dict[str, Any]:
     out = {
-        "motor_ia": "alibaba",
+        "motor_ia": str(res.get("provider") or _doc_ai_provider_name()),
         "modelo_ia": res.get("model"),
         "tiempo_ms": int(res.get("elapsed_ms") or 0),
     }

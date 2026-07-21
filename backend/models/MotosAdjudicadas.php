@@ -1474,22 +1474,43 @@ class MotosAdjudicadas extends Model
             if ($dup && (int) ($dup['id'] ?? 0) > 0) {
                 $taskId = (int) $dup['id'];
                 $ahora = $this->fechaHoraCdmx();
+                $datos = $this->obtenerDatosTaskLegacyMotoAutorizada($idCredito, $datosDictamen);
                 $legacyDb->CRUD(
                     'UPDATE tasks
-                     SET current_user_id = :user_id
+                     SET current_user_id = :user_id,
+                         client_name = :client_name,
+                         address = :address,
+                         lat = :lat,
+                         lng = :lng,
+                         updated_at = :updated_at
                      WHERE id = :task_id',
                     [
                         'user_id' => $legacyUserId,
+                        'client_name' => $datos['client_name'],
+                        'address' => $datos['address'],
+                        'lat' => $datos['lat'],
+                        'lng' => $datos['lng'],
+                        'updated_at' => $ahora,
                         'task_id' => $taskId,
                     ]
                 );
                 $this->asegurarAsignacionTaskLegacy($legacyDb, $taskId, $legacyUserId, $ahora);
 
+                $verificacion = $this->verificarTaskLegacyMotoAutorizada(
+                    $idCredito,
+                    $idPersonaUsuarioAlta,
+                    $taskId,
+                    (string) $datos['client_name']
+                );
+
                 return [
-                    'success'   => true,
+                    'success'   => !empty($verificacion['success']),
                     'duplicate' => true,
                     'task_id'   => $taskId,
-                    'message'   => 'Ya existia task en la campana MOTOS ADJUDICADAS AUTORIZADAS; asignacion Legacy verificada.',
+                    'message'   => !empty($verificacion['success'])
+                        ? 'Ya existia la tarea Legacy; responsable y datos del cliente actualizados y verificados.'
+                        : (string) ($verificacion['message'] ?? 'No se pudo verificar la tarea Legacy.'),
+                    'verificacion' => $verificacion,
                 ];
             }
 
@@ -1525,10 +1546,20 @@ class MotosAdjudicadas extends Model
 
             $this->asegurarAsignacionTaskLegacy($legacyDb, $taskId, $legacyUserId, $ahora);
 
+            $verificacion = $this->verificarTaskLegacyMotoAutorizada(
+                $idCredito,
+                $idPersonaUsuarioAlta,
+                $taskId,
+                (string) $datos['client_name']
+            );
+
             return [
-                'success' => true,
+                'success' => !empty($verificacion['success']),
                 'task_id' => $taskId,
-                'message' => 'Task creado en campana MOTOS ADJUDICADAS AUTORIZADAS.',
+                'message' => !empty($verificacion['success'])
+                    ? 'Tarea creada y verificada en Motos Adjudicadas Legacy.'
+                    : (string) ($verificacion['message'] ?? 'La tarea se creo, pero no pudo verificarse.'),
+                'verificacion' => $verificacion,
             ];
         } catch (\Throwable $e) {
             return ['success' => false, 'message' => 'No se pudo crear el task Legacy: ' . $e->getMessage()];
@@ -1576,6 +1607,20 @@ class MotosAdjudicadas extends Model
             return;
         }
 
+        $legacyDb->CRUD(
+            'UPDATE task_user_assignments
+             SET unassigned_at = :unassigned_at, updated_at = :updated_at
+             WHERE task_id = :task_id
+               AND user_id <> :user_id
+               AND unassigned_at IS NULL',
+            [
+                'unassigned_at' => $fecha,
+                'updated_at' => $fecha,
+                'task_id' => $taskId,
+                'user_id' => $legacyUserId,
+            ]
+        );
+
         $asignacion = $legacyDb->queryOne(
             'SELECT id
              FROM task_user_assignments
@@ -1606,6 +1651,126 @@ class MotosAdjudicadas extends Model
                 'updated_at'  => $fecha,
             ]
         );
+    }
+
+    /**
+     * Comprueba que la tarea Legacy, su responsable y la asignacion activa
+     * correspondan al credito y a la persona indicados.
+     */
+    public function verificarTaskLegacyMotoAutorizada(
+        int $idCredito,
+        int $idPersona,
+        int $taskId = 0,
+        string $clienteEsperado = ''
+    ): array
+    {
+        if ($idCredito <= 0 || $idPersona <= 0) {
+            return ['success' => false, 'message' => 'Datos incompletos para verificar la tarea Legacy.'];
+        }
+
+        try {
+            $persona = $this->db->queryOne(
+                "SELECT
+                    TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre,
+                    TRIM(COALESCE(numero_empleado, '')) AS numero_empleado
+                 FROM persona
+                 WHERE id = :id
+                 LIMIT 1",
+                ['id' => $idPersona]
+            );
+            $externalId = trim((string) ($persona['numero_empleado'] ?? ''));
+            if ($externalId === '') {
+                return ['success' => false, 'message' => 'La persona no tiene numero_empleado para vincularla con Legacy.'];
+            }
+
+            $legacyDb = new DatabaseLegacy();
+            $usuario = $legacyDb->queryOne(
+                "SELECT id, TRIM(COALESCE(external_id, '')) AS external_id
+                 FROM users
+                 WHERE TRIM(COALESCE(external_id, '')) = :external_id
+                   AND deleted_at IS NULL
+                 ORDER BY id DESC
+                 LIMIT 1",
+                ['external_id' => $externalId]
+            );
+            $legacyUserId = (int) ($usuario['id'] ?? 0);
+            if ($legacyUserId <= 0) {
+                return ['success' => false, 'message' => 'No existe un usuario Legacy activo con external_id ' . $externalId . '.'];
+            }
+
+            $params = [
+                'campaign_id' => self::LEGACY_CAMPAIGN_MOTOS_ADJ_AUTORIZADAS,
+                'credit_number' => (string) $idCredito,
+            ];
+            $filtroTask = '';
+            if ($taskId > 0) {
+                $filtroTask = ' AND id = :task_id';
+                $params['task_id'] = $taskId;
+            }
+            $task = $legacyDb->queryOne(
+                'SELECT id, current_user_id, client_name, credit_number
+                 FROM tasks
+                 WHERE campaign_id = :campaign_id
+                   AND credit_number = :credit_number
+                   AND deleted_at IS NULL' . $filtroTask . '
+                 ORDER BY id DESC
+                 LIMIT 1',
+                $params
+            );
+            $taskIdReal = (int) ($task['id'] ?? 0);
+            if ($taskIdReal <= 0) {
+                return ['success' => false, 'message' => 'No se encontro la tarea del credito en Motos Adjudicadas Legacy.'];
+            }
+
+            $asignacion = $legacyDb->queryOne(
+                'SELECT id
+                 FROM task_user_assignments
+                 WHERE task_id = :task_id
+                   AND user_id = :user_id
+                   AND unassigned_at IS NULL
+                 ORDER BY id DESC
+                 LIMIT 1',
+                ['task_id' => $taskIdReal, 'user_id' => $legacyUserId]
+            );
+            $otrasAsignaciones = $legacyDb->queryOne(
+                'SELECT COUNT(*) AS total
+                 FROM task_user_assignments
+                 WHERE task_id = :task_id
+                   AND user_id <> :user_id
+                   AND unassigned_at IS NULL',
+                ['task_id' => $taskIdReal, 'user_id' => $legacyUserId]
+            );
+            $responsableCorrecto = (int) ($task['current_user_id'] ?? 0) === $legacyUserId;
+            $asignacionActiva = (int) ($asignacion['id'] ?? 0) > 0;
+            $asignacionExclusiva = (int) ($otrasAsignaciones['total'] ?? 0) === 0;
+            $clienteActual = trim((string) ($task['client_name'] ?? ''));
+            $normalizarNombre = static function (string $valor): string {
+                $valor = preg_replace('/\s+/u', ' ', trim($valor)) ?? trim($valor);
+                return mb_strtoupper($valor, 'UTF-8');
+            };
+            $clienteCorrecto = $clienteEsperado === ''
+                ? $clienteActual !== ''
+                : $normalizarNombre($clienteActual) === $normalizarNombre($clienteEsperado);
+            $verificado = $responsableCorrecto && $asignacionActiva && $asignacionExclusiva && $clienteCorrecto;
+
+            return [
+                'success' => $verificado,
+                'message' => $verificado
+                    ? 'Tarea, responsable y nombre del cliente verificados en Legacy.'
+                    : 'La tarea existe, pero no coincidieron el responsable, la asignacion exclusiva o el nombre del cliente.',
+                'task_id' => $taskIdReal,
+                'legacy_user_id' => $legacyUserId,
+                'external_id' => $externalId,
+                'responsable' => trim((string) ($persona['nombre'] ?? '')),
+                'client_name' => $clienteActual,
+                'responsable_correcto' => $responsableCorrecto,
+                'asignacion_activa' => $asignacionActiva,
+                'asignacion_exclusiva' => $asignacionExclusiva,
+                'cliente_correcto' => $clienteCorrecto,
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'No se pudo verificar la tarea Legacy: ' . $e->getMessage()];
+        }
     }
 
     /**

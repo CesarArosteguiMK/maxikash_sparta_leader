@@ -63,7 +63,14 @@ class Login extends Model
             pp.id AS id_puesto, pp.nombre AS nombre_puesto, pp.departamento_id,
             p.session_version, p.force_logout
         FROM persona p
-        LEFT JOIN asigna_puesto a ON a.id_persona = p.id
+        LEFT JOIN asigna_puesto a ON a.id = (
+            SELECT ap.id
+            FROM asigna_puesto ap
+            WHERE ap.id_persona = p.id
+              AND COALESCE(ap.activo, 0) = 1
+            ORDER BY ap.id DESC
+            LIMIT 1
+        )
         LEFT JOIN puesto pp ON pp.id = a.id_puesto
         WHERE p.estatus = 'Activo' AND p.user_name = :usuario AND p.password = :password
         LIMIT 1

@@ -5339,12 +5339,17 @@ class CapHum extends Model
                 return self::resultado(true, 'El archivo no contiene cambios pendientes por aplicar.', $plan);
             }
 
+            // CREATE/ALTER TABLE cierran implicitamente una transaccion en MySQL.
+            // La trayectoria se registra durante cada cambio, por eso su esquema debe
+            // existir antes de iniciar la transaccion que aplica la estructura.
+            self::asegurarTablaTrayectoriaPuesto($db);
+
             $transaccionIniciada = false;
             $db->beginTransaction();
             $transaccionIniciada = true;
             $aplicados = 0;
             foreach (($plan['detalles'] ?? []) as $detalle) {
-                if (($detalle['estado'] ?? '') === 'error') {
+                if (($detalle['estado'] ?? '') !== 'cambio') {
                     continue;
                 }
 
@@ -5355,8 +5360,10 @@ class CapHum extends Model
                     continue;
                 }
 
+                $seAplicoCambio = false;
                 if (!empty($acciones['cambiar_puesto'])) {
                     self::asignarPuestoAdicionalCambioEstructura($db, $idPersona, $idPuesto, $idUsuario);
+                    $seAplicoCambio = true;
                 }
 
                 foreach (($acciones['jefes'] ?? []) as $relacion) {
@@ -5369,9 +5376,12 @@ class CapHum extends Model
                     if (empty($resultadoJefe['success'])) {
                         throw new \RuntimeException((string)($resultadoJefe['mensaje'] ?? 'No se pudo actualizar un jefe.'));
                     }
+                    $seAplicoCambio = true;
                 }
 
-                $aplicados++;
+                if ($seAplicoCambio) {
+                    $aplicados++;
+                }
             }
 
             if (!$db->inTransaction()) {
@@ -5484,7 +5494,7 @@ class CapHum extends Model
                 $detalle['persona_nombre'] = self::nombreCompletoPersonaCambioEstructura($persona);
                 if ($detalle['nombre_excel'] !== ''
                     && self::normalizarTextoCambioEstructura($detalle['nombre_excel']) !== self::normalizarTextoCambioEstructura($detalle['persona_nombre'])) {
-                    $avisos[] = 'El nombre del Excel no coincide exactamente con la persona encontrada por external_id.';
+                    $avisos[] = 'El nombre del Excel "' . $detalle['nombre_excel'] . '" no coincide exactamente con "' . $detalle['persona_nombre'] . '", pero se identifico a la persona por external_id ' . $external . '.';
                 }
                 if (strcasecmp(trim((string)($persona['estatus'] ?? '')), 'Baja') === 0) {
                     $puestosActuales = $puestosActivosPorPersona[(int)$persona['id']] ?? [];

@@ -963,7 +963,7 @@ def summary_is_usable(summary: Any) -> bool:
                 return True
         if previo.get("valido") is True or previo.get("aceptado") is True:
             return True
-    return "alibaba" in marker or "motor_v2" in marker or "motor_v1" in marker or "pdf_text" in marker
+    return "alibaba" in marker or "gemini" in marker or "motor_v2" in marker or "motor_v1" in marker or "pdf_text" in marker
 
 
 def quick_result_to_summary(key: str, label: str, filename: str, result: Dict[str, Any]) -> Dict[str, Any]:
@@ -1631,6 +1631,8 @@ def _merge_usage(*items: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class AlibabaDocumentAI:
+    provider = "alibaba"
+
     def __init__(
         self,
         api_key: str,
@@ -1789,7 +1791,7 @@ class AlibabaDocumentAI:
                 assistance_error = "Tiempo restante insuficiente para una segunda lectura asistida"
 
         return {
-            "provider": "alibaba",
+            "provider": self.provider,
             "model": actual_model,
             "requested_model": self.model,
             "fallback_used": fallback_used,
@@ -1896,7 +1898,7 @@ class AlibabaDocumentAI:
         extracted["documentos_enviados"] = rendered_meta
 
         return {
-            "provider": "alibaba",
+            "provider": self.provider,
             "model": actual_model,
             "requested_model": self.model,
             "fallback_used": fallback_used,

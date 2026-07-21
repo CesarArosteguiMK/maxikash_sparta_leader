@@ -2490,11 +2490,16 @@ async function tickAutoCronjobsMartesCdmx() {
       `[auto-cronjobs-martes] Disparo CDMX ${todayStr} ${pad2Seg(h)}:${pad2Seg(m)} (objetivo ${pad2Seg(th)}:${pad2Seg(tm)}, ventana ${win} min).`,
     );
     const result = await runAutoCronjobsMartesSequence(todayStr, `${pad2Seg(h)}:${pad2Seg(m)}`);
+    // El disparo automatico se consume aunque termine con error. Reintentar cada
+    // 30 s convertia una falla determinista de PHP/SQL en una tormenta de
+    // procesos y webhooks. La recuperacion del mismo dia sigue disponible desde
+    // los botones manuales del Shell, una vez corregida la causa.
+    writeAutoCronjobsMartesLastYmd(todayStr);
     if (result?.success) {
-      writeAutoCronjobsMartesLastYmd(todayStr);
+      appendLog(`[auto-cronjobs-martes] ${todayStr} marcado como ejecutado correctamente.`);
     } else {
       appendLog(
-        `[auto-cronjobs-martes] No se marca ${todayStr} como ejecutado porque el flujo no termino correctamente; se reintentara dentro de la ventana.`,
+        `[auto-cronjobs-martes] ${todayStr} marcado como intento fallido; no se reintentara automaticamente. Corrija la causa y use el Shell para reintentar manualmente.`,
       );
     }
   } finally {

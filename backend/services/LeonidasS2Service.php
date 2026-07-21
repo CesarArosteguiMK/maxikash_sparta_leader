@@ -61,7 +61,9 @@ class LeonidasS2Service
 
         return [
             'fuente' => 's2_estado_cuenta',
+            'consultado_at' => (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'),
             'metricas' => array_filter($metrics, static fn($value): bool => $value !== null && $value !== ''),
+            'pagos' => $this->normalizarPagos($payments),
         ];
     }
 
@@ -171,6 +173,33 @@ class LeonidasS2Service
             }
         }
         return round($total, 2);
+    }
+
+    /** @param array<int, array<string, mixed>> $payments @return list<array<string,mixed>> */
+    private function normalizarPagos(array $payments, int $limite = 10): array
+    {
+        $normalizados = [];
+        foreach ($payments as $payment) {
+            $fecha = $this->buscarEscalar($payment, ['fechadeposito', 'fecharegistro', 'fechavalor', 'fecha']);
+            $timestamp = is_numeric($fecha) ? (int) $fecha : strtotime((string) $fecha);
+            $normalizados[] = [
+                'fecha' => $timestamp ? date('Y-m-d H:i:s', $timestamp) : trim((string) $fecha),
+                'monto' => $this->buscarEscalar($payment, ['montopago', 'monto', 'importe', 'cantidad', 'pagototal']),
+                'referencia' => $this->buscarEscalar($payment, ['referencia', 'foliopago', 'folio', 'idpago']),
+                'estatus' => $this->buscarEscalar($payment, ['estatuspago', 'statuspago', 'estatus', 'status']),
+                '_timestamp' => $timestamp ?: 0,
+            ];
+        }
+
+        usort($normalizados, static fn(array $a, array $b): int => ($b['_timestamp'] ?? 0) <=> ($a['_timestamp'] ?? 0));
+        $normalizados = array_slice($normalizados, 0, max(1, min(25, $limite)));
+        foreach ($normalizados as &$pago) {
+            unset($pago['_timestamp']);
+            $pago = array_filter($pago, static fn($value): bool => $value !== null && $value !== '');
+        }
+        unset($pago);
+
+        return array_values($normalizados);
     }
 
     private function normalizarClave(string $key): string

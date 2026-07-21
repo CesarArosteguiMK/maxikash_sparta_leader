@@ -337,6 +337,9 @@ class LeonidasAssistantService
                 'analitica' => $this->tieneAlgunoDeLosModulos([6, 7, 19, 47, 49, 60, 61, 65, 66, 67, 68, 77, 81, 90, 189, 190]),
                 'bucket' => $this->tieneAccesoModulo(77),
                 'comparativas' => $this->tieneAccesoModulo(60) || $this->tieneAccesoModulo(81),
+                'segundometro' => $this->tieneAlgunoDeLosModulos([16, 60, 61, 77, 81]),
+                'primeros_pagos' => $this->tieneAlgunoDeLosModulos([49, 65, 66, 67, 68]),
+                'gastos_cobranza' => $this->tieneAccesoModulo(40),
             ],
             'salario_totp_vigente' => (int) ($_SESSION['rrhh_salario_sensible_totp_until'] ?? 0) >= time(),
         ];
