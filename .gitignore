@@ -163,6 +163,7 @@ yarn-error.log*
 
 # ========== Artefactos temporales locales de Codex (validaciones; no versionar) ==========
 .codex-tmp/
+docs/evaluacion_desarrolladores_php_mysql.md
 
 # Checkpoint operativo del agente de gastos; cambia en cada corrida del servidor.
 backend/services/gastos-cobranza-agent/reporte/descargo_estatus3/guia_descargo.json
