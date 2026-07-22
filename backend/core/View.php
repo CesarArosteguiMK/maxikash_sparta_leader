@@ -26,6 +26,7 @@ $__assetsVer  = ($__demoCss ? filemtime($__demoCss) : '')
     . ($__swalGlassCss ? '.' . filemtime($__swalGlassCss) : '');
 if ($__assetsVer === '.' || $__assetsVer === '') $__assetsVer = (string) time();
 $__personaIdAsistente = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+$__leonidasSessionToken = (string) ($_SESSION['leonidas_session_token'] ?? '');
 $__esPropietarioLeonidas = $__personaIdAsistente === 878;
 $__mostrarLeonidas = false;
 if ($__personaIdAsistente > 0 && isset($_SESSION['login'])) {
@@ -1891,6 +1892,7 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
            aria-label="Asistente Leónidas"
            data-leonidas-owner="<?= $__esPropietarioLeonidas ? '1' : '0' ?>"
            data-leonidas-persona="<?= (int) $__personaIdAsistente ?>"
+           data-leonidas-session="<?= htmlspecialchars($__leonidasSessionToken, ENT_QUOTES, 'UTF-8') ?>"
            data-leonidas-user="<?= htmlspecialchars((string) $usuario, ENT_QUOTES, 'UTF-8') ?>">
         <section class="leonidas-panel" aria-live="polite" aria-hidden="true">
             <header class="leonidas-panel__header">

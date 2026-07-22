@@ -1937,6 +1937,7 @@ SQL;
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $evidenciasCount = $this->sqlConteoEvidenciasCartera('o');
         $gestorNombre = $this->sqlNombreGestorConFallback('o');
+        $tiempoTotalCierre = $this->sqlTiempoTotalCierreDocumentacion('o', 'd');
 
         $extraRecepcion = '';
         if ($excluirRecepcionSinConfirmarAlmacen && trim($estatus) === 'Recepción') {

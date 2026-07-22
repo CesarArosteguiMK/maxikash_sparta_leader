@@ -641,8 +641,8 @@ class Adjudicacion extends Model
      * Busca un crédito por su ID en la API S2 y retorna sus datos junto con
      * la asignación activa en adjudicación (si existe).
      *
-     * El campo `status_credito` se incluye en la respuesta para que el
-     * controller pueda validar que sea "Vencido" antes de permitir asignación.
+     * El campo `status_credito` se incluye para que los consumidores puedan
+     * impedir asignaciones de créditos ya saldados o cerrados.
      *
      * @return array{success:bool, credito?:array, asignacion?:array|null,
      *               status_credito?:string, message?:string}
@@ -650,13 +650,28 @@ class Adjudicacion extends Model
     public function buscarCreditoPorId(int $idCredito): array
     {
         // ── 1. Llamada a la API S2 ────────────────────────────────────────────
-        $url     = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+        // Usar la configuracion central evita apuntar a una ruta S2 obsoleta.
+        $url = defined('ENDPOINT')
+            ? trim((string) ENDPOINT)
+            : trim((string) (getenv('ENDPOINT') ?: ''));
+        $token = defined('TOKEN')
+            ? trim((string) TOKEN)
+            : trim((string) (getenv('S2_ESTADO_CUENTA_TOKEN') ?: ''));
+
+        if ($url === '' || $token === '') {
+            error_log('Adjudicacion::buscarCreditoPorId: S2 no esta configurado.');
+            return [
+                'success' => false,
+                'message' => 'No se pudo consultar el credito porque S2 no esta configurado.',
+            ];
+        }
+
         $payload = json_encode([
             'idCredito'  => $idCredito,
             'fechaCorte' => date('Y-m-d'),
         ]);
         $headers = [
-            'Token: ' . (defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: '')),
+            'Token: ' . $token,
             'Content-Type: application/json',
         ];
 
@@ -665,14 +680,60 @@ class Adjudicacion extends Model
         curl_setopt($ch, CURLOPT_POSTFIELDS,      $payload);
         curl_setopt($ch, CURLOPT_HTTPHEADER,      $headers);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER,  true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT,   5);
         curl_setopt($ch, CURLOPT_TIMEOUT,         20);
         $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
         curl_close($ch);
 
-        if ($response === false || $httpCode !== 200) {
-            return ['success' => false, 'message' => 'No se pudo conectar con el servicio de créditos (S2).'];
+        if ($response === false) {
+            error_log('Adjudicacion::buscarCreditoPorId: error cURL S2: ' . $curlError);
+            return [
+                'success' => false,
+                'message' => 'No se pudo conectar con S2. Intenta nuevamente en unos segundos.',
+            ];
         }
+
+        if ($httpCode < 200 || $httpCode >= 300) {
+            error_log('Adjudicacion::buscarCreditoPorId: S2 respondio HTTP ' . $httpCode);
+            return [
+                'success' => false,
+                'message' => 'S2 rechazo la consulta del credito (HTTP ' . $httpCode . ').',
+            ];
+        }
+
+        $decodedResponse = json_decode($response, true);
+        if (!is_array($decodedResponse)) {
+            error_log('Adjudicacion::buscarCreditoPorId: JSON invalido de S2: ' . json_last_error_msg());
+            return [
+                'success' => false,
+                'message' => 'S2 respondio en un formato que Sparta no pudo interpretar.',
+            ];
+        }
+
+        $normalizedAccount = $decodedResponse['estadoCuenta']
+            ?? ($decodedResponse['data']['estadoCuenta'] ?? null);
+        if (!is_array($normalizedAccount)) {
+            $serviceMessage = $decodedResponse['message'] ?? ($decodedResponse['mensaje'] ?? null);
+            if (is_array($serviceMessage)) {
+                $serviceMessage = $serviceMessage['message'] ?? ($serviceMessage['mensaje'] ?? null);
+            }
+            $serviceMessage = is_scalar($serviceMessage) ? trim((string) $serviceMessage) : '';
+            error_log(
+                'Adjudicacion::buscarCreditoPorId: S2 sin estadoCuenta'
+                . ($serviceMessage !== '' ? ': ' . $serviceMessage : '')
+            );
+            return [
+                'success' => false,
+                'message' => $serviceMessage !== ''
+                    ? 'S2 no devolvio el credito: ' . $serviceMessage
+                    : 'S2 no devolvio informacion para el credito consultado.',
+            ];
+        }
+
+        // Normalizar envoltorios alternativos antes del parser historico del metodo.
+        $response = json_encode(['estadoCuenta' => $normalizedAccount]);
 
         $json = json_decode($response, true);
 
@@ -844,7 +905,7 @@ class Adjudicacion extends Model
             $bloqueos[] = 'Ya existe dictamen Legacy con opciondictamen_id = 13 para la tarea de campana 432.';
         }
 
-        return [
+        $resultado = [
             'success' => true,
             'id_credito' => $idCredito,
             's2' => $s2,
@@ -864,6 +925,10 @@ class Adjudicacion extends Model
                 'dictums.form_response' => 'JSON del formulario contestado',
             ],
         ];
+
+        $resultado['desbloqueo_s2_disponible'] = $this->diagnosticoPermiteDesbloqueoS2($resultado);
+
+        return $resultado;
     }
 
     private function asegurarTablasDesbloqueoComponentes(): void

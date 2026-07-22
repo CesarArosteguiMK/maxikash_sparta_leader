@@ -5,6 +5,7 @@ namespace Services;
 require_once __DIR__ . '/LeonidasCapitalHumanoService.php';
 require_once __DIR__ . '/LeonidasSpreadsheetService.php';
 require_once __DIR__ . '/LeonidasLocalAgentService.php';
+require_once __DIR__ . '/LeonidasMotosAdjudicadasService.php';
 require_once __DIR__ . '/../core/DatabaseLegacy.php';
 
 /**
@@ -20,18 +21,23 @@ class LeonidasAgentService
     private array $adapters;
     private LeonidasCapitalHumanoService $capitalHumano;
     private LeonidasLocalAgentService $agentesLocales;
+    private LeonidasMotosAdjudicadasService $motosAdjudicadas;
 
     public function __construct(array $adapters = [])
     {
         $capitalHumano = $adapters['capital_humano_service'] ?? null;
         $agentesLocales = $adapters['local_agent_service'] ?? null;
-        unset($adapters['capital_humano_service'], $adapters['local_agent_service']);
+        $motosAdjudicadas = $adapters['motos_adjudicadas_service'] ?? null;
+        unset($adapters['capital_humano_service'], $adapters['local_agent_service'], $adapters['motos_adjudicadas_service']);
         $this->capitalHumano = $capitalHumano instanceof LeonidasCapitalHumanoService
             ? $capitalHumano
             : new LeonidasCapitalHumanoService();
         $this->agentesLocales = $agentesLocales instanceof LeonidasLocalAgentService
             ? $agentesLocales
             : new LeonidasLocalAgentService();
+        $this->motosAdjudicadas = $motosAdjudicadas instanceof LeonidasMotosAdjudicadasService
+            ? $motosAdjudicadas
+            : new LeonidasMotosAdjudicadasService();
         $this->adapters = $adapters + [
             'convenio_ofertas' => static fn(int $idCredito): array => \Models\Convenios::getOfertasElegibles($idCredito),
             'convenio_guardar' => static fn(array $datos): array => \Models\Convenios::guardarConvenio($datos),
@@ -83,6 +89,12 @@ class LeonidasAgentService
                 ];
             },
             'moto_responsable_activo' => static fn(int $idPersona): bool => (new \Models\Adjudicacion())->idPersonaEsResponsableActivo($idPersona),
+            'dictamen_diagnosticar' => static fn(int $idCredito): array => (new \Models\Adjudicacion())->diagnosticarDictamenWebMoto($idCredito),
+            'dictamen_autorizacion' => static fn(int $idUsuario): array => (new \Models\Adjudicacion())->usuarioPuedeDesbloquearComponentes($idUsuario),
+            'dictamen_desbloquear_s2' => static fn(int $idCredito, string $nip, int $idUsuario): array =>
+                (new \Models\Adjudicacion())->desbloquearValidacionS2DictamenWebMoto($idCredito, $nip, $idUsuario),
+            'dictamen_desbloquear_componentes' => static fn(int $idCredito, string $nip, int $idUsuario, string $ip): array =>
+                (new \Models\Adjudicacion())->desbloquearComponentesDictamenWebMoto($idCredito, $nip, $idUsuario, $ip),
         ];
     }
 
@@ -91,7 +103,8 @@ class LeonidasAgentService
         return array_merge(
             ['convenio_crear', 'moto_asignar', 'excel_aplicar', 'cartera_reactivar_tarea_movil'],
             LeonidasCapitalHumanoService::accionesEjecutables(),
-            LeonidasLocalAgentService::accionesEjecutables()
+            LeonidasLocalAgentService::accionesEjecutables(),
+            LeonidasMotosAdjudicadasService::accionesEjecutables()
         );
     }
 
@@ -115,6 +128,11 @@ class LeonidasAgentService
             return $agenteLocal;
         }
 
+        $motosAdjudicadas = $this->motosAdjudicadas->resolver($mensaje, $normalizado, $contexto);
+        if ($motosAdjudicadas !== null) {
+            return $motosAdjudicadas;
+        }
+
         if ($this->solicitaDiagnosticoTareaMovil($normalizado)) {
             return $this->resolverDiagnosticoTareaMovil($mensaje, $contexto);
         }
@@ -126,9 +144,11 @@ class LeonidasAgentService
                 return $this->respuesta('Tarea cancelada. No se modificó ningún dato.', 'agente_cancelado');
             }
 
-            return ($tarea['tipo'] ?? '') === 'convenio'
-                ? $this->continuarConvenio($mensaje, $normalizado, $tarea, $contexto)
-                : $this->continuarMoto($mensaje, $normalizado, $tarea, $contexto);
+            return match ((string) ($tarea['tipo'] ?? '')) {
+                'convenio' => $this->continuarConvenio($mensaje, $normalizado, $tarea, $contexto),
+                'dictamen_moto' => $this->continuarDictamenMoto($mensaje, $normalizado, $tarea, $contexto),
+                default => $this->continuarMoto($mensaje, $normalizado, $tarea, $contexto),
+            };
         }
 
         if ($this->solicitaConvenio($normalizado)) {
@@ -140,6 +160,10 @@ class LeonidasAgentService
             }
             $this->guardarTarea('convenio', 'credito', [], $contexto);
             return $this->respuesta('Vamos a preparar el convenio. ¿Cuál es el ID del crédito?', 'agente_pregunta');
+        }
+
+        if ($this->solicitaDictamenMoto($normalizado)) {
+            return $this->resolverDictamenMoto($mensaje, $normalizado, $contexto);
         }
 
         if ($this->solicitaMoto($normalizado)) {
@@ -160,6 +184,206 @@ class LeonidasAgentService
         return null;
     }
 
+    private function resolverDictamenMoto(string $mensaje, string $normalizado, array $contexto): array
+    {
+        if (empty($contexto['permisos_agente']['motos'])) {
+            return $this->respuesta(
+                'No puedo consultar ni cambiar el dictamen porque tu perfil no tiene acceso administrativo a Motos Adjudicadas.',
+                'agente_denegado'
+            );
+        }
+
+        $idCredito = $this->extraerCredito($mensaje);
+        if ($idCredito <= 0) {
+            return $this->respuesta('Indica el ID numerico del credito que debo diagnosticar.', 'agente_pregunta');
+        }
+
+        $diagnostico = (array) $this->llamar('dictamen_diagnosticar', $idCredito);
+        if (empty($diagnostico['success'])) {
+            return $this->respuesta(
+                'No pude diagnosticar el credito ' . $idCredito . ': ' . $this->mensajeResultado($diagnostico),
+                'agente_error'
+            );
+        }
+
+        $accion = $this->accionDictamenMoto($normalizado);
+        if ($accion === 'diagnosticar') {
+            return $this->respuesta($this->resumenDiagnosticoDictamen($diagnostico), 'agente_diagnostico');
+        }
+
+        $autorizacion = (array) $this->llamar('dictamen_autorizacion', (int) ($contexto['actor_id'] ?? 0));
+        if (empty($autorizacion['authorized'])) {
+            return $this->respuesta($this->mensajeAutorizacionDictamen($autorizacion), 'agente_denegado');
+        }
+
+        if ($accion === 'desbloquear_s2') {
+            if (empty($diagnostico['desbloqueo_s2_disponible'])) {
+                return $this->respuesta(
+                    $this->resumenDiagnosticoDictamen($diagnostico)
+                    . "\n\nNo puedo usar el desbloqueo S2 porque el diagnostico presenta otros bloqueos o no cumple la regla de bloqueo exclusivo por S2.",
+                    'agente_denegado'
+                );
+            }
+
+            $this->guardarTarea('dictamen_moto', 'nip', [
+                'id_credito' => $idCredito,
+                'accion' => 'desbloquear_s2',
+            ], $contexto);
+
+            return $this->respuesta(
+                $this->resumenDiagnosticoDictamen($diagnostico)
+                . "\n\nEl credito esta bloqueado unicamente por validacion S2. Para autorizar este cambio necesito tu NIP de desbloqueo de 6 digitos.",
+                'agente_nip_requerido'
+            ) + ['entrada_segura' => 'nip'];
+        }
+
+        $this->guardarTarea('dictamen_moto', 'confirmar_destructivo', [
+            'id_credito' => $idCredito,
+            'accion' => 'desbloquear_componentes',
+        ], $contexto);
+
+        return $this->respuesta(
+            $this->resumenDiagnosticoDictamen($diagnostico)
+            . "\n\nEsta operacion es destructiva: puede eliminar tareas y asignaciones Legacy, dictamenes Legacy y la operacion local de Sparta del credito. La accion queda auditada. Escribe CONFIRMAR LIMPIEZA para continuar o CANCELAR para salir.",
+            'agente_confirmacion_destructiva'
+        );
+    }
+
+    private function continuarDictamenMoto(string $mensaje, string $normalizado, array $tarea, array $contexto): array
+    {
+        $datos = is_array($tarea['datos'] ?? null) ? $tarea['datos'] : [];
+        $idCredito = (int) ($datos['id_credito'] ?? 0);
+        $accion = (string) ($datos['accion'] ?? '');
+        $paso = (string) ($tarea['paso'] ?? '');
+
+        if ($idCredito <= 0 || !in_array($accion, ['desbloquear_s2', 'desbloquear_componentes'], true)) {
+            $this->limpiarTarea();
+            return $this->respuesta('La solicitud de dictamen perdio su contexto. Inicia nuevamente con el ID del credito.', 'agente_error');
+        }
+
+        $autorizacion = (array) $this->llamar('dictamen_autorizacion', (int) ($contexto['actor_id'] ?? 0));
+        if (empty($autorizacion['authorized'])) {
+            $this->limpiarTarea();
+            return $this->respuesta($this->mensajeAutorizacionDictamen($autorizacion), 'agente_denegado');
+        }
+
+        if ($paso === 'confirmar_destructivo') {
+            if ($normalizado !== 'confirmar limpieza') {
+                return $this->respuesta(
+                    'Aun no se ejecuto ningun cambio. Escribe CONFIRMAR LIMPIEZA si aceptas borrar los componentes existentes del credito '
+                    . $idCredito . ', o CANCELAR para salir.',
+                    'agente_confirmacion_destructiva'
+                );
+            }
+
+            $this->guardarTarea('dictamen_moto', 'nip', $datos, $contexto);
+            return $this->respuesta(
+                'Confirmacion destructiva registrada para el credito ' . $idCredito
+                . '. Ahora captura tu NIP de desbloqueo de 6 digitos. El NIP se validara de forma segura y no aparecera en el chat.',
+                'agente_nip_requerido'
+            ) + ['entrada_segura' => 'nip'];
+        }
+
+        if ($paso !== 'nip') {
+            $this->limpiarTarea();
+            return $this->respuesta('El flujo de dictamen no reconoce el paso actual. No se modifico ningun dato.', 'agente_error');
+        }
+
+        $nip = trim($mensaje);
+        if (preg_match('/^\d{6}$/', $nip) !== 1) {
+            return $this->respuesta(
+                'El NIP debe contener exactamente 6 digitos. No se realizo ningun cambio; vuelve a capturarlo.',
+                'agente_nip_invalido'
+            ) + ['entrada_segura' => 'nip'];
+        }
+
+        if ($accion === 'desbloquear_s2') {
+            $resultado = (array) $this->llamar(
+                'dictamen_desbloquear_s2',
+                $idCredito,
+                $nip,
+                (int) ($contexto['actor_id'] ?? 0)
+            );
+        } else {
+            $resultado = (array) $this->llamar(
+                'dictamen_desbloquear_componentes',
+                $idCredito,
+                $nip,
+                (int) ($contexto['actor_id'] ?? 0),
+                (string) ($_SERVER['REMOTE_ADDR'] ?? '')
+            );
+        }
+        unset($nip);
+
+        if (empty($resultado['success'])) {
+            return $this->respuesta(
+                'No se pudo autorizar el cambio: ' . $this->mensajeResultado($resultado)
+                . ' No se realizo ningun desbloqueo.',
+                'agente_nip_invalido'
+            ) + ['entrada_segura' => 'nip'];
+        }
+
+        $this->limpiarTarea();
+        if ($accion === 'desbloquear_s2') {
+            return $this->respuesta(
+                'Listo. La validacion S2 del credito ' . $idCredito
+                . ' fue desbloqueada con autorizacion verificada. Ya puede continuar la simulacion o el envio de la tarea; no se eliminaron componentes.',
+                'agente_ejecutado'
+            ) + ['ejecucion' => ['accion' => $accion, 'id_credito' => $idCredito]];
+        }
+
+        $eliminados = is_array($resultado['deleted'] ?? null) ? $resultado['deleted'] : [];
+        return $this->respuesta(
+            'Listo. Se desbloquearon los componentes del credito ' . $idCredito . ' y la accion quedo auditada. '
+            . 'Eliminados: ' . (int) ($eliminados['legacy_tasks'] ?? 0) . ' tarea(s) Legacy, '
+            . (int) ($eliminados['legacy_task_user_assignments'] ?? 0) . ' asignacion(es), '
+            . (int) ($eliminados['legacy_dictums'] ?? 0) . ' dictamen(es) y '
+            . (int) ($eliminados['adj_operacion'] ?? 0) . ' operacion(es) local(es).',
+            'agente_ejecutado'
+        ) + ['ejecucion' => ['accion' => $accion, 'id_credito' => $idCredito, 'deleted' => $eliminados]];
+    }
+
+    private function resumenDiagnosticoDictamen(array $diagnostico): string
+    {
+        $idCredito = (int) ($diagnostico['id_credito'] ?? 0);
+        $segundometro = !empty($diagnostico['segundometro']);
+        $trackingLibre = empty($diagnostico['operacion']);
+        $legacyError = trim((string) ($diagnostico['legacy']['error'] ?? ''));
+        $legacyTask = !empty($diagnostico['legacy']['task']);
+        $legacyDictamen = !empty($diagnostico['legacy']['dictamen']);
+        $s2Valido = !empty($diagnostico['s2']['success']);
+        $bloqueos = array_values(array_filter(array_map('strval', $diagnostico['bloqueos'] ?? [])));
+
+        $lineas = [
+            'Diagnostico del credito ' . $idCredito . ':',
+            '- S2: ' . ($s2Valido ? 'validado' : 'sin validacion utilizable'),
+            '- Segundometro: ' . ($segundometro ? 'credito localizado' : 'credito no localizado'),
+            '- Tracking Sparta: ' . ($trackingLibre ? 'libre' : 'con operacion existente'),
+            '- Legacy: ' . ($legacyError !== '' ? 'error de consulta: ' . $legacyError : ($legacyTask ? 'tarea localizada' : 'sin tarea activa')),
+            '- Dictamen 13: ' . ($legacyDictamen ? 'ocupado' : 'libre'),
+        ];
+        if ($bloqueos === []) {
+            $lineas[] = '- Bloqueos: ninguno; el credito puede continuar por el flujo normal.';
+        } else {
+            $lineas[] = '- Bloqueos detectados:';
+            foreach ($bloqueos as $bloqueo) {
+                $lineas[] = '  * ' . $bloqueo;
+            }
+        }
+        return implode("\n", $lineas);
+    }
+
+    private function mensajeAutorizacionDictamen(array $autorizacion): string
+    {
+        if (empty($autorizacion['permiso_modulo'])) {
+            return 'No puedo continuar: tu usuario no tiene el permiso especial para desbloquear componentes de dictamen.';
+        }
+        if (empty($autorizacion['nip_configurado'])) {
+            return 'No puedo continuar: tu usuario tiene el permiso, pero no cuenta con un NIP activo de desbloqueo configurado.';
+        }
+        return 'No puedo continuar porque la autorizacion de desbloqueo de tu usuario no esta activa.';
+    }
+
     public function ejecutar(string $accion, array $payload, array $contexto): array
     {
         if ($accion === 'excel_aplicar') {
@@ -177,6 +401,9 @@ class LeonidasAgentService
         if ($accion === LeonidasLocalAgentService::ACTION) {
             return $this->agentesLocales->ejecutar($accion, $payload, $contexto);
         }
+        if (LeonidasMotosAdjudicadasService::puedeEjecutar($accion)) {
+            return $this->motosAdjudicadas->ejecutar($accion, $payload, $contexto);
+        }
         if (LeonidasCapitalHumanoService::puedeEjecutar($accion)) {
             return $this->capitalHumano->ejecutar($accion, $payload, $contexto);
         }
@@ -188,6 +415,29 @@ class LeonidasAgentService
     {
         unset($_SESSION[self::TASK_KEY]);
         $this->capitalHumano->limpiarTarea();
+    }
+
+    public function entradaSeguraPendiente(int $actorId): ?string
+    {
+        $tarea = is_array($_SESSION[self::TASK_KEY] ?? null) ? $_SESSION[self::TASK_KEY] : null;
+        if ($tarea === null) {
+            return null;
+        }
+        if ((int) ($tarea['expira_en'] ?? 0) < time()) {
+            $this->limpiarTarea();
+            return null;
+        }
+        if ((int) ($tarea['actor_id'] ?? 0) !== $actorId) {
+            return null;
+        }
+        if (
+            (string) ($tarea['tipo'] ?? '') === 'dictamen_moto'
+            && (string) ($tarea['paso'] ?? '') === 'nip'
+        ) {
+            return 'nip';
+        }
+
+        return null;
     }
 
     private function continuarConvenio(string $mensaje, string $normalizado, array $tarea, array $contexto): array
@@ -327,13 +577,13 @@ class LeonidasAgentService
             if (empty($resultado['success'])) {
                 return $this->respuesta('No pude consultar el crédito ' . $idCredito . ': ' . $this->mensajeResultado($resultado), 'agente_error');
             }
-            if (!$this->creditoEsVencido($resultado)) {
+            if (!$this->creditoPermiteAsignacionMoto($resultado)) {
                 $estatus = $this->estatusCredito($resultado);
                 $this->limpiarTarea();
                 return $this->respuesta(
                     'El crédito ' . $idCredito . ' no puede asignarse en Motos Adjudicadas. '
                     . 'Su estatus actual es ' . ($estatus !== '' ? $estatus : 'no identificado')
-                    . ' y este proceso solo admite créditos con estatus Vencido. No hice cambios.',
+                    . ' e indica que ya está pagado o cerrado. No hice cambios.',
                     'agente_error'
                 );
             }
@@ -384,7 +634,7 @@ class LeonidasAgentService
     {
         $limpio = str_replace(['**', '__', '`'], '', $mensaje);
         $mensajeNormalizado = $this->normalizar($limpio);
-        if (!preg_match('/\bcredito(?:\s+(?:numero|no\.?|id))?\s*[:#-]?\s*(\d+)\b/i', $mensajeNormalizado, $creditoMatch)) {
+        if (!preg_match('/\b(?:credito(?:\s+(?:numero|no\.?|id))?|id)\s*[:#>\-]?\s*(\d+)\b/i', $mensajeNormalizado, $creditoMatch)) {
             return null;
         }
         $idCredito = (int) $creditoMatch[1];
@@ -418,8 +668,16 @@ class LeonidasAgentService
         }
 
         if ($nombreIndicado === '' && preg_match(
-            '/(?:\s+al\s+(?:gestor|usuario|responsable)\s*[:>\-]*\s*|\s+a\s+)([^\r\n]+?)\s*[.!?]*$/iu',
+            '/\s+al\s+(?:gestor|usuario|responsable)\s*[:>\-]*\s*([^\r\n]+?)\s*[.!?]*$/iu',
             trim($limpio),
+            $nombreMatch
+        )) {
+            $nombreIndicado = trim((string) $nombreMatch[1], " \t\n\r\0\x0B.!?");
+        }
+
+        if ($nombreIndicado === '' && preg_match(
+            '/\bcredito(?:\s+(?:numero|no\.?|id))?\s*[:#>\-]?\s*\d+\b.*?\s+a\s+([^\r\n]+?)\s*[.!?]*$/iu',
+            trim($mensajeNormalizado),
             $nombreMatch
         )) {
             $nombreIndicado = trim((string) $nombreMatch[1], " \t\n\r\0\x0B.!?");
@@ -468,11 +726,12 @@ class LeonidasAgentService
         if (empty($resultado['success'])) {
             return $this->respuesta('No pude consultar el crédito ' . $idCredito . ': ' . $this->mensajeResultado($resultado), 'agente_error');
         }
-        if (!$this->creditoEsVencido($resultado)) {
+        if (!$this->creditoPermiteAsignacionMoto($resultado)) {
             $estatus = $this->estatusCredito($resultado);
             return $this->respuesta(
                 'El crédito ' . $idCredito . ' no puede asignarse: su estatus es '
-                . ($estatus !== '' ? $estatus : 'no identificado') . ' y este proceso requiere estatus Vencido. No hice cambios.',
+                . ($estatus !== '' ? $estatus : 'no identificado')
+                . ' e indica que ya está pagado o cerrado. No hice cambios.',
                 'agente_error'
             );
         }
@@ -646,12 +905,12 @@ class LeonidasAgentService
                 . ' mientras esperábamos tu confirmación. Vuelve a solicitarlo para ver la reasignación antes de cambiarla.'
             );
         }
-        if (!$this->creditoEsVencido($credito)) {
+        if (!$this->creditoPermiteAsignacionMoto($credito)) {
             $estatus = $this->estatusCredito($credito);
             throw new \RuntimeException(
                 'El crédito cambió de estatus mientras esperábamos tu confirmación. '
                 . 'Ahora está como ' . ($estatus !== '' ? $estatus : 'no identificado')
-                . '; no se realizó la asignación.'
+                . ' y ya no permite una asignación; no se realizó el cambio.'
             );
         }
         if (!$this->llamar('moto_responsable_activo', $idPersona)) {
@@ -993,9 +1252,15 @@ class LeonidasAgentService
         }));
     }
 
-    private function creditoEsVencido(array $resultado): bool
+    private function creditoPermiteAsignacionMoto(array $resultado): bool
     {
-        return $this->normalizar($this->estatusCredito($resultado)) === 'vencido';
+        $estatus = $this->normalizar($this->estatusCredito($resultado));
+        foreach (['liquidado', 'liquidada', 'saldado', 'saldada', 'cerrado', 'cerrada'] as $terminal) {
+            if ($estatus !== '' && str_contains($estatus, $terminal)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private function estatusCredito(array $resultado): string
@@ -1033,8 +1298,39 @@ class LeonidasAgentService
 
     private function solicitaMoto(string $mensaje): bool
     {
-        return preg_match('/\b(moto|motos|adjudicacion|adjudicar)\b/u', $mensaje) === 1
-            && preg_match('/\b(asignar|asigna|adjudicar|adjudica|quiero|necesito)\b/u', $mensaje) === 1;
+        $tieneAccion = preg_match('/\b(asignar|asigna|adjudicar|adjudica|quiero|necesito)\b/u', $mensaje) === 1;
+        $tieneContexto = preg_match('/\b(moto|motos|adjudicacion|adjudicar)\b/u', $mensaje) === 1;
+        $tieneCredito = preg_match('/\b(?:credito|id)\b\s*[:#>\-]?\s*\d{4,}\b/u', $mensaje) === 1;
+        $tieneGestor = preg_match('/\bgestor\b/u', $mensaje) === 1;
+
+        return $tieneAccion && ($tieneContexto || ($tieneCredito && $tieneGestor));
+    }
+
+    private function solicitaDictamenMoto(string $mensaje): bool
+    {
+        return preg_match('/\b\d{4,}\b/', $mensaje) === 1
+            && preg_match('/\b(dictamen|dictaminar|desbloquear|desbloquea|desbloquee|desbloqueo|bloqueo|validacion s2|componentes)\b/u', $mensaje) === 1;
+    }
+
+    private function accionDictamenMoto(string $mensaje): string
+    {
+        $destructiva = preg_match('/\b(componente|componentes|limpiar|limpieza|borrar|eliminar)\b/u', $mensaje) === 1
+            && preg_match('/\b(desbloquear|desbloquea|desbloquee|desbloqueo|limpiar|limpia|limpieza|borrar|borra|eliminar|elimina)\b/u', $mensaje) === 1;
+        if ($destructiva) {
+            return 'desbloquear_componentes';
+        }
+
+        if (preg_match('/\bs2\b/u', $mensaje) === 1
+            && preg_match('/\b(desbloquear|desbloquea|desbloquee|desbloqueo|liberar|libera|autorizar|autoriza|continuar|continua)\b/u', $mensaje) === 1) {
+            return 'desbloquear_s2';
+        }
+
+        return 'diagnosticar';
+    }
+
+    private function extraerCredito(string $mensaje): int
+    {
+        return preg_match('/\b(\d{4,})\b/', $mensaje, $m) ? (int) $m[1] : 0;
     }
 
     private function solicitaDiagnosticoTareaMovil(string $mensaje): bool

@@ -427,7 +427,7 @@ class EstadoCuenta extends Model
 
             // 1️⃣ Ejecutamos INSERT con queryOne() aunque no devuelve filas
             $db->queryOne("
-            INSERT INTO __SPARTA_SECRET_REDACTED__.notas_credito
+            INSERT INTO notas_credito
             (id_nota, id_credito, nota, id_usuario, usuario, created_at)
             VALUES(DEFAULT, $id_credito, '$nota', '$usuario_id','$usuario', DEFAULT)
             ");
@@ -454,7 +454,7 @@ class EstadoCuenta extends Model
             nota,
             usuario,
             created_at
-        FROM __SPARTA_SECRET_REDACTED__.notas_credito
+        FROM notas_credito
         WHERE id_credito = :id_credito
         ORDER BY created_at DESC
     SQL;

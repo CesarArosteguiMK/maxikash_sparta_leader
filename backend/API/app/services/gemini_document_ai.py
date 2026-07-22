@@ -1,5 +1,6 @@
 """Google Gemini transport for the shared document-analysis pipeline."""
 import json
+import re
 import time
 import urllib.error
 import urllib.request
@@ -18,6 +19,40 @@ class GeminiDocumentAI(AlibabaDocumentAI):
     """Reuse the proven document prompts and validation with Gemini transport."""
 
     provider = "gemini"
+
+    @staticmethod
+    def _generation_config(
+        model: str,
+        max_tokens: int,
+        enable_thinking: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        config: Dict[str, Any] = {
+            "maxOutputTokens": max_tokens,
+            "responseMimeType": "application/json",
+        }
+        match = re.search(r"gemini-(\d+)\.(\d+)", str(model or ""), re.IGNORECASE)
+        is_new_model = bool(
+            match and (int(match.group(1)) * 100 + int(match.group(2))) >= 305
+        )
+        if not is_new_model:
+            config["temperature"] = 0
+        elif enable_thinking is not None:
+            config["thinkingConfig"] = {
+                "thinkingLevel": "HIGH" if enable_thinking else "LOW",
+            }
+        return config
+
+    @staticmethod
+    def _fallback_allowed(exc: Exception) -> bool:
+        if is_transient_error(exc):
+            return True
+        message = str(exc).lower()
+        return (
+            "http 404" in message
+            or ("model" in message and "not found" in message)
+            or ("model" in message and "not supported" in message)
+            or ("model" in message and "unavailable" in message)
+        )
 
     @staticmethod
     def _gemini_parts(content: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -62,7 +97,6 @@ class GeminiDocumentAI(AlibabaDocumentAI):
         deadline: Optional[float] = None,
         enable_thinking: Optional[bool] = None,
     ) -> tuple[Dict[str, Any], Dict[str, Any], str, bool]:
-        del enable_thinking
         last_exc: Optional[Exception] = None
         model_chain = parse_model_chain(self.model, self.fallback_models)
         parts = self._gemini_parts(content)
@@ -86,11 +120,11 @@ class GeminiDocumentAI(AlibabaDocumentAI):
                         request_timeout = max(1.0, min(request_timeout, remaining))
                     payload = {
                         "contents": [{"role": "user", "parts": parts}],
-                        "generationConfig": {
-                            "temperature": 0,
-                            "maxOutputTokens": max_tokens,
-                            "responseMimeType": "application/json",
-                        },
+                        "generationConfig": self._generation_config(
+                            current_model,
+                            max_tokens,
+                            enable_thinking,
+                        ),
                     }
                     request = urllib.request.Request(
                         endpoint,
@@ -122,4 +156,6 @@ class GeminiDocumentAI(AlibabaDocumentAI):
                     last_exc = exc
                 if last_exc and (not is_transient_error(last_exc) or attempt >= len(self.retry_delays)):
                     break
+            if last_exc and not self._fallback_allowed(last_exc):
+                raise last_exc
         raise last_exc or RuntimeError("No se pudo llamar a Gemini")

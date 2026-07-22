@@ -5473,7 +5473,8 @@ class Sabueso extends Controller
             $parts,
             (int) $maxTokens,
             false,
-            0.1
+            0.1,
+            'HIGH'
         );
     }
 

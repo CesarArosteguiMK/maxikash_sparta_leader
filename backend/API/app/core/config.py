@@ -139,12 +139,13 @@ class Settings(BaseSettings):
     # Google Gemini API
     gemini_api_key: str = ""
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
-    gemini_model: str = "gemini-3.1-flash-lite"
-    gemini_quick_model: str = "gemini-3.1-flash-lite"
-    gemini_crosscheck_model: str = "gemini-3.1-flash-lite"
-    gemini_crosscheck_fallback_models: str = "gemini-3.1-flash-lite"
-    gemini_fallback_models: str = "gemini-3.1-flash-lite"
+    gemini_model: str = "gemini-3.6-flash"
+    gemini_quick_model: str = "gemini-3.5-flash-lite"
+    gemini_crosscheck_model: str = "gemini-3.6-flash"
+    gemini_crosscheck_fallback_models: str = "gemini-3.5-flash-lite,gemini-3.1-flash-lite"
+    gemini_fallback_models: str = "gemini-3.5-flash-lite,gemini-3.1-flash-lite"
     gemini_retry_delays: str = "0,1"
+    gemini_timeout_seconds: int = 45
 
     @property
     def allowed_extensions_list(self) -> List[str]:

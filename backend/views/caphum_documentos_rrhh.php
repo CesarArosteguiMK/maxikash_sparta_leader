@@ -1233,7 +1233,7 @@
         }
     }
 
-    async function importEnviar(endpoint, options = {}) {
+    async function importEnviarUnaVez(endpoint, options = {}) {
         let res;
         try {
             res = await fetch(endpoint, {
@@ -1262,6 +1262,32 @@
             throw error;
         }
         return json.datos || {};
+    }
+
+    async function importEnviar(endpoint, options = {}) {
+        // El análisis no modifica documentos: es seguro reintentar cortes transitorios.
+        // La importación se ejecuta una sola vez para no duplicar una operación cuyo resultado no llegó.
+        const permiteReintento = /\/caphum\/analizarimportaciondocumentos/i.test(endpoint);
+        const maxIntentos = permiteReintento ? 3 : 1;
+        let ultimoError = null;
+
+        for (let intento = 1; intento <= maxIntentos; intento++) {
+            try {
+                return await importEnviarUnaVez(endpoint, options);
+            } catch (error) {
+                ultimoError = error;
+                const respuestaTemporal = [502, 503, 504].includes(Number(error?.status || 0));
+                const reintentable = error?.codigo === 'conexion_fallida' || respuestaTemporal;
+                if (!reintentable || intento === maxIntentos) {
+                    throw error;
+                }
+
+                console.warn(`Importación RR.HH.: reintentando análisis (${intento}/${maxIntentos})`, error);
+                await new Promise(resolve => setTimeout(resolve, intento * 700));
+            }
+        }
+
+        throw ultimoError || new Error('No se pudo completar la solicitud.');
     }
 
     function importUpdatePdfZoomLabel(label = null) {
