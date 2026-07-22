@@ -844,7 +844,7 @@ class Adjudicacion extends Model
             $bloqueos[] = 'Ya existe dictamen Legacy con opciondictamen_id = 13 para la tarea de campana 432.';
         }
 
-        return [
+        $resultado = [
             'success' => true,
             'id_credito' => $idCredito,
             's2' => $s2,
@@ -864,6 +864,10 @@ class Adjudicacion extends Model
                 'dictums.form_response' => 'JSON del formulario contestado',
             ],
         ];
+
+        $resultado['desbloqueo_s2_disponible'] = $this->diagnosticoPermiteDesbloqueoS2($resultado);
+
+        return $resultado;
     }
 
     private function asegurarTablasDesbloqueoComponentes(): void

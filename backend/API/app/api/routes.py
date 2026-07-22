@@ -53,7 +53,7 @@ except ImportError:
 router = APIRouter()
 settings = get_settings()
 API_BUILD = "doc-precheck-2026-07-09-selective-reevaluation-v1"
-DOC_AI_QUICK_CACHE_VERSION = "2026-07-21-provider-aware-gemini-v6"
+DOC_AI_QUICK_CACHE_VERSION = "2026-07-22-gemini-routing-v7"
 
 api_key_header = APIKeyHeader(name=settings.api_key_header, auto_error=False)
 
@@ -148,6 +148,27 @@ def _crear_alibaba_ai_crosscheck() -> Optional[AlibabaDocumentAI]:
         max_pages=int(getattr(settings, "doc_ai_crosscheck_max_pages_per_document", 2) or 2),
         dpi=int(getattr(settings, "doc_ai_crosscheck_dpi", 135) or 135),
     )
+
+
+def _crear_leonidas_ai() -> Optional[AlibabaDocumentAI]:
+    """Leonidas usa el modelo general, no el modelo documental rapido."""
+    if _doc_ai_provider_name() == "gemini":
+        api_key = str(getattr(settings, "gemini_api_key", "") or "").strip()
+        base_url = str(getattr(settings, "gemini_base_url", "") or "").strip()
+        model = str(getattr(settings, "gemini_model", "") or "").strip()
+        if not api_key or not base_url or not model:
+            return None
+        return GeminiDocumentAI(
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+            fallback_models=str(getattr(settings, "gemini_fallback_models", "") or ""),
+            retry_delays=str(getattr(settings, "gemini_retry_delays", "0") or "0"),
+            timeout_seconds=int(getattr(settings, "gemini_timeout_seconds", 45) or 45),
+            max_pages=1,
+            dpi=96,
+        )
+    return _crear_alibaba_ai()
 
 
 def _doc_ai_quick_cache_dir() -> Path:
@@ -4178,7 +4199,7 @@ async def leonidas_conversar(
     if len(serializado) > 12000:
         raise HTTPException(status_code=422, detail="El contexto autorizado supera el limite permitido.")
 
-    ai = _crear_alibaba_ai()
+    ai = _crear_leonidas_ai()
     if ai is None:
         raise HTTPException(status_code=503, detail="Gemini no esta configurado en la API documental.")
 

@@ -66,6 +66,8 @@ class LeonidasAssistantService
             ];
         } elseif ($flujoMensaje = $this->resolverFlujoMensaje($mensaje, $normalizado, $contexto)) {
             $respuesta = $flujoMensaje;
+        } elseif ($consultaConvenios = (new LeonidasConveniosService())->resolver($mensaje, $normalizado)) {
+            $respuesta = $consultaConvenios;
         } elseif ($flujoAgente = (new LeonidasAgentService())->resolver($mensaje, $normalizado, $contexto)) {
             $respuesta = $flujoAgente;
             if (is_array($respuesta['propuesta_especificacion'] ?? null)) {
@@ -75,8 +77,6 @@ class LeonidasAssistantService
                 );
                 unset($respuesta['propuesta_especificacion']);
             }
-        } elseif ($consultaConvenios = (new LeonidasConveniosService())->resolver($mensaje, $normalizado)) {
-            $respuesta = $consultaConvenios;
         } elseif ($flujoVacaciones = $this->resolverFlujoVacaciones($mensaje, $normalizado)) {
             $respuesta = $flujoVacaciones;
         } elseif ($this->esSaludo($normalizado)) {

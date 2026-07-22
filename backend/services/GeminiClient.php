@@ -17,7 +17,8 @@ class GeminiClient
         $parts,
         int $maxTokens = 1500,
         bool $jsonResponse = false,
-        float $temperature = 0.1
+        float $temperature = 0.1,
+        string $thinkingLevel = 'LOW'
     ): array {
         $config = $this->config();
         if ($config['api_key'] === '' || $config['base_url'] === '' || $config['model'] === '') {
@@ -32,33 +33,26 @@ class GeminiClient
             return $this->failure('La solicitud a Gemini no contiene texto ni archivos utilizables.');
         }
 
-        $generationConfig = [
-            'temperature' => max(0.0, min($temperature, 1.0)),
-            'maxOutputTokens' => max(100, min($maxTokens, 8192)),
-        ];
-        if ($jsonResponse) {
-            $generationConfig['responseMimeType'] = 'application/json';
-        }
-
-        $payload = json_encode([
-            'system_instruction' => ['parts' => [['text' => $system]]],
-            'contents' => [[
-                'role' => 'user',
-                'parts' => $contentParts,
-            ]],
-            'generationConfig' => $generationConfig,
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if ($payload === false) {
-            return $this->failure('No se pudo preparar la solicitud a Gemini.');
-        }
-
         $models = array_values(array_unique(array_filter(array_merge(
             [$config['model']],
             $config['fallback_models']
         ))));
         $lastMessage = 'Gemini no pudo responder en este momento.';
         foreach ($models as $modelIndex => $model) {
+            $payload = $this->buildPayload(
+                $system,
+                $contentParts,
+                $model,
+                $maxTokens,
+                $jsonResponse,
+                $temperature,
+                $thinkingLevel
+            );
+            if ($payload === '') {
+                return $this->failure('No se pudo preparar la solicitud a Gemini.');
+            }
             $url = $config['base_url'] . '/models/' . rawurlencode($model) . ':generateContent';
+            $lastStatus = 0;
             foreach ($config['retry_delays'] as $delaySeconds) {
                 if ($delaySeconds > 0) {
                     usleep((int) round($delaySeconds * 1000000));
@@ -71,13 +65,86 @@ class GeminiClient
                 }
                 $lastMessage = (string) ($result['mensaje'] ?? $lastMessage);
                 $status = (int) ($result['http_code'] ?? 0);
+                $lastStatus = $status;
                 if (!in_array($status, [0, 408, 409, 429, 500, 502, 503, 504], true)) {
                     break;
                 }
             }
+            if (!$this->shouldTryFallback($lastStatus, $lastMessage)) {
+                break;
+            }
         }
 
         return $this->failure($lastMessage);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $contentParts
+     */
+    private function buildPayload(
+        string $system,
+        array $contentParts,
+        string $model,
+        int $maxTokens,
+        bool $jsonResponse,
+        float $temperature,
+        string $thinkingLevel
+    ): string {
+        $generationConfig = [
+            'maxOutputTokens' => max(100, min($maxTokens, 8192)),
+        ];
+        // Gemini 3.5+ rechazo/depreco los controles de muestreo clasicos.
+        // Se conservan solo para modelos anteriores que todavia los aceptan.
+        if ($this->supportsLegacySamplingControls($model)) {
+            $generationConfig['temperature'] = max(0.0, min($temperature, 1.0));
+        } else {
+            $generationConfig['thinkingConfig'] = [
+                'thinkingLevel' => $this->normalizeThinkingLevel($thinkingLevel),
+            ];
+        }
+        if ($jsonResponse) {
+            $generationConfig['responseMimeType'] = 'application/json';
+        }
+
+        $payload = json_encode([
+            'system_instruction' => ['parts' => [['text' => $system]]],
+            'contents' => [[
+                'role' => 'user',
+                'parts' => $contentParts,
+            ]],
+            'generationConfig' => $generationConfig,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return is_string($payload) ? $payload : '';
+    }
+
+    private function supportsLegacySamplingControls(string $model): bool
+    {
+        if (!preg_match('/gemini-(\d+)\.(\d+)/i', $model, $matches)) {
+            return true;
+        }
+        $version = ((int) $matches[1] * 100) + (int) $matches[2];
+        return $version < 305;
+    }
+
+    private function normalizeThinkingLevel(string $level): string
+    {
+        $normalized = strtoupper(trim($level));
+        return in_array($normalized, ['LOW', 'MEDIUM', 'HIGH'], true) ? $normalized : 'LOW';
+    }
+
+    private function shouldTryFallback(int $status, string $message): bool
+    {
+        if (in_array($status, [0, 404, 408, 409, 429, 500, 502, 503, 504], true)) {
+            return true;
+        }
+        if ($status !== 400) {
+            return false;
+        }
+        $normalized = strtolower($message);
+        return str_contains($normalized, 'model')
+            && (str_contains($normalized, 'not found')
+                || str_contains($normalized, 'not supported')
+                || str_contains($normalized, 'unavailable'));
     }
 
     /** @return array<string, mixed> */
@@ -209,8 +276,11 @@ class GeminiClient
         return [
             'api_key' => $apiKey,
             'base_url' => rtrim($baseUrl !== '' ? $baseUrl : 'https://generativelanguage.googleapis.com/v1beta', '/'),
-            'model' => $model !== '' ? $model : 'gemini-3.5-flash',
-            'fallback_models' => array_values(array_filter(array_map('trim', explode(',', $fallbacks)))),
+            'model' => $model !== '' ? $model : 'gemini-3.6-flash',
+            'fallback_models' => array_values(array_filter(array_map(
+                'trim',
+                explode(',', $fallbacks !== '' ? $fallbacks : 'gemini-3.5-flash-lite,gemini-3.1-flash-lite')
+            ))),
             'retry_delays' => $delays,
             'timeout' => max(10, min(120, $timeout !== '' ? (int) $timeout : 45)),
         ];

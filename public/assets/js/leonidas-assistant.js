@@ -17,6 +17,7 @@
     var messages = root.querySelector('[data-leonidas-messages]');
     var sendButton = form ? form.querySelector('button[type="submit"]') : null;
     var canOperate = true;
+    var secureInputMode = null;
     var personaId = root.getAttribute('data-leonidas-persona') || '0';
     var storageKey = 'sparta.leonidas.open.' + personaId;
     var presenceKey = 'sparta.leonidas.present.' + personaId;
@@ -939,9 +940,36 @@
         addReport(response.reporte);
         addChart(response.grafica);
         addProposal(response.propuesta);
+        setSecureInputMode(response.entrada_segura || null);
         if (response.navegar_a) {
             persistConversation(response.navegar_nombre || 'el módulo solicitado');
             window.setTimeout(function () { window.location.assign(response.navegar_a); }, 450);
+        }
+    }
+
+    function setSecureInputMode(mode) {
+        var nextMode = mode === 'nip' ? 'nip' : null;
+        var modeChanged = nextMode !== secureInputMode;
+        secureInputMode = nextMode;
+        if (!input) return;
+
+        if (secureInputMode === 'nip') {
+            if (modeChanged) input.value = '';
+            input.placeholder = 'Captura tu NIP de 6 digitos';
+            input.setAttribute('inputmode', 'numeric');
+            input.setAttribute('autocomplete', 'new-password');
+            input.setAttribute('aria-label', 'NIP de desbloqueo');
+            input.style.webkitTextSecurity = 'disc';
+            if (fileInput) fileInput.disabled = true;
+            if (attachButton) attachButton.hidden = true;
+        } else {
+            input.placeholder = 'Escribe una instruccion...';
+            input.removeAttribute('inputmode');
+            input.setAttribute('autocomplete', 'off');
+            input.setAttribute('aria-label', 'Mensaje para Leonidas');
+            input.style.webkitTextSecurity = '';
+            if (fileInput) fileInput.disabled = false;
+            if (attachButton) attachButton.hidden = false;
         }
     }
 
@@ -950,7 +978,7 @@
         root.classList.toggle('is-consulting', sending);
         if (input) input.disabled = sending;
         if (sendButton) sendButton.disabled = sending;
-        if (fileInput) fileInput.disabled = sending;
+        if (fileInput) fileInput.disabled = sending || secureInputMode === 'nip';
     }
 
     function reactionLabel(code) {
@@ -1073,6 +1101,7 @@
         polling = true;
         request('/Leonidas/bandeja', {})
             .then(function (mailbox) {
+                setSecureInputMode(mailbox.entrada_segura || null);
                 renderDelivery(mailbox.entrega);
                 renderNews(mailbox.novedades);
             })
@@ -1168,7 +1197,8 @@
             unlockVoiceContext();
             var value = input.value.trim();
             if (!value) return;
-            addMessage(value, 'user');
+            var isSecureNip = secureInputMode === 'nip';
+            addMessage(isSecureNip ? 'NIP enviado de forma segura.' : value, 'user');
             input.value = '';
             resizeComposer();
             setSending(true);

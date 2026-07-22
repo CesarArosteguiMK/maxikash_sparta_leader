@@ -4,6 +4,7 @@ namespace Controllers;
 
 use Core\Controller;
 use Services\LeonidasAccessService;
+use Services\LeonidasAgentService;
 use Services\LeonidasAssistantService;
 use Services\LeonidasMessagingService;
 use Services\LeonidasRealtimeTtsService;
@@ -130,11 +131,13 @@ class Leonidas extends Controller
             $actor = $this->exigirAccesoLeonidas();
             $this->payloadJson();
             $servicio = new LeonidasMessagingService();
+            $agente = new LeonidasAgentService();
             self::respuestaJSON([
                 'success' => true,
                 'respuesta' => [
                     'entrega' => $servicio->obtenerEntrega((int) $actor['actor_id']),
                     'novedades' => $servicio->obtenerNovedadesRemitente((int) $actor['actor_id']),
+                    'entrada_segura' => $agente->entradaSeguraPendiente((int) $actor['actor_id']),
                 ],
             ]);
         } catch (\InvalidArgumentException $error) {
