@@ -357,7 +357,7 @@ class Empresa extends Model
         $query = <<<SQL
                SELECT
             count(id_nota) as num
-        FROM __SPARTA_SECRET_REDACTED__.notas_credito
+        FROM notas_credito
         WHERE id_credito = :id_credito
         SQL;
         $params = ['id_credito' => $id_credito];

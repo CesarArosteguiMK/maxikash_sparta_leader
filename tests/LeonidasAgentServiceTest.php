@@ -272,6 +272,32 @@ assertTrue(str_contains($zyanyaEjecutada['mensaje'], 'Tarea vigente: 910613'), '
 assertTrue(str_contains($zyanyaEjecutada['mensaje'], 'task_user_assignments'), 'Debe verificar la asignacion activa local.');
 
 $_SESSION = [];
+$solicitudNatural = 'me ayudas a asignar el id 1809373 al gestor JUAN ENRIQUE ROCIO SALAZAR';
+$juanEnrique = newService([
+    'moto_buscar' => static fn(int $id): array => [
+        'success' => true,
+        'credito' => [
+            'id_credito' => $id,
+            'nombre_cliente' => 'CLIENTE CREDITO 1809373',
+            'status_credito' => 'Vencido',
+        ],
+        'status_credito' => 'Vencido',
+        'asignacion' => null,
+    ],
+    'moto_responsables' => static fn(): array => [[
+        'id_persona' => 1809,
+        'nombre_completo' => 'JUAN ENRIQUE ROCIO SALAZAR',
+        'puesto' => 'Gestor',
+        'numero_empleado' => '1809',
+        'codigo_contpac' => '9901',
+    ]],
+]);
+$propuestaNatural = $juanEnrique->resolver($solicitudNatural, $solicitudNatural, context());
+assertSameValue('agente_propuesta', $propuestaNatural['tipo'], 'Debe entender ID y gestor sin exigir la frase Motos Adjudicadas.');
+assertSameValue(1809373, $propuestaNatural['propuesta_especificacion']['payload']['id_credito'], 'Debe extraer el ID usado como credito.');
+assertSameValue(1809, $propuestaNatural['propuesta_especificacion']['payload']['id_persona'], 'Debe identificar al gestor por nombre completo.');
+
+$_SESSION = [];
 $idsDistintos = str_replace("**126**\n**LETICIA PEREZ CRUZ**\n**External id:**\n**126**", "**126**\n**LETICIA PEREZ CRUZ**\n**External id:**\n**999**", $solicitudDirecta);
 $rechazoIds = $leticia->resolver($idsDistintos, $idsDistintos, context());
 assertSameValue('agente_error', $rechazoIds['tipo'], 'Debe rechazar numero de empleado y external id contradictorios.');
@@ -343,9 +369,10 @@ $current = newService(['moto_buscar' => static fn(int $id): array => [
     'asignacion' => null,
 ]]);
 $current->resolver('quiero adjudicar una moto', 'quiero adjudicar una moto', context());
-$wrongStatus = $current->resolver('1881', '1881', context());
-assertSameValue('agente_error', $wrongStatus['tipo'], 'Solo debe admitir creditos vencidos.');
-assertTrue(str_contains($wrongStatus['mensaje'], 'Activo'), 'Debe explicar el estatus que impide la asignacion.');
+$activeOptions = $current->resolver('1881', '1881', context());
+assertSameValue('agente_opciones', $activeOptions['tipo'], 'Un credito activo debe poder avanzar como en la pantalla oficial.');
+$activeProposal = $current->resolver('1', '1', context());
+assertSameValue('agente_propuesta', $activeProposal['tipo'], 'Un credito activo debe llegar a vista previa antes de asignarse.');
 
 $changedStatus = newService(['moto_buscar' => static fn(int $id): array => [
     'success' => true,

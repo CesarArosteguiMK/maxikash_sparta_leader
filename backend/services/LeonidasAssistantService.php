@@ -38,6 +38,8 @@ class LeonidasAssistantService
                 );
                 unset($respuesta['propuesta_especificacion']);
             }
+        } elseif ($repeticion = $this->resolverRepeticionLudica($mensaje)) {
+            $respuesta = $repeticion;
         } elseif ($this->esProvocacionComica($normalizado)) {
             $respuesta = $this->responderProvocacionComica($normalizado, $contexto);
         } elseif ($this->esConsultaIdentidad($normalizado)) {
@@ -325,6 +327,7 @@ class LeonidasAssistantService
             'permisos_agente' => [
                 'convenio' => $this->tieneAccesoModulo(46) && $this->tieneAccesoModulo(32),
                 'motos' => $this->tieneAccesoModulo(62) || $this->tieneAccesoModulo(80),
+                'motos_override_estatus' => $this->tieneAccesoModulo(192),
                 'asignaciones_movil' => $this->tieneAccesoModulo(20),
                 'id_celula' => $this->resolverCelulaConvenio(),
                 'rrhh_lectura' => $this->tieneAccesoModulo(4) || $this->tieneAccesoModulo(34) || $this->tieneAccesoModulo(154),
@@ -355,6 +358,26 @@ class LeonidasAssistantService
     private function esSaludo(string $mensaje): bool
     {
         return preg_match('/\b(hola|buenas|saludos|buen dia|buenas tardes)\b/u', $mensaje) === 1;
+    }
+
+    private function resolverRepeticionLudica(string $mensaje): ?array
+    {
+        if (preg_match('/^\s*repite(?:\s+conmigo)?\s*[:,-]?\s*(.*?)\s*$/iu', $mensaje, $coincidencia) !== 1) {
+            return null;
+        }
+
+        $frase = trim((string) ($coincidencia[1] ?? ''));
+        if ($frase === '') {
+            return [
+                'mensaje' => 'Claro. ¿Qué quieres que repita?',
+                'tipo' => 'repeticion_ludica',
+            ];
+        }
+
+        return [
+            'mensaje' => $frase,
+            'tipo' => 'repeticion_ludica',
+        ];
     }
 
     private function esConsultaIdentidad(string $mensaje): bool
@@ -566,6 +589,7 @@ class LeonidasAssistantService
             'capacidades',
             'limites',
             'respuesta_espartana',
+            'repeticion_ludica',
             'mensajeria_ayuda',
             'navegacion',
             'navegacion_denegada',

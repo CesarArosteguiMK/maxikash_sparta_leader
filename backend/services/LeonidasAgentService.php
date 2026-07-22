@@ -5,6 +5,7 @@ namespace Services;
 require_once __DIR__ . '/LeonidasCapitalHumanoService.php';
 require_once __DIR__ . '/LeonidasSpreadsheetService.php';
 require_once __DIR__ . '/LeonidasLocalAgentService.php';
+require_once __DIR__ . '/LeonidasMotosAdjudicadasService.php';
 require_once __DIR__ . '/../core/DatabaseLegacy.php';
 
 /**
@@ -20,18 +21,23 @@ class LeonidasAgentService
     private array $adapters;
     private LeonidasCapitalHumanoService $capitalHumano;
     private LeonidasLocalAgentService $agentesLocales;
+    private LeonidasMotosAdjudicadasService $motosAdjudicadas;
 
     public function __construct(array $adapters = [])
     {
         $capitalHumano = $adapters['capital_humano_service'] ?? null;
         $agentesLocales = $adapters['local_agent_service'] ?? null;
-        unset($adapters['capital_humano_service'], $adapters['local_agent_service']);
+        $motosAdjudicadas = $adapters['motos_adjudicadas_service'] ?? null;
+        unset($adapters['capital_humano_service'], $adapters['local_agent_service'], $adapters['motos_adjudicadas_service']);
         $this->capitalHumano = $capitalHumano instanceof LeonidasCapitalHumanoService
             ? $capitalHumano
             : new LeonidasCapitalHumanoService();
         $this->agentesLocales = $agentesLocales instanceof LeonidasLocalAgentService
             ? $agentesLocales
             : new LeonidasLocalAgentService();
+        $this->motosAdjudicadas = $motosAdjudicadas instanceof LeonidasMotosAdjudicadasService
+            ? $motosAdjudicadas
+            : new LeonidasMotosAdjudicadasService();
         $this->adapters = $adapters + [
             'convenio_ofertas' => static fn(int $idCredito): array => \Models\Convenios::getOfertasElegibles($idCredito),
             'convenio_guardar' => static fn(array $datos): array => \Models\Convenios::guardarConvenio($datos),
@@ -97,7 +103,8 @@ class LeonidasAgentService
         return array_merge(
             ['convenio_crear', 'moto_asignar', 'excel_aplicar', 'cartera_reactivar_tarea_movil'],
             LeonidasCapitalHumanoService::accionesEjecutables(),
-            LeonidasLocalAgentService::accionesEjecutables()
+            LeonidasLocalAgentService::accionesEjecutables(),
+            LeonidasMotosAdjudicadasService::accionesEjecutables()
         );
     }
 
@@ -119,6 +126,11 @@ class LeonidasAgentService
         $agenteLocal = $this->agentesLocales->resolver($mensaje, $normalizado, $contexto);
         if ($agenteLocal !== null) {
             return $agenteLocal;
+        }
+
+        $motosAdjudicadas = $this->motosAdjudicadas->resolver($mensaje, $normalizado, $contexto);
+        if ($motosAdjudicadas !== null) {
+            return $motosAdjudicadas;
         }
 
         if ($this->solicitaDiagnosticoTareaMovil($normalizado)) {
@@ -389,6 +401,9 @@ class LeonidasAgentService
         if ($accion === LeonidasLocalAgentService::ACTION) {
             return $this->agentesLocales->ejecutar($accion, $payload, $contexto);
         }
+        if (LeonidasMotosAdjudicadasService::puedeEjecutar($accion)) {
+            return $this->motosAdjudicadas->ejecutar($accion, $payload, $contexto);
+        }
         if (LeonidasCapitalHumanoService::puedeEjecutar($accion)) {
             return $this->capitalHumano->ejecutar($accion, $payload, $contexto);
         }
@@ -562,13 +577,13 @@ class LeonidasAgentService
             if (empty($resultado['success'])) {
                 return $this->respuesta('No pude consultar el crédito ' . $idCredito . ': ' . $this->mensajeResultado($resultado), 'agente_error');
             }
-            if (!$this->creditoEsVencido($resultado)) {
+            if (!$this->creditoPermiteAsignacionMoto($resultado)) {
                 $estatus = $this->estatusCredito($resultado);
                 $this->limpiarTarea();
                 return $this->respuesta(
                     'El crédito ' . $idCredito . ' no puede asignarse en Motos Adjudicadas. '
                     . 'Su estatus actual es ' . ($estatus !== '' ? $estatus : 'no identificado')
-                    . ' y este proceso solo admite créditos con estatus Vencido. No hice cambios.',
+                    . ' e indica que ya está pagado o cerrado. No hice cambios.',
                     'agente_error'
                 );
             }
@@ -619,7 +634,7 @@ class LeonidasAgentService
     {
         $limpio = str_replace(['**', '__', '`'], '', $mensaje);
         $mensajeNormalizado = $this->normalizar($limpio);
-        if (!preg_match('/\bcredito(?:\s+(?:numero|no\.?|id))?\s*[:#-]?\s*(\d+)\b/i', $mensajeNormalizado, $creditoMatch)) {
+        if (!preg_match('/\b(?:credito(?:\s+(?:numero|no\.?|id))?|id)\s*[:#>\-]?\s*(\d+)\b/i', $mensajeNormalizado, $creditoMatch)) {
             return null;
         }
         $idCredito = (int) $creditoMatch[1];
@@ -653,8 +668,16 @@ class LeonidasAgentService
         }
 
         if ($nombreIndicado === '' && preg_match(
-            '/(?:\s+al\s+(?:gestor|usuario|responsable)\s*[:>\-]*\s*|\s+a\s+)([^\r\n]+?)\s*[.!?]*$/iu',
+            '/\s+al\s+(?:gestor|usuario|responsable)\s*[:>\-]*\s*([^\r\n]+?)\s*[.!?]*$/iu',
             trim($limpio),
+            $nombreMatch
+        )) {
+            $nombreIndicado = trim((string) $nombreMatch[1], " \t\n\r\0\x0B.!?");
+        }
+
+        if ($nombreIndicado === '' && preg_match(
+            '/\bcredito(?:\s+(?:numero|no\.?|id))?\s*[:#>\-]?\s*\d+\b.*?\s+a\s+([^\r\n]+?)\s*[.!?]*$/iu',
+            trim($mensajeNormalizado),
             $nombreMatch
         )) {
             $nombreIndicado = trim((string) $nombreMatch[1], " \t\n\r\0\x0B.!?");
@@ -703,11 +726,12 @@ class LeonidasAgentService
         if (empty($resultado['success'])) {
             return $this->respuesta('No pude consultar el crédito ' . $idCredito . ': ' . $this->mensajeResultado($resultado), 'agente_error');
         }
-        if (!$this->creditoEsVencido($resultado)) {
+        if (!$this->creditoPermiteAsignacionMoto($resultado)) {
             $estatus = $this->estatusCredito($resultado);
             return $this->respuesta(
                 'El crédito ' . $idCredito . ' no puede asignarse: su estatus es '
-                . ($estatus !== '' ? $estatus : 'no identificado') . ' y este proceso requiere estatus Vencido. No hice cambios.',
+                . ($estatus !== '' ? $estatus : 'no identificado')
+                . ' e indica que ya está pagado o cerrado. No hice cambios.',
                 'agente_error'
             );
         }
@@ -881,12 +905,12 @@ class LeonidasAgentService
                 . ' mientras esperábamos tu confirmación. Vuelve a solicitarlo para ver la reasignación antes de cambiarla.'
             );
         }
-        if (!$this->creditoEsVencido($credito)) {
+        if (!$this->creditoPermiteAsignacionMoto($credito)) {
             $estatus = $this->estatusCredito($credito);
             throw new \RuntimeException(
                 'El crédito cambió de estatus mientras esperábamos tu confirmación. '
                 . 'Ahora está como ' . ($estatus !== '' ? $estatus : 'no identificado')
-                . '; no se realizó la asignación.'
+                . ' y ya no permite una asignación; no se realizó el cambio.'
             );
         }
         if (!$this->llamar('moto_responsable_activo', $idPersona)) {
@@ -1228,9 +1252,15 @@ class LeonidasAgentService
         }));
     }
 
-    private function creditoEsVencido(array $resultado): bool
+    private function creditoPermiteAsignacionMoto(array $resultado): bool
     {
-        return $this->normalizar($this->estatusCredito($resultado)) === 'vencido';
+        $estatus = $this->normalizar($this->estatusCredito($resultado));
+        foreach (['liquidado', 'liquidada', 'saldado', 'saldada', 'cerrado', 'cerrada'] as $terminal) {
+            if ($estatus !== '' && str_contains($estatus, $terminal)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private function estatusCredito(array $resultado): string
@@ -1268,8 +1298,12 @@ class LeonidasAgentService
 
     private function solicitaMoto(string $mensaje): bool
     {
-        return preg_match('/\b(moto|motos|adjudicacion|adjudicar)\b/u', $mensaje) === 1
-            && preg_match('/\b(asignar|asigna|adjudicar|adjudica|quiero|necesito)\b/u', $mensaje) === 1;
+        $tieneAccion = preg_match('/\b(asignar|asigna|adjudicar|adjudica|quiero|necesito)\b/u', $mensaje) === 1;
+        $tieneContexto = preg_match('/\b(moto|motos|adjudicacion|adjudicar)\b/u', $mensaje) === 1;
+        $tieneCredito = preg_match('/\b(?:credito|id)\b\s*[:#>\-]?\s*\d{4,}\b/u', $mensaje) === 1;
+        $tieneGestor = preg_match('/\bgestor\b/u', $mensaje) === 1;
+
+        return $tieneAccion && ($tieneContexto || ($tieneCredito && $tieneGestor));
     }
 
     private function solicitaDictamenMoto(string $mensaje): bool

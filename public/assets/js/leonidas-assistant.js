@@ -19,9 +19,11 @@
     var canOperate = true;
     var secureInputMode = null;
     var personaId = root.getAttribute('data-leonidas-persona') || '0';
-    var storageKey = 'sparta.leonidas.open.' + personaId;
-    var presenceKey = 'sparta.leonidas.present.' + personaId;
-    var conversationKey = 'sparta.leonidas.conversation.' + personaId;
+    var sessionToken = root.getAttribute('data-leonidas-session') || 'anonymous';
+    var sessionScope = personaId + '.' + sessionToken;
+    var storageKey = 'sparta.leonidas.open.' + sessionScope;
+    var presenceKey = 'sparta.leonidas.present.' + sessionScope;
+    var conversationKey = 'sparta.leonidas.conversation.' + sessionScope;
     var voiceStorageKey = 'sparta.leonidas.voice.' + personaId;
     var userName = (root.getAttribute('data-leonidas-user') || 'comandante').trim();
     var firstName = (userName.split(/\s+/)[0] || 'comandante').toLocaleLowerCase('es-MX');
@@ -520,12 +522,31 @@
         root._leonidasPresenceTimer = window.setTimeout(finishDeparture, 2050);
     }
 
+    function scrollMessagesToLatest(waitForPanel) {
+        if (!messages) return;
+
+        function moveToLatest() {
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        window.requestAnimationFrame(function () {
+            moveToLatest();
+            window.requestAnimationFrame(moveToLatest);
+        });
+
+        if (waitForPanel) {
+            window.clearTimeout(messages._leonidasLatestTimer);
+            messages._leonidasLatestTimer = window.setTimeout(moveToLatest, 240);
+        }
+    }
+
     function openPanel(celebrate) {
         root.classList.remove('is-recipient-idle');
         root.classList.add('is-open');
         panel.setAttribute('aria-hidden', 'false');
         toggle.setAttribute('aria-expanded', 'true');
-        if (canOperate) localStorage.setItem(storageKey, '1');
+        scrollMessagesToLatest(true);
+        if (canOperate) sessionStorage.setItem(storageKey, '1');
         if (celebrate) triggerVictory();
         else if (!root.classList.contains('is-delivering')) triggerGreeting();
         if (!welcomeSpoken && firstMessage && voiceEnabled) {
@@ -543,7 +564,7 @@
         root.classList.remove('is-open');
         panel.setAttribute('aria-hidden', 'true');
         toggle.setAttribute('aria-expanded', 'false');
-        if (canOperate) localStorage.removeItem(storageKey);
+        if (canOperate) sessionStorage.removeItem(storageKey);
         if (restoreFocus && !root.classList.contains('is-recipient-idle')) toggle.focus();
     }
 
@@ -560,7 +581,7 @@
         item.className = 'leonidas-message leonidas-message--' + type;
         item.textContent = text;
         messages.appendChild(item);
-        messages.scrollTop = messages.scrollHeight;
+        scrollMessagesToLatest(false);
         if (type === 'assistant' && !silent) speakText(text);
         persistConversation();
         return item;
@@ -619,7 +640,7 @@
         }
         restoringConversation = false;
         persistConversation('');
-        messages.scrollTop = messages.scrollHeight;
+        scrollMessagesToLatest(false);
         return true;
     }
 
@@ -1239,12 +1260,17 @@
     restoreConversation();
     var savedPresence = null;
     try { savedPresence = sessionStorage.getItem(presenceKey); } catch (ignore) {}
-    if (canOperate && savedPresence === '0') {
+    if (canOperate && savedPresence !== '1') {
         root.classList.add('is-dismissed');
+        root.classList.remove('is-open', 'is-arriving', 'is-leaving');
+        panel.setAttribute('aria-hidden', 'true');
+        toggle.setAttribute('aria-expanded', 'false');
+        sessionStorage.removeItem(storageKey);
+        persistPresence(false);
         updateSummonControl(false, false);
     } else if (canOperate) {
         updateSummonControl(true, false);
-        if (localStorage.getItem(storageKey) === '1') openPanel(false);
+        if (sessionStorage.getItem(storageKey) === '1') openPanel(false);
         else triggerGreeting();
     }
     pollMailbox();
