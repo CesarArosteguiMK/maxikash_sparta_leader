@@ -294,6 +294,15 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
         }
         $nombreRaw = trim(preg_replace('/\x{00A0}/u', ' ', str_replace("\xc2\xa0", ' ', trim((string) $nombreRaw))));
         /** modulo_web del menú ancla => orden dentro del grupo padre */
+        if ($mid === 194) {
+            return [
+                'menu_grupo' => 'IA',
+                'menu_grupo_icono' => 'fa-solid fa-brain',
+                'menu_grupo_orden' => 15,
+                'menu_item_label' => $nombreRaw !== '' ? $nombreRaw : 'Asistente de Sparta',
+                'menu_item_orden' => 194,
+            ];
+        }
         static $anclas = [
             // Anclas 1 y 2 → tarjeta «Créditos»
             23 => [1, 110],

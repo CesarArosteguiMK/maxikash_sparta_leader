@@ -9,6 +9,102 @@
     display: none;
 }
 
+.leonidas-assistant.is-dismissed {
+    display: none;
+}
+
+.nav-leonidas-call-wrap {
+    display: flex;
+    align-items: center;
+}
+
+.nav-leonidas-call {
+    position: relative;
+    display: grid;
+    width: 2.65rem;
+    height: 2.65rem;
+    padding: 0 !important;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #9a641d;
+    transition: color .18s ease, background-color .18s ease, transform .18s ease;
+}
+
+.nav-leonidas-call:hover,
+.nav-leonidas-call:focus-visible {
+    background: rgba(184, 125, 42, .13);
+    color: #70430d;
+}
+
+.nav-leonidas-call:focus-visible {
+    outline: 3px solid rgba(105, 108, 255, .22);
+    outline-offset: 1px;
+}
+
+.nav-leonidas-call__icon {
+    width: 1.65rem;
+    height: 1.65rem;
+}
+
+.nav-leonidas-call__icon--summon {
+    display: none;
+    width: 2rem;
+    height: 1.4rem;
+    filter: drop-shadow(0 1px 1px rgba(88, 48, 8, .24));
+}
+
+.nav-leonidas-call__icon--dismiss {
+    display: grid;
+    place-items: center;
+}
+
+.nav-leonidas-call__icon--dismiss i {
+    font-size: 1.22rem;
+}
+
+.nav-leonidas-call:not(.is-present) .nav-leonidas-call__icon--summon {
+    display: block;
+}
+
+.nav-leonidas-call:not(.is-present) .nav-leonidas-call__icon--dismiss {
+    display: none;
+}
+
+.nav-leonidas-call.is-present {
+    color: #243a5c;
+}
+
+.nav-leonidas-call.is-present:hover,
+.nav-leonidas-call.is-present:focus-visible {
+    color: #d14343;
+    background: rgba(209, 67, 67, .1);
+}
+
+.nav-leonidas-call.is-moving {
+    color: #696cff;
+    animation: leonidas-call-pulse .8s ease-in-out infinite alternate;
+}
+
+.nav-leonidas-call:disabled {
+    opacity: 1;
+    cursor: wait;
+}
+
+body.dark-mode .nav-leonidas-call {
+    color: #e2e8f0;
+}
+
+body.dark-mode .nav-leonidas-call.is-present {
+    color: #e2e8f0;
+}
+
+@keyframes leonidas-call-pulse {
+    from { transform: scale(.94); }
+    to { transform: scale(1.08); }
+}
+
 .leonidas-orb,
 .leonidas-panel {
     pointer-events: auto;

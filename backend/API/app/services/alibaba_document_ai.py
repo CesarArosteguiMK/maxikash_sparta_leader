@@ -76,6 +76,7 @@ DOCUMENT_ALIASES = {
     },
     "cv": {"cv"},
     "infonavit_fonacot": {"infonavit_fonacot", "carta_no_adeudo"},
+    "hoja_retencion": {"infonavit_fonacot", "carta_no_adeudo"},
 }
 
 BANCOS_DIGITALES = {

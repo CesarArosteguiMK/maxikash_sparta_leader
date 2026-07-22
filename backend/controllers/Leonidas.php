@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Services\LeonidasAccessService;
 use Services\LeonidasAssistantService;
 use Services\LeonidasMessagingService;
 use Services\LeonidasRealtimeTtsService;
@@ -13,6 +14,7 @@ class Leonidas extends Controller
 {
     public function conversar(): void
     {
+        $this->exigirAccesoLeonidas();
         $payload = $this->payloadJson();
         $mensaje = is_string($payload['mensaje'] ?? null) ? $payload['mensaje'] : '';
         $archivoToken = is_string($payload['archivo_token'] ?? null) ? trim($payload['archivo_token']) : null;
@@ -36,10 +38,10 @@ class Leonidas extends Controller
     public function adjuntar(): void
     {
         try {
+            $actor = $this->exigirAccesoLeonidas();
             if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
                 throw new \InvalidArgumentException('Este endpoint requiere una solicitud POST.');
             }
-            $actor = LeonidasMessagingService::actorSesion();
             $archivo = is_array($_FILES['archivo'] ?? null) ? $_FILES['archivo'] : [];
             $carga = (new LeonidasSpreadsheetService())->guardarCarga($archivo, (int) $actor['actor_id']);
             self::respuestaJSON(['success' => true, 'respuesta' => $carga]);
@@ -58,6 +60,7 @@ class Leonidas extends Controller
 
     public function confirmar(): void
     {
+        $this->exigirAccesoLeonidas();
         $payload = $this->payloadJson();
         $token = is_string($payload['token'] ?? null) ? trim($payload['token']) : '';
 
@@ -79,6 +82,7 @@ class Leonidas extends Controller
 
     public function cancelar(): void
     {
+        $this->exigirAccesoLeonidas();
         $payload = $this->payloadJson();
         $token = is_string($payload['token'] ?? null) ? trim($payload['token']) : '';
 
@@ -100,6 +104,7 @@ class Leonidas extends Controller
 
     public function editarMensaje(): void
     {
+        $this->exigirAccesoLeonidas();
         $payload = $this->payloadJson();
         $token = is_string($payload['token'] ?? null) ? trim($payload['token']) : '';
 
@@ -122,8 +127,8 @@ class Leonidas extends Controller
     public function bandeja(): void
     {
         try {
+            $actor = $this->exigirAccesoLeonidas();
             $this->payloadJson();
-            $actor = LeonidasMessagingService::actorSesion();
             $servicio = new LeonidasMessagingService();
             self::respuestaJSON([
                 'success' => true,
@@ -148,8 +153,8 @@ class Leonidas extends Controller
     public function responder(): void
     {
         try {
+            $actor = $this->exigirAccesoLeonidas();
             $payload = $this->payloadJson();
-            $actor = LeonidasMessagingService::actorSesion();
             $mensajeId = (int) ($payload['mensaje_id'] ?? 0);
             $tipo = is_string($payload['tipo'] ?? null) ? trim($payload['tipo']) : '';
             $contenido = is_string($payload['contenido'] ?? null) ? trim($payload['contenido']) : '';
@@ -179,8 +184,8 @@ class Leonidas extends Controller
     public function voz(): void
     {
         try {
+            $this->exigirAccesoLeonidas();
             $payload = $this->payloadJson();
-            LeonidasMessagingService::actorSesion();
             $texto = is_string($payload['texto'] ?? null) ? $payload['texto'] : '';
             $servicio = new LeonidasTtsService();
             self::respuestaJSON([
@@ -203,8 +208,8 @@ class Leonidas extends Controller
     public function vozTiempoReal(): void
     {
         try {
+            $this->exigirAccesoLeonidas();
             $payload = $this->payloadJson();
-            LeonidasMessagingService::actorSesion();
             $texto = is_string($payload['texto'] ?? null) ? $payload['texto'] : '';
 
             set_time_limit(60);
@@ -253,7 +258,7 @@ class Leonidas extends Controller
     public function audio(): void
     {
         try {
-            LeonidasMessagingService::actorSesion();
+            $this->exigirAccesoLeonidas();
             $token = is_string($_GET['token'] ?? null) ? trim($_GET['token']) : '';
             $servicio = new LeonidasTtsService();
             $audio = $servicio->obtenerAudio($token);
@@ -289,5 +294,20 @@ class Leonidas extends Controller
         }
 
         return $payload;
+    }
+
+    private function exigirAccesoLeonidas(): array
+    {
+        try {
+            return LeonidasAccessService::actorAutorizado();
+        } catch (\DomainException $error) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\RuntimeException $error) {
+            http_response_code(401);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        }
+
+        return [];
     }
 }

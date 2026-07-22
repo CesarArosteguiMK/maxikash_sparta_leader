@@ -7,6 +7,7 @@
     var panel = root.querySelector('.leonidas-panel');
     var toggle = root.querySelector('[data-leonidas-toggle]');
     var close = root.querySelector('[data-leonidas-close]');
+    var summonControl = document.querySelector('[data-leonidas-call]');
     var voiceButton = root.querySelector('[data-leonidas-voice]');
     var form = root.querySelector('[data-leonidas-form]');
     var input = root.querySelector('[data-leonidas-input]');
@@ -15,9 +16,10 @@
     var attachButton = root.querySelector('.leonidas-composer__attach');
     var messages = root.querySelector('[data-leonidas-messages]');
     var sendButton = form ? form.querySelector('button[type="submit"]') : null;
-    var isOwner = root.getAttribute('data-leonidas-owner') === '1';
+    var canOperate = true;
     var personaId = root.getAttribute('data-leonidas-persona') || '0';
     var storageKey = 'sparta.leonidas.open.' + personaId;
+    var presenceKey = 'sparta.leonidas.present.' + personaId;
     var conversationKey = 'sparta.leonidas.conversation.' + personaId;
     var voiceStorageKey = 'sparta.leonidas.voice.' + personaId;
     var userName = (root.getAttribute('data-leonidas-user') || 'comandante').trim();
@@ -35,13 +37,61 @@
     var pendingVoiceText = '';
     var welcomeSpoken = false;
     var currentAttachment = null;
+    var summonHorn = null;
+    try {
+        summonHorn = new Audio('/assets/audio/cuerno-batalla.mp3');
+        summonHorn.preload = 'auto';
+        summonHorn.volume = 1;
+        summonHorn.muted = false;
+        summonHorn.playsInline = true;
+        summonHorn.addEventListener('canplaythrough', function () {
+            root.setAttribute('data-leonidas-horn-state', 'ready');
+        }, { once: true });
+        summonHorn.addEventListener('playing', function () {
+            root.setAttribute('data-leonidas-horn-state', 'playing');
+            root.removeAttribute('data-leonidas-horn-error');
+        });
+        summonHorn.addEventListener('ended', function () {
+            root.setAttribute('data-leonidas-horn-state', 'ready');
+        });
+        summonHorn.addEventListener('error', function () {
+            root.setAttribute('data-leonidas-horn-state', 'error');
+        });
+        root.setAttribute('data-leonidas-horn-state', 'loading');
+        summonHorn.load();
+    } catch (error) {
+        summonHorn = null;
+        root.setAttribute('data-leonidas-horn-state', 'unavailable');
+        root.setAttribute('data-leonidas-horn-error', error && error.message ? error.message : 'No se pudo preparar el audio.');
+    }
     firstName = firstName.charAt(0).toLocaleUpperCase('es-MX') + firstName.slice(1);
 
-    if (form && !isOwner) form.hidden = true;
+    function playSummonHorn() {
+        if (!summonHorn) return Promise.resolve(false);
+        summonHorn.pause();
+        summonHorn.currentTime = 0;
+        summonHorn.volume = 1;
+        summonHorn.muted = false;
+        root.setAttribute('data-leonidas-horn-state', 'requesting');
+        var playback = summonHorn.play();
+        if (playback && typeof playback.catch === 'function') {
+            return playback.then(function () {
+                root.setAttribute('data-leonidas-horn-state', 'playing');
+                root.removeAttribute('data-leonidas-horn-error');
+                return true;
+            }).catch(function (error) {
+                root.setAttribute('data-leonidas-horn-state', 'blocked');
+                root.setAttribute('data-leonidas-horn-error', error && error.message ? error.message : 'El navegador bloqueo el audio.');
+                return false;
+            });
+        }
+        root.setAttribute('data-leonidas-horn-state', 'playing');
+        return Promise.resolve(true);
+    }
+
+    if (form && !canOperate) form.hidden = true;
     if (firstMessage) {
-        firstMessage.textContent = isOwner
-            ? 'Hola, ' + firstName + '. ¿Qué batallas tendremos hoy?'
-            : 'Leónidas te mostrará aquí los mensajes que recibas.';
+        firstMessage.textContent = 'Hola, ' + firstName + '. ¿Qué batallas tendremos hoy?';
     }
 
     function triggerGreeting() {
@@ -411,12 +461,70 @@
         }));
     }
 
+    function updateSummonControl(present, moving) {
+        if (!summonControl) return;
+        var label = present ? 'Despedir a Le\u00f3nidas' : 'Llamar a Le\u00f3nidas';
+        if (moving) label = present ? 'Le\u00f3nidas est\u00e1 llegando' : 'Le\u00f3nidas se est\u00e1 retirando';
+        summonControl.classList.toggle('is-present', present);
+        summonControl.classList.toggle('is-moving', moving === true);
+        summonControl.setAttribute('aria-pressed', present ? 'true' : 'false');
+        summonControl.setAttribute('aria-label', label);
+        summonControl.title = label;
+        summonControl.disabled = moving === true;
+    }
+
+    function persistPresence(present) {
+        if (!canOperate) return;
+        try {
+            sessionStorage.setItem(presenceKey, present ? '1' : '0');
+        } catch (ignore) {}
+    }
+
+    function finishDeparture() {
+        window.clearTimeout(root._leonidasPresenceTimer);
+        root.classList.remove('is-leaving', 'is-arriving', 'is-open');
+        root.classList.add('is-dismissed');
+        panel.setAttribute('aria-hidden', 'true');
+        toggle.setAttribute('aria-expanded', 'false');
+        updateSummonControl(false, false);
+        persistPresence(false);
+    }
+
+    function finishArrival() {
+        window.clearTimeout(root._leonidasPresenceTimer);
+        root.classList.remove('is-dismissed', 'is-leaving', 'is-arriving');
+        updateSummonControl(true, false);
+        persistPresence(true);
+        triggerGreeting();
+    }
+
+    function summonLeonidas() {
+        if (!canOperate || root.classList.contains('is-arriving')) return;
+        root.classList.remove('is-dismissed', 'is-leaving');
+        root.classList.add('is-arriving');
+        updateSummonControl(true, true);
+        triggerDeliveryWalk('arrive');
+        window.clearTimeout(root._leonidasPresenceTimer);
+        root._leonidasPresenceTimer = window.setTimeout(finishArrival, 1900);
+    }
+
+    function dismissLeonidas() {
+        if (!canOperate || root.classList.contains('is-leaving')) return;
+        closePanel(false);
+        root.classList.remove('is-arriving');
+        root.classList.add('is-leaving');
+        updateSummonControl(false, true);
+        triggerDeliveryWalk('depart');
+        window.clearTimeout(root._leonidasPresenceTimer);
+        root._leonidasPresenceTimer = window.setTimeout(finishDeparture, 2050);
+    }
+
     function openPanel(celebrate) {
         root.classList.remove('is-recipient-idle');
         root.classList.add('is-open');
         panel.setAttribute('aria-hidden', 'false');
         toggle.setAttribute('aria-expanded', 'true');
-        if (isOwner) localStorage.setItem(storageKey, '1');
+        if (canOperate) localStorage.setItem(storageKey, '1');
         if (celebrate) triggerVictory();
         else if (!root.classList.contains('is-delivering')) triggerGreeting();
         if (!welcomeSpoken && firstMessage && voiceEnabled) {
@@ -425,7 +533,7 @@
                 speakText((firstMessage.textContent || '').trim());
             }, 220);
         }
-        if (isOwner && input) {
+        if (canOperate && input) {
             window.setTimeout(function () { input.focus(); }, 180);
         }
     }
@@ -434,12 +542,12 @@
         root.classList.remove('is-open');
         panel.setAttribute('aria-hidden', 'true');
         toggle.setAttribute('aria-expanded', 'false');
-        if (isOwner) localStorage.removeItem(storageKey);
+        if (canOperate) localStorage.removeItem(storageKey);
         if (restoreFocus && !root.classList.contains('is-recipient-idle')) toggle.focus();
     }
 
     function hideRecipientSoon() {
-        if (isOwner) return;
+        if (canOperate) return;
         window.setTimeout(function () {
             closePanel(false);
             root.classList.add('is-recipient-idle');
@@ -458,7 +566,7 @@
     }
 
     function persistConversation(arrivalName) {
-        if (!isOwner || !messages || restoringConversation) return;
+        if (!canOperate || !messages || restoringConversation) return;
         try {
             var rows = Array.prototype.slice.call(messages.querySelectorAll('.leonidas-message'))
                 .filter(function (item) {
@@ -489,7 +597,7 @@
     }
 
     function restoreConversation() {
-        if (!isOwner || !messages) return false;
+        if (!canOperate || !messages) return false;
         var state;
         try {
             state = JSON.parse(sessionStorage.getItem(conversationKey) || 'null');
@@ -984,6 +1092,21 @@
     });
     toggle.addEventListener('pointerenter', triggerGreeting);
     toggle.addEventListener('focus', triggerGreeting);
+    if (summonControl) {
+        summonControl.addEventListener('click', function () {
+            if (root.classList.contains('is-dismissed')) {
+                playSummonHorn();
+                summonLeonidas();
+                return;
+            }
+            dismissLeonidas();
+        });
+    }
+    root.addEventListener('leonidas:delivery-walk-complete', function (event) {
+        var direction = event.detail && event.detail.direction;
+        if (direction === 'depart' && root.classList.contains('is-leaving')) finishDeparture();
+        if (direction === 'arrive' && root.classList.contains('is-arriving')) finishArrival();
+    });
     root.addEventListener('leonidas:model-ready', function () {
         if (root._leonidasVictoryPending) {
             triggerVictory();
@@ -993,7 +1116,7 @@
     });
     close.addEventListener('click', function () {
         closePanel(false);
-        if (!isOwner && currentDeliveryId === null) root.classList.add('is-recipient-idle');
+        if (!canOperate && currentDeliveryId === null) root.classList.add('is-recipient-idle');
     });
     if (voiceButton) {
         updateVoiceButton();
@@ -1006,7 +1129,7 @@
     document.addEventListener('pointerdown', unlockVoiceContext, true);
     document.addEventListener('keydown', unlockVoiceContext, true);
 
-    if (form && isOwner) {
+    if (form && canOperate) {
         function resizeComposer() {
             if (!input || input.tagName !== 'TEXTAREA') return;
             input.style.height = 'auto';
@@ -1084,8 +1207,16 @@
     });
 
     restoreConversation();
-    if (isOwner && localStorage.getItem(storageKey) === '1') openPanel(false);
-    else if (isOwner) triggerGreeting();
+    var savedPresence = null;
+    try { savedPresence = sessionStorage.getItem(presenceKey); } catch (ignore) {}
+    if (canOperate && savedPresence === '0') {
+        root.classList.add('is-dismissed');
+        updateSummonControl(false, false);
+    } else if (canOperate) {
+        updateSummonControl(true, false);
+        if (localStorage.getItem(storageKey) === '1') openPanel(false);
+        else triggerGreeting();
+    }
     pollMailbox();
     window.setInterval(pollMailbox, 6000);
 })();

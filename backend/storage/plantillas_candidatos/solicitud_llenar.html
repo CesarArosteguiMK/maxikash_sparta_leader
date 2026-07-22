@@ -656,6 +656,41 @@ function nombreArchivoSolicitudPdf() {
   return 'Solicitud_Maxikash_' + base + '.pdf';
 }
 
+function cargarPdfLibComoRespaldo() {
+  if (window.PDFLib && window.PDFLib.PDFDocument) return Promise.resolve(window.PDFLib);
+  return new Promise(function(resolve, reject) {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+    script.async = true;
+    script.onload = function() {
+      if (window.PDFLib && window.PDFLib.PDFDocument) resolve(window.PDFLib);
+      else reject(new Error('No se pudo preparar el generador de PDF.'));
+    };
+    script.onerror = function() { reject(new Error('No se pudo cargar el generador de PDF. Revisa tu conexion e intenta de nuevo.')); };
+    document.head.appendChild(script);
+  });
+}
+
+async function obtenerPdfLib() {
+  if (window.PDFLib && window.PDFLib.PDFDocument) return window.PDFLib;
+  return cargarPdfLibComoRespaldo();
+}
+
+async function obtenerPlantillaSolicitudPdf() {
+  // La descarga directa del servidor es mas estable en celulares que depender
+  // exclusivamente del PDF codificado dentro de la pagina.
+  try {
+    const respuesta = await fetch('/CapHum/obtenerPlantillaSolicitudPdf', { cache: 'no-store' });
+    if (respuesta.ok) {
+      const bytes = new Uint8Array(await respuesta.arrayBuffer());
+      if (bytes.length > 5 && String.fromCharCode.apply(null, bytes.slice(0, 5)) === '%PDF-') return bytes;
+    }
+  } catch (e) {
+    console.warn('No se pudo obtener la plantilla desde el servidor; se usara la copia local.', e);
+  }
+  return Uint8Array.from(atob(PDF_B64), c => c.charCodeAt(0));
+}
+
 function prepararVentanaMovilPdf() {
   if (!esNavegadorMovil()) return null;
   const w = window.open('', '_blank');
@@ -724,8 +759,9 @@ async function generarPDF() {
   setProgress(15);
 
   try {
-    const { PDFDocument } = PDFLib;
-    const pdfBytes = Uint8Array.from(atob(PDF_B64), c => c.charCodeAt(0));
+    const pdfLib = await obtenerPdfLib();
+    const PDFDocument = pdfLib.PDFDocument;
+    const pdfBytes = await obtenerPlantillaSolicitudPdf();
     setProgress(40);
 
     const pdfDoc = await PDFDocument.load(pdfBytes);

@@ -116,14 +116,14 @@ class Settings(BaseSettings):
     # - gemini: usa Google Gemini para lectura documental y cruces.
     doc_ai_engine: str = "legacy"
     doc_ai_legacy_fallback: bool = True
-    doc_ai_quick_timeout_seconds: int = 35
+    doc_ai_quick_timeout_seconds: int = 30
     doc_ai_quick_max_pages: int = 3
     doc_ai_quick_dpi: int = 150
     doc_ai_quick_cache_enabled: bool = True
     doc_ai_quick_cache_dir: str = ""
     doc_ai_quick_cache_ttl_seconds: int = 2592000
     doc_ai_crosscheck_mode: str = "rules"
-    doc_ai_crosscheck_timeout_seconds: int = 90
+    doc_ai_crosscheck_timeout_seconds: int = 45
     doc_ai_crosscheck_max_pages_per_document: int = 2
     doc_ai_crosscheck_dpi: int = 135
 
@@ -139,9 +139,9 @@ class Settings(BaseSettings):
     # Google Gemini API
     gemini_api_key: str = ""
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
-    gemini_model: str = "gemini-3.5-flash"
+    gemini_model: str = "gemini-3.1-flash-lite"
     gemini_quick_model: str = "gemini-3.1-flash-lite"
-    gemini_crosscheck_model: str = "gemini-3.5-flash"
+    gemini_crosscheck_model: str = "gemini-3.1-flash-lite"
     gemini_crosscheck_fallback_models: str = "gemini-3.1-flash-lite"
     gemini_fallback_models: str = "gemini-3.1-flash-lite"
     gemini_retry_delays: str = "0,1"
