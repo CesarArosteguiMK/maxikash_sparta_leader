@@ -1704,16 +1704,18 @@ class MotosAdjudicadas extends Model
             ];
             $filtroTask = '';
             if ($taskId > 0) {
-                $filtroTask = ' AND id = :task_id';
+                $filtroTask = ' AND t.id = :task_id';
                 $params['task_id'] = $taskId;
             }
             $task = $legacyDb->queryOne(
-                'SELECT id, current_user_id, client_name, credit_number
-                 FROM tasks
-                 WHERE campaign_id = :campaign_id
-                   AND credit_number = :credit_number
-                   AND deleted_at IS NULL' . $filtroTask . '
-                 ORDER BY id DESC
+                'SELECT t.id, t.current_user_id, t.client_name, t.credit_number,
+                        TRIM(COALESCE(c.name, \'\')) AS campaign_name
+                 FROM tasks t
+                 LEFT JOIN campaigns c ON c.id = t.campaign_id
+                 WHERE t.campaign_id = :campaign_id
+                   AND t.credit_number = :credit_number
+                   AND t.deleted_at IS NULL' . $filtroTask . '
+                 ORDER BY t.id DESC
                  LIMIT 1',
                 $params
             );
@@ -1760,6 +1762,7 @@ class MotosAdjudicadas extends Model
                     : 'La tarea existe, pero no coincidieron el responsable, la asignacion exclusiva o el nombre del cliente.',
                 'task_id' => $taskIdReal,
                 'legacy_user_id' => $legacyUserId,
+                'campaign_name' => trim((string) ($task['campaign_name'] ?? '')),
                 'external_id' => $externalId,
                 'responsable' => trim((string) ($persona['nombre'] ?? '')),
                 'client_name' => $clienteActual,

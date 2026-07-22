@@ -27,7 +27,15 @@ $__assetsVer  = ($__demoCss ? filemtime($__demoCss) : '')
 if ($__assetsVer === '.' || $__assetsVer === '') $__assetsVer = (string) time();
 $__personaIdAsistente = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
 $__esPropietarioLeonidas = $__personaIdAsistente === 878;
-$__mostrarLeonidas = $__personaIdAsistente > 0 && isset($_SESSION['login']);
+$__mostrarLeonidas = false;
+if ($__personaIdAsistente > 0 && isset($_SESSION['login'])) {
+    try {
+        $__mostrarLeonidas = \Services\LeonidasAccessService::tieneAcceso($__personaIdAsistente);
+    } catch (\Throwable $e) {
+        // Lazaro conserva el acceso permanente aun si falla temporalmente la consulta de permisos.
+        $__mostrarLeonidas = $__esPropietarioLeonidas;
+    }
+}
 
 function getMenu(): string
 {
@@ -712,6 +720,41 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
 
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
+                            <?php if ($__mostrarLeonidas): ?>
+                            <li class="nav-item nav-leonidas-call-wrap me-1">
+                                <button type="button"
+                                        class="nav-link nav-leonidas-call"
+                                        data-leonidas-call
+                                        aria-controls="leonidasAssistant"
+                                        aria-label="Despedir a Le&oacute;nidas"
+                                        aria-pressed="true"
+                                        title="Despedir a Le&oacute;nidas">
+                                    <svg class="nav-leonidas-call__icon nav-leonidas-call__icon--summon"
+                                         viewBox="0 0 48 32"
+                                         aria-hidden="true"
+                                         focusable="false">
+                                        <defs>
+                                            <linearGradient id="leonidasHornBronze" x1="0" y1="0" x2="1" y2="1">
+                                                <stop offset="0" stop-color="#f2cc78" />
+                                                <stop offset=".48" stop-color="#bd7b22" />
+                                                <stop offset="1" stop-color="#75420f" />
+                                            </linearGradient>
+                                        </defs>
+                                        <path d="M3.5 4.2c5.2 3.3 10.1 6.5 15.2 8.8v6c-5.2 2.2-10.1 5.4-15.2 8.8V4.2Z"
+                                              fill="url(#leonidasHornBronze)" stroke="#6f3d0e" stroke-width="1.5" />
+                                        <path d="M18.3 12.8h21.1v6.4H18.3z"
+                                              fill="url(#leonidasHornBronze)" stroke="#6f3d0e" stroke-width="1.4" />
+                                        <path d="M39.2 14.1h5.4v3.8h-5.4zM44.5 15h2.2v2h-2.2z"
+                                              fill="#e9bd61" stroke="#6f3d0e" stroke-width="1.1" />
+                                        <path d="M7.7 8.5v15M11.5 10.7v10.6M20.8 14.6h15.8"
+                                              fill="none" stroke="#fff0b9" stroke-linecap="round" stroke-width="1.15" opacity=".8" />
+                                    </svg>
+                                    <span class="nav-leonidas-call__icon nav-leonidas-call__icon--dismiss" aria-hidden="true">
+                                        <i class="fa-solid fa-person-walking-arrow-right"></i>
+                                    </span>
+                                </button>
+                            </li>
+                            <?php endif; ?>
                             <!-- Notificaciones (campana) -->
                             <li class="nav-item nav-notif-wrap dropdown me-2">
                                 <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown" id="navbarNotifToggle" aria-expanded="false">
@@ -1844,7 +1887,7 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
     <?= $script ?? ''; ?>
     <?php if ($__mostrarLeonidas): ?>
     <aside id="leonidasAssistant"
-           class="leonidas-assistant<?= $__esPropietarioLeonidas ? '' : ' is-recipient-idle' ?>"
+           class="leonidas-assistant"
            aria-label="Asistente Leónidas"
            data-leonidas-owner="<?= $__esPropietarioLeonidas ? '1' : '0' ?>"
            data-leonidas-persona="<?= (int) $__personaIdAsistente ?>"
@@ -1882,9 +1925,7 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                     <i class="fa-solid fa-paper-plane"></i>
                 </button>
             </form>
-            <p class="leonidas-panel__notice"><i class="fa-solid fa-shield-halved"></i> <?= $__esPropietarioLeonidas
-                ? 'Las acciones sensibles requieren vista previa, confirmación y auditoría.'
-                : 'Mensajería interna protegida y auditada dentro de Sparta.' ?></p>
+            <p class="leonidas-panel__notice"><i class="fa-solid fa-shield-halved"></i> Las acciones sensibles requieren vista previa, confirmación y auditoría.</p>
         </section>
         <button type="button" class="leonidas-orb" data-leonidas-toggle aria-expanded="false" aria-controls="leonidasAssistant" aria-label="Abrir a Leónidas">
             <span class="leonidas-orb__stage" aria-hidden="true">

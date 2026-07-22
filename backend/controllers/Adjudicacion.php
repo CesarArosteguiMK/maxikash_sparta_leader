@@ -121,6 +121,24 @@ class Adjudicacion extends Controller
         }
     }
 
+    public function desbloquearValidacionS2DictamenMoto()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $idCredito = (int) ($body['id_credito'] ?? 0);
+        $nip = trim((string) ($body['nip'] ?? ''));
+
+        try {
+            echo json_encode(
+                $this->model->desbloquearValidacionS2DictamenWebMoto($idCredito, $nip, $idUsuario),
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
     public function subirArchivoDictamenMoto()
     {
         header('Content-Type: application/json; charset=utf-8');

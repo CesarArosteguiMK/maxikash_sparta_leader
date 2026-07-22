@@ -3380,6 +3380,8 @@ class CapHum extends Controller
                 104: 'fa-solid fa-clipboard-check',
                 105: 'fa-solid fa-user-check',
                 106: 'fa-solid fa-route',
+                194: 'fa-solid fa-brain',
+                '194': 'fa-solid fa-brain',
                 107: 'fa-solid fa-hashtag',
                 108: 'fa-solid fa-id-badge',
                 109: 'fa-solid fa-id-badge',
@@ -4720,32 +4722,34 @@ class CapHum extends Controller
                 divCheck.style.gap = '0.5rem';
 
                 const checkbox = document.createElement('input');
+                const asignacionForzada = Number(mod.asignacion_forzada) === 1;
                 checkbox.type = 'checkbox';
                 checkbox.className = 'form-check-input modal-perfil-modulo-item-cb';
                 checkbox.checked = Number(mod.asignado_flag) === 1;
                 checkbox.value = mod.modulo_id;
-                checkbox.style.cursor = 'pointer';
+                checkbox.dataset.asignacionForzada = asignacionForzada ? '1' : '0';
+                checkbox.disabled = asignacionForzada;
+                checkbox.title = '';
+                checkbox.style.cursor = asignacionForzada ? 'not-allowed' : 'pointer';
                 checkbox.style.width = '1.1em';
                 checkbox.style.height = '1.1em';
 
                 const label = document.createElement('label');
                 label.className = 'form-check-label';
-                label.innerHTML = checkbox.checked
-                    ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
-                    : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
-                label.style.cursor = 'pointer';
+                label.style.cursor = asignacionForzada ? 'default' : 'pointer';
                 label.style.userSelect = 'none';
                 label.addEventListener('click', function(ev) {
                     ev.preventDefault();
+                    if (asignacionForzada) return;
                     checkbox.click();
                 });
-
                 checkbox.addEventListener('change', function() {
                     updateModuloCheckboxLabel(this);
                     onModuloChange(this);
                 });
 
                 divCheck.append(checkbox, label);
+                updateModuloCheckboxLabel(checkbox);
                 tdCheck.appendChild(divCheck);
 
                 tr.append(tdName, tdCheck);
@@ -4919,7 +4923,7 @@ class CapHum extends Controller
                         const want = this.checked;
                         this.indeterminate = false;
                         const cbs = [...tbody.querySelectorAll('.modal-perfil-modulo-item-cb')];
-                        const toToggle = cbs.filter(cb => cb.checked !== want);
+                        const toToggle = cbs.filter(cb => !cb.disabled && cb.checked !== want);
                         if (toToggle.length === 0) {
                             syncGrupoModuloMaster(masterCb, tbody);
                             return;
@@ -5002,16 +5006,25 @@ class CapHum extends Controller
                 const idsPermisoEdicionCobranza = new Set(Array.from({ length: 21 }, (_, i) => 107 + i));
                 const idsPermisosAtlas = new Set([129, 130, 138]);
                 const idsPermisosConvenios = new Set([128, 145, 146]);
-                const idsPermisosMotosAdjudicadas = new Set([180, 181, 182, 183]);
-                const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).filter(mod => {
+                const idsPermisosMotosAdjudicadas = new Set([180, 181, 182, 183, 195]);
+                const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).map(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
-                    const nombreModulo = String(mod.modulo_nombre ?? mod.nombre ?? '').toLowerCase();
-                    const descripcionModulo = String(mod.descripcion ?? '').toLowerCase();
-                    return !idsPermisosMotosAdjudicadas.has(idMod)
-                        && !nombreModulo.includes('motos adjudicadas')
-                        && !descripcionModulo.includes('motos adjudicadas');
-                }).map(mod => {
-                    const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
+                    if (idsPermisosMotosAdjudicadas.has(idMod)) {
+                        return Object.assign({}, mod, {
+                            menu_grupo: 'Motos Adjudicadas',
+                            menu_grupo_icono: 'fa-solid fa-motorcycle',
+                            menu_grupo_orden: 10,
+                            menu_item_orden: idMod
+                        });
+                    }
+                    if (idMod === 194) {
+                        return Object.assign({}, mod, {
+                            menu_grupo: 'IA',
+                            menu_grupo_icono: 'fa-solid fa-brain',
+                            menu_grupo_orden: 15,
+                            menu_item_orden: idMod
+                        });
+                    }
                     if (idMod === 191) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Capital Humano',
@@ -6521,6 +6534,12 @@ class CapHum extends Controller
                 const silent = !!opts.silent;
                 if (!checkbox || currentPersonaId == null) {
                     return Promise.resolve(false);
+                }
+                if (Number(checkbox.dataset.asignacionForzada || 0) === 1) {
+                    checkbox.checked = true;
+                    updateModuloCheckboxLabel(checkbox);
+                    syncGrupoModuloMasterFromChild(checkbox);
+                    return Promise.resolve(true);
                 }
 
                 const payload = {
@@ -20729,10 +20748,6 @@ class CapHum extends Controller
             while ($next < $total && count($active) < $concurrencia) {
                 $task = $tasks[$next++];
                 $key = (string) ($task['key'] ?? ('task_' . $next));
-                if ($concurrencia > 1) {
-                    $baseTimeout = (int) ($task['timeout'] ?? 12);
-                    $task['timeout'] = min(60, max($baseTimeout, $baseTimeout + (($concurrencia - 1) * 30)));
-                }
                 $ch = $this->crearCurlPrecheckContenidoDocumentoCandidato($cfg, $task);
                 if (!$ch) {
                     $results[$key] = [
@@ -21904,7 +21919,10 @@ class CapHum extends Controller
         $lecturasDecoded = $lecturasJson !== null ? (json_decode((string) $lecturasJson, true) ?: []) : [];
         $lecturasDiag = is_array($lecturasDecoded) ? count($lecturasDecoded) : 0;
         $documentosEsperados = $this->construirDocumentosEsperadosExpedienteJson($documentos);
-        $payloadLigero = count($documentosEsperados) >= 10;
+        // El cruce debe reutilizar las lecturas rápidas. Subir nuevamente todos
+        // los PDF duplica trabajo y convierte una reevaluación de segundos en
+        // una espera de minutos. Solo se adjuntan rescates puntuales más abajo.
+        $payloadLigero = !empty($documentosEsperados) && !empty($lecturasDecoded);
 
         if ($payloadLigero) {
             $payload = [
@@ -21958,10 +21976,7 @@ class CapHum extends Controller
 
         $url = rtrim($baseUrl, '/') . '/validar-expediente-json';
         $ch = curl_init($url);
-        $timeoutJson = max($timeoutExp, 45);
-        if ($timeoutJson > 120) {
-            $timeoutJson = 120;
-        }
+        $timeoutJson = max(20, min(45, $timeoutExp));
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $bodyPayload,
@@ -23311,7 +23326,11 @@ class CapHum extends Controller
             ];
         }
 
-        $prechecksContenido = $this->prevalidarContenidoDocumentosCandidatoEnParalelo($archivosParaGuardar);
+        // La carga no debe depender de que el servicio de lectura documental este
+        // disponible. Los archivos se guardan primero y la cola los revisa despues.
+        // Solo conservamos los rechazos locales y deterministas (PDF invalido,
+        // solicitud de una pagina o documento colocado en otro campo).
+        $prechecksContenido = [];
 
         foreach ($archivosParaGuardar as $i => $archivoSubida) {
             $i = (int) $i;
@@ -23325,9 +23344,11 @@ class CapHum extends Controller
             $key = 'archivo_' . $i;
             $verificacionPreviaContenido = null;
             if (in_array($i, $this->tiposPrecheckContenidoCargaCandidato(), true)) {
-                $precheckContenido = $prechecksContenido[$i] ?? $this->verificarContenidoDocumentoCandidatoAntesDeGuardar($i, $tmpName);
-                $verificacionPreviaContenido = $precheckContenido['verificacion'] ?? null;
-                if (empty($precheckContenido['aceptar'])) {
+                $precheckContenido = $prechecksContenido[$i] ?? null;
+                $verificacionPreviaContenido = is_array($precheckContenido)
+                    ? ($precheckContenido['verificacion'] ?? null)
+                    : null;
+                if (is_array($precheckContenido) && empty($precheckContenido['aceptar'])) {
                     $errores[] = ($tiposDocumento[$i] ?? $key) . ': ' . ($precheckContenido['mensaje'] ?? 'El archivo no corresponde al documento solicitado.');
                     continue;
                 }

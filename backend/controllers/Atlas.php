@@ -261,6 +261,7 @@ class Atlas extends Controller
                 'Clasificacion nuevo esquema',
                 'Creditos',
                 'Cash',
+                'Comisiona a partir de',
             ];
             foreach ($headers as $idx => $label) {
                 $sheet->setCellValue($this->excelCell($idx + 1, 1), $label);
@@ -280,16 +281,18 @@ class Atlas extends Controller
                 $sheet->setCellValue($this->excelCell(10, $rowNum), $row['clasificacion'] ?? '');
                 $sheet->setCellValue($this->excelCell(11, $rowNum), '');
                 $sheet->setCellValue($this->excelCell(12, $rowNum), '');
+                $sheet->setCellValue($this->excelCell(13, $rowNum), '');
                 $rowNum++;
             }
 
             $lastRow = max(2, $rowNum - 1);
-            $sheet->getStyle('A1:L1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
-            $sheet->getStyle('A1:L1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('26344E');
-            $sheet->getStyle('A1:L' . $lastRow)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('D9DEE3');
+            $sheet->getStyle('A1:M1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+            $sheet->getStyle('A1:M1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('26344E');
+            $sheet->getStyle('A1:M' . $lastRow)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('D9DEE3');
             $sheet->getStyle('K2:K' . $lastRow)->getNumberFormat()->setFormatCode('0');
             $sheet->getStyle('L2:L' . $lastRow)->getNumberFormat()->setFormatCode('$#,##0.00');
-            foreach (range('A', 'L') as $col) {
+            $sheet->getStyle('M2:M' . $lastRow)->getNumberFormat()->setFormatCode('0');
+            foreach (range('A', 'M') as $col) {
                 $sheet->getColumnDimension($col)->setAutoSize(true);
             }
             $sheet->freezePane('A2');
@@ -1307,9 +1310,10 @@ class Atlas extends Controller
                 'asesor', 'asignacionjulio', 'gestor', 'responsable' => 'asesor',
                 'estado' => 'estado',
                 'promediofebmay', 'promediofebreroamay' => 'promedio_creditos',
-                'clasificacionnuevoesquema', 'clasificacion' => 'clasificacion',
+                'clasificacionnuevoesquema', 'clasificacion', 'clasificacionenero', 'clasificacionfebrero', 'clasificacionmarzo', 'clasificacionabril', 'clasificacionmayo', 'clasificacionjunio', 'clasificacionjulio', 'clasificacionagosto', 'clasificacionseptiembre', 'clasificacionoctubre', 'clasificacionnoviembre', 'clasificaciondiciembre' => 'clasificacion',
                 'creditos', 'credito', 'meta', 'metacreditos', 'metacredito', 'presupuestodecreditos', 'presupuestocreditos' => 'meta_creditos',
                 'cash', 'metacash', 'presupuesto', 'presupuestodecash', 'presupuestocash' => 'meta_cash',
+                'comisionaapartirde', 'comisionapartirde', 'comisiondesde', 'comision' => 'comisiona_a_partir_de',
                 default => null,
             };
             if ($campo !== null) {

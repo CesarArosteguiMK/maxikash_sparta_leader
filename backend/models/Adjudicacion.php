@@ -10,6 +10,7 @@ use Core\UsuarioFantasmaReporteria;
 
 class Adjudicacion extends Model
 {
+    private const MODULO_DESBLOQUEAR_COMPONENTES_MOTOS_ADJUDICADAS = 195;
     private const LEGACY_CAMP_MOTOS_ADJUDICADAS = 432;
     private const LEGACY_DICTAMEN_MOTO_ADJUDICADA = 13;
 
@@ -435,6 +436,92 @@ class Adjudicacion extends Model
     }
 
     /**
+     * Registra o cambia la asignación activa de forma atómica.
+     * Si ya pertenece al responsable solicitado, solo revalida la operación asociada.
+     *
+     * @return array{success:bool,message:string,reassigned?:bool,already_assigned?:bool}
+     */
+    public function reasignarCredito(int $idPersona, int $idCredito, int $usuarioCambio): array
+    {
+        if ($idPersona <= 0 || $idCredito <= 0) {
+            return ['success' => false, 'message' => 'La persona o el crédito no son válidos.'];
+        }
+
+        $fecha = $this->fechaHoraCdmx();
+        $idPersonalAdj = $this->asegurarPersonalAdjudicacion($idPersona);
+
+        try {
+            $this->db->beginTransaction();
+            $activa = $this->db->queryOne(
+                "SELECT id, id_personal_adj
+                 FROM asigna_creditos_adjudicacion
+                 WHERE id_credito = :idCredito AND estatus = '1'
+                 ORDER BY id DESC
+                 LIMIT 1
+                 FOR UPDATE",
+                ['idCredito' => $idCredito]
+            );
+
+            if ($activa && (int) $activa['id_personal_adj'] === $idPersonalAdj) {
+                $this->asegurarOperacionTrasAsignacionCredito($idCredito, $usuarioCambio, $fecha, false);
+                $this->db->commit();
+                return [
+                    'success' => true,
+                    'message' => 'El crédito ya estaba asignado al responsable solicitado; se revalidó la operación.',
+                    'reassigned' => false,
+                    'already_assigned' => true,
+                ];
+            }
+
+            $reasignado = false;
+            if ($activa) {
+                $this->db->CRUD(
+                    "UPDATE asigna_creditos_adjudicacion
+                     SET estatus = '0', fecha_baja = :fechaBaja, baja = :baja
+                     WHERE id = :id AND estatus = '1'",
+                    [
+                        'fechaBaja' => $fecha,
+                        'baja' => $usuarioCambio > 0 ? $usuarioCambio : null,
+                        'id' => (int) $activa['id'],
+                    ]
+                );
+                $reasignado = true;
+            }
+
+            $insertados = $this->db->CRUD(
+                "INSERT INTO asigna_creditos_adjudicacion
+                    (id_personal_adj, id_credito, fecha_alta, alta, estatus)
+                 VALUES (:idPersonalAdj, :idCredito, :fechaAlta, :alta, '1')",
+                [
+                    'idPersonalAdj' => $idPersonalAdj,
+                    'idCredito' => $idCredito,
+                    'fechaAlta' => $fecha,
+                    'alta' => $usuarioCambio > 0 ? $usuarioCambio : null,
+                ]
+            );
+            if ($insertados <= 0) {
+                throw new \RuntimeException('No se pudo registrar la nueva asignación.');
+            }
+
+            $this->asegurarOperacionTrasAsignacionCredito($idCredito, $usuarioCambio, $fecha);
+            $this->db->commit();
+            return [
+                'success' => true,
+                'message' => $reasignado
+                    ? 'Crédito reasignado correctamente.'
+                    : 'Crédito asignado correctamente.',
+                'reassigned' => $reasignado,
+                'already_assigned' => false,
+            ];
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollback();
+            }
+            return ['success' => false, 'message' => 'No se pudo completar la asignación: ' . $e->getMessage()];
+        }
+    }
+
+    /**
      * Desasigna (cierra) la asignación activa de un crédito.
      *
      * @return array{success:bool, message:string}
@@ -653,6 +740,7 @@ class Adjudicacion extends Model
             <<<SQL
             SELECT
                 aca.id,
+                pa.id_persona,
                 aca.estatus,
                 DATE_FORMAT(aca.fecha_alta, '%Y-%m-%d %H:%i') AS fecha_asignacion,
                 TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre_despacho,
@@ -664,7 +752,7 @@ class Adjudicacion extends Model
             LEFT JOIN puesto pu ON pu.id = ap.id_puesto
             WHERE aca.id_credito = :idCredito
               AND aca.estatus = '1'
-            GROUP BY aca.id, aca.estatus, aca.fecha_alta,
+            GROUP BY aca.id, pa.id_persona, aca.estatus, aca.fecha_alta,
                      per.nombres, per.segundo_nombre, per.apellidop, per.apellidom
             LIMIT 1
             SQL,
@@ -818,7 +906,18 @@ class Adjudicacion extends Model
         }
 
         $this->asegurarTablasDesbloqueoComponentes();
-        $row = $this->db->queryOne(
+        $permisoModulo = $this->db->queryOne(
+            "SELECT id
+             FROM asigna_modulo_web
+             WHERE usuario_id = :id_usuario
+               AND modulo_web_id = :modulo_id
+             LIMIT 1",
+            [
+                'id_usuario' => $idUsuario,
+                'modulo_id' => self::MODULO_DESBLOQUEAR_COMPONENTES_MOTOS_ADJUDICADAS,
+            ]
+        );
+        $nipConfigurado = $this->db->queryOne(
             "SELECT id
              FROM adj_desbloqueo_componentes_nip
              WHERE id_usuario = :id_usuario
@@ -827,7 +926,12 @@ class Adjudicacion extends Model
             ['id_usuario' => $idUsuario]
         );
 
-        return ['success' => true, 'authorized' => !empty($row)];
+        return [
+            'success' => true,
+            'authorized' => !empty($permisoModulo) && !empty($nipConfigurado),
+            'permiso_modulo' => !empty($permisoModulo),
+            'nip_configurado' => !empty($nipConfigurado),
+        ];
     }
 
     public function guardarNipDesbloqueoComponentes(int $idUsuario, string $nip, int $createdBy): array
@@ -863,19 +967,30 @@ class Adjudicacion extends Model
         return ['success' => true, 'message' => 'NIP de desbloqueo configurado.'];
     }
 
-    public function desbloquearComponentesDictamenWebMoto(int $idCredito, string $nip, int $idUsuario, string $ip = ''): array
+    private function validarNipDesbloqueoComponentes(int $idUsuario, string $nip): array
     {
-        if ($idCredito <= 0) {
-            return ['success' => false, 'message' => 'ID de credito invalido.'];
-        }
         if ($idUsuario <= 0) {
-            return ['success' => false, 'message' => 'Sesion invalida para desbloquear componentes.'];
+            return ['success' => false, 'message' => 'Sesion invalida para desbloquear.'];
         }
         if (!preg_match('/^\d{6}$/', $nip)) {
             return ['success' => false, 'message' => 'El NIP debe tener 6 digitos.'];
         }
 
         $this->asegurarTablasDesbloqueoComponentes();
+        $permisoModulo = $this->db->queryOne(
+            "SELECT id
+             FROM asigna_modulo_web
+             WHERE usuario_id = :id_usuario
+               AND modulo_web_id = :modulo_id
+             LIMIT 1",
+            [
+                'id_usuario' => $idUsuario,
+                'modulo_id' => self::MODULO_DESBLOQUEAR_COMPONENTES_MOTOS_ADJUDICADAS,
+            ]
+        );
+        if (!$permisoModulo) {
+            return ['success' => false, 'message' => 'Tu usuario no tiene el permiso especial para desbloquear componentes.'];
+        }
         $permiso = $this->db->queryOne(
             "SELECT nip_hash
              FROM adj_desbloqueo_componentes_nip
@@ -886,6 +1001,83 @@ class Adjudicacion extends Model
         );
         if (!$permiso || !password_verify($nip, (string) ($permiso['nip_hash'] ?? ''))) {
             return ['success' => false, 'message' => 'NIP incorrecto o usuario sin permiso de desbloqueo.'];
+        }
+
+        return ['success' => true];
+    }
+
+    private function diagnosticoPermiteDesbloqueoS2(array $diag): bool
+    {
+        $bloqueos = array_values(array_filter(array_map('strval', $diag['bloqueos'] ?? [])));
+        if (count($bloqueos) !== 1) {
+            return false;
+        }
+
+        return stripos($bloqueos[0], 'No se pudo validar el credito en S2') !== false
+            && empty($diag['legacy']['error'])
+            && empty($diag['operacion'])
+            && empty($diag['legacy']['dictamen']);
+    }
+
+    private function aplicarDesbloqueoS2SiProcede(array $diag, string $nip, int $idUsuario): array
+    {
+        if (!$this->diagnosticoPermiteDesbloqueoS2($diag)) {
+            return [
+                'success' => false,
+                'message' => 'Este bloqueo no corresponde solo a S2; no se puede desbloquear por esta via.',
+                'diagnostico' => $diag,
+            ];
+        }
+
+        $validacionNip = $this->validarNipDesbloqueoComponentes($idUsuario, $nip);
+        if (empty($validacionNip['success'])) {
+            return $validacionNip + ['diagnostico' => $diag];
+        }
+
+        $diag['puede_simular'] = true;
+        $diag['desbloqueo_s2'] = [
+            'autorizado' => true,
+            'id_usuario' => $idUsuario,
+            'fecha' => $this->fechaHoraCdmx(),
+            'motivo' => 'S2 no validado, pero credito libre en Segundometro/Tracking/Legacy.',
+        ];
+        $diag['bloqueos_originales'] = $diag['bloqueos'] ?? [];
+        $diag['bloqueos'] = [];
+
+        return ['success' => true, 'diagnostico' => $diag];
+    }
+
+    public function desbloquearValidacionS2DictamenWebMoto(int $idCredito, string $nip, int $idUsuario): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'ID de credito invalido.'];
+        }
+
+        $diag = $this->diagnosticarDictamenWebMoto($idCredito);
+        if (empty($diag['success'])) {
+            return $diag;
+        }
+
+        $desbloqueo = $this->aplicarDesbloqueoS2SiProcede($diag, $nip, $idUsuario);
+        if (empty($desbloqueo['success'])) {
+            return $desbloqueo;
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Validacion S2 desbloqueada para este credito. Ya puedes guardar o enviar la tarea.',
+            'diagnostico' => $desbloqueo['diagnostico'],
+        ];
+    }
+
+    public function desbloquearComponentesDictamenWebMoto(int $idCredito, string $nip, int $idUsuario, string $ip = ''): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'ID de credito invalido.'];
+        }
+        $validacionNip = $this->validarNipDesbloqueoComponentes($idUsuario, $nip);
+        if (empty($validacionNip['success'])) {
+            return $validacionNip;
         }
 
         $legacyTasksDeleted = 0;
@@ -1086,6 +1278,18 @@ class Adjudicacion extends Model
             return $diag;
         }
         if (empty($diag['puede_simular'])) {
+            if (!empty($data['desbloqueo_s2_autorizado'])) {
+                $desbloqueo = $this->aplicarDesbloqueoS2SiProcede(
+                    $diag,
+                    trim((string) ($data['desbloqueo_s2_nip'] ?? '')),
+                    $idUsuarioSesion
+                );
+                if (!empty($desbloqueo['success'])) {
+                    $diag = $desbloqueo['diagnostico'];
+                }
+            }
+        }
+        if (empty($diag['puede_simular'])) {
             return [
                 'success' => false,
                 'message' => 'No se puede guardar: ' . implode(' ', $diag['bloqueos'] ?: ['Legacy no esta disponible.']),
@@ -1235,6 +1439,18 @@ class Adjudicacion extends Model
         }
         if (!empty($diag['legacy']['dictamen'])) {
             return ['success' => false, 'message' => 'Ya existe dictamen Legacy para este credito; no se envio a gestor.'];
+        }
+        if (empty($diag['puede_simular'])) {
+            if (!empty($data['desbloqueo_s2_autorizado'])) {
+                $desbloqueo = $this->aplicarDesbloqueoS2SiProcede(
+                    $diag,
+                    trim((string) ($data['desbloqueo_s2_nip'] ?? '')),
+                    $idUsuarioSesion
+                );
+                if (!empty($desbloqueo['success'])) {
+                    $diag = $desbloqueo['diagnostico'];
+                }
+            }
         }
         if (empty($diag['puede_simular'])) {
             return [

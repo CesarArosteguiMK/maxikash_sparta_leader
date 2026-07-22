@@ -22,6 +22,9 @@ class CapHum extends Model
     public const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
     public const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
     public const MODULO_AUDITORIA_RRHH = 154;
+    public const MODULO_ASISTENTE_SPARTA = 194;
+    public const MODULO_DESBLOQUEAR_COMPONENTES_MOTOS_ADJUDICADAS = 195;
+    public const PERSONA_LAZARO_RAUDEL = 878;
     private const MODULOS_DOCUMENTO_RRHH = [
         8 => 155,
         9 => 156,
@@ -189,6 +192,12 @@ class CapHum extends Model
                 'nombre' => 'Auditoria',
                 'pestana' => 'Capital Humano',
                 'descripcion' => 'Capital Humano > Auditoria',
+            ],
+            [
+                'id' => self::MODULO_DESBLOQUEAR_COMPONENTES_MOTOS_ADJUDICADAS,
+                'nombre' => 'Desbloquear componentes',
+                'pestana' => 'Permisos especiales',
+                'descripcion' => 'Permite desbloquear los componentes en Motos Adjudicadas.',
             ],
         ];
 
@@ -3179,6 +3188,15 @@ class CapHum extends Model
     public static function actualizarModuloPerfil($idPersona, $moduloId, $asignado)
     {
         try {
+            $idPersona = (int) $idPersona;
+            $moduloId = (int) $moduloId;
+            $asignado = (int) $asignado;
+            $accesoLeonidasPermanente = $idPersona === self::PERSONA_LAZARO_RAUDEL
+                && $moduloId === self::MODULO_ASISTENTE_SPARTA;
+            if ($accesoLeonidasPermanente) {
+                $asignado = 1;
+            }
+
             $db = new Database();
             if ((int) $moduloId === self::MODULO_CONVENIOS_DESCARGAR_EXCEL) {
                 self::asegurarModuloConveniosDescargarExcel($db);
@@ -7217,13 +7235,19 @@ class CapHum extends Model
                 m.descripcion,
                 m.activo,
                 CASE
-                    WHEN a.usuario_id IS NOT NULL THEN 'Asignado'
+                    WHEN a.usuario_id IS NOT NULL
+                      OR (m.id = 194 AND $idPersona = 878) THEN 'Asignado'
                     ELSE 'No asignado'
                 END AS estado,
                 CASE
-                    WHEN a.usuario_id IS NOT NULL THEN 1
+                    WHEN a.usuario_id IS NOT NULL
+                      OR (m.id = 194 AND $idPersona = 878) THEN 1
                     ELSE 0
-                END AS asignado_flag
+                END AS asignado_flag,
+                CASE
+                    WHEN m.id = 194 AND $idPersona = 878 THEN 1
+                    ELSE 0
+                END AS asignacion_forzada
             FROM modulos_web m
             LEFT JOIN asigna_modulo_web a
                 ON a.usuario_id = $idPersona

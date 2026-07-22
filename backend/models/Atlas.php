@@ -3978,6 +3978,7 @@ class Atlas extends Model
                 clasificacion_id BIGINT NULL,
                 meta_creditos DECIMAL(14,2) NOT NULL DEFAULT 0,
                 meta_cash DECIMAL(16,2) NOT NULL DEFAULT 0,
+                comisiona_a_partir_de DECIMAL(14,2) NULL,
                 activo TINYINT(1) NOT NULL DEFAULT 1,
                 updated_by INT NULL,
                 fecha_alta DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -4022,6 +4023,7 @@ class Atlas extends Model
         self::asegurarColumna($db, 'atlas_presupuesto_bitacora', 'meta_cash_nueva', 'DECIMAL(16,2) NULL');
         self::asegurarColumna($db, 'atlas_presupuesto_sucursal_detalle', 'clasificacion_id', 'BIGINT NULL AFTER asesor');
         self::asegurarColumna($db, 'atlas_presupuesto_sucursal_detalle', 'asesor_persona_id', 'INT NULL AFTER asesor');
+        self::asegurarColumna($db, 'atlas_presupuesto_sucursal_detalle', 'comisiona_a_partir_de', 'DECIMAL(14,2) NULL AFTER meta_cash');
     }
 
     private static function registrarBitacoraPresupuesto(Database $db, array $datos): void
@@ -5821,6 +5823,7 @@ class Atlas extends Model
                     'clasificacion_id' => $clasificacionId,
                     'meta_creditos' => self::decimalPresupuesto($fila['meta_creditos'] ?? 0),
                     'meta_cash' => self::decimalPresupuesto($fila['meta_cash'] ?? 0),
+                    'comisiona_a_partir_de' => self::nullableDecimalPresupuesto($fila['comisiona_a_partir_de'] ?? null),
                     'usuario' => $usuarioId ?: null,
                 ];
 
@@ -5863,10 +5866,10 @@ class Atlas extends Model
                 $db->CRUD("
                     INSERT INTO atlas_presupuesto_sucursal_detalle (
                         presupuesto_id, fk_sucursal, sucursal, distribuidor, asesor, asesor_persona_id, clasificacion_id,
-                        meta_creditos, meta_cash, activo, updated_by
+                        meta_creditos, meta_cash, comisiona_a_partir_de, activo, updated_by
                     ) VALUES (
                         :presupuesto_id, :fk_sucursal, :sucursal, :distribuidor, :asesor, :asesor_persona_id, :clasificacion_id,
-                        :meta_creditos, :meta_cash, 1, :usuario
+                        :meta_creditos, :meta_cash, :comisiona_a_partir_de, 1, :usuario
                     )
                     ON DUPLICATE KEY UPDATE
                         sucursal = VALUES(sucursal),
@@ -5876,6 +5879,7 @@ class Atlas extends Model
                         clasificacion_id = VALUES(clasificacion_id),
                         meta_creditos = VALUES(meta_creditos),
                         meta_cash = VALUES(meta_cash),
+                        comisiona_a_partir_de = VALUES(comisiona_a_partir_de),
                         activo = 1,
                         updated_by = VALUES(updated_by)
                 ", $datos);
@@ -5899,6 +5903,8 @@ class Atlas extends Model
                     $metaCashNueva = self::decimalPresupuesto($datos['meta_cash'] ?? 0);
                     $clasificacionAnteriorId = $anterior ? self::nullableInt($anterior['clasificacion_id'] ?? null) : null;
                     $clasificacionNuevaId = self::nullableInt($datos['clasificacion_id'] ?? null);
+                    $comisionAnterior = $anterior ? self::nullableDecimalPresupuesto($anterior['comisiona_a_partir_de'] ?? null) : null;
+                    $comisionNueva = self::nullableDecimalPresupuesto($datos['comisiona_a_partir_de'] ?? null);
                     $cambioMeta = !$anterior
                         || abs(($metaCreditosAnterior ?? 0) - $metaCreditosNueva) > 0.0001
                         || abs(($metaCashAnterior ?? 0) - $metaCashNueva) > 0.0001;
@@ -5908,6 +5914,7 @@ class Atlas extends Model
                         || self::strVal($anterior['asesor'] ?? '') !== self::strVal($datos['asesor'] ?? '')
                         || self::nullableInt($anterior['asesor_persona_id'] ?? null) !== self::nullableInt($datos['asesor_persona_id'] ?? null)
                         || $clasificacionAnteriorId !== $clasificacionNuevaId
+                        || $comisionAnterior !== $comisionNueva
                     );
 
                     if ($cambioMeta || $cambioDatos) {
@@ -6362,6 +6369,14 @@ class Atlas extends Model
         }
         $text = preg_replace('/[^0-9.\-]/', '', str_replace(',', '', (string)$value));
         return is_numeric($text) ? (float)$text : 0.0;
+    }
+
+    private static function nullableDecimalPresupuesto($value): ?float
+    {
+        if ($value === null || trim((string)$value) === '') {
+            return null;
+        }
+        return self::decimalPresupuesto($value);
     }
 
     public static function getRiesgosOperativos(): array

@@ -4,6 +4,8 @@ namespace Services;
 
 require_once __DIR__ . '/LeonidasCapitalHumanoService.php';
 require_once __DIR__ . '/LeonidasSpreadsheetService.php';
+require_once __DIR__ . '/LeonidasLocalAgentService.php';
+require_once __DIR__ . '/../core/DatabaseLegacy.php';
 
 /**
  * Stateful, deterministic workflows for actions Leonidas may execute.
@@ -17,14 +19,19 @@ class LeonidasAgentService
     /** @var array<string, callable> */
     private array $adapters;
     private LeonidasCapitalHumanoService $capitalHumano;
+    private LeonidasLocalAgentService $agentesLocales;
 
     public function __construct(array $adapters = [])
     {
         $capitalHumano = $adapters['capital_humano_service'] ?? null;
-        unset($adapters['capital_humano_service']);
+        $agentesLocales = $adapters['local_agent_service'] ?? null;
+        unset($adapters['capital_humano_service'], $adapters['local_agent_service']);
         $this->capitalHumano = $capitalHumano instanceof LeonidasCapitalHumanoService
             ? $capitalHumano
             : new LeonidasCapitalHumanoService();
+        $this->agentesLocales = $agentesLocales instanceof LeonidasLocalAgentService
+            ? $agentesLocales
+            : new LeonidasLocalAgentService();
         $this->adapters = $adapters + [
             'convenio_ofertas' => static fn(int $idCredito): array => \Models\Convenios::getOfertasElegibles($idCredito),
             'convenio_guardar' => static fn(array $datos): array => \Models\Convenios::guardarConvenio($datos),
@@ -32,7 +39,7 @@ class LeonidasAgentService
             'moto_responsables' => static fn(): array => (new \Models\Adjudicacion())->obtenerResponsables(),
             'moto_asignar' => static function (int $idPersona, int $idCredito, int $actorId): array {
                 $adjudicacion = new \Models\Adjudicacion();
-                $local = $adjudicacion->asignarCredito($idPersona, $idCredito, $actorId);
+                $local = $adjudicacion->reasignarCredito($idPersona, $idCredito, $actorId);
                 if (empty($local['success'])) {
                     return $local;
                 }
@@ -82,8 +89,9 @@ class LeonidasAgentService
     public static function accionesEjecutables(): array
     {
         return array_merge(
-            ['convenio_crear', 'moto_asignar', 'excel_aplicar'],
-            LeonidasCapitalHumanoService::accionesEjecutables()
+            ['convenio_crear', 'moto_asignar', 'excel_aplicar', 'cartera_reactivar_tarea_movil'],
+            LeonidasCapitalHumanoService::accionesEjecutables(),
+            LeonidasLocalAgentService::accionesEjecutables()
         );
     }
 
@@ -94,9 +102,21 @@ class LeonidasAgentService
 
     public function resolver(string $mensaje, string $normalizado, array $contexto): ?array
     {
+        // Do not depend on the caller to normalize casing or accents before routing an action.
+        $normalizado = $this->normalizar($normalizado !== '' ? $normalizado : $mensaje);
+
         $capitalHumano = $this->capitalHumano->resolver($mensaje, $normalizado, $contexto);
         if ($capitalHumano !== null) {
             return $capitalHumano;
+        }
+
+        $agenteLocal = $this->agentesLocales->resolver($mensaje, $normalizado, $contexto);
+        if ($agenteLocal !== null) {
+            return $agenteLocal;
+        }
+
+        if ($this->solicitaDiagnosticoTareaMovil($normalizado)) {
+            return $this->resolverDiagnosticoTareaMovil($mensaje, $contexto);
         }
 
         $tarea = $this->tareaActual((int) ($contexto['actor_id'] ?? 0));
@@ -150,6 +170,12 @@ class LeonidasAgentService
         }
         if ($accion === 'moto_asignar') {
             return $this->ejecutarMoto($payload, $contexto);
+        }
+        if ($accion === 'cartera_reactivar_tarea_movil') {
+            return $this->ejecutarReactivacionTareaMovil($payload, $contexto);
+        }
+        if ($accion === LeonidasLocalAgentService::ACTION) {
+            return $this->agentesLocales->ejecutar($accion, $payload, $contexto);
         }
         if (LeonidasCapitalHumanoService::puedeEjecutar($accion)) {
             return $this->capitalHumano->ejecutar($accion, $payload, $contexto);
@@ -301,11 +327,6 @@ class LeonidasAgentService
             if (empty($resultado['success'])) {
                 return $this->respuesta('No pude consultar el crédito ' . $idCredito . ': ' . $this->mensajeResultado($resultado), 'agente_error');
             }
-            if (!empty($resultado['asignacion'])) {
-                $nombre = trim((string) ($resultado['asignacion']['nombre_despacho'] ?? 'otro responsable'));
-                $this->limpiarTarea();
-                return $this->respuesta('El crédito ' . $idCredito . ' ya está asignado a ' . $nombre . '. No hice cambios.', 'agente_error');
-            }
             if (!$this->creditoEsVencido($resultado)) {
                 $estatus = $this->estatusCredito($resultado);
                 $this->limpiarTarea();
@@ -325,6 +346,7 @@ class LeonidasAgentService
             $datos = [
                 'id_credito' => $idCredito,
                 'cliente' => trim((string) ($credito['nombre_cliente'] ?? 'Sin nombre')),
+                'asignacion_actual' => is_array($resultado['asignacion'] ?? null) ? $resultado['asignacion'] : [],
                 'responsables' => $responsables,
             ];
             $this->guardarTarea('moto', 'responsable', $datos, $contexto);
@@ -345,26 +367,12 @@ class LeonidasAgentService
         }
         $responsable = $coincidencias[0];
         $this->limpiarTarea();
-        return [
-            'mensaje' => 'Vista previa de la asignación:'
-                . "\nCrédito: " . (int) $datos['id_credito']
-                . "\nCliente: " . (string) $datos['cliente']
-                . "\nResponsable: " . $responsable['nombre']
-                . "\nAntes de asignar volveré a comprobar que el crédito siga libre y el responsable continúe activo.",
-            'tipo' => 'agente_propuesta',
-            'propuesta_especificacion' => [
-                'accion' => 'moto_asignar',
-                'resumen' => 'asignar el crédito ' . (int) $datos['id_credito'] . ' a ' . $responsable['nombre'],
-                'payload' => [
-                    'id_credito' => (int) $datos['id_credito'],
-                    'id_persona' => (int) $responsable['id_persona'],
-                    'responsable' => $responsable['nombre'],
-                    'cliente' => (string) $datos['cliente'],
-                    'numero_empleado' => (string) ($responsable['numero_empleado'] ?? ''),
-                    'external_id' => (string) ($responsable['external_id'] ?? ''),
-                ],
-            ],
-        ];
+        return $this->propuestaMoto(
+            (int) $datos['id_credito'],
+            (string) $datos['cliente'],
+            $responsable,
+            is_array($datos['asignacion_actual'] ?? null) ? $datos['asignacion_actual'] : []
+        );
     }
 
     /**
@@ -375,21 +383,19 @@ class LeonidasAgentService
     private function prepararMotoDesdeMensajeCompleto(string $mensaje, array $contexto): ?array
     {
         $limpio = str_replace(['**', '__', '`'], '', $mensaje);
-        if (!preg_match('/\bcr[eé]dito(?:\s+(?:n[uú]mero|no\.?|id))?\s*[:#-]?\s*(\d+)\b/iu', $limpio, $creditoMatch)) {
+        $mensajeNormalizado = $this->normalizar($limpio);
+        if (!preg_match('/\bcredito(?:\s+(?:numero|no\.?|id))?\s*[:#-]?\s*(\d+)\b/i', $mensajeNormalizado, $creditoMatch)) {
             return null;
         }
         $idCredito = (int) $creditoMatch[1];
 
         $numeroEmpleado = '';
-        if (preg_match('/\b(?:no\.?|n[uú]mero)\s*(?:de\s*)?empleado\s*:?\s*(?:\R+\s*)?([A-Z0-9_-]+)/iu', $limpio, $empleadoMatch)) {
+        if (preg_match('/\b(?:no\.?|numero)\s*(?:de\s*)?empleado\s*:?\s*([A-Z0-9_-]+)/i', $mensajeNormalizado, $empleadoMatch)) {
             $numeroEmpleado = trim((string) $empleadoMatch[1]);
         }
         $externalId = '';
-        if (preg_match('/\bexternal\s*id\s*:?\s*(?:\R+\s*)?([A-Z0-9_-]+)/iu', $limpio, $externalMatch)) {
+        if (preg_match('/\bexternal\s*id\s*:?\s*([A-Z0-9_-]+)/i', $mensajeNormalizado, $externalMatch)) {
             $externalId = trim((string) $externalMatch[1]);
-        }
-        if ($numeroEmpleado === '' && $externalId === '') {
-            return null;
         }
         if ($numeroEmpleado !== '' && $externalId !== '' && $numeroEmpleado !== $externalId) {
             return $this->respuesta(
@@ -411,17 +417,42 @@ class LeonidasAgentService
             }
         }
 
+        if ($nombreIndicado === '' && preg_match(
+            '/(?:\s+al\s+(?:gestor|usuario|responsable)\s*[:>\-]*\s*|\s+a\s+)([^\r\n]+?)\s*[.!?]*$/iu',
+            trim($limpio),
+            $nombreMatch
+        )) {
+            $nombreIndicado = trim((string) $nombreMatch[1], " \t\n\r\0\x0B.!?");
+        }
+
+        if ($numeroEmpleado === '' && $externalId === '' && $nombreIndicado === '') {
+            return null;
+        }
+
         $identificador = $numeroEmpleado !== '' ? $numeroEmpleado : $externalId;
-        $responsables = array_values(array_filter(
-            $this->responsablesNormalizados(),
-            static fn(array $responsable): bool =>
-                (string) ($responsable['numero_empleado'] ?? '') === $identificador
-                || (string) ($responsable['external_id'] ?? '') === $identificador
-        ));
+        $responsablesDisponibles = $this->responsablesNormalizados();
+        $responsables = $identificador !== ''
+            ? array_values(array_filter(
+                $responsablesDisponibles,
+                static fn(array $responsable): bool =>
+                    (string) ($responsable['numero_empleado'] ?? '') === $identificador
+                    || (string) ($responsable['external_id'] ?? '') === $identificador
+            ))
+            : array_values(array_filter(
+                $responsablesDisponibles,
+                fn(array $responsable): bool =>
+                    $this->normalizar((string) ($responsable['nombre'] ?? '')) === $this->normalizar($nombreIndicado)
+            ));
         if (count($responsables) !== 1) {
-            $detalle = count($responsables) > 1
-                ? 'El identificador corresponde a más de un responsable activo.'
-                : 'No existe un responsable activo de Motos Adjudicadas con ese No. empleado / External id.';
+            if ($identificador !== '') {
+                $detalle = count($responsables) > 1
+                    ? 'El identificador corresponde a más de un responsable activo.'
+                    : 'No existe un responsable activo de Motos Adjudicadas con ese No. empleado / External id.';
+            } else {
+                $detalle = count($responsables) > 1
+                    ? 'Encontré más de un responsable activo con el nombre ' . $nombreIndicado . '.'
+                    : 'No encontré un responsable activo de Motos Adjudicadas con el nombre ' . $nombreIndicado . '.';
+            }
             return $this->respuesta($detalle . ' No preparé ninguna asignación.', 'agente_error');
         }
         $responsable = $responsables[0];
@@ -437,10 +468,6 @@ class LeonidasAgentService
         if (empty($resultado['success'])) {
             return $this->respuesta('No pude consultar el crédito ' . $idCredito . ': ' . $this->mensajeResultado($resultado), 'agente_error');
         }
-        if (!empty($resultado['asignacion'])) {
-            $nombre = trim((string) ($resultado['asignacion']['nombre_despacho'] ?? 'otro responsable'));
-            return $this->respuesta('El crédito ' . $idCredito . ' ya está asignado a ' . $nombre . '. No hice cambios.', 'agente_error');
-        }
         if (!$this->creditoEsVencido($resultado)) {
             $estatus = $this->estatusCredito($resultado);
             return $this->respuesta(
@@ -452,22 +479,42 @@ class LeonidasAgentService
 
         $credito = is_array($resultado['credito'] ?? null) ? $resultado['credito'] : [];
         $cliente = trim((string) ($credito['nombre_cliente'] ?? 'Sin nombre'));
-        return $this->propuestaMoto($idCredito, $cliente, $responsable);
+        return $this->propuestaMoto(
+            $idCredito,
+            $cliente,
+            $responsable,
+            is_array($resultado['asignacion'] ?? null) ? $resultado['asignacion'] : []
+        );
     }
 
-    private function propuestaMoto(int $idCredito, string $cliente, array $responsable): array
+    private function propuestaMoto(int $idCredito, string $cliente, array $responsable, array $asignacionActual = []): array
     {
         $numeroEmpleado = trim((string) ($responsable['numero_empleado'] ?? ''));
         $externalId = trim((string) ($responsable['external_id'] ?? $numeroEmpleado));
+        $idPersonaActual = (int) ($asignacionActual['id_persona'] ?? 0);
+        $nombreActual = trim((string) ($asignacionActual['nombre_despacho'] ?? ''));
+        $esMismoResponsable = $idPersonaActual > 0 && $idPersonaActual === (int) $responsable['id_persona'];
+        $tipoCambio = !$asignacionActual
+            ? 'nueva asignación'
+            : ($esMismoResponsable ? 'verificación y sincronización' : 'reasignación');
+        $detalleActual = !$asignacionActual
+            ? "\nAsignación actual: ninguna."
+            : "\nAsignación actual: " . ($nombreActual !== '' ? $nombreActual : 'responsable no identificado') . '.';
+        $confirmacion = !$asignacionActual
+            ? 'Al confirmar registraré la asignación y verificaré Sparta y Legacy.'
+            : ($esMismoResponsable
+                ? 'Al confirmar revalidaré y sincronizaré la asignación existente con Legacy.'
+                : '¿Confirmas que deseas cambiar la asignación al nuevo responsable?');
 
         return [
-            'mensaje' => 'Vista previa de la asignación:'
+            'mensaje' => 'Vista previa de ' . $tipoCambio . ':'
                 . "\nCrédito: " . $idCredito
                 . "\nCliente: " . $cliente
-                . "\nResponsable: " . (string) $responsable['nombre']
+                . $detalleActual
+                . "\nNuevo responsable: " . (string) $responsable['nombre']
                 . "\nNo. empleado: " . ($numeroEmpleado !== '' ? $numeroEmpleado : 'sin dato')
                 . "\nExternal id esperado en Legacy: " . ($externalId !== '' ? $externalId : 'sin dato')
-                . "\nAl confirmar verificaré la asignación activa en Sparta, la tarea Legacy y su responsable.",
+                . "\n" . $confirmacion,
             'tipo' => 'agente_propuesta',
             'propuesta_especificacion' => [
                 'accion' => 'moto_asignar',
@@ -479,6 +526,10 @@ class LeonidasAgentService
                     'cliente' => $cliente,
                     'numero_empleado' => $numeroEmpleado,
                     'external_id' => $externalId,
+                    'reasignar' => !empty($asignacionActual),
+                    'asignacion_anterior_id' => (int) ($asignacionActual['id'] ?? 0),
+                    'asignacion_anterior_persona' => $idPersonaActual,
+                    'asignacion_anterior_nombre' => $nombreActual,
                 ],
             ],
         ];
@@ -571,8 +622,29 @@ class LeonidasAgentService
         if (empty($credito['success'])) {
             throw new \RuntimeException($this->mensajeResultado($credito));
         }
-        if (!empty($credito['asignacion'])) {
-            throw new \RuntimeException('El crédito fue asignado mientras esperábamos tu confirmación. No se duplicó la asignación.');
+        $asignacionActual = is_array($credito['asignacion'] ?? null) ? $credito['asignacion'] : [];
+        $idPersonaActual = (int) ($asignacionActual['id_persona'] ?? 0);
+        $idAsignacionActual = (int) ($asignacionActual['id'] ?? 0);
+        $esperabaReasignacion = !empty($payload['reasignar']);
+        $idPersonaAnterior = (int) ($payload['asignacion_anterior_persona'] ?? 0);
+        $idAsignacionAnterior = (int) ($payload['asignacion_anterior_id'] ?? 0);
+        if ($esperabaReasignacion) {
+            $objetivoYaAplicado = $idPersonaActual === $idPersona && $idPersonaActual > 0;
+            $coincideVistaPrevia = $idPersonaActual === $idPersonaAnterior
+                && ($idAsignacionAnterior <= 0 || $idAsignacionActual === $idAsignacionAnterior);
+            if (!$objetivoYaAplicado && !$coincideVistaPrevia) {
+                $nombreActual = trim((string) ($asignacionActual['nombre_despacho'] ?? 'ningún responsable'));
+                throw new \RuntimeException(
+                    'La asignación cambió después de la vista previa. Ahora figura ' . $nombreActual
+                    . '. Vuelve a solicitar la reasignación para confirmar con datos actuales.'
+                );
+            }
+        } elseif ($idPersonaActual > 0 && $idPersonaActual !== $idPersona) {
+            $nombreActual = trim((string) ($asignacionActual['nombre_despacho'] ?? 'otro responsable'));
+            throw new \RuntimeException(
+                'El crédito fue asignado a ' . $nombreActual
+                . ' mientras esperábamos tu confirmación. Vuelve a solicitarlo para ver la reasignación antes de cambiarla.'
+            );
         }
         if (!$this->creditoEsVencido($credito)) {
             $estatus = $this->estatusCredito($credito);
@@ -639,6 +711,7 @@ class LeonidasAgentService
         $legacyVerificado = !empty($verificacion['success'])
             && !empty($verificacion['responsable_correcto'])
             && !empty($verificacion['asignacion_activa'])
+            && !empty($verificacion['asignacion_exclusiva'])
             && !empty($verificacion['cliente_correcto'])
             && $taskId > 0;
         if (!$legacyVerificado) {
@@ -662,15 +735,19 @@ class LeonidasAgentService
         }
         $responsableLegacy = trim((string) ($verificacion['responsable'] ?? ''));
         $externalId = trim((string) ($verificacion['external_id'] ?? $externalIdActual));
-        $accionTarea = !empty($legacy['duplicate']) ? 'actualizada' : 'creada';
+        $legacyUserId = (int) ($verificacion['legacy_user_id'] ?? 0);
+        $campania = trim((string) ($verificacion['campaign_name'] ?? ''));
         return $this->respuesta(
-            'Asigné el crédito ' . $idCredito . ' de ' . $cliente . ' a ' . $responsable
-            . ' (No. empleado / External id: ' . ($externalId !== '' ? $externalId : $numeroEmpleadoActual) . ').'
-            . "\nVerifiqué que quedó:"
-            . "\n- Asignación activa en Sparta."
-            . "\n- Tarea " . $taskId . ' ' . $accionTarea . ' en Motos Adjudicadas Legacy.'
-            . "\n- Responsable Legacy vinculado a " . ($responsableLegacy !== '' ? $responsableLegacy : $responsable) . '.'
-            . "\n- Nombre del cliente registrado en la tarea: " . $cliente . '.',
+            'Revisé el crédito ' . $idCredito . ': ya quedó asignado correctamente a **' . $responsable . '**.'
+            . "\nCliente: " . $cliente
+            . "\nEmpleado: " . ($numeroEmpleadoActual !== '' ? $numeroEmpleadoActual : ($externalId !== '' ? $externalId : 'sin dato'))
+            . "\nUsuario Legacy: " . ($legacyUserId > 0 ? $legacyUserId : 'no identificado')
+            . "\nCampaña vigente: " . ($campania !== '' ? $campania : 'no identificada')
+            . "\nTarea vigente: " . $taskId
+            . "\nLa asignación activa también existe en task_user_assignments."
+            . ($responsableLegacy !== '' && $responsableLegacy !== $responsable
+                ? "\nResponsable registrado en Legacy: " . $responsableLegacy . '.'
+                : ''),
             'agente_ejecutado'
         ) + ['ejecucion' => [
             'accion' => 'moto_asignar',
@@ -680,6 +757,206 @@ class LeonidasAgentService
             'sparta_verificado' => true,
             'legacy_verificado' => true,
         ]];
+    }
+
+    private function resolverDiagnosticoTareaMovil(string $mensaje, array $contexto): array
+    {
+        $idCredito = $this->extraerEntero($mensaje);
+        if ($idCredito <= 0) {
+            return $this->respuesta(
+                'Indica el ID del credito para revisar su tarea de dictaminacion en MaxikashApp.',
+                'agente_pregunta'
+            );
+        }
+
+        $tarea = $this->buscarTareaMovil($idCredito);
+        if ($tarea === null) {
+            return $this->respuesta(
+                'No encontre una tarea Legacy para el credito ' . $idCredito
+                . '. No puedo reactivarla ni afirmar que esta asignado sin una tarea existente.',
+                'agente_diagnostico'
+            );
+        }
+
+        $gestor = trim((string) ($tarea['gestor_nombre'] ?? ''));
+        $gestor = $gestor !== '' ? $gestor : 'sin gestor vigente';
+        $asignacionActiva = (int) ($tarea['asignacion_activa'] ?? 0) === 1;
+        $usuarioActivo = empty($tarea['gestor_deleted_at']);
+
+        if ((int) ($tarea['current_user_id'] ?? 0) <= 0 || !$asignacionActiva || !$usuarioActivo) {
+            return $this->respuesta(
+                'La tarea ' . (int) $tarea['task_id'] . ' del credito ' . $idCredito
+                . ' no esta lista para mostrarse en MaxikashApp. '
+                . 'Gestor: ' . $gestor . '. '
+                . 'Asignacion activa: ' . ($asignacionActiva ? 'si' : 'no') . '. '
+                . 'Usuario Legacy activo: ' . ($usuarioActivo ? 'si' : 'no') . '. '
+                . 'No se realizo ningun cambio.',
+                'agente_diagnostico'
+            );
+        }
+
+        $tareaEliminada = !empty($tarea['task_deleted_at']);
+        $campanaEliminada = !empty($tarea['campaign_deleted_at']);
+        if (!$tareaEliminada && !$campanaEliminada) {
+            return $this->respuesta(
+                'La tarea ' . (int) $tarea['task_id'] . ' del credito ' . $idCredito
+                . ' ya esta activa para ' . $gestor . ' en la campana '
+                . (string) ($tarea['campaign_name'] ?? 'vigente') . '. '
+                . 'Si aun no aparece en MaxikashApp, actualiza la lista o vuelve a iniciar sesion; '
+                . 'el siguiente paso es validar la respuesta de la API movil.',
+                'agente_diagnostico'
+            );
+        }
+
+        $causas = [];
+        if ($campanaEliminada) {
+            $causas[] = 'la campana ' . (int) $tarea['campaign_id'] . ' fue eliminada logicamente el '
+                . (string) $tarea['campaign_deleted_at'];
+        }
+        if ($tareaEliminada) {
+            $causas[] = 'la tarea ' . (int) $tarea['task_id'] . ' fue eliminada logicamente el '
+                . (string) $tarea['task_deleted_at'];
+        }
+        $detalleCausa = implode(' y ', $causas);
+
+        if (empty($contexto['permisos_agente']['asignaciones_movil'])) {
+            return $this->respuesta(
+                'Encontre la causa: ' . $detalleCausa
+                . ', por eso MaxikashApp no la muestra aunque siga asignada a ' . $gestor . '. '
+                . 'Tu perfil no tiene el permiso Asignacion de Creditos para reactivarla.',
+                'agente_diagnostico'
+            );
+        }
+
+        return [
+            'mensaje' => 'Encontre la causa: ' . $detalleCausa
+                . '. Por eso no aparece para dictaminar en MaxikashApp, aunque conserva la asignacion a '
+                . $gestor . '. Preparare la reactivacion; al confirmar volvere a validar tarea, gestor y asignacion activa.',
+            'tipo' => 'agente_propuesta',
+            'propuesta_especificacion' => [
+                'accion' => 'cartera_reactivar_tarea_movil',
+                'resumen' => 'reactivar la tarea ' . (int) $tarea['task_id'] . ' del credito ' . $idCredito
+                    . ' para ' . $gestor . ' en MaxikashApp',
+                'payload' => [
+                    'task_id' => (int) $tarea['task_id'],
+                    'id_credito' => $idCredito,
+                    'legacy_user_id' => (int) $tarea['current_user_id'],
+                    'gestor' => $gestor,
+                    'deleted_at_esperado' => (string) $tarea['task_deleted_at'],
+                    'campaign_id' => (int) $tarea['campaign_id'],
+                    'campaign_deleted_at_esperado' => (string) $tarea['campaign_deleted_at'],
+                ],
+            ],
+        ];
+    }
+
+    private function ejecutarReactivacionTareaMovil(array $payload, array $contexto): array
+    {
+        if (empty($contexto['permisos_agente']['asignaciones_movil'])) {
+            throw new \RuntimeException('Tu perfil ya no tiene permiso de Asignacion de Creditos para reactivar tareas moviles.');
+        }
+
+        $idCredito = (int) ($payload['id_credito'] ?? 0);
+        $taskId = (int) ($payload['task_id'] ?? 0);
+        $legacyUserId = (int) ($payload['legacy_user_id'] ?? 0);
+        $campaignId = (int) ($payload['campaign_id'] ?? 0);
+        if ($idCredito <= 0 || $taskId <= 0 || $legacyUserId <= 0 || $campaignId <= 0) {
+            throw new \RuntimeException('La propuesta de reactivacion esta incompleta. Vuelve a revisar el credito antes de confirmar.');
+        }
+
+        $tarea = $this->buscarTareaMovil($idCredito);
+        if ($tarea === null || (int) $tarea['task_id'] !== $taskId || (int) $tarea['campaign_id'] !== $campaignId) {
+            throw new \RuntimeException('La tarea del credito cambio desde la vista previa. No se realizo ningun cambio.');
+        }
+        if ((int) ($tarea['current_user_id'] ?? 0) !== $legacyUserId
+            || (int) ($tarea['asignacion_activa'] ?? 0) !== 1
+            || !empty($tarea['gestor_deleted_at'])) {
+            throw new \RuntimeException('La asignacion o el gestor cambiaron desde la vista previa. No se realizo ningun cambio.');
+        }
+
+        $seReactivo = !empty($tarea['task_deleted_at']);
+        $campanaReactivada = !empty($tarea['campaign_deleted_at']);
+        $db = new \Core\DatabaseLegacy();
+        if ($campanaReactivada) {
+            $actualizadas = $db->CRUD(
+                'UPDATE campaigns
+                 SET deleted_at = NULL, updated_at = NOW()
+                 WHERE id = :campaign_id
+                   AND deleted_at IS NOT NULL',
+                ['campaign_id' => $campaignId]
+            );
+            if ($actualizadas !== 1) {
+                throw new \RuntimeException('La campana no pudo reactivarse porque cambio durante la confirmacion. No se realizo ningun cambio adicional.');
+            }
+        }
+        if ($seReactivo) {
+            $actualizadas = $db->CRUD(
+                'UPDATE tasks
+                 SET deleted_at = NULL, updated_at = NOW()
+                 WHERE id = :task_id
+                   AND credit_number = :credito
+                   AND current_user_id = :usuario
+                   AND deleted_at IS NOT NULL',
+                ['task_id' => $taskId, 'credito' => (string) $idCredito, 'usuario' => $legacyUserId]
+            );
+            if ($actualizadas !== 1) {
+                throw new \RuntimeException('La tarea no pudo reactivarse porque cambio durante la confirmacion. No se realizo ningun cambio adicional.');
+            }
+        }
+
+        $verificada = $this->buscarTareaMovil($idCredito);
+        if ($verificada === null
+            || (int) $verificada['task_id'] !== $taskId
+            || !empty($verificada['task_deleted_at'])
+            || !empty($verificada['campaign_deleted_at'])
+            || (int) ($verificada['asignacion_activa'] ?? 0) !== 1) {
+            throw new \RuntimeException('La reactivacion no pudo verificarse completamente. Revisa la tarea Legacy antes de informar que esta disponible.');
+        }
+
+        $gestor = trim((string) ($verificada['gestor_nombre'] ?? $payload['gestor'] ?? 'el gestor'));
+        return $this->respuesta(
+            ($seReactivo || $campanaReactivada)
+                ? 'Listo. Reactive ' . ($campanaReactivada ? 'la campana y ' : '') . ($seReactivo ? 'la tarea ' . $taskId : 'la campana')
+                    . ' del credito ' . $idCredito . ' para ' . $gestor
+                    . '. La tarea, el gestor y la asignacion activa fueron verificados. En MaxikashApp debe aparecer tras actualizar la lista o volver a iniciar sesion.'
+                : 'La tarea ' . $taskId . ' del credito ' . $idCredito . ' ya estaba activa para ' . $gestor
+                    . '. Verifique tarea, gestor y asignacion activa sin modificar datos. Si aun no aparece en MaxikashApp, hay que revisar la respuesta de la API movil.',
+            'agente_ejecutado'
+        ) + ['ejecucion' => [
+            'accion' => 'cartera_reactivar_tarea_movil',
+            'id_credito' => $idCredito,
+            'task_id' => $taskId,
+            'campaign_id' => $campaignId,
+            'legacy_user_id' => $legacyUserId,
+            'legacy_verificado' => true,
+        ]];
+    }
+
+    private function buscarTareaMovil(int $idCredito): ?array
+    {
+        $db = new \Core\DatabaseLegacy();
+        return $db->queryOne(
+            'SELECT t.id AS task_id, t.credit_number, t.current_user_id, t.status,
+                    t.deleted_at AS task_deleted_at, t.updated_at AS task_updated_at,
+                    c.id AS campaign_id, c.name AS campaign_name, c.deleted_at AS campaign_deleted_at,
+                    c.start_date, c.end_date,
+                    u.name AS gestor_nombre, u.deleted_at AS gestor_deleted_at,
+                    EXISTS(
+                        SELECT 1 FROM task_user_assignments a
+                        WHERE a.task_id = t.id
+                          AND a.user_id = t.current_user_id
+                          AND a.unassigned_at IS NULL
+                    ) AS asignacion_activa
+             FROM tasks t
+             INNER JOIN campaigns c ON c.id = t.campaign_id
+             LEFT JOIN users u ON u.id = t.current_user_id
+             WHERE CAST(t.credit_number AS CHAR) = :credito
+             ORDER BY
+                CASE WHEN c.start_date <= CURDATE() AND c.end_date >= CURDATE() THEN 0 ELSE 1 END,
+                c.end_date DESC, t.id DESC
+             LIMIT 1',
+            ['credito' => (string) $idCredito]
+        );
     }
 
     private function responsablesNormalizados(): array
@@ -760,6 +1037,18 @@ class LeonidasAgentService
             && preg_match('/\b(asignar|asigna|adjudicar|adjudica|quiero|necesito)\b/u', $mensaje) === 1;
     }
 
+    private function solicitaDiagnosticoTareaMovil(string $mensaje): bool
+    {
+        $incluyeCredito = preg_match('/\b\d{4,}\b/', $mensaje) === 1;
+        $incluyeContextoMovil = preg_match(
+            '/\b(maxikashapp|app movil|movil|dictaminar|no aparece|no aparec|no sale|no lo ven|no lo ve)\b/u',
+            $mensaje
+        ) === 1;
+        $incluyeAccion = preg_match('/\b(revisar|revisa|validar|valida|verificar|verifica|reactivar|reactiva|asignad|tarea)\b/u', $mensaje) === 1;
+
+        return $incluyeCredito && $incluyeContextoMovil && $incluyeAccion;
+    }
+
     private function extraerEntero(string $mensaje): int
     {
         return preg_match('/\b(\d+)\b/', $mensaje, $m) ? (int) $m[1] : 0;
@@ -793,6 +1082,10 @@ class LeonidasAgentService
     private function normalizar(string $texto): string
     {
         $texto = mb_strtolower(trim($texto), 'UTF-8');
+        $texto = strtr($texto, [
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u',
+            'ü' => 'u', 'ñ' => 'n',
+        ]);
         $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
         return preg_replace('/\s+/', ' ', $ascii !== false ? $ascii : $texto) ?? $texto;
     }

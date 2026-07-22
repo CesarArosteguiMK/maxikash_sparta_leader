@@ -51,6 +51,9 @@ class LeonidasAssistantService
                 'tipo' => 'capacidades',
             ];
             $respuesta['mensaje'] = 'Puedo consultar en tiempo real S2, créditos, pagos, Segundómetro, gastos de cobranza, plantilla, candidatos y las fuentes conectadas a Sparta. También genero reportes y gráficas, localizo colaboradores, explico módulos, abro menús permitidos, preparo solicitudes de vacaciones y llevo mensajes entre usuarios. Consultar y abrir se hace de inmediato; solo modificar datos o enviar comunicaciones requiere confirmación final.';
+            if (!empty($contexto['permisos_agente']['servicios_locales'])) {
+                $respuesta['mensaje'] .= ' Tambien puedo consultar el estado y, con tu confirmacion, iniciar, detener o reiniciar los agentes de Segundometro, correos de primeros pagos y gastos de cobranza.';
+            }
         } elseif ($this->esConsultaGraficas($normalizado)) {
             $respuesta = [
                 'mensaje' => 'Sí. Puedo crear gráficas con datos reales consultados en Sparta. Pídeme el indicador y, si aplica, el periodo o agrupación; por ejemplo: "grafica los candidatos por etapa" o "grafica los buckets del Segundómetro".',
@@ -72,6 +75,8 @@ class LeonidasAssistantService
                 );
                 unset($respuesta['propuesta_especificacion']);
             }
+        } elseif ($consultaConvenios = (new LeonidasConveniosService())->resolver($mensaje, $normalizado)) {
+            $respuesta = $consultaConvenios;
         } elseif ($flujoVacaciones = $this->resolverFlujoVacaciones($mensaje, $normalizado)) {
             $respuesta = $flujoVacaciones;
         } elseif ($this->esSaludo($normalizado)) {
@@ -320,6 +325,7 @@ class LeonidasAssistantService
             'permisos_agente' => [
                 'convenio' => $this->tieneAccesoModulo(46) && $this->tieneAccesoModulo(32),
                 'motos' => $this->tieneAccesoModulo(62) || $this->tieneAccesoModulo(80),
+                'asignaciones_movil' => $this->tieneAccesoModulo(20),
                 'id_celula' => $this->resolverCelulaConvenio(),
                 'rrhh_lectura' => $this->tieneAccesoModulo(4) || $this->tieneAccesoModulo(34) || $this->tieneAccesoModulo(154),
                 'auditoria_rrhh' => $this->tieneAccesoModulo(154),
@@ -340,6 +346,7 @@ class LeonidasAssistantService
                 'segundometro' => $this->tieneAlgunoDeLosModulos([16, 60, 61, 77, 81]),
                 'primeros_pagos' => $this->tieneAlgunoDeLosModulos([49, 65, 66, 67, 68]),
                 'gastos_cobranza' => $this->tieneAccesoModulo(40),
+                'servicios_locales' => $actorId === 878,
             ],
             'salario_totp_vigente' => (int) ($_SESSION['rrhh_salario_sensible_totp_until'] ?? 0) >= time(),
         ];
@@ -1412,6 +1419,7 @@ class LeonidasAssistantService
                 'Abrir menus permitidos de Capital Humano desde una instruccion.',
                 'Preparar solicitudes de permisos, mensajes, descargas o cambios para confirmacion; no las ejecuta sin confirmar.',
                 'Enviar mensajes internos confirmados, mostrarlos al destinatario y regresar con su respuesta o reaccion.',
+                'Consultar el estado y, con confirmacion explicita, iniciar, detener o reiniciar los agentes locales de Segundometro, correos de primeros pagos y gastos de cobranza.',
             ],
             'capacidades_en_preparacion' => [
                 'Consultas especializadas de modulos que requieren reglas de negocio adicionales a la pasarela universal.',

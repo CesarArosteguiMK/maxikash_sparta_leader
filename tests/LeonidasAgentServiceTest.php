@@ -90,11 +90,14 @@ function newService(array $overrides = []): LeonidasAgentService
                 'verificacion' => [
                     'success' => true,
                     'task_id' => 910661,
+                    'legacy_user_id' => 75,
+                    'campaign_name' => 'ASIGNACION_W29_1A7',
                     'external_id' => '126',
                     'responsable' => 'RESPONSABLE UNO',
                     'client_name' => 'CLIENTE MOTO',
                     'responsable_correcto' => true,
                     'asignacion_activa' => true,
+                    'asignacion_exclusiva' => true,
                     'cliente_correcto' => true,
                 ],
             ],
@@ -148,8 +151,10 @@ $motoProposal = $moto->resolver('1', '1', context());
 assertSameValue('moto_asignar', $motoProposal['propuesta_especificacion']['accion'], 'Debe preparar la asignacion de moto.');
 $motoExecuted = $moto->ejecutar('moto_asignar', $motoProposal['propuesta_especificacion']['payload'], context());
 assertSameValue('agente_ejecutado', $motoExecuted['tipo'], 'Debe asignar el credito confirmado.');
-assertTrue(str_contains($motoExecuted['mensaje'], 'Tarea 910661 creada'), 'Debe informar la tarea Legacy verificada.');
-assertTrue(str_contains($motoExecuted['mensaje'], 'Asignación activa en Sparta'), 'Debe confirmar la asignacion local verificada.');
+assertTrue(str_contains($motoExecuted['mensaje'], 'Tarea vigente: 910661'), 'Debe informar la tarea Legacy verificada.');
+assertTrue(str_contains($motoExecuted['mensaje'], 'Usuario Legacy: 75'), 'Debe informar el usuario Legacy verificado.');
+assertTrue(str_contains($motoExecuted['mensaje'], 'Campaña vigente: ASIGNACION_W29_1A7'), 'Debe informar la campaña Legacy verificada.');
+assertTrue(str_contains($motoExecuted['mensaje'], 'task_user_assignments'), 'Debe confirmar la asignacion local verificada.');
 
 $_SESSION = [];
 $leticia = newService([
@@ -182,11 +187,14 @@ $leticia = newService([
             'verificacion' => [
                 'success' => true,
                 'task_id' => 910661,
+                'legacy_user_id' => 75,
+                'campaign_name' => 'ASIGNACION_W29_1A7',
                 'external_id' => '126',
                 'responsable' => 'LETICIA PEREZ CRUZ',
                 'client_name' => 'CARLOS NOE CRUZ AGUILAR',
                 'responsable_correcto' => true,
                 'asignacion_activa' => true,
+                'asignacion_exclusiva' => true,
                 'cliente_correcto' => true,
             ],
         ],
@@ -204,6 +212,64 @@ assertSameValue('agente_ejecutado', $directaEjecutada['tipo'], 'Debe ejecutar la
 assertTrue(str_contains($directaEjecutada['mensaje'], 'CARLOS NOE CRUZ AGUILAR'), 'Debe informar el cliente verificado en Legacy.');
 assertTrue(str_contains($directaEjecutada['mensaje'], 'LETICIA PEREZ CRUZ'), 'Debe informar el responsable verificado.');
 assertSameValue(910661, $directaEjecutada['ejecucion']['task_id'], 'Debe exponer el task Legacy verificado.');
+
+$_SESSION = [];
+$zyanya = newService([
+    'moto_buscar' => static fn(int $id): array => [
+        'success' => true,
+        'credito' => [
+            'id_credito' => $id,
+            'nombre_cliente' => 'CLIENTE CREDITO 2253820',
+            'status_credito' => 'Vencido',
+        ],
+        'status_credito' => 'Vencido',
+        'asignacion' => null,
+    ],
+    'moto_responsables' => static fn(): array => [[
+        'id_persona' => 776,
+        'nombre_completo' => 'ZYANYA NAYELLY DIAZ CASTREJON',
+        'puesto' => 'Gestor',
+        'numero_empleado' => '776',
+        'codigo_contpac' => '1842',
+    ]],
+    'moto_responsable_activo' => static fn(int $id): bool => $id === 776,
+    'moto_asignar' => static fn(int $persona, int $credito, int $actor): array => [
+        'success' => true,
+        'partial' => false,
+        'local' => ['success' => true, 'id_credito' => $credito, 'id_persona' => $persona],
+        'legacy' => [
+            'success' => true,
+            'task_id' => 910613,
+            'duplicate' => false,
+            'verificacion' => [
+                'success' => true,
+                'task_id' => 910613,
+                'legacy_user_id' => 75,
+                'campaign_name' => 'ASIGNACION_W29_1A7',
+                'external_id' => '776',
+                'responsable' => 'ZYANYA NAYELLY DIAZ CASTREJON',
+                'client_name' => 'CLIENTE CREDITO 2253820',
+                'responsable_correcto' => true,
+                'asignacion_activa' => true,
+                'asignacion_exclusiva' => true,
+                'cliente_correcto' => true,
+            ],
+        ],
+    ],
+]);
+$solicitudZyanya = "En Motos Adjudicadas, asigna el cr\u{00E9}dito 2253820 a ZYANYA NAYELLY DIAZ CASTREJON.";
+$propuestaZyanya = $zyanya->resolver($solicitudZyanya, $solicitudZyanya, context());
+assertSameValue('agente_propuesta', $propuestaZyanya['tipo'], 'Debe resolver una asignacion directa usando solo el nombre completo.');
+assertSameValue(2253820, $propuestaZyanya['propuesta_especificacion']['payload']['id_credito'], 'Debe conservar el credito solicitado para Zyanya.');
+assertSameValue(776, $propuestaZyanya['propuesta_especificacion']['payload']['id_persona'], 'Debe identificar a Zyanya por nombre completo.');
+assertTrue(str_contains(mb_strtolower($propuestaZyanya['mensaje'], 'UTF-8'), 'confirm'), 'Debe mostrar una vista previa y pedir confirmacion.');
+$zyanyaEjecutada = $zyanya->ejecutar('moto_asignar', $propuestaZyanya['propuesta_especificacion']['payload'], context());
+assertSameValue('agente_ejecutado', $zyanyaEjecutada['tipo'], 'Debe ejecutar la asignacion de Zyanya tras la confirmacion.');
+assertTrue(str_contains($zyanyaEjecutada['mensaje'], 'Empleado: 776'), 'Debe informar el empleado verificado.');
+assertTrue(str_contains($zyanyaEjecutada['mensaje'], 'Usuario Legacy: 75'), 'Debe informar el usuario Legacy verificado.');
+assertTrue(str_contains($zyanyaEjecutada['mensaje'], 'Campaña vigente: ASIGNACION_W29_1A7'), 'Debe informar la campaña vigente.');
+assertTrue(str_contains($zyanyaEjecutada['mensaje'], 'Tarea vigente: 910613'), 'Debe informar la tarea vigente.');
+assertTrue(str_contains($zyanyaEjecutada['mensaje'], 'task_user_assignments'), 'Debe verificar la asignacion activa local.');
 
 $_SESSION = [];
 $idsDistintos = str_replace("**126**\n**LETICIA PEREZ CRUZ**\n**External id:**\n**126**", "**126**\n**LETICIA PEREZ CRUZ**\n**External id:**\n**999**", $solicitudDirecta);
@@ -234,12 +300,40 @@ assertTrue(str_contains($parcial['mensaje'], 'Legacy'), 'Debe explicar que fallo
 $_SESSION = [];
 $assigned = newService(['moto_buscar' => static fn(int $id): array => [
     'success' => true,
-    'credito' => ['id_credito' => $id, 'nombre_cliente' => 'CLIENTE'],
-    'asignacion' => ['nombre_despacho' => 'RESPONSABLE EXISTENTE'],
+    'credito' => ['id_credito' => $id, 'nombre_cliente' => 'CLIENTE', 'status_credito' => 'Vencido'],
+    'status_credito' => 'Vencido',
+    'asignacion' => [
+        'id' => 77,
+        'id_persona' => 99,
+        'nombre_despacho' => 'RESPONSABLE EXISTENTE',
+    ],
 ]]);
 $assigned->resolver('quiero adjudicar una moto', 'quiero adjudicar una moto', context());
-$blocked = $assigned->resolver('1881', '1881', context());
-assertSameValue('agente_error', $blocked['tipo'], 'No debe duplicar una asignacion activa.');
+$assignedOptions = $assigned->resolver('1881', '1881', context());
+assertSameValue('agente_opciones', $assignedOptions['tipo'], 'Una asignacion existente debe permitir elegir al nuevo responsable.');
+$reassignmentProposal = $assigned->resolver('1', '1', context());
+assertSameValue('agente_propuesta', $reassignmentProposal['tipo'], 'Debe pedir confirmacion antes de cambiar la asignacion.');
+assertTrue(!empty($reassignmentProposal['propuesta_especificacion']['payload']['reasignar']), 'La vista previa debe marcar que es una reasignacion.');
+assertSameValue(77, $reassignmentProposal['propuesta_especificacion']['payload']['asignacion_anterior_id'], 'Debe conservar el registro anterior para evitar confirmaciones obsoletas.');
+assertSameValue(99, $reassignmentProposal['propuesta_especificacion']['payload']['asignacion_anterior_persona'], 'Debe conservar al responsable anterior.');
+assertTrue(str_contains($reassignmentProposal['mensaje'], 'RESPONSABLE EXISTENTE'), 'Debe mostrar a quien se reemplazara.');
+
+$changedAssignment = newService(['moto_buscar' => static fn(int $id): array => [
+    'success' => true,
+    'credito' => ['id_credito' => $id, 'nombre_cliente' => 'CLIENTE', 'status_credito' => 'Vencido'],
+    'status_credito' => 'Vencido',
+    'asignacion' => [
+        'id' => 88,
+        'id_persona' => 100,
+        'nombre_despacho' => 'TERCER RESPONSABLE',
+    ],
+]]);
+try {
+    $changedAssignment->ejecutar('moto_asignar', $reassignmentProposal['propuesta_especificacion']['payload'], context());
+    throw new RuntimeException('Una confirmacion vieja no debe sobrescribir una asignacion posterior.');
+} catch (RuntimeException $error) {
+    assertTrue(str_contains($error->getMessage(), 'cambió después de la vista previa'), 'Debe detectar que la asignacion cambio despues de la confirmacion mostrada.');
+}
 
 $_SESSION = [];
 $current = newService(['moto_buscar' => static fn(int $id): array => [

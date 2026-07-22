@@ -17,7 +17,7 @@ class LeonidasKnowledgeService
 
     public function contextoPara(string $pregunta, array $modulosUsuario): array
     {
-        return [
+        $contexto = [
             'identidad_del_producto' => 'Sparta es la plataforma operativa de MaxiKash y Furia Motos para credito, cobranza, capital humano, analitica y operacion.',
             'principios_criticos' => [
                 'numero_empleado y codigo_contpac son campos distintos. Nunca se sustituyen ni se mezclan.',
@@ -32,6 +32,12 @@ class LeonidasKnowledgeService
             'modulos_disponibles_para_el_usuario' => array_values(array_unique(array_map('intval', $modulosUsuario))),
             'documentacion_relevante' => $this->buscarDocumentacion($pregunta),
         ];
+
+        if ($this->esConsultaConvenios($pregunta)) {
+            $contexto['reglas_operativas_convenios'] = (new LeonidasConveniosService())->conocimiento();
+        }
+
+        return $contexto;
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -100,7 +106,7 @@ class LeonidasKnowledgeService
             ['modulo' => 'Capital Humano - Control de Bajas', 'funcion' => 'Gestiona bajas, motivos, fechas y documentacion de finiquito cuando corresponde.'],
             ['modulo' => 'Capital Humano - Vacaciones', 'funcion' => 'Consulta y administra solicitudes y paneles de vacaciones.'],
             ['modulo' => 'Analitica', 'funcion' => 'Ofrece reportes de cartera, primeros pagos, campo, comparativas, asignacion y avance operativo.'],
-            ['modulo' => 'Convenios', 'funcion' => 'Opera asignacion de creditos, cartera, convenios, cierre de credito y reporteria.'],
+            ['modulo' => 'Convenios', 'funcion' => 'Calcula ofertas por reglas de credito y producto, registra convenios, valida pagos, concilia comprobantes y administra cancelaciones y reactivaciones auditadas.'],
             ['modulo' => 'Motos Adjudicadas', 'funcion' => 'Gestiona operaciones, evidencias, recuperacion, cartera, recepcion, inventario y tracking de motos.'],
             ['modulo' => 'Tickets', 'funcion' => 'Registra y administra tickets de Sabueso y su seguimiento.'],
             ['modulo' => 'Atlas', 'funcion' => 'Administra rutas, presupuestos, creditos operativos, catalogos, riesgos y accesos Atlas.'],
@@ -192,5 +198,13 @@ class LeonidasKnowledgeService
         $texto = mb_strtolower($texto, 'UTF-8');
         $convertido = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
         return $convertido === false ? $texto : $convertido;
+    }
+
+    private function esConsultaConvenios(string $pregunta): bool
+    {
+        $normalizada = $this->normalizar($pregunta);
+        return str_contains($normalizada, 'convenio')
+            || str_contains($normalizada, 'pendiente de conciliar')
+            || str_contains($normalizada, 'oferta de convenio');
     }
 }

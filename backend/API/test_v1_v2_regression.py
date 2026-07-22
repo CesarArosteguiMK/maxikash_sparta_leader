@@ -179,6 +179,47 @@ def test_generic_application_is_accepted_as_cv():
     assert result["aprobado"] is True
 
 
+def test_hoja_retencion_accepts_signed_carta_no_adeudo():
+    extracted = {
+        "tipo_documento": "carta_no_adeudo",
+        "confianza_lectura": "alta",
+        "calidad_imagen": "buena",
+        "campos": {
+            "nombre_completo": CANDIDATE,
+            "nombre_y_firma_lleno": True,
+            "firma_detectada": True,
+        },
+        "evidencia_insuficiente": False,
+        "observaciones": [],
+    }
+
+    result = validate_quick_extracted(extracted, "hoja_retencion")
+
+    assert result["aprobado"] is True
+    assert result["errores"] == []
+
+
+def test_hoja_retencion_keeps_name_and_signature_as_critical_fields():
+    extracted = {
+        "tipo_documento": "carta_no_adeudo",
+        "confianza_lectura": "alta",
+        "calidad_imagen": "buena",
+        "campos": {
+            "nombre_completo": None,
+            "nombre_y_firma_lleno": False,
+            "firma_detectada": False,
+        },
+        "evidencia_insuficiente": True,
+        "observaciones": [],
+    }
+
+    result = validate_quick_extracted(extracted, "hoja_retencion")
+
+    assert result["aprobado"] is False
+    assert any("nombre completo" in error for error in result["errores"])
+    assert any("no esta firmada" in error for error in result["errores"])
+
+
 @pytest.mark.asyncio
 async def test_v2_runtime_failure_allows_v1_fallback(monkeypatch):
     class FailingAI:
