@@ -58,7 +58,7 @@ function ec_worker_stdout_flush(): void
 
 $baseDir = dirname(__FILE__);
 loadEnvFile($baseDir . '/config.local.env');
-require_once $baseDir . '/../ec-shared/ec___SPARTA_SECRET_REDACTED___pipeline.php';
+require_once $baseDir . '/../ec-shared/ec_estado_cuenta_pipeline.php';
 
 $opts = getopt('', [
     'file:',

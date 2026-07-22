@@ -47,7 +47,7 @@ date_default_timezone_set('America/Mexico_City');
 $baseDir = dirname(__FILE__);
 $workerEnv = dirname($baseDir) . DIRECTORY_SEPARATOR . 'ec-webhook-worker' . DIRECTORY_SEPARATOR . 'config.local.env';
 loadEnvFile($workerEnv);
-require_once dirname($baseDir) . DIRECTORY_SEPARATOR . 'ec-shared' . DIRECTORY_SEPARATOR . 'ec___SPARTA_SECRET_REDACTED___pipeline.php';
+require_once dirname($baseDir) . DIRECTORY_SEPARATOR . 'ec-shared' . DIRECTORY_SEPARATOR . 'ec_estado_cuenta_pipeline.php';
 
 $opts = getopt('', [
     'input:',
