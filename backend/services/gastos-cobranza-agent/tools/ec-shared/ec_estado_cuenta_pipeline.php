@@ -63,7 +63,20 @@ function ecWorkerBootstrapBackend(string $baseDir): void
             strpos($clase, 'Psr\\') === 0) {
             return;
         }
-        $ruta = EC_WORKER_BACKEND_ROOT . '/' . str_replace('\\', '/', $clase) . '.php';
+
+        $relativa = str_replace('\\', '/', $clase);
+        // En Windows `Core/` y `core/` resuelven igual, pero el agente productivo
+        // corre sobre un sistema de archivos sensible a mayúsculas/minúsculas.
+        // Los directorios reales del backend se conservan en minúsculas.
+        foreach (['Core', 'Models', 'Controllers', 'Services'] as $namespace) {
+            $prefijo = $namespace . '/';
+            if (strpos($relativa, $prefijo) === 0) {
+                $relativa = strtolower($namespace) . '/' . substr($relativa, strlen($prefijo));
+                break;
+            }
+        }
+
+        $ruta = EC_WORKER_BACKEND_ROOT . '/' . $relativa . '.php';
         if (file_exists($ruta)) {
             require_once $ruta;
         }

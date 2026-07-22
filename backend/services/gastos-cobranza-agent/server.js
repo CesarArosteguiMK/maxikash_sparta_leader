@@ -2772,6 +2772,18 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
       estado_reporte: estadoRep,
       traceId: traceId || null,
     };
+    if (code !== 0) {
+      const diagnostico = `${stderr}\n${outSlice}`
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(-4)
+        .join(' | ')
+        .slice(-900);
+      payload.mensaje = diagnostico
+        ? `El proceso ${tipo} terminó con código ${code}. Último detalle: ${diagnostico}`
+        : `El proceso ${tipo} terminó con código ${code} sin salida de diagnóstico.`;
+    }
     if (erroresReintentoCsv) {
       payload.errores_reintento_csv = erroresReintentoCsv;
     }
