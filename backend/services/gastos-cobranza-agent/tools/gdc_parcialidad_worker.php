@@ -291,9 +291,16 @@ function loadEnvFile(string $path): void
         $k = trim(substr($line, 0, $p));
         $v = trim(substr($line, $p + 1));
         $v = trim($v, " \t\"'");
-        if ($k !== '') {
-            putenv($k . '=' . $v);
+        // El agente puede inyectar secretos desde SPARTA_ENV_FILE. Un valor
+        // vacío de la plantilla local no debe borrar ese valor heredado.
+        if ($k === '' || $v === '') {
+            continue;
         }
+        $existente = getenv($k);
+        if ($existente !== false && trim((string) $existente) !== '') {
+            continue;
+        }
+        putenv($k . '=' . $v);
     }
 }
 

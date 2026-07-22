@@ -1203,9 +1203,17 @@ function sanitizeTraceId(raw) {
   return /^[A-Za-z0-9._:-]{6,80}$/.test(t) ? t : '';
 }
 
-/** Solo URL dedicada a lista negra / worker EC; no reutiliza el webhook post-reporte (evita mezclar espacios de Chat). */
+/**
+ * Webhook para worker EC/lista negra. Por defecto comparte el canal del
+ * reporte de gastos de cobranza; una URL EC dedicada sigue siendo opcional.
+ */
 function ecWorkflowWebhookUrl() {
-  return String(process.env.GASTOS_GC_EC_CHAT_WEBHOOK_URL || '').trim();
+  return String(
+    process.env.GASTOS_GC_EC_CHAT_WEBHOOK_URL ||
+      process.env.GASTOS_GC_REPORTE_CHAT_WEBHOOK_URL ||
+      process.env.GOOGLE_CHAT_WEBHOOK_URL ||
+      '',
+  ).trim();
 }
 
 function ecWorkflowWebhookEnabled() {
@@ -1970,6 +1978,8 @@ app.use(express.json());
 
 /** Un solo proceso EC (worker o enrich) a la vez; evita solapar worker.php en el mismo agente. */
 let ecLauncherBusy = false;
+/** Último trabajo EC: permite que la web consulte el resultado sin mantener una petición HTTP abierta por horas. */
+let ecLauncherLastJob = null;
 /** Carga a lista negra (/carga-verificacion-semana/run) en curso; mismo agente no debe aceptar worker ni otra carga. */
 let cargaVerificacionSemanaBusy = false;
 /** Un solo cronjob manual (insertar mora / detectar liquidados / eliminar despachos) a la vez. */
@@ -2559,6 +2569,9 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 160);
+  const asyncRequested = req.body?.async === true;
+  const ecChatUrl = ecWorkflowWebhookUrl() || String(process.env.GOOGLE_CHAT_WEBHOOK_URL || '').trim();
+  const chatNotificacionesActivas = ecChatUrl !== '';
 
   if (!archivoRelRaw || !archivoRelRaw.toLowerCase().endsWith('.xlsx')) {
     return res.status(400).json({
@@ -2625,6 +2638,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
       `--fecha-corte=${fechaCorte}`,
       `--omitir-primeros=${omitir}`,
     ];
+    if (!chatNotificacionesActivas) args.push('--no-chat');
   } else if (tipo === 'enrich') {
     if (!fs.existsSync(path.join(EC_ENRICH_DIR, 'enrich_gc_excel.php'))) {
       return res.status(500).json({
@@ -2637,10 +2651,10 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
       ...phpUnbuf,
       path.join(EC_ENRICH_DIR, 'enrich_gc_excel.php'),
       `--input=${abs}`,
-      '--chat',
       `--fecha-corte=${fechaCorte}`,
       `--omitir-primeros=${omitir}`,
     ];
+    if (chatNotificacionesActivas) args.push('--chat');
     if (soloColumnas) args.push('--solo-columnas');
   } else {
     return res.status(400).json({ success: false, mensaje: 'tipo debe ser "worker" o "enrich".' });
@@ -2661,6 +2675,16 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     });
   }
   ecLauncherBusy = true;
+  const ecJobId = `ec_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
+  const ecJob = {
+    job_id: ecJobId,
+    tipo,
+    archivo: archivoEstado,
+    en_ejecucion: true,
+    iniciado_en: new Date().toISOString(),
+    resultado: null,
+  };
+  ecLauncherLastJob = ecJob;
 
   /** Solo reportes cobranza en reporte/: la tabla del shell muestra estado por .estados_reporte.json */
   const marcarEstadoWorkerReporte =
@@ -2670,9 +2694,8 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   }
 
   const env = { ...process.env, FECHA_CORTE: fechaCorte };
-  if (tipo === 'worker') {
-    const workerHook = ecWorkflowWebhookUrl();
-    if (workerHook) env.GOOGLE_CHAT_WEBHOOK_URL = workerHook;
+  if (tipo === 'worker' || tipo === 'enrich') {
+    if (chatNotificacionesActivas) env.GOOGLE_CHAT_WEBHOOK_URL = ecChatUrl;
     if (process.env.S2_ESTADO_CUENTA_TOKEN) env.TOKEN = process.env.S2_ESTADO_CUENTA_TOKEN;
     if (process.env.S2_ESTADO_CUENTA_URL) env.ENDPOINT = process.env.S2_ESTADO_CUENTA_URL;
   }
@@ -2682,6 +2705,11 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   appendLog(
     `--- ec-launcher ${tipo} archivo=${archivoEstado} fecha=${fechaCorte} php=${php}${traceId ? ` trace=${traceId}` : ''}${ejecutadoPor ? ` ejecutado_por=${ejecutadoPor}` : ''} ---`,
   );
+  if (!chatNotificacionesActivas) {
+    appendLog(
+      '[ec-launcher] Avisos Google Chat desactivados: configure GASTOS_GC_REPORTE_CHAT_WEBHOOK_URL (o GASTOS_GC_EC_CHAT_WEBHOOK_URL) en el archivo seguro del agente.',
+    );
+  }
   if (tipo === 'worker' && ecWorkerChatEventsEnabled()) {
     void notifyEcWorkflowWebhook('worker_inicio', traceId, [
       `archivo=${archivoEstado}`,
@@ -2696,17 +2724,45 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   let stderr = '';
   const maxChunk = 512 * 1024;
   let respondio = false;
-  const enviar = (payload) => {
+  let finalizado = false;
+  const responder = (payload, status = 200) => {
     if (respondio) return;
     respondio = true;
-    ecLauncherBusy = false;
-    if (payload.codigo_salida !== undefined) {
-      appendLog(`--- ec-launcher cierre ${payload.codigo_salida}${traceId ? ` trace=${traceId}` : ''} ---`);
-    } else if (payload.mensaje) {
-      appendLog(`--- ec-launcher error${traceId ? ` trace=${traceId}` : ''}: ` + payload.mensaje);
-    }
-    res.json(payload);
+    res.status(status).json(payload);
   };
+  const finalizar = (payload) => {
+    if (finalizado) return;
+    finalizado = true;
+    ecLauncherBusy = false;
+    const finalPayload = {
+      ...payload,
+      job_id: ecJobId,
+      en_ejecucion: false,
+    };
+    ecJob.en_ejecucion = false;
+    ecJob.finalizado_en = new Date().toISOString();
+    ecJob.resultado = finalPayload;
+    if (finalPayload.codigo_salida !== undefined) {
+      appendLog(`--- ec-launcher cierre ${finalPayload.codigo_salida}${traceId ? ` trace=${traceId}` : ''} job=${ecJobId} ---`);
+    } else if (finalPayload.mensaje) {
+      appendLog(`--- ec-launcher error${traceId ? ` trace=${traceId}` : ''} job=${ecJobId}: ` + finalPayload.mensaje);
+    }
+    if (!asyncRequested) responder(finalPayload);
+  };
+
+  if (asyncRequested) {
+    responder(
+      {
+        success: true,
+        en_ejecucion: true,
+        job_id: ecJobId,
+        tipo,
+        archivo: archivoEstado,
+        mensaje: 'Worker iniciado. La web consultará su avance y resultado en segundo plano.',
+      },
+      202,
+    );
+  }
 
   child.stdout.on('data', (d) => {
     const s = d.toString();
@@ -2735,7 +2791,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     if (marcarEstadoWorkerReporte) {
       setEstadoReporteArchivo(archivoEstado, 'generado');
     }
-    enviar({
+    finalizar({
       success: false,
       mensaje: err.message || String(err),
       estado_reporte: marcarEstadoWorkerReporte ? payloadEstadoReporte(archivoEstado, 'generado') : null,
@@ -2769,6 +2825,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
       stderr: stderr.slice(-8000),
       tipo,
       archivo: archivoEstado,
+      chat_notificaciones_activas: chatNotificacionesActivas,
       estado_reporte: estadoRep,
       traceId: traceId || null,
     };
@@ -2784,6 +2841,11 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
         ? `El proceso ${tipo} terminó con código ${code}. Último detalle: ${diagnostico}`
         : `El proceso ${tipo} terminó con código ${code} sin salida de diagnóstico.`;
     }
+    if (code === 0 && !chatNotificacionesActivas) {
+      payload.mensaje =
+        `El proceso ${tipo} terminó correctamente, pero los avisos de Google Chat no se enviaron ` +
+        'porque el agente no tiene configurado GASTOS_GC_REPORTE_CHAT_WEBHOOK_URL ni GASTOS_GC_EC_CHAT_WEBHOOK_URL.';
+    }
     if (erroresReintentoCsv) {
       payload.errores_reintento_csv = erroresReintentoCsv;
     }
@@ -2798,7 +2860,34 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
         ]);
       }
     }
-    enviar(payload);
+    finalizar(payload);
+  });
+});
+
+/** Consulta del último worker/enrich iniciado en este agente. */
+app.get('/ec-launcher/status', (req, res) => {
+  const jobId = String(req.query?.job_id || '').trim();
+  if (!/^[A-Za-z0-9_-]{8,120}$/.test(jobId)) {
+    return res.status(400).json({ success: false, mensaje: 'job_id inválido.' });
+  }
+  if (!ecLauncherLastJob || ecLauncherLastJob.job_id !== jobId) {
+    return res.status(404).json({ success: false, mensaje: 'Trabajo EC no encontrado o ya expiró.' });
+  }
+  if (ecLauncherLastJob.en_ejecucion) {
+    return res.json({
+      success: true,
+      en_ejecucion: true,
+      job_id: ecLauncherLastJob.job_id,
+      tipo: ecLauncherLastJob.tipo,
+      archivo: ecLauncherLastJob.archivo,
+      iniciado_en: ecLauncherLastJob.iniciado_en,
+    });
+  }
+  return res.json(ecLauncherLastJob.resultado || {
+    success: false,
+    en_ejecucion: false,
+    job_id: ecLauncherLastJob.job_id,
+    mensaje: 'El trabajo EC terminó sin resultado disponible.',
   });
 });
 

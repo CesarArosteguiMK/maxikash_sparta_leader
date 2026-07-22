@@ -29,6 +29,9 @@ class Leonidas extends Controller
         } catch (\InvalidArgumentException $error) {
             http_response_code(422);
             self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\DomainException $error) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
         } catch (\Throwable $error) {
             error_log('[Leonidas] Conversacion fallida: ' . $error->getMessage());
             http_response_code(500);

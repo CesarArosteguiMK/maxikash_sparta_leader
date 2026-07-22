@@ -284,18 +284,55 @@ $juanEnrique = newService([
         'status_credito' => 'Vencido',
         'asignacion' => null,
     ],
-    'moto_responsables' => static fn(): array => [[
-        'id_persona' => 1809,
-        'nombre_completo' => 'JUAN ENRIQUE ROCIO SALAZAR',
-        'puesto' => 'Gestor',
-        'numero_empleado' => '1809',
-        'codigo_contpac' => '9901',
-    ]],
+    'moto_responsables' => static fn(): array => [
+        [
+            'id_persona' => 1809,
+            'nombre_completo' => 'JUAN ENRIQUE ROCIO SALAZAR',
+            'puesto' => 'Gestor',
+            'numero_empleado' => '1809',
+            'codigo_contpac' => '9901',
+        ],
+        [
+            'id_persona' => 1188,
+            'nombre_completo' => 'IRAK BLANCO CRUZ',
+            'puesto' => 'Gestor',
+            'numero_empleado' => '999999748',
+            'codigo_contpac' => '641',
+        ],
+    ],
 ]);
 $propuestaNatural = $juanEnrique->resolver($solicitudNatural, $solicitudNatural, context());
 assertSameValue('agente_propuesta', $propuestaNatural['tipo'], 'Debe entender ID y gestor sin exigir la frase Motos Adjudicadas.');
 assertSameValue(1809373, $propuestaNatural['propuesta_especificacion']['payload']['id_credito'], 'Debe extraer el ID usado como credito.');
 assertSameValue(1809, $propuestaNatural['propuesta_especificacion']['payload']['id_persona'], 'Debe identificar al gestor por nombre completo.');
+
+$_SESSION = [];
+$solicitudDelegadaSinEspacio = 'asigna el credito 1809373al gestor JUAN ENRIQUE ROCIO SALAZAR';
+$contextoDelegado = context([
+    'actor_id' => 1200,
+    'nombre_corto' => 'Raymundo',
+    'permisos_agente' => ['convenio' => false, 'motos' => true, 'id_celula' => null],
+]);
+$propuestaDelegada = $juanEnrique->resolver(
+    $solicitudDelegadaSinEspacio,
+    $solicitudDelegadaSinEspacio,
+    $contextoDelegado
+);
+assertSameValue('agente_propuesta', $propuestaDelegada['tipo'], 'Un usuario delegado debe poder preparar la asignacion aunque falte el espacio antes de "al gestor".');
+assertSameValue(1809373, $propuestaDelegada['propuesta_especificacion']['payload']['id_credito'], 'La captura sin espacio no debe alterar el credito.');
+assertSameValue(1809, $propuestaDelegada['propuesta_especificacion']['payload']['id_persona'], 'La captura delegada debe conservar al gestor seleccionado.');
+assertTrue(!array_key_exists('actor_id', $propuestaDelegada['propuesta_especificacion']['payload']), 'El actor no debe viajar en el payload manipulable; se toma de la sesion al confirmar.');
+
+$_SESSION = [];
+$solicitudExactaRaymundo = 'asigna el credito 1809373al gestor Irak Blanco Cruz';
+$propuestaExactaRaymundo = $juanEnrique->resolver(
+    $solicitudExactaRaymundo,
+    $solicitudExactaRaymundo,
+    $contextoDelegado
+);
+assertSameValue('agente_propuesta', $propuestaExactaRaymundo['tipo'], 'La frase exacta de Raymundo debe llegar a la vista previa de asignacion.');
+assertSameValue(1809373, $propuestaExactaRaymundo['propuesta_especificacion']['payload']['id_credito'], 'Debe reconocer el credito aun cuando este pegado a "al".');
+assertSameValue(1188, $propuestaExactaRaymundo['propuesta_especificacion']['payload']['id_persona'], 'Debe resolver a Irak Blanco Cruz sin confundirlo con otro gestor.');
 
 $_SESSION = [];
 $idsDistintos = str_replace("**126**\n**LETICIA PEREZ CRUZ**\n**External id:**\n**126**", "**126**\n**LETICIA PEREZ CRUZ**\n**External id:**\n**999**", $solicitudDirecta);

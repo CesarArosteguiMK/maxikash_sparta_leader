@@ -311,8 +311,8 @@ class LeonidasAssistantService
         if ($actorId <= 0 || empty($_SESSION['login'])) {
             throw new \RuntimeException('Tu sesion no esta disponible. Inicia sesion nuevamente.');
         }
-        if ($actorId !== 878) {
-            throw new \RuntimeException('Leonidas aun no esta habilitado para este perfil.');
+        if (!LeonidasAccessService::tieneAcceso($actorId)) {
+            throw new \DomainException('Tu usuario no tiene asignado el permiso especial Asistente de Sparta.');
         }
 
         $nombre = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'Usuario'));
@@ -349,7 +349,7 @@ class LeonidasAssistantService
                 'segundometro' => $this->tieneAlgunoDeLosModulos([16, 60, 61, 77, 81]),
                 'primeros_pagos' => $this->tieneAlgunoDeLosModulos([49, 65, 66, 67, 68]),
                 'gastos_cobranza' => $this->tieneAccesoModulo(40),
-                'servicios_locales' => $actorId === 878,
+                'servicios_locales' => LeonidasAccessService::esAccesoPermanente($actorId),
             ],
             'salario_totp_vigente' => (int) ($_SESSION['rrhh_salario_sensible_totp_until'] ?? 0) >= time(),
         ];
