@@ -115,8 +115,15 @@ class LeonidasAgentService
 
     public function resolver(string $mensaje, string $normalizado, array $contexto): ?array
     {
+        // Corrige capturas frecuentes antes de enrutar la solicitud al agente adecuado.
+        $mensaje = preg_replace(
+            '/(\d)(?=al\s+(?:gestor|usuario|responsable)\b)/iu',
+            '$1 ',
+            $mensaje
+        ) ?? $mensaje;
+
         // Do not depend on the caller to normalize casing or accents before routing an action.
-        $normalizado = $this->normalizar($normalizado !== '' ? $normalizado : $mensaje);
+        $normalizado = $this->normalizar($mensaje);
 
         $capitalHumano = $this->capitalHumano->resolver($mensaje, $normalizado, $contexto);
         if ($capitalHumano !== null) {
@@ -633,6 +640,12 @@ class LeonidasAgentService
     private function prepararMotoDesdeMensajeCompleto(string $mensaje, array $contexto): ?array
     {
         $limpio = str_replace(['**', '__', '`'], '', $mensaje);
+        // Tolera capturas comunes como "1809373al gestor" sin confundir el ID del credito.
+        $limpio = preg_replace(
+            '/(\d)(?=al\s+(?:gestor|usuario|responsable)\b)/iu',
+            '$1 ',
+            $limpio
+        ) ?? $limpio;
         $mensajeNormalizado = $this->normalizar($limpio);
         if (!preg_match('/\b(?:credito(?:\s+(?:numero|no\.?|id))?|id)\s*[:#>\-]?\s*(\d+)\b/i', $mensajeNormalizado, $creditoMatch)) {
             return null;

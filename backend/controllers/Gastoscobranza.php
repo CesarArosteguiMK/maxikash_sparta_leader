@@ -1220,6 +1220,8 @@ class Gastoscobranza extends Controller
                 'column' => $column !== '' ? $column : 'ID CREDITO',
                 'omitir' => max(0, $omitir),
                 'soloColumnas' => $soloColumnas,
+                // El agente ejecuta el lote en segundo plano; evita que un proxy web corte la petición larga.
+                'async' => true,
             ];
             $traceId = isset($body['traceId']) ? trim((string)$body['traceId']) : '';
             if ($traceId !== '' && preg_match('/^[A-Za-z0-9._:-]{6,80}$/', $traceId)) {
@@ -1270,6 +1272,34 @@ class Gastoscobranza extends Controller
     /**
      * Proxy a POST /carga-verificacion-semana/run (Excel → cobranza_gc_verificacion_semana).
      */
+    /** Consulta el resultado de un worker/enrich iniciado en segundo plano por ejecutarEcLauncher(). */
+    public function estadoEcLauncher()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            if (!$this->agenteHabilitado()) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Active [gastoscobranza_agent] en config.ini.']);
+                return;
+            }
+            $jobId = isset($_GET['job_id']) ? trim((string)$_GET['job_id']) : '';
+            if (!preg_match('/^[A-Za-z0-9_-]{8,120}$/', $jobId)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'job_id inválido.']);
+                return;
+            }
+            $run = $this->agenteRequest('GET', '/ec-launcher/status?job_id=' . rawurlencode($jobId), null, 20);
+            if (is_array($run['json'])) {
+                self::respuestaJSON($run['json']);
+                return;
+            }
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => substr((string)($run['raw'] ?? ''), 0, 400) ?: ('HTTP ' . ($run['status'] ?? 0)),
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
     public function ejecutarCargaVerificacionSemana()
     {
         try {
