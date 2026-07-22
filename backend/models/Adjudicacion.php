@@ -967,13 +967,10 @@ class Adjudicacion extends Model
         return ['success' => true, 'message' => 'NIP de desbloqueo configurado.'];
     }
 
-    public function desbloquearComponentesDictamenWebMoto(int $idCredito, string $nip, int $idUsuario, string $ip = ''): array
+    private function validarNipDesbloqueoComponentes(int $idUsuario, string $nip): array
     {
-        if ($idCredito <= 0) {
-            return ['success' => false, 'message' => 'ID de credito invalido.'];
-        }
         if ($idUsuario <= 0) {
-            return ['success' => false, 'message' => 'Sesion invalida para desbloquear componentes.'];
+            return ['success' => false, 'message' => 'Sesion invalida para desbloquear.'];
         }
         if (!preg_match('/^\d{6}$/', $nip)) {
             return ['success' => false, 'message' => 'El NIP debe tener 6 digitos.'];
@@ -1004,6 +1001,83 @@ class Adjudicacion extends Model
         );
         if (!$permiso || !password_verify($nip, (string) ($permiso['nip_hash'] ?? ''))) {
             return ['success' => false, 'message' => 'NIP incorrecto o usuario sin permiso de desbloqueo.'];
+        }
+
+        return ['success' => true];
+    }
+
+    private function diagnosticoPermiteDesbloqueoS2(array $diag): bool
+    {
+        $bloqueos = array_values(array_filter(array_map('strval', $diag['bloqueos'] ?? [])));
+        if (count($bloqueos) !== 1) {
+            return false;
+        }
+
+        return stripos($bloqueos[0], 'No se pudo validar el credito en S2') !== false
+            && empty($diag['legacy']['error'])
+            && empty($diag['operacion'])
+            && empty($diag['legacy']['dictamen']);
+    }
+
+    private function aplicarDesbloqueoS2SiProcede(array $diag, string $nip, int $idUsuario): array
+    {
+        if (!$this->diagnosticoPermiteDesbloqueoS2($diag)) {
+            return [
+                'success' => false,
+                'message' => 'Este bloqueo no corresponde solo a S2; no se puede desbloquear por esta via.',
+                'diagnostico' => $diag,
+            ];
+        }
+
+        $validacionNip = $this->validarNipDesbloqueoComponentes($idUsuario, $nip);
+        if (empty($validacionNip['success'])) {
+            return $validacionNip + ['diagnostico' => $diag];
+        }
+
+        $diag['puede_simular'] = true;
+        $diag['desbloqueo_s2'] = [
+            'autorizado' => true,
+            'id_usuario' => $idUsuario,
+            'fecha' => $this->fechaHoraCdmx(),
+            'motivo' => 'S2 no validado, pero credito libre en Segundometro/Tracking/Legacy.',
+        ];
+        $diag['bloqueos_originales'] = $diag['bloqueos'] ?? [];
+        $diag['bloqueos'] = [];
+
+        return ['success' => true, 'diagnostico' => $diag];
+    }
+
+    public function desbloquearValidacionS2DictamenWebMoto(int $idCredito, string $nip, int $idUsuario): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'ID de credito invalido.'];
+        }
+
+        $diag = $this->diagnosticarDictamenWebMoto($idCredito);
+        if (empty($diag['success'])) {
+            return $diag;
+        }
+
+        $desbloqueo = $this->aplicarDesbloqueoS2SiProcede($diag, $nip, $idUsuario);
+        if (empty($desbloqueo['success'])) {
+            return $desbloqueo;
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Validacion S2 desbloqueada para este credito. Ya puedes guardar o enviar la tarea.',
+            'diagnostico' => $desbloqueo['diagnostico'],
+        ];
+    }
+
+    public function desbloquearComponentesDictamenWebMoto(int $idCredito, string $nip, int $idUsuario, string $ip = ''): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'ID de credito invalido.'];
+        }
+        $validacionNip = $this->validarNipDesbloqueoComponentes($idUsuario, $nip);
+        if (empty($validacionNip['success'])) {
+            return $validacionNip;
         }
 
         $legacyTasksDeleted = 0;
@@ -1204,6 +1278,18 @@ class Adjudicacion extends Model
             return $diag;
         }
         if (empty($diag['puede_simular'])) {
+            if (!empty($data['desbloqueo_s2_autorizado'])) {
+                $desbloqueo = $this->aplicarDesbloqueoS2SiProcede(
+                    $diag,
+                    trim((string) ($data['desbloqueo_s2_nip'] ?? '')),
+                    $idUsuarioSesion
+                );
+                if (!empty($desbloqueo['success'])) {
+                    $diag = $desbloqueo['diagnostico'];
+                }
+            }
+        }
+        if (empty($diag['puede_simular'])) {
             return [
                 'success' => false,
                 'message' => 'No se puede guardar: ' . implode(' ', $diag['bloqueos'] ?: ['Legacy no esta disponible.']),
@@ -1353,6 +1439,18 @@ class Adjudicacion extends Model
         }
         if (!empty($diag['legacy']['dictamen'])) {
             return ['success' => false, 'message' => 'Ya existe dictamen Legacy para este credito; no se envio a gestor.'];
+        }
+        if (empty($diag['puede_simular'])) {
+            if (!empty($data['desbloqueo_s2_autorizado'])) {
+                $desbloqueo = $this->aplicarDesbloqueoS2SiProcede(
+                    $diag,
+                    trim((string) ($data['desbloqueo_s2_nip'] ?? '')),
+                    $idUsuarioSesion
+                );
+                if (!empty($desbloqueo['success'])) {
+                    $diag = $desbloqueo['diagnostico'];
+                }
+            }
         }
         if (empty($diag['puede_simular'])) {
             return [

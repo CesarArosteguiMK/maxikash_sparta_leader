@@ -38,6 +38,9 @@ $madPuedeEnviarGestorLegacy = in_array(100, array_map('intval', $_SESSION['modul
                 <button type="button" id="mad-btn-desbloquear" class="btn btn-outline-danger mad-hidden">
                     <i class="fa-solid fa-unlock-keyhole me-1"></i>Desbloquear componentes
                 </button>
+                <button type="button" id="mad-btn-desbloquear-s2" class="btn btn-outline-warning mad-hidden ms-lg-2 mt-2 mt-lg-0">
+                    <i class="fa-solid fa-shield-halved me-1"></i>Desbloquear validaci&oacute;n S2
+                </button>
             </div>
         </div>
     </section>
@@ -689,9 +692,11 @@ $madPuedeEnviarGestorLegacy = in_array(100, array_map('intval', $_SESSION['modul
     const btnSim = document.getElementById('mad-btn-simular');
     const btnEnviarGestorLegacy = document.getElementById('mad-btn-enviar-gestor-legacy');
     const btnUnlock = document.getElementById('mad-btn-desbloquear');
+    const btnUnlockS2 = document.getElementById('mad-btn-desbloquear-s2');
     const resultsGrid = document.getElementById('mad-results-grid');
     let diagnosticoActual = null;
     let puedeDesbloquearComponentes = false;
+    let desbloqueoS2 = { autorizado: false, nip: '' };
     const uploadedFiles = {};
 
     function setFechaGestionDefault() {
@@ -723,6 +728,12 @@ $madPuedeEnviarGestorLegacy = in_array(100, array_map('intval', $_SESSION['modul
         const task = legacy.task || null;
         const dictum = legacy.dictamen || null;
         const tieneComponentesBloqueados = !!(op || task || dictum);
+        const bloqueos = Array.isArray(d.bloqueos) ? d.bloqueos : [];
+        const bloqueoSoloS2 = bloqueos.length === 1
+            && String(bloqueos[0] || '').toLowerCase().includes('no se pudo validar el credito en s2')
+            && !op
+            && !dictum
+            && !legacy.error;
 
         document.getElementById('mad-summary-id').textContent = d.id_credito || '-';
         document.getElementById('mad-summary-cliente').textContent = s2Credito.nombre_cliente || seg.Nombre_cliente || task?.client_name || '-';
@@ -756,6 +767,9 @@ $madPuedeEnviarGestorLegacy = in_array(100, array_map('intval', $_SESSION['modul
         if (btnUnlock) {
             btnUnlock.classList.toggle('mad-hidden', !(puedeDesbloquearComponentes && tieneComponentesBloqueados));
         }
+        if (btnUnlockS2) {
+            btnUnlockS2.classList.toggle('mad-hidden', !(puedeDesbloquearComponentes && bloqueoSoloS2 && !d.puede_simular));
+        }
         if (d.puede_simular) {
         }
     }
@@ -767,6 +781,8 @@ $madPuedeEnviarGestorLegacy = in_array(100, array_map('intval', $_SESSION['modul
         if (btnSim) btnSim.disabled = true;
         if (btnEnviarGestorLegacy) btnEnviarGestorLegacy.disabled = true;
         btnUnlock?.classList.add('mad-hidden');
+        btnUnlockS2?.classList.add('mad-hidden');
+        desbloqueoS2 = { autorizado: false, nip: '' };
     }
 
     async function postJson(url, payload) {
@@ -846,6 +862,7 @@ $madPuedeEnviarGestorLegacy = in_array(100, array_map('intval', $_SESSION['modul
         } catch (e) {
             puedeDesbloquearComponentes = false;
             btnUnlock?.classList.add('mad-hidden');
+            btnUnlockS2?.classList.add('mad-hidden');
         }
     }
 
@@ -975,6 +992,10 @@ $madPuedeEnviarGestorLegacy = in_array(100, array_map('intval', $_SESSION['modul
             id_usuario_legacy: userInput.value,
             fecha_gestion: fechaGestionInput?.value || ''
         };
+        if (desbloqueoS2.autorizado) {
+            payload.desbloqueo_s2_autorizado = 1;
+            payload.desbloqueo_s2_nip = desbloqueoS2.nip;
+        }
         document.querySelectorAll('.mad-field').forEach(el => { payload[el.dataset.key] = el.value || ''; });
         Object.keys(uploadedFiles).forEach(key => {
             const info = uploadedFiles[key] || {};
@@ -1029,6 +1050,10 @@ $madPuedeEnviarGestorLegacy = in_array(100, array_map('intval', $_SESSION['modul
             id_credito: idInput.value,
             id_usuario_legacy: userInput.value
         };
+        if (desbloqueoS2.autorizado) {
+            payload.desbloqueo_s2_autorizado = 1;
+            payload.desbloqueo_s2_nip = desbloqueoS2.nip;
+        }
         document.querySelectorAll('.mad-field').forEach(el => {
             const key = el.dataset.key || '';
             if (['direccion', 'lat', 'lng'].indexOf(key) >= 0) {
@@ -1036,20 +1061,20 @@ $madPuedeEnviarGestorLegacy = in_array(100, array_map('intval', $_SESSION['modul
             }
         });
         if (!payload.id_usuario_legacy) {
-            Swal?.fire?.('Falta usuario', 'Indica el id_usuario Legacy que recibira la tarea.', 'warning');
+            Swal?.fire?.('Falta usuario', 'Indica el id_usuario Legacy que recibir&aacute; la tarea.', 'warning');
             return;
         }
         const confirm = await Swal.fire({
             icon: 'question',
-            title: 'Enviar campania a gestor',
+            title: 'Enviar campa&ntilde;a a gestor',
             html: 'Se crear&aacute; una <strong>Task Legacy</strong> para que el gestor cargue la gesti&oacute;n. No se guardar&aacute; dictamen.',
             showCancelButton: true,
-            confirmButtonText: 'Si, enviar',
+            confirmButtonText: 'S&iacute;, enviar',
             cancelButtonText: 'Cancelar'
         });
         if (!confirm.isConfirmed) return;
 
-        Swal.fire({ title: 'Enviando a Legacy', text: 'Creando task y asignacion al gestor...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: 'Enviando a Legacy', text: 'Creando task y asignaci&oacute;n al gestor...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         try {
             const data = await postJson('/Adjudicacion/enviarCampaniaGestorLegacy', payload);
             Swal.close();
@@ -1120,6 +1145,65 @@ $madPuedeEnviarGestorLegacy = in_array(100, array_map('intval', $_SESSION['modul
             btnDiag.click();
         } catch (e) {
             Swal.fire('Error', e.message || 'No se pudo desbloquear.', 'error');
+        }
+    });
+
+    btnUnlockS2?.addEventListener('click', async function () {
+        const id = (idInput.value || '').trim();
+        if (!puedeDesbloquearComponentes || !diagnosticoActual || !id) return;
+
+        const confirm = await Swal.fire({
+            icon: 'warning',
+            title: 'Desbloquear validacion S2',
+            html: `
+                <div class="text-start">
+                    <p class="mb-2">Esto no borrara informacion. Solo permite continuar cuando el credito esta libre en Segundometro, Tracking y Legacy, pero S2 no responde/no valida.</p>
+                    <label class="form-label">NIP de 6 digitos</label>
+                    <input id="mad-unlock-s2-nip" class="form-control text-center" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Desbloquear S2',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#d09f48',
+            focusConfirm: false,
+            didOpen: () => {
+                const input = document.getElementById('mad-unlock-s2-nip');
+                input?.focus();
+                input?.addEventListener('input', () => {
+                    input.value = input.value.replace(/\D/g, '').slice(0, 6);
+                });
+            },
+            preConfirm: () => {
+                const nip = (document.getElementById('mad-unlock-s2-nip')?.value || '').trim();
+                if (!/^\d{6}$/.test(nip)) {
+                    Swal.showValidationMessage('El NIP debe tener 6 digitos.');
+                    return false;
+                }
+                return nip;
+            }
+        });
+        if (!confirm.isConfirmed) return;
+
+        Swal.fire({
+            title: 'Validando desbloqueo',
+            text: 'Confirmando NIP y estado del credito...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+        try {
+            const data = await postJson('/Adjudicacion/desbloquearValidacionS2DictamenMoto', {
+                id_credito: id,
+                nip: confirm.value
+            });
+            Swal.close();
+            if (!data.success) throw new Error(data.message || 'No se pudo desbloquear S2.');
+            desbloqueoS2 = { autorizado: true, nip: confirm.value };
+            renderDiag(data.diagnostico || diagnosticoActual);
+            await Swal.fire('Listo', data.message || 'Validacion S2 desbloqueada.', 'success');
+        } catch (e) {
+            desbloqueoS2 = { autorizado: false, nip: '' };
+            Swal.fire('Error', e.message || 'No se pudo desbloquear S2.', 'error');
         }
     });
 
