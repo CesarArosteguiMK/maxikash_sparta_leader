@@ -2633,6 +2633,39 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
         return r2.json();
     }
 
+    /** Espera el resultado del trabajo EC sin dejar una petición HTTP abierta durante todo el lote. */
+    async function esperarResultadoEcLauncher(jobId) {
+        var inicio = Date.now();
+        var limiteMs = 3 * 60 * 60 * 1000;
+        var esperaMs = 2000;
+
+        while ((Date.now() - inicio) < limiteMs) {
+            await new Promise(function (resolve) { window.setTimeout(resolve, esperaMs); });
+            var respuesta = await fetch('/gastoscobranza/estadoEcLauncher?job_id=' + encodeURIComponent(jobId), {
+                method: 'GET',
+                headers: { 'Front-Request': 'true' }
+            });
+            var texto = await respuesta.text();
+            var estado;
+            try {
+                estado = JSON.parse(texto);
+            } catch (eParse) {
+                throw new Error('El servidor no devolvió JSON al consultar el worker: ' +
+                    String(texto).slice(0, 160).replace(/\s+/g, ' '));
+            }
+
+            if (estado && estado.en_ejecucion) {
+                continue;
+            }
+            if (estado && Object.prototype.hasOwnProperty.call(estado, 'codigo_salida')) {
+                return estado;
+            }
+            throw new Error((estado && estado.mensaje) || 'No se encontró el resultado del worker.');
+        }
+
+        throw new Error('El worker sigue en ejecución después de 3 horas. Revise el log antes de volver a ejecutarlo.');
+    }
+
     /**
      * Worker o enrich vía agente; si es worker y termina (cód. 0 o 2), carga lista negra con el mismo Excel.
      * cargaOpts: {} para archivo en ec-uploads; { origenCarpeta: 'reporte' } para Excel ya en reporte/.
@@ -2678,6 +2711,22 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                     String(raw).slice(0, 200).replace(/\s+/g, ' '), 'error');
                 return;
             }
+            if (data && data.en_ejecucion && data.job_id) {
+                if (gcShellModoCartera) {
+                    gcCarteraActividadPush('Conciliación iniciada. Consultando su avance…', 'gc-cartera-act-line--run');
+                }
+                try {
+                    data = await esperarResultadoEcLauncher(String(data.job_id));
+                } catch (eSeguimiento) {
+                    if (gcShellModoCartera) {
+                        gcCarteraActividadPush('No se pudo consultar el resultado del worker. Revise el log.', 'gc-cartera-act-line--warn');
+                    }
+                    alertar('Seguimiento del worker',
+                        'El worker fue iniciado, pero no se pudo consultar su resultado. No lo ejecute otra vez sin revisar el log. Detalle: ' +
+                        String(eSeguimiento.message || eSeguimiento), 'warning');
+                    return;
+                }
+            }
             var ok = !!data.success;
             var msg = data.mensaje || (ok ? 'Proceso EC terminado.' : 'Error en worker / enrich.');
             var codigoSalida = normalizarCodigoSalida(data);
@@ -2692,7 +2741,7 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                     encodeURIComponent(String(data.errores_reintento_csv));
                 ecErroresReintentoBanner.classList.remove('d-none');
             }
-            if (workerLlegoAlFin) {
+            if (workerLlegoAlFin && !(data.lista_negra && data.lista_negra.intentada)) {
                 /* Worker llegó al final (0 = todo ok, 2 = ok con errores parciales) → cargar lista negra automático */
                 if (gcShellModoCartera) {
                     gcCarteraActividadPush('Conciliación aplicada. Actualizando verificación semana…', 'gc-cartera-act-line--run');
@@ -2763,6 +2812,34 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                         '.\nArchivo enviado a carga: «' + nombreExcelListaNegra + '».' +
                         '\nPuedes intentarla manualmente con el botón morado en la tabla de reportes.' +
                         lineaEstadoReporteRespuesta(dataCarga.estado_reporte),
+                        'warning');
+                }
+            } else if (workerLlegoAlFin && data.lista_negra && data.lista_negra.intentada) {
+                var listaNegraServidor = data.lista_negra;
+                if (listaNegraServidor.stdout || listaNegraServidor.stderr) {
+                    var bloqueListaNegraServidor = '\n\n--- Lista negra (automático en servidor) ---\n' +
+                        (listaNegraServidor.stdout || '') +
+                        (listaNegraServidor.stderr ? '\n--- stderr ---\n' + listaNegraServidor.stderr : '');
+                    ecOutPre.textContent = (ecOutPre.textContent || '') + bloqueListaNegraServidor;
+                    ecOutWrap.classList.remove('d-none');
+                }
+                if (listaNegraServidor.success) {
+                    if (gcShellModoCartera) {
+                        gcCarteraActividadPush('Verificación semana actualizada correctamente.', 'gc-cartera-act-line--ok');
+                    }
+                    alertar('¡Todo listo!',
+                        'Worker completado correctamente.\nLista negra actualizada automáticamente en el servidor.' +
+                        lineaEstadoReporteRespuesta(listaNegraServidor.estado_reporte),
+                        'success');
+                } else {
+                    if (gcShellModoCartera) {
+                        gcCarteraActividadPush('La conciliación terminó, pero falló la verificación semana.', 'gc-cartera-act-line--warn');
+                    }
+                    alertar('Worker ok — Lista negra FALLÓ',
+                        'El worker terminó (código ' + codigoSalida + ') pero el servidor no pudo aplicar la lista negra: ' +
+                        (listaNegraServidor.mensaje || 'sin detalle') +
+                        '. Revisa el log; se envió un aviso al webhook.' +
+                        lineaEstadoReporteRespuesta(listaNegraServidor.estado_reporte),
                         'warning');
                 }
             } else if (esWorker) {

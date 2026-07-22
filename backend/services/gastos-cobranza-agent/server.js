@@ -1209,8 +1209,8 @@ function sanitizeTraceId(raw) {
  */
 function ecWorkflowWebhookUrl() {
   return String(
-    process.env.GASTOS_GC_EC_CHAT_WEBHOOK_URL ||
-      process.env.GASTOS_GC_REPORTE_CHAT_WEBHOOK_URL ||
+    process.env.GASTOS_GC_REPORTE_CHAT_WEBHOOK_URL ||
+      process.env.GASTOS_GC_EC_CHAT_WEBHOOK_URL ||
       process.env.GOOGLE_CHAT_WEBHOOK_URL ||
       '',
   ).trim();
@@ -1229,7 +1229,7 @@ function notifyEcWorkflowWebhook(evento, traceId, detalleLineas) {
   if (!ecWorkflowWebhookEnabled()) return Promise.resolve(false);
   const hook = ecWorkflowWebhookUrl();
   if (!hook) {
-    appendLog('[ec-webhook] GASTOS_GC_EC_CHAT_WEBHOOK_URL vacía; aviso EC no enviado a Chat.');
+    appendLog('[ec-webhook] No hay webhook de reporte ni de EC configurado; aviso EC no enviado a Chat.');
     return Promise.resolve(false);
   }
   const tr = sanitizeTraceId(traceId);
@@ -1297,7 +1297,7 @@ function notifyListaNegraFinResumenWebhook(traceId, archivo, code, dryRunReq, re
   if (!ecWorkflowWebhookEnabled()) return Promise.resolve(false);
   const hook = ecWorkflowWebhookUrl();
   if (!hook) {
-    appendLog('[ec-webhook] GASTOS_GC_EC_CHAT_WEBHOOK_URL vacía; resumen lista negra no enviado a Chat.');
+    appendLog('[ec-webhook] No hay webhook de reporte ni de EC configurado; resumen lista negra no enviado a Chat.');
     return Promise.resolve(false);
   }
   const tr = sanitizeTraceId(traceId);
@@ -1982,6 +1982,8 @@ let ecLauncherBusy = false;
 let ecLauncherLastJob = null;
 /** Carga a lista negra (/carga-verificacion-semana/run) en curso; mismo agente no debe aceptar worker ni otra carga. */
 let cargaVerificacionSemanaBusy = false;
+/** Autoriza únicamente la llamada interna que encadena Worker EC → lista negra. */
+const EC_LISTA_NEGRA_INTERNA_TOKEN = crypto.randomBytes(24).toString('hex');
 /** Un solo cronjob manual (insertar mora / detectar liquidados / eliminar despachos) a la vez. */
 let cronjobsGcBusy = false;
 let autoCronjobsMartesTickBusy = false;
@@ -1994,6 +1996,50 @@ function middlewareApiKey(req, res, next) {
     return res.status(401).json({ success: false, mensaje: 'API key inválida o faltante.' });
   }
   next();
+}
+
+/**
+ * La lista negra se ejecuta dentro del agente al terminar el Worker, aunque la
+ * pestaña del usuario se cierre o pierda conexión. Reutiliza la ruta normal
+ * para conservar validaciones, log y avisos de Google Chat.
+ */
+async function ejecutarListaNegraEncadenada({ archivo, origenCarpeta, traceId }) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-EC-Internal-Chain': EC_LISTA_NEGRA_INTERNA_TOKEN,
+  };
+  if (API_KEY) headers['X-Api-Key'] = API_KEY;
+
+  appendLog(
+    `--- ec-lista-negra encadenada archivo=${archivo} origen=${origenCarpeta}${traceId ? ` trace=${traceId}` : ''} ---`,
+  );
+  try {
+    const response = await fetch(`http://127.0.0.1:${PORT}/carga-verificacion-semana/run`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ archivo, origenCarpeta, traceId }),
+    });
+    const raw = await response.text();
+    let result;
+    try {
+      result = JSON.parse(raw);
+    } catch (_) {
+      result = {
+        success: false,
+        mensaje: `Respuesta no JSON de carga lista negra (HTTP ${response.status}): ${raw.slice(0, 300)}`,
+      };
+    }
+    result.intentada = true;
+    appendLog(
+      `--- ec-lista-negra encadenada resultado=${result.success ? 'OK' : 'ERROR'} codigo=${result.codigo_salida ?? response.status}${traceId ? ` trace=${traceId}` : ''} ---`,
+    );
+    return result;
+  } catch (error) {
+    const mensaje = error?.message || String(error);
+    appendLog(`--- ec-lista-negra encadenada ERROR${traceId ? ` trace=${traceId}` : ''}: ${mensaje} ---`);
+    void notifyEcWorkflowWebhook('lista_negra_error', traceId, [`archivo=${archivo}`, `error=${mensaje}`]);
+    return { success: false, intentada: true, mensaje };
+  }
 }
 
 app.use(middlewareApiKey);
@@ -2798,7 +2844,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
       traceId: traceId || null,
     });
   });
-  child.on('close', (code) => {
+  child.on('close', async (code) => {
     const outSlice = stdout.slice(-8000);
     let erroresReintentoCsv = null;
     if (tipo === 'worker') {
@@ -2849,6 +2895,19 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     if (erroresReintentoCsv) {
       payload.errores_reintento_csv = erroresReintentoCsv;
     }
+    if (tipo === 'worker' && (code === 0 || code === 2)) {
+      const listaNegra = await ejecutarListaNegraEncadenada({
+        archivo: archivoEstado,
+        origenCarpeta,
+        traceId,
+      });
+      payload.lista_negra = listaNegra;
+      if (!listaNegra.success) {
+        payload.mensaje =
+          `Worker terminado (código ${code}), pero la lista negra no se pudo aplicar: ` +
+          (listaNegra.mensaje || 'sin detalle. Revise el log del agente.');
+      }
+    }
     if (tipo === 'worker') {
       const workerFallo = code !== 0;
       if (workerFallo || ecWorkerChatEventsEnabled()) {
@@ -2894,6 +2953,8 @@ app.get('/ec-launcher/status', (req, res) => {
 /** Carga Excel → INSERT cobranza_gc_verificacion_semana (Python, mismo .xlsx en ec-uploads). */
 app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (req, res) => {
   ensureReporteDir();
+  const cargaEncadenadaDesdeWorker =
+    String(req.get('X-EC-Internal-Chain') || '') === EC_LISTA_NEGRA_INTERNA_TOKEN;
   const scriptPath = getCargaVerificacionScriptPath();
   if (!scriptPath) {
     return res.status(500).json({
@@ -2935,7 +2996,7 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
     return res.status(404).json({ success: false, mensaje: `Archivo no encontrado en ${donde}.` });
   }
 
-  if (ecLauncherBusy) {
+  if (ecLauncherBusy && !cargaEncadenadaDesdeWorker) {
     return res.status(409).json({
       success: false,
       mensaje:
