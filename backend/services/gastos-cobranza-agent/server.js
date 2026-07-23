@@ -2742,8 +2742,18 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   const env = { ...process.env, FECHA_CORTE: fechaCorte };
   if (tipo === 'worker' || tipo === 'enrich') {
     if (chatNotificacionesActivas) env.GOOGLE_CHAT_WEBHOOK_URL = ecChatUrl;
-    if (process.env.S2_ESTADO_CUENTA_TOKEN) env.TOKEN = process.env.S2_ESTADO_CUENTA_TOKEN;
-    if (process.env.S2_ESTADO_CUENTA_URL) env.ENDPOINT = process.env.S2_ESTADO_CUENTA_URL;
+    // El archivo seguro histórico puede usar TOKEN/ENDPOINT o los nombres S2_*
+    // actuales. Normalizamos ambos antes de iniciar el proceso PHP hijo.
+    const s2Token = String(process.env.S2_ESTADO_CUENTA_TOKEN || process.env.TOKEN || '').trim();
+    const s2Endpoint = String(process.env.S2_ESTADO_CUENTA_URL || process.env.ENDPOINT || '').trim();
+    if (s2Token) {
+      env.TOKEN = s2Token;
+      env.S2_ESTADO_CUENTA_TOKEN = s2Token;
+    }
+    if (s2Endpoint) {
+      env.ENDPOINT = s2Endpoint;
+      env.S2_ESTADO_CUENTA_URL = s2Endpoint;
+    }
   }
   if (tipo === 'worker' && ejecutadoPor) {
     env.EC_WORKER_EJECUTADO_POR = ejecutadoPor;

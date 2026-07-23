@@ -118,6 +118,58 @@ function ecWorkerValidarTerritorioCredito(int $idCredito, bool $saltarChequeo): 
  *   estadoCuenta?:array
  * }
  */
+function ecS2ExtraerEstadoCuenta(array $json): ?array
+{
+    $candidatos = [
+        $json['estadoCuenta'] ?? null,
+        $json['data']['estadoCuenta'] ?? null,
+        $json['data']['data']['estadoCuenta'] ?? null,
+    ];
+
+    // Algunas versiones de S2 envuelven el objeto directamente en `data`.
+    if (isset($json['data']) && is_array($json['data']) && array_key_exists('idCredito', $json['data'])) {
+        $candidatos[] = $json['data'];
+    }
+
+    foreach ($candidatos as $candidato) {
+        if (is_array($candidato)) {
+            return $candidato;
+        }
+    }
+
+    return null;
+}
+
+function ecS2DescripcionRespuestaInvalida(array $json): string
+{
+    $partes = [];
+    foreach (['code', 'status', 'tipo'] as $campo) {
+        if (isset($json[$campo]) && is_scalar($json[$campo]) && trim((string) $json[$campo]) !== '') {
+            $partes[] = $campo . '=' . trim((string) $json[$campo]);
+        }
+    }
+
+    $mensaje = $json['mensaje'] ?? $json['message'] ?? $json['error'] ?? null;
+    if (is_array($mensaje)) {
+        $mensaje = implode(' ', array_map('strval', array_slice($mensaje, 0, 3)));
+    }
+    if (is_scalar($mensaje)) {
+        $mensaje = trim((string) preg_replace('/[\r\n\t]+/', ' ', (string) $mensaje));
+        if ($mensaje !== '') {
+            $partes[] = 'mensaje=' . substr($mensaje, 0, 240);
+        }
+    }
+
+    if ($partes === []) {
+        $claves = array_slice(array_map('strval', array_keys($json)), 0, 8);
+        if ($claves !== []) {
+            $partes[] = 'claves=' . implode(',', $claves);
+        }
+    }
+
+    return $partes !== [] ? ' (' . implode('; ', $partes) . ')' : '';
+}
+
 function consultarEstadoCuentaS2(string $endpoint, string $token, int $idCredito, string $fechaCorte): array
 {
     $payload = json_encode([
@@ -158,11 +210,17 @@ function consultarEstadoCuentaS2(string $endpoint, string $token, int $idCredito
     }
 
     $json = json_decode($response, true);
-    if (!is_array($json) || !isset($json['estadoCuenta'])) {
-        return ['success' => false, 'error' => 'Respuesta sin estadoCuenta'];
+    if (!is_array($json)) {
+        return ['success' => false, 'error' => 'Respuesta S2 no es un objeto JSON'];
     }
 
-    $ec = $json['estadoCuenta'];
+    $ec = ecS2ExtraerEstadoCuenta($json);
+    if ($ec === null) {
+        return [
+            'success' => false,
+            'error' => 'Respuesta S2 sin estadoCuenta' . ecS2DescripcionRespuestaInvalida($json),
+        ];
+    }
     if (!is_array($ec)) {
         return ['success' => false, 'error' => 'estadoCuenta inválido'];
     }
