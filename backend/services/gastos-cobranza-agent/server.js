@@ -2870,7 +2870,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     }
     let estadoRep = null;
     if (marcarEstadoWorkerReporte) {
-      const key = code === 0 || code === 2 ? 'workerListo' : 'generado';
+      const key = code === 0 ? 'workerListo' : 'generado';
       setEstadoReporteArchivo(archivoEstado, key);
       estadoRep = payloadEstadoReporte(archivoEstado, key);
     }
@@ -2905,7 +2905,9 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     if (erroresReintentoCsv) {
       payload.errores_reintento_csv = erroresReintentoCsv;
     }
-    if (tipo === 'worker' && (code === 0 || code === 2)) {
+    // La lista negra depende de que TODO el lote termine correctamente. Un
+    // código 2 contiene créditos fallidos y no debe marcar registros.
+    if (tipo === 'worker' && code === 0) {
       const listaNegra = await ejecutarListaNegraEncadenada({
         archivo: archivoEstado,
         origenCarpeta,

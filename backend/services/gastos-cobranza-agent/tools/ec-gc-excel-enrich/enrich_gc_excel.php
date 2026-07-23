@@ -279,7 +279,10 @@ for ($r = $headerRow + 1; $r <= $maxRow; $r++) {
         }
     }
 
-    $result = consultarEstadoCuentaS2($endpoint, $token, $idCredito, $fechaCorte);
+    $result = consultarEstadoCuentaS2ConFallback($endpoint, $token, $idCredito, $fechaCorte);
+    if (!empty($result['fallback_activado'])) {
+        echo "ruta S2 vigente activada; ";
+    }
     if (!$soloColumnas && !$noAuditoria) {
         \Models\EstadoCuenta::registrarAuditoria(
             $usuarioAuditoria,

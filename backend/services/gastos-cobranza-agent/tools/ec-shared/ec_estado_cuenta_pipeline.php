@@ -170,6 +170,23 @@ function ecS2DescripcionRespuestaInvalida(array $json): string
     return $partes !== [] ? ' (' . implode('; ', $partes) . ')' : '';
 }
 
+function ecS2EsFallaGlobal(array $json): bool
+{
+    $status = strtoupper(trim((string) ($json['status'] ?? $json['tipo'] ?? '')));
+    if (in_array($status, ['ERROR_ACCESO', 'ERROR_AUTENTICACION', 'ERROR_CONFIGURACION'], true)) {
+        return true;
+    }
+
+    $mensaje = $json['mensaje'] ?? $json['message'] ?? $json['error'] ?? '';
+    if (is_array($mensaje)) {
+        $mensaje = implode(' ', array_map('strval', $mensaje));
+    }
+    $mensaje = strtolower((string) $mensaje);
+
+    return strpos($mensaje, 'handler class cannot be loaded') !== false
+        || strpos($mensaje, 'missing or malformed token') !== false;
+}
+
 function consultarEstadoCuentaS2(string $endpoint, string $token, int $idCredito, string $fechaCorte): array
 {
     $payload = json_encode([
@@ -219,6 +236,7 @@ function consultarEstadoCuentaS2(string $endpoint, string $token, int $idCredito
         return [
             'success' => false,
             'error' => 'Respuesta S2 sin estadoCuenta' . ecS2DescripcionRespuestaInvalida($json),
+            'fallo_global' => ecS2EsFallaGlobal($json),
         ];
     }
     if (!is_array($ec)) {
@@ -250,4 +268,55 @@ function consultarEstadoCuentaS2(string $endpoint, string $token, int $idCredito
         'datosNotasCargos' => $notas,
         'estadoCuenta' => $ec,
     ];
+}
+
+/**
+ * Recupera automáticamente el consumo cuando la ruta configurada apunta a un
+ * controlador S2 retirado. Al funcionar la alternativa, actualiza $endpoint
+ * para que los créditos siguientes ya no repitan la llamada fallida.
+ */
+function consultarEstadoCuentaS2ConFallback(
+    string &$endpoint,
+    string $token,
+    int $idCredito,
+    string $fechaCorte
+): array {
+    $result = consultarEstadoCuentaS2($endpoint, $token, $idCredito, $fechaCorte);
+    if (!empty($result['success'])) {
+        return $result;
+    }
+
+    $errorPrincipal = (string) ($result['error'] ?? '');
+    if (stripos($errorPrincipal, 'handler class cannot be loaded') === false) {
+        return $result;
+    }
+
+    $endpointAlternativo = trim((string) (
+        getenv('S2_ESTADO_CUENTA_URL_FALLBACK')
+        ?: 'https://servicios.s2movil.net/s2maxikash/estadocuenta'
+    ));
+    if ($endpointAlternativo === '' || rtrim($endpointAlternativo, '/') === rtrim($endpoint, '/')) {
+        return $result;
+    }
+
+    $resultAlternativo = consultarEstadoCuentaS2(
+        $endpointAlternativo,
+        $token,
+        $idCredito,
+        $fechaCorte
+    );
+    $resultAlternativo['fallback_intentado'] = true;
+
+    if (!empty($resultAlternativo['success'])) {
+        $endpoint = $endpointAlternativo;
+        $resultAlternativo['fallback_activado'] = true;
+
+        return $resultAlternativo;
+    }
+
+    $errorAlternativo = (string) ($resultAlternativo['error'] ?? 'Error desconocido');
+    $resultAlternativo['error'] = 'Ruta S2 principal: ' . $errorPrincipal
+        . ' | Ruta S2 alternativa: ' . $errorAlternativo;
+
+    return $resultAlternativo;
 }

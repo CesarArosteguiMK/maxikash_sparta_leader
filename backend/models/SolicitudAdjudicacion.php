@@ -129,13 +129,15 @@ class SolicitudAdjudicacion extends Model
                 'INSERT INTO adj_solicitud (
                     uuid, folio, id_credito, canal, estatus, nombre_cliente,
                     entregara_titular, nombre_entregante, kilometraje, telefono_actual,
-                    direccion_resguardo, motivo, id_usuario_solicitante,
+                    direccion_resguardo, motivo, vin, tipo_asignacion,
+                    id_persona_gestor, nombre_gestor, id_usuario_solicitante,
                     nombre_usuario_solicitante, idempotency_key, datos_credito_json,
                     payload_original, version, fecha_alta, fecha_actualizacion
                  ) VALUES (
                     :uuid, :folio, :id_credito, :canal, :estatus, :nombre_cliente,
                     :entregara_titular, :nombre_entregante, :kilometraje, :telefono_actual,
-                    :direccion_resguardo, :motivo, :actor_id, :actor_nombre,
+                    :direccion_resguardo, :motivo, :vin, :tipo_asignacion,
+                    :id_persona_gestor, :nombre_gestor, :actor_id, :actor_nombre,
                     :idempotency_key, :datos_credito_json, :payload_original,
                     1, :fecha_alta, :fecha_actualizacion
                  )',
@@ -152,6 +154,10 @@ class SolicitudAdjudicacion extends Model
                     'telefono_actual' => $data['telefono_actual'],
                     'direccion_resguardo' => $data['direccion_resguardo'],
                     'motivo' => $data['motivo'],
+                    'vin' => $data['vin'],
+                    'tipo_asignacion' => $data['tipo_asignacion'],
+                    'id_persona_gestor' => $data['id_persona_gestor'],
+                    'nombre_gestor' => $data['nombre_gestor'],
                     'actor_id' => $actorId,
                     'actor_nombre' => $actorNombre,
                     'idempotency_key' => $idempotencyKey !== '' ? $idempotencyKey : null,
@@ -199,14 +205,15 @@ class SolicitudAdjudicacion extends Model
         }
     }
 
-    public function listarPorSolicitante(int $actorId, array $filtros = []): array
+    public function listarPorSolicitante(int $actorId, array $filtros = [], string $canal = 'ATC'): array
     {
         if (!$this->tablasDisponibles()) {
             return ['success' => false, 'migration_required' => true, 'rows' => [], 'message' => 'Falta aplicar la migracion.'];
         }
 
-        $where = ['s.deleted_at IS NULL', 's.id_usuario_solicitante = :actor_id', "s.canal = 'ATC'"];
-        $params = ['actor_id' => $actorId];
+        $canal = strtoupper(trim($canal));
+        $where = ['s.deleted_at IS NULL', 's.id_usuario_solicitante = :actor_id', 's.canal = :canal'];
+        $params = ['actor_id' => $actorId, 'canal' => $canal];
         $q = trim((string) ($filtros['q'] ?? ''));
         if ($q !== '') {
             $where[] = '(CAST(s.id_credito AS CHAR) LIKE :q OR s.folio LIKE :q OR s.nombre_cliente LIKE :q)';
@@ -217,6 +224,7 @@ class SolicitudAdjudicacion extends Model
             'SELECT s.id, s.uuid, s.folio, s.id_credito, s.canal, s.estatus,
                     s.nombre_cliente, s.entregara_titular, s.nombre_entregante,
                     s.kilometraje, s.telefono_actual, s.direccion_resguardo, s.motivo,
+                    s.vin, s.tipo_asignacion, s.id_persona_gestor, s.nombre_gestor,
                     s.nombre_usuario_solicitante,
                     DATE_FORMAT(s.fecha_alta, "%d/%m/%Y %H:%i") AS fecha_alta_fmt,
                     DATE_FORMAT(s.fecha_actualizacion, "%d/%m/%Y %H:%i") AS fecha_actualizacion_fmt

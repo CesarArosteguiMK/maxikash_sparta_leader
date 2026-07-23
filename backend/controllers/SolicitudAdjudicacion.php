@@ -20,7 +20,7 @@ class SolicitudAdjudicacion extends Controller
 
     public function atc(): void
     {
-        if (!$this->autorizarAtc(false)) {
+        if (!$this->autorizarCanal('ATC', false)) {
             return;
         }
         self::set('titulo', 'ATC - Solicitud de Adjudicacion');
@@ -28,11 +28,34 @@ class SolicitudAdjudicacion extends Controller
         self::render('solicitud_adjudicacion_atc');
     }
 
-    public function buscarCredito(): void
+    public function despachos(): void
     {
-        if (!$this->autorizarAtc(true)) {
+        if (!$this->autorizarCanal('DESPACHOS', false)) {
             return;
         }
+        self::set('titulo', 'Despachos - Solicitud de Adjudicacion');
+        self::set('solicitudes_tablas_disponibles', $this->model->tablasDisponibles());
+        self::render('solicitud_adjudicacion_despachos');
+    }
+
+    public function buscarCredito(): void
+    {
+        if (!$this->autorizarCanal('ATC', true)) {
+            return;
+        }
+        $this->buscarCreditoRespuesta();
+    }
+
+    public function buscarCreditoDespachos(): void
+    {
+        if (!$this->autorizarCanal('DESPACHOS', true)) {
+            return;
+        }
+        $this->buscarCreditoRespuesta();
+    }
+
+    private function buscarCreditoRespuesta(): void
+    {
         $body = $this->payload();
         $idCredito = (int) ($body['id_credito'] ?? $body['valor'] ?? 0);
         if ($idCredito <= 0) {
@@ -49,31 +72,74 @@ class SolicitudAdjudicacion extends Controller
 
     public function crear(): void
     {
-        if (!$this->autorizarAtc(true)) {
+        if (!$this->autorizarCanal('ATC', true)) {
             return;
         }
+        $this->crearPorCanal('ATC');
+    }
+
+    public function crearCallCenter(): void
+    {
+        if (!$this->autorizarCanal('CALLCENTER', true)) {
+            return;
+        }
+        $this->crearPorCanal('CALLCENTER');
+    }
+
+    public function crearDespachos(): void
+    {
+        if (!$this->autorizarCanal('DESPACHOS', true)) {
+            return;
+        }
+        $this->crearPorCanal('DESPACHOS');
+    }
+
+    private function crearPorCanal(string $canal): void
+    {
         $body = $this->payload();
-        $body['canal'] = 'ATC';
+        $body['canal'] = $canal;
         [$actorId, $actorNombre] = $this->actor();
         $this->json($this->model->crear($body, $actorId, $actorNombre));
     }
 
     public function listar(): void
     {
-        if (!$this->autorizarAtc(true)) {
+        if (!$this->autorizarCanal('ATC', true)) {
             return;
         }
         [$actorId] = $this->actor();
-        $this->json($this->model->listarPorSolicitante($actorId, ['q' => $_GET['q'] ?? '']));
+        $this->json($this->model->listarPorSolicitante($actorId, ['q' => $_GET['q'] ?? ''], 'ATC'));
+    }
+
+    public function listarDespachos(): void
+    {
+        if (!$this->autorizarCanal('DESPACHOS', true)) {
+            return;
+        }
+        [$actorId] = $this->actor();
+        $this->json($this->model->listarPorSolicitante($actorId, ['q' => $_GET['q'] ?? ''], 'DESPACHOS'));
     }
 
     public function detalle($id = 0): void
     {
-        if (!$this->autorizarAtc(true)) {
+        if (!$this->autorizarCanal('ATC', true)) {
             return;
         }
+        $this->detalleRespuesta((int) $id);
+    }
+
+    public function detalleDespachos($id = 0): void
+    {
+        if (!$this->autorizarCanal('DESPACHOS', true)) {
+            return;
+        }
+        $this->detalleRespuesta((int) $id);
+    }
+
+    private function detalleRespuesta(int $id): void
+    {
         [$actorId] = $this->actor();
-        $row = $this->model->obtenerPorId((int) $id, $actorId);
+        $row = $this->model->obtenerPorId($id, $actorId);
         $this->json($row
             ? ['success' => true, 'solicitud' => $row]
             : ['success' => false, 'message' => 'Solicitud no encontrada.']);
@@ -94,18 +160,24 @@ class SolicitudAdjudicacion extends Controller
         return [$id, $nombre];
     }
 
-    private function autorizarAtc(bool $json): bool
+    private function autorizarCanal(string $canal, bool $json): bool
     {
         $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
-        if (in_array(69, $modulos, true)) {
+        $permisos = [
+            'ATC' => [69],
+            'CALLCENTER' => [35],
+            'DESPACHOS' => [20, 45],
+        ];
+        if (array_intersect($permisos[$canal] ?? [], $modulos)) {
             return true;
         }
 
         http_response_code(403);
+        $etiqueta = $canal === 'CALLCENTER' ? 'Call Center' : ucfirst(strtolower($canal));
         if ($json) {
-            $this->json(['success' => false, 'message' => 'No tienes permiso para operar solicitudes ATC.']);
+            $this->json(['success' => false, 'message' => 'No tienes permiso para operar solicitudes de ' . $etiqueta . '.']);
         } else {
-            echo '<div class="alert alert-danger m-4">No tienes permiso para operar solicitudes ATC.</div>';
+            echo '<div class="alert alert-danger m-4">No tienes permiso para operar solicitudes de ' . htmlspecialchars($etiqueta) . '.</div>';
         }
         return false;
     }

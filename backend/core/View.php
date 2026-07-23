@@ -223,6 +223,7 @@ function getMenu(): string
             'icono'    => 'fa-solid fa-building-columns',
             'subItems' => [
                 ['section' => 'Gestion'],
+                ['label' => 'Solicitud de Adjudicacion', 'url' => '/SolicitudAdjudicacion/despachos', 'modulos' => [20, 45]],
                 ['label' => 'Asignación de Créditos', 'url' => '/Despachos/AsignacionCreditosDespacho', 'modulos' => [20]],
                 ['label' => 'Mi Cartera',              'url' => '/Despachos/MiGestion',                  'modulos' => [45]],
                 ['section' => 'Operacion de convenios'],
@@ -239,6 +240,7 @@ function getMenu(): string
                 ['section' => 'General'],
                 ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion',          'modulos' => [62, 80]],
                 ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',                'modulos' => [63]],
+                ['label' => 'Historico adjudicadas', 'url' => '/MotosAdjudicadas/reporteHistoricoFlujo', 'modulos' => [63]],
                 ['label' => 'Almacen Virtual',        'url' => '/MotosAdjudicadas/almacenVirtual',          'modulos' => [139]],
                 ['label' => 'Monitoreo', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                 ['label' => 'Consulta REPUVE',         'url' => '/MotosAdjudicadas/repuveConsulta',         'modulos' => [78]],

@@ -3256,6 +3256,8 @@ SQL;
      */
     public function obtenerPipeline(string $filtro = '', int $limit = 500): array
     {
+        // El NIV se captura como VIN en moto_no_serie. serie se conserva como
+        // respaldo para operaciones creadas antes del formulario actual.
         $predD2 = $this->sqlEsDictamenLlamadaRetenciones('d2');
         $limit = max(50, min(500, $limit));
         $filtro = trim($filtro);
@@ -3287,6 +3289,7 @@ SQL;
             o.marca,
             o.modelo,
             o.serie,
+            COALESCE(NULLIF(TRIM(o.moto_no_serie), ''), NULLIF(TRIM(o.serie), '')) AS niv,
             o.num_motor,
             NULL AS placas,
             o.dias_mora,
@@ -3770,6 +3773,7 @@ SQL;
         $op = $this->db->queryOne(
             "SELECT o.*,
                     DATE_FORMAT(o.fecha_alta,          '%Y-%m-%d %H:%i') AS fecha_alta_fmt,
+                    DATE_FORMAT(o.fecha_alta,          '%d/%m/%Y %H:%i') AS fecha_gestion_legacy,
                     DATE_FORMAT(o.fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion_fmt,
                     DATE_FORMAT(o.datos_moto_at,       '%d/%m/%Y %H:%i') AS datos_moto_fecha,
                     DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline
@@ -3787,6 +3791,7 @@ SQL;
         $opSincronizada = $this->db->queryOne(
             "SELECT o.*,
                     DATE_FORMAT(o.fecha_alta,          '%Y-%m-%d %H:%i') AS fecha_alta_fmt,
+                    DATE_FORMAT(o.fecha_alta,          '%d/%m/%Y %H:%i') AS fecha_gestion_legacy,
                     DATE_FORMAT(o.fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion_fmt,
                     DATE_FORMAT(o.datos_moto_at,       '%d/%m/%Y %H:%i') AS datos_moto_fecha,
                     DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline
@@ -3904,6 +3909,10 @@ SQL;
         $op['ultimo_gestor_operacion'] = $ultimoGestor;
         $op['ultimo_gestor_nombre'] = $ultimoGestor['nombre'] ?? null;
         $op['ultimo_gestor_fecha'] = $ultimoGestor['fecha_asignacion'] ?? null;
+        $op['niv'] = trim((string) ($op['moto_no_serie'] ?? ''));
+        if ($op['niv'] === '') {
+            $op['niv'] = trim((string) ($op['serie'] ?? ''));
+        }
 
         return $op;
     }
@@ -6252,14 +6261,18 @@ EOSQL;
 
         if (array_key_exists('moto_placas', $datos)) {
             $placas = strtoupper(preg_replace('/\s+/u', '', (string) $datos['moto_placas']));
-            $lp     = strlen($placas);
-            if ($lp < self::MADJ_PLACAS_MOTO_MIN_LEN || $lp > self::MADJ_PLACAS_MOTO_MAX_LEN) {
-                return 'Las placas de motocicleta deben tener entre '
-                    . self::MADJ_PLACAS_MOTO_MIN_LEN . ' y ' . self::MADJ_PLACAS_MOTO_MAX_LEN
-                    . ' caracteres (en M?xico el formato de serie suele ser corto, p. ej. Y001AA).';
-            }
-            if (!preg_match('/^[A-Z0-9\-]+$/', $placas)) {
-                return 'Las placas solo pueden incluir letras, n?meros y guion.';
+            // Una motocicleta puede no tener placas. En ese caso se guarda una
+            // cadena vacia; una placa capturada si conserva la validacion.
+            if ($placas !== '') {
+                $lp = strlen($placas);
+                if ($lp < self::MADJ_PLACAS_MOTO_MIN_LEN || $lp > self::MADJ_PLACAS_MOTO_MAX_LEN) {
+                    return 'Las placas de motocicleta deben tener entre '
+                        . self::MADJ_PLACAS_MOTO_MIN_LEN . ' y ' . self::MADJ_PLACAS_MOTO_MAX_LEN
+                        . ' caracteres (en M?xico el formato de serie suele ser corto, p. ej. Y001AA).';
+                }
+                if (!preg_match('/^[A-Z0-9\-]+$/', $placas)) {
+                    return 'Las placas solo pueden incluir letras, n?meros y guion.';
+                }
             }
         }
 
@@ -8701,7 +8714,25 @@ EOSQL;
     public function obtenerReporteHistoricoFlujoMotosAdjudicadas(array $filtros = []): array
     {
         $params = [];
-        $where = $this->madjWhereFechaAlta($filtros, $params);
+        // El histórico solo muestra tickets cuyo flujo ya terminó: recepción
+        // confirmada (incluye Retenciones posteriores) o cierre/cancelación explícita.
+        $where = '(
+            o.recepcion_confirmada_at IS NOT NULL
+            OR LOWER(TRIM(COALESCE(o.estatus, \'\'))) IN (
+                \'cancelado\', \'cancelada\', \'concluido\', \'concluida\',
+                \'finalizado\', \'finalizada\', \'cerrado\', \'cerrada\'
+            )
+        )';
+        $desde = $this->madjFechaFiltro($filtros['desde'] ?? null);
+        $hasta = $this->madjFechaFiltro($filtros['hasta'] ?? null);
+        if ($desde !== null) {
+            $where .= ' AND DATE(COALESCE(o.recepcion_confirmada_at, o.fecha_actualizacion, o.fecha_alta)) >= :desde';
+            $params['desde'] = $desde;
+        }
+        if ($hasta !== null) {
+            $where .= ' AND DATE(COALESCE(o.recepcion_confirmada_at, o.fecha_actualizacion, o.fecha_alta)) <= :hasta';
+            $params['hasta'] = $hasta;
+        }
         $estadoSql = $this->madjEstadoNormalizadoSql('o');
 
         $estado = trim((string) ($filtros['estado'] ?? ''));
@@ -8710,7 +8741,6 @@ EOSQL;
             $params['estado'] = strtoupper($estado);
         }
 
-        $etapaFiltro = trim((string) ($filtros['etapa'] ?? ''));
         $q = trim((string) ($filtros['q'] ?? ''));
         if ($q !== '') {
             $where .= " AND (
@@ -8725,8 +8755,8 @@ EOSQL;
             $params['q'] = '%' . $q . '%';
         }
 
-        $limit = (int) ($filtros['limit'] ?? 800);
-        $limit = max(100, min(3000, $limit));
+        $limit = (int) ($filtros['limit'] ?? 100);
+        $limit = max(25, min(500, $limit));
 
         $sql = $this->madjHistoricoFlujoQuery($where, $estadoSql, true) . " LIMIT {$limit}";
         try {
@@ -8738,31 +8768,23 @@ EOSQL;
             $trackingDisponible = false;
         }
 
-        $etapasMeta = $this->madjHistoricoFlujoEtapas();
-        $columnas = [];
-        foreach ($etapasMeta as $key => $meta) {
-            $columnas[$key] = array_merge($meta, [
-                'total' => 0,
-                'creditos' => [],
-            ]);
-        }
-
         $estadosConteo = [];
-        $totalFiltrado = 0;
+        $cerradosPorRecepcion = 0;
+        $cerradosPorCancelacion = 0;
+        $registros = [];
         foreach ($rows as $row) {
-            $clasificacion = $this->madjHistoricoFlujoClasificar($row);
-            $key = $clasificacion['key'];
-            if ($etapaFiltro !== '' && $etapaFiltro !== $key) {
-                continue;
-            }
-
-            $totalFiltrado++;
             $estadoLabel = (string) ($row['estado_normalizado'] ?? 'SIN ESTADO');
             $estadosConteo[$estadoLabel] = ($estadosConteo[$estadoLabel] ?? 0) + 1;
-            $fechaEtapa = $clasificacion['fecha'] ?? null;
-
-            $columnas[$key]['total']++;
-            $columnas[$key]['creditos'][] = [
+            $esRecepcionConfirmada = trim((string) ($row['recepcion_confirmada_at'] ?? '')) !== '';
+            $fechaCierre = $esRecepcionConfirmada
+                ? $row['recepcion_confirmada_at']
+                : ($row['fecha_actualizacion'] ?? $row['fecha_alta'] ?? null);
+            if ($esRecepcionConfirmada) {
+                $cerradosPorRecepcion++;
+            } else {
+                $cerradosPorCancelacion++;
+            }
+            $registros[] = [
                 'id_operacion' => (int) ($row['id'] ?? 0),
                 'folio' => $row['folio'] ?? '',
                 'id_credito' => (int) ($row['id_credito'] ?? 0),
@@ -8776,14 +8798,13 @@ EOSQL;
                 'gestor_nombre' => $row['gestor_nombre'] ?? '',
                 'fecha_alta' => $row['fecha_alta'] ?? null,
                 'fecha_actualizacion' => $row['fecha_actualizacion'] ?? null,
-                'fecha_etapa' => $fechaEtapa,
-                'fecha_etapa_fmt' => $this->madjFmtFecha($fechaEtapa),
+                'fecha_cierre' => $fechaCierre,
+                'fecha_cierre_fmt' => $this->madjFmtFecha($fechaCierre),
+                'tipo_cierre' => $esRecepcionConfirmada ? 'Recepción confirmada' : 'Cancelación / cierre',
                 'evidencias_total' => (int) ($row['evidencias_total'] ?? 0),
                 'tracking_total' => (int) ($row['tracking_total'] ?? 0),
                 'ruta_tracking' => $row['ruta_tracking'] ?? '',
                 'estatus_tracking' => $row['estatus_tracking'] ?? '',
-                'etapa_key' => $key,
-                'etapa_titulo' => $etapasMeta[$key]['titulo'] ?? $key,
             ];
         }
 
@@ -8797,13 +8818,14 @@ EOSQL;
 
         return [
             'resumen' => [
-                'total' => $totalFiltrado,
+                'total' => count($registros),
                 'limit' => $limit,
                 'tracking_disponible' => $trackingDisponible,
+                'recepcion_confirmada' => $cerradosPorRecepcion,
+                'cancelados_o_cerrados' => $cerradosPorCancelacion,
             ],
-            'etapas' => array_values($columnas),
+            'rows' => $registros,
             'catalogos' => [
-                'etapas' => array_values($etapasMeta),
                 'estados' => $estadoRows,
             ],
             'actualizado_at' => date('Y-m-d H:i:s'),

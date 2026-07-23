@@ -738,6 +738,10 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
                     </div>
                 </div>
                 <div class="ae-list-action">
+                    <a class="btn btn-sm btn-outline-primary mb-2"
+                       href="/SolicitudAdjudicacion/atc?id_credito=${encodeURIComponent(item.id_credito)}">
+                        <i class="fa-solid fa-motorcycle me-1"></i>Solicitar adjudicaciÃ³n
+                    </a>
                     <button type="button" class="ac-btn-dictaminar"
                             onclick="acAbrirDictaminar(${idOp})" ${idOp ? '' : 'disabled'}>
                         <i class="fa-solid fa-phone-volume me-1"></i>Dictaminar
@@ -865,6 +869,10 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
                     </div>
                 </div>
                 <div class="ae-list-action">
+                    <a class="btn btn-sm btn-outline-primary mb-2"
+                       href="/SolicitudAdjudicacion/atc?id_credito=${encodeURIComponent(item.id_credito)}">
+                        <i class="fa-solid fa-motorcycle me-1"></i>Solicitar adjudicaciÃ³n
+                    </a>
                     <button type="button" class="ac-btn-dictaminar"
                             onclick="acAbrirDictaminar(${idOp}, 'pendiente')" ${idOp ? '' : 'disabled'}>
                         <i class="fa-solid fa-phone-volume me-1"></i>Dictaminar

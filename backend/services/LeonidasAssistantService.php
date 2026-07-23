@@ -22,8 +22,8 @@ class LeonidasAssistantService
         if ($mensaje === '') {
             throw new \InvalidArgumentException('Escribe una instrucción para Leónidas.');
         }
-        if (mb_strlen($mensaje, 'UTF-8') > 500) {
-            throw new \InvalidArgumentException('La instrucción no puede superar 500 caracteres.');
+        if (mb_strlen($mensaje, 'UTF-8') > 5000) {
+            throw new \InvalidArgumentException('La instrucción no puede superar 5000 caracteres.');
         }
 
         $contexto = $this->contextoSeguro();
