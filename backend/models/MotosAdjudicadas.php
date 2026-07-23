@@ -3256,6 +3256,8 @@ SQL;
      */
     public function obtenerPipeline(string $filtro = '', int $limit = 500): array
     {
+        // El NIV se captura como VIN en moto_no_serie. serie se conserva como
+        // respaldo para operaciones creadas antes del formulario actual.
         $predD2 = $this->sqlEsDictamenLlamadaRetenciones('d2');
         $limit = max(50, min(500, $limit));
         $filtro = trim($filtro);
@@ -3287,6 +3289,7 @@ SQL;
             o.marca,
             o.modelo,
             o.serie,
+            COALESCE(NULLIF(TRIM(o.moto_no_serie), ''), NULLIF(TRIM(o.serie), '')) AS niv,
             o.num_motor,
             NULL AS placas,
             o.dias_mora,
@@ -3770,6 +3773,7 @@ SQL;
         $op = $this->db->queryOne(
             "SELECT o.*,
                     DATE_FORMAT(o.fecha_alta,          '%Y-%m-%d %H:%i') AS fecha_alta_fmt,
+                    DATE_FORMAT(o.fecha_alta,          '%d/%m/%Y %H:%i') AS fecha_gestion_legacy,
                     DATE_FORMAT(o.fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion_fmt,
                     DATE_FORMAT(o.datos_moto_at,       '%d/%m/%Y %H:%i') AS datos_moto_fecha,
                     DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline
@@ -3787,6 +3791,7 @@ SQL;
         $opSincronizada = $this->db->queryOne(
             "SELECT o.*,
                     DATE_FORMAT(o.fecha_alta,          '%Y-%m-%d %H:%i') AS fecha_alta_fmt,
+                    DATE_FORMAT(o.fecha_alta,          '%d/%m/%Y %H:%i') AS fecha_gestion_legacy,
                     DATE_FORMAT(o.fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion_fmt,
                     DATE_FORMAT(o.datos_moto_at,       '%d/%m/%Y %H:%i') AS datos_moto_fecha,
                     DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline
@@ -3904,6 +3909,10 @@ SQL;
         $op['ultimo_gestor_operacion'] = $ultimoGestor;
         $op['ultimo_gestor_nombre'] = $ultimoGestor['nombre'] ?? null;
         $op['ultimo_gestor_fecha'] = $ultimoGestor['fecha_asignacion'] ?? null;
+        $op['niv'] = trim((string) ($op['moto_no_serie'] ?? ''));
+        if ($op['niv'] === '') {
+            $op['niv'] = trim((string) ($op['serie'] ?? ''));
+        }
 
         return $op;
     }

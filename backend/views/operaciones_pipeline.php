@@ -366,6 +366,10 @@
             const dias = parseInt(op.dias_en_pipeline || 0);
             const fechaEstatus = String(op.fecha_estatus_actual || op.fecha_actualizacion || op.fecha_alta || '').trim();
             const fechaRegistro = String(op.fecha_alta || '').trim();
+            const niv = String(op.niv || op.moto_no_serie || op.serie || '').trim();
+            const nivLinea = niv
+                ? `<div class="text-muted text-truncate mt-1" title="NIV: ${opsEsc(niv)}" style="font-size:.64rem;"><i class="fa-solid fa-barcode me-1"></i>NIV: ${opsEsc(niv)}</div>`
+                : '<div class="text-muted mt-1" style="font-size:.64rem;"><i class="fa-solid fa-barcode me-1"></i>NIV: Sin capturar</div>';
             const antiguedadTitle = `Tiempo en estatus ${op.estatus || ''}${fechaEstatus ? ' desde ' + fechaEstatus : ''}`;
             let agingBadge = 'bg-label-primary';
             if (dias > 5)      agingBadge = 'bg-label-danger';
@@ -410,6 +414,7 @@
                         ${canceladoBadge}
                     </div>
                     <div class="fw-semibold text-truncate" style="font-size:.78rem;">${opsEsc(op.nombre_cliente)}</div>
+                    ${nivLinea}
                     <div class="mt-1">${statusTxt}</div>
                 </div>
                 <div class="px-2 py-1 border-top d-flex align-items-center gap-1" style="background:var(--bs-tertiary-bg,#f8f9fa);border-radius:0 0 .35rem .35rem;">
@@ -430,6 +435,7 @@
                         <span class="text-danger text-truncate" title="Fecha de registro / adjudicacion" style="font-size:.62rem;">Registro: ${opsEsc(fechaRegistro || 'sin fecha')}</span>
                     </div>
                     <div class="fw-medium" style="font-size:.7rem;line-height:1.14;">${opsEsc(op.nombre_cliente)}</div>
+                    ${nivLinea}
                     <div class="d-flex justify-content-end mt-1">
                         <span class="badge ${agingBadge}" title="${opsEsc(antiguedadTitle)}" style="font-size:.58rem;padding:.2rem .42rem;">${dias} días en esta etapa</span>
                     </div>
@@ -446,6 +452,7 @@
                 <span class="text-danger text-truncate" title="Fecha de registro / adjudicacion" style="font-size:.62rem;">Registro: ${opsEsc(fechaRegistro || 'sin fecha')}</span>
             </div>
             <div class="fw-medium" style="font-size:.71rem;line-height:1.14;">${opsEsc(op.nombre_cliente)}</div>
+            ${nivLinea}
             <div class="d-flex justify-content-end mt-1">
                 <span class="badge ${agingBadge}" title="${opsEsc(antiguedadTitle)}" style="font-size:.58rem;padding:.2rem .42rem;">${dias} días en esta etapa</span>
             </div>
@@ -609,6 +616,10 @@
                                 <span class="text-muted">|</span>
                                 <span class="text-muted">${opsEsc(op.folio)}</span>
                             </div>
+                            <div class="d-flex flex-wrap align-items-center gap-2 mt-1 small">
+                                <span class="text-muted">NIV</span>
+                                <span class="fw-medium">${opsEsc(op.niv || op.moto_no_serie || op.serie || 'Sin capturar')}</span>
+                            </div>
                             <div class="mt-2">
                                 <span class="badge bg-primary">${opsEsc(textoEtapa)}</span>
                             </div>
@@ -619,10 +630,75 @@
                     </div>
                 </div>
             </div>
+            ${opsRenderResumenInformacionOperacion(op)}
             ${opsRenderDatosExpediente(op, dictamen, historialLlamadas)}
         </div>`;
 
             document.getElementById('det-body').innerHTML = html;
+        }
+
+        /** Datos capturados por el gestor y metadatos de la gestión original en Legacy. */
+        function opsRenderResumenInformacionOperacion(op) {
+            const valor = v => String(v == null ? '' : v).trim();
+            const primero = (...values) => values.map(valor).find(Boolean) || '';
+            const siNo = v => {
+                const raw = valor(v);
+                const normalized = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                if (['si', '1', 'true'].includes(normalized)) return 'Sí';
+                if (['no', '0', 'false'].includes(normalized)) return 'No';
+                return raw;
+            };
+            const resguardo = [
+                primero(op.log_lugar_otro, op.log_lugar_resguardo),
+                valor(op.log_ciudad),
+                valor(op.log_estado)
+            ].filter(Boolean).join(' / ');
+            const campos = [
+                ['Marca', primero(op.moto_marca, op.marca)],
+                ['Modelo', primero(op.moto_modelo, op.modelo)],
+                ['Año', primero(op.moto_anio, op.anio, op.ano)],
+                ['Color', valor(op.moto_color)],
+                ['NIV', primero(op.niv, op.moto_no_serie, op.serie)],
+                ['No. motor', primero(op.moto_no_motor, op.num_motor)],
+                ['Placas', primero(op.moto_placas, op.placas)],
+                ['Kilometraje', valor(op.kilometraje)],
+                ['Llave física', siNo(primero(op.llave_fisica, op.tiene_llave_fisica))],
+                ['Tarjeta de circulación', siNo(primero(op.tarjeta_circulacion, op.tiene_tarjeta_de_circulacion_en_fisico))],
+                ['Placa física', siNo(primero(op.placa_fisica, op.la_moto_tiene_placa_fisica))],
+                ['Lugar de resguardo', resguardo],
+                ['Responsable de resguardo', valor(op.responsable_entrega)],
+                ['Teléfono de contacto', primero(op.log_telefono, op.telefono_contacto)],
+                ['Dirección de resguardo', primero(op.log_direccion, op.direccion_recoleccion)]
+            ];
+            const hayFormulario = campos.some(([, value]) => value);
+            const gestor = valor(op.ultimo_gestor_nombre) || 'Sin asignar';
+            const gestion = valor(op.fecha_gestion_legacy) || valor(op.fecha_alta_fmt) || 'Sin fecha disponible';
+            const fechaCaptura = valor(op.datos_moto_fecha);
+            const filas = campos.map(([label, value]) => `
+                <div class="col-sm-6 col-lg-4">
+                    <div class="border rounded p-2 h-100" style="background:#fafbfc;">
+                        <div class="text-muted text-uppercase fw-semibold" style="font-size:.61rem;letter-spacing:.04em;">${opsEsc(label)}</div>
+                        <div class="small fw-medium text-break mt-1">${opsEsc(value || 'Sin capturar')}</div>
+                    </div>
+                </div>`).join('');
+
+            return `
+            <div class="card mb-3 shadow-sm">
+                <div class="card-header py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <h6 class="mb-0 small fw-bold text-uppercase"><i class="fa-solid fa-circle-info me-2 text-primary"></i>Información de operación</h6>
+                    ${fechaCaptura ? `<span class="text-muted" style="font-size:.72rem;">Formulario capturado: ${opsEsc(fechaCaptura)}</span>` : ''}
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">${opsExpKv('Gestor asignado', gestor)}</div>
+                        <div class="col-md-6">${opsExpKv('Fecha y hora de gestión en Legacy', gestion)}</div>
+                    </div>
+                    <div class="border-top pt-3">
+                        <div class="small fw-semibold text-uppercase mb-2" style="letter-spacing:.04em;"><i class="fa-solid fa-clipboard-list me-1 text-primary"></i>Formulario de la operación</div>
+                        ${hayFormulario ? `<div class="row g-2">${filas}</div>` : '<div class="text-muted small">Aún no hay información de formulario capturada por el gestor.</div>'}
+                    </div>
+                </div>
+            </div>`;
         }
 
         /**
