@@ -5451,7 +5451,7 @@ class CapHum extends Controller
                     const spanBaja = document.getElementById("bajaModal_nombreArchivo");
                     if (spanBaja) spanBaja.textContent = "No se ha seleccionado ningún archivo";
                     archivosSeleccionados = [];
-                    document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> ";
+                    document.getElementById("gestor").textContent = "";
                     resetBajaReasignacion();
 
                     fetch('/CapHum/getDetalles', {
@@ -5477,8 +5477,10 @@ class CapHum extends Controller
                             return;
                         }
                         document.getElementById("edit_id").value = persona.id;
-                        // Concatenar el nombre completo en el <p id="gestor">
-                        document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> " + persona.nombres + " " + persona.apellidop + " " + persona.apellidom;
+                        // Mostrar únicamente el nombre completo de la persona en el modal de baja.
+                        document.getElementById("gestor").textContent = [persona.nombres, persona.apellidop, persona.apellidom]
+                            .filter(Boolean)
+                            .join(" ");
 
                         cargarDatosReasignacionBaja(persona.id);
 
@@ -6245,7 +6247,7 @@ class CapHum extends Controller
                 // Texto del gestor (opcional)
                 const gestor = document.getElementById("gestor");
                 if (gestor) {
-                    gestor.innerHTML = "<strong>Gestor:</strong>";
+                    gestor.textContent = "";
                 }
             }
 

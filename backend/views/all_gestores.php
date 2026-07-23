@@ -6843,7 +6843,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 </div>
 
                 <div class="modal-body">
-                    <p id="gestor"><strong>Gestor:</strong> </p>
+                    <p id="gestor"></p>
 
                     <div class="mb-3" style="display: none;">
                         <label for="id" class="form-label"><strong>Id</strong></label>
