@@ -83,6 +83,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'icono' => 'fa-solid fa-building-columns',
                 'subItems' => [
                     ['section' => 'Gestion'],
+                    ['label' => 'Solicitud de Adjudicacion', 'url' => '/SolicitudAdjudicacion/despachos', 'modulos' => [20, 45]],
                     ['label' => 'Asignación de Créditos', 'url' => '/Despachos/AsignacionCreditosDespacho', 'modulos' => [20]],
                     ['label' => 'Mi Cartera', 'url' => '/Despachos/MiGestion', 'modulos' => [45]],
                     ['section' => 'Operacion de convenios'],

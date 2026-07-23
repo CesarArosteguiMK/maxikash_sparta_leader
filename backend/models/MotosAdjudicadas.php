@@ -6261,14 +6261,18 @@ EOSQL;
 
         if (array_key_exists('moto_placas', $datos)) {
             $placas = strtoupper(preg_replace('/\s+/u', '', (string) $datos['moto_placas']));
-            $lp     = strlen($placas);
-            if ($lp < self::MADJ_PLACAS_MOTO_MIN_LEN || $lp > self::MADJ_PLACAS_MOTO_MAX_LEN) {
-                return 'Las placas de motocicleta deben tener entre '
-                    . self::MADJ_PLACAS_MOTO_MIN_LEN . ' y ' . self::MADJ_PLACAS_MOTO_MAX_LEN
-                    . ' caracteres (en M?xico el formato de serie suele ser corto, p. ej. Y001AA).';
-            }
-            if (!preg_match('/^[A-Z0-9\-]+$/', $placas)) {
-                return 'Las placas solo pueden incluir letras, n?meros y guion.';
+            // Una motocicleta puede no tener placas. En ese caso se guarda una
+            // cadena vacia; una placa capturada si conserva la validacion.
+            if ($placas !== '') {
+                $lp = strlen($placas);
+                if ($lp < self::MADJ_PLACAS_MOTO_MIN_LEN || $lp > self::MADJ_PLACAS_MOTO_MAX_LEN) {
+                    return 'Las placas de motocicleta deben tener entre '
+                        . self::MADJ_PLACAS_MOTO_MIN_LEN . ' y ' . self::MADJ_PLACAS_MOTO_MAX_LEN
+                        . ' caracteres (en M?xico el formato de serie suele ser corto, p. ej. Y001AA).';
+                }
+                if (!preg_match('/^[A-Z0-9\-]+$/', $placas)) {
+                    return 'Las placas solo pueden incluir letras, n?meros y guion.';
+                }
             }
         }
 

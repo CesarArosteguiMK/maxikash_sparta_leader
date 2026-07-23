@@ -7,6 +7,7 @@ use Core\EstadoCuentaTimingLog;
 use Models\Empresa as EmpresasDAO;
 use Models\EstadoCuenta as EstadoCuentaDAO;
 use Models\Login as LoginDAO;
+use Models\SolicitudAdjudicacion as SolicitudAdjudicacionDAO;
 
 
 class EstadoCuenta extends Controller
@@ -7155,11 +7156,32 @@ public function descargar()
         }
 
         $resultado = EstadoCuentaDAO::insertDictamenLlamada($data);
+        $solicitudResultado = null;
+        if (!empty($resultado['success']) && !empty($input['solicitud_adjudicacion']['solicitar'])) {
+            $solicitudInput = is_array($input['solicitud_adjudicacion'])
+                ? $input['solicitud_adjudicacion']
+                : [];
+            $solicitudInput['id_credito'] = $data['id_credito'];
+            $solicitudInput['canal'] = 'CALLCENTER';
+            $solicitudInput['referencia_dictamen_id'] = (int) (
+                $resultado['data']['id']
+                ?? $resultado['data'][0]['id']
+                ?? 0
+            );
+            $actorId = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? 0);
+            $actorNombre = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'Call Center'));
+            $solicitudResultado = (new SolicitudAdjudicacionDAO())->crear(
+                $solicitudInput,
+                $actorId,
+                $actorNombre
+            );
+        }
 
         echo json_encode([
             'success' => $resultado['success'],
             'mensaje' => $resultado['mensaje'],
-            'data'    => $resultado['data'] ?? null
+            'data'    => $resultado['data'] ?? null,
+            'solicitud_adjudicacion' => $solicitudResultado,
         ]);
         exit;
     }

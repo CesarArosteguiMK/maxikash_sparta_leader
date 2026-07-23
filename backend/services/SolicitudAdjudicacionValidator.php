@@ -5,6 +5,8 @@ namespace Services;
 final class SolicitudAdjudicacionValidator
 {
     public const CANAL_ATC = 'ATC';
+    public const CANAL_CALLCENTER = 'CALLCENTER';
+    public const CANAL_DESPACHOS = 'DESPACHOS';
     private const CANALES_PERMITIDOS = ['ATC', 'CALLCENTER', 'DESPACHOS', 'CAMPO'];
 
     /**
@@ -32,18 +34,22 @@ final class SolicitudAdjudicacionValidator
         $direccion = self::texto($input['direccion_resguardo'] ?? '', 500);
         $motivo = self::texto($input['motivo'] ?? '', 1000);
         $kilometraje = self::normalizarKilometraje($input['kilometraje'] ?? null);
+        $vin = strtoupper(self::texto($input['vin'] ?? '', 17));
+        $tipoAsignacion = strtoupper(self::texto($input['tipo_asignacion'] ?? '', 30));
+        $idPersonaGestor = (int) ($input['id_persona_gestor'] ?? 0);
+        $nombreGestor = self::texto($input['nombre_gestor'] ?? '', 180);
 
         if ($titular === false) {
             if ($nombreEntregante === '') {
                 $errors['nombre_entregante'] = 'Captura el nombre de quien entregara la moto.';
             }
-            if ($kilometraje === null) {
+            if ($canal === self::CANAL_ATC && $kilometraje === null) {
                 $errors['kilometraje'] = 'Captura un kilometraje valido entre 0 y 999999.';
             }
             if ($telefono === '') {
                 $errors['telefono_actual'] = 'Captura un telefono de 10 a 15 digitos.';
             }
-            if ($direccion === '') {
+            if ($canal === self::CANAL_ATC && $direccion === '') {
                 $errors['direccion_resguardo'] = 'Captura la direccion actual de resguardo.';
             }
             if ($motivo === '') {
@@ -55,6 +61,27 @@ final class SolicitudAdjudicacionValidator
             $telefono = '';
             $direccion = '';
             $motivo = '';
+        }
+
+        if ($canal === self::CANAL_DESPACHOS) {
+            if (!preg_match('/^[A-HJ-NPR-Z0-9]{17}$/', $vin)) {
+                $errors['vin'] = 'Captura un VIN valido de 17 caracteres.';
+            }
+            if (!in_array($tipoAsignacion, ['DESPACHO', 'EQUIPO_MAXIKASH'], true)) {
+                $errors['tipo_asignacion'] = 'Selecciona Despacho o Equipo Maxikash.';
+            }
+            if ($tipoAsignacion === 'DESPACHO' && ($idPersonaGestor <= 0 || $nombreGestor === '')) {
+                $errors['id_persona_gestor'] = 'Selecciona el gestor del despacho.';
+            }
+            if ($tipoAsignacion === 'EQUIPO_MAXIKASH') {
+                $idPersonaGestor = 0;
+                $nombreGestor = '';
+            }
+        } else {
+            $vin = '';
+            $tipoAsignacion = '';
+            $idPersonaGestor = 0;
+            $nombreGestor = '';
         }
 
         return [
@@ -69,6 +96,10 @@ final class SolicitudAdjudicacionValidator
                 'telefono_actual' => $telefono !== '' ? $telefono : null,
                 'direccion_resguardo' => $direccion !== '' ? $direccion : null,
                 'motivo' => $motivo !== '' ? $motivo : null,
+                'vin' => $vin !== '' ? $vin : null,
+                'tipo_asignacion' => $tipoAsignacion !== '' ? $tipoAsignacion : null,
+                'id_persona_gestor' => $idPersonaGestor > 0 ? $idPersonaGestor : null,
+                'nombre_gestor' => $nombreGestor !== '' ? $nombreGestor : null,
             ],
         ];
     }

@@ -15,6 +15,10 @@ CREATE TABLE IF NOT EXISTS adj_solicitud (
     telefono_actual VARCHAR(20) NULL,
     direccion_resguardo VARCHAR(500) NULL,
     motivo VARCHAR(1000) NULL,
+    vin CHAR(17) NULL,
+    tipo_asignacion VARCHAR(30) NULL,
+    id_persona_gestor INT NULL,
+    nombre_gestor VARCHAR(180) NULL,
     id_usuario_solicitante INT NOT NULL,
     nombre_usuario_solicitante VARCHAR(180) NULL,
     id_operacion INT NULL,
@@ -40,6 +44,7 @@ CREATE TABLE IF NOT EXISTS adj_solicitud (
     UNIQUE KEY ux_adj_solicitud_credito_activo (id_credito_activo),
     KEY idx_adj_solicitud_credito (id_credito),
     KEY idx_adj_solicitud_canal_estatus (canal, estatus),
+    KEY idx_adj_solicitud_gestor (id_persona_gestor),
     KEY idx_adj_solicitud_solicitante_fecha (id_usuario_solicitante, fecha_alta),
     KEY idx_adj_solicitud_operacion (id_operacion)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

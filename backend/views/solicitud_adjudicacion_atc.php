@@ -236,6 +236,11 @@ $tablasDisponibles = !empty($solicitudes_tablas_disponibles);
     $('sa-cerrar-detalle').addEventListener('click', () => $('sa-detalle-card').classList.add('d-none'));
     $('sa-refrescar').addEventListener('click', cargarLista);
     $('sa-filtro').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); cargarLista(); } });
+    const creditoInicial = Number(new URLSearchParams(window.location.search).get('id_credito') || 0);
+    if (creditoInicial > 0) {
+        $('sa-id-credito').value = creditoInicial;
+        $('sa-buscar').click();
+    }
     cargarLista();
 })();
 </script>

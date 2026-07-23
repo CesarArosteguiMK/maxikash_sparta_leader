@@ -18,6 +18,27 @@ class LeonidasMotosAdjudicadasService
 {
     public const ACTION_ENVIAR_EVIDENCIAS = 'moto_enviar_evidencias';
     public const ACTION_FORZAR_EVIDENCIAS = 'moto_forzar_evidencias';
+    public const ACTION_GUARDAR_DATOS_MOTO = 'moto_guardar_datos';
+
+    private const SESSION_DRAFT = 'leonidas_motos_datos_borrador';
+    private const DRAFT_TTL_SECONDS = 1800;
+    private const CAMPOS_CAPTURA_MOTO = [
+        'marca' => ['etiqueta' => 'la marca', 'db' => 'moto_marca'],
+        'serie' => ['etiqueta' => 'el número de serie (VIN)', 'db' => 'moto_no_serie'],
+        'modelo' => ['etiqueta' => 'el modelo', 'db' => 'moto_modelo'],
+        'anio' => ['etiqueta' => 'el año', 'db' => 'moto_anio'],
+        'color' => ['etiqueta' => 'el color', 'db' => 'moto_color'],
+        'motor' => ['etiqueta' => 'el número de motor', 'db' => 'moto_no_motor'],
+        'placas' => ['etiqueta' => 'las placas', 'db' => 'moto_placas'],
+        'kilometraje' => ['etiqueta' => 'el kilometraje', 'db' => 'kilometraje'],
+        'llave_fisica' => ['etiqueta' => 'si tiene llave física', 'db' => 'tiene_llave_fisica'],
+        'placa_fisica' => ['etiqueta' => 'si tiene placa física', 'db' => 'la_moto_tiene_placa_fisica'],
+        'tarjeta_circulacion' => ['etiqueta' => 'si tiene tarjeta de circulación física', 'db' => 'tiene_tarjeta_de_circulacion_en_fisico'],
+        'lugar_resguardo' => ['etiqueta' => 'el lugar de resguardo', 'db' => 'log_lugar_otro'],
+        'responsable' => ['etiqueta' => 'el responsable de resguardo', 'db' => 'responsable_entrega'],
+        'telefono' => ['etiqueta' => 'el teléfono del responsable', 'db' => 'log_telefono'],
+        'direccion' => ['etiqueta' => 'la dirección de resguardo', 'db' => 'log_direccion'],
+    ];
 
     private \Core\Database $db;
     private ?\Core\DatabaseLegacy $legacy = null;
@@ -41,7 +62,11 @@ class LeonidasMotosAdjudicadasService
 
     public static function accionesEjecutables(): array
     {
-        return [self::ACTION_ENVIAR_EVIDENCIAS, self::ACTION_FORZAR_EVIDENCIAS];
+        return [
+            self::ACTION_ENVIAR_EVIDENCIAS,
+            self::ACTION_FORZAR_EVIDENCIAS,
+            self::ACTION_GUARDAR_DATOS_MOTO,
+        ];
     }
 
     public static function puedeEjecutar(string $accion): bool
@@ -51,6 +76,11 @@ class LeonidasMotosAdjudicadasService
 
     public function resolver(string $mensaje, string $normalizado, array $contexto): ?array
     {
+        $capturaDatosMoto = $this->resolverCapturaDatosMoto($mensaje, $normalizado, $contexto);
+        if ($capturaDatosMoto !== null) {
+            return $capturaDatosMoto;
+        }
+
         $consultaSemana = $this->extraerSemanaMotos($normalizado);
         $consultaAsignacion = preg_match(
             '/\b(quien|a quien|asignado|asignada|responsable)\b.*\b(credito|id)\b|\b(credito|id)\b.*\b(asignado|asignada|responsable)\b/u',

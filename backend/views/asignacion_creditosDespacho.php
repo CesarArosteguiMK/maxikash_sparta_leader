@@ -1713,6 +1713,11 @@ function agregarCreditoAlStack(credito, asignacion) {
 
 
 <div class="d-flex flex-column gap-2 ms-3">
+<a class="btn btn-sm btn-outline-primary"
+   href="/SolicitudAdjudicacion/despachos?id_credito=${encodeURIComponent(credito.id_credito)}"
+   title="Levantar solicitud de adjudicacion">
+    <i class="fa-solid fa-motorcycle me-1"></i>Adjudicacion
+</a>
    ${!esActivo ? `
 <button class="btn btn-gradient-success btn-sm" onclick="asignarCreditoDelStack('${credito.id_credito}')" title="Asignar crédito">
     <i class="fa-solid fa-check me-1"></i>Asignar
