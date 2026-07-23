@@ -1269,9 +1269,6 @@ class Gastoscobranza extends Controller
         }
     }
 
-    /**
-     * Proxy a POST /carga-verificacion-semana/run (Excel → cobranza_gc_verificacion_semana).
-     */
     /** Consulta el resultado de un worker/enrich iniciado en segundo plano por ejecutarEcLauncher(). */
     public function estadoEcLauncher()
     {
@@ -1300,6 +1297,7 @@ class Gastoscobranza extends Controller
         }
     }
 
+    /** Proxy a POST /carga-verificacion-semana/run (Excel → cobranza_gc_verificacion_semana). */
     public function ejecutarCargaVerificacionSemana()
     {
         try {

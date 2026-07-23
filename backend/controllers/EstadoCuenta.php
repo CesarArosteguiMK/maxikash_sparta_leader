@@ -1237,8 +1237,8 @@ class EstadoCuenta extends Controller
                 if ($fn === null) {
                     continue;
                 }
-                if (empty($porFecha[$fn]["gc"])) {
-                    continue;
+                if (!isset($porFecha[$fn])) {
+                    $porFecha[$fn] = ["gc" => [], "legIdx" => []];
                 }
                 if (!isset($porFecha[$fn]["legIdx"])) {
                     $porFecha[$fn]["legIdx"] = [];
@@ -1247,13 +1247,17 @@ class EstadoCuenta extends Controller
             }
             $fusionar = [];
             foreach ($porFecha as $fn => $info) {
-                if (empty($info["gc"])) {
-                    continue;
-                }
                 $ngc = count($info["gc"]);
                 $notaG = round((float) ($gastoCobranzaPorFecha[$fn] ?? 0), 2);
                 $legIdx = array_keys($info["legIdx"] ?? []);
                 sort($legIdx);
+                $sumaExtLegitima = 0.0;
+                foreach ($legIdx as $idx) {
+                    if (isset($aps[$idx])) {
+                        $sumaExtLegitima += round((float) ($aps[$idx]["extemporaneos"] ?? 0), 2);
+                    }
+                }
+                $sumaExtLegitima = round($sumaExtLegitima, 2);
                 $depositSumPrev = 0.0;
                 foreach ($info["gc"] as $g) {
                     $depositSumPrev += $g["aplicado"];
@@ -1288,6 +1292,14 @@ class EstadoCuenta extends Controller
                 }
                 if ($ngc >= 1 && count($legExt) >= 1 && $notaG > 0.009) {
                     $fusionar[$fn] = ["gc" => $info["gc"], "legExt" => $legExt];
+                    continue;
+                }
+                // Algunos pagos llegan todos como legítimos con extemporáneos separados.
+                // Si esos fragmentos suman exactamente la nota GC del día, son un solo gasto
+                // visual y se muestran juntos sin afectar el reparto real de los pagos.
+                if ($ngc === 0 && count($legExt) >= 2 && $notaG > 0.009
+                    && abs($sumaExtLegitima - $notaG) <= 0.01) {
+                    $fusionar[$fn] = ["gc" => [], "legExt" => $legExt];
                 }
             }
             if (empty($fusionar)) {

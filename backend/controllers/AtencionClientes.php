@@ -211,7 +211,7 @@ class AtencionClientes extends Controller
     public function consulta(): void
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        $this->set('titulo', 'Retenciones · Atención a clientes ' . $emp);
+        $this->set('titulo', 'ATC · Retenciones ' . $emp);
         $this->render('atencion_clientes_consulta');
     }
 

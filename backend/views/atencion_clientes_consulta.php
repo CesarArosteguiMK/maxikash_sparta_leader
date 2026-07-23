@@ -320,8 +320,8 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
     <div class="ac-header-gradient d-flex align-items-center gap-3">
         <i class="fa-solid fa-headset fa-2x"></i>
         <div>
-            <h4>Retenciones</h4>
-            <p>Gestión de llamadas y dictámenes para operaciones en retenciones</p>
+            <h4>ATC</h4>
+            <p>Submódulo Retenciones · Gestión de llamadas y dictámenes</p>
         </div>
     </div>
 

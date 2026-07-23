@@ -93,6 +93,14 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Estadísticas', 'url' => '/convenios/estadisticas', 'modulos' => [56]],
                 ],
             ],
+            'ATC' => [
+                'icono' => 'fa-solid fa-headset',
+                'subItems' => [
+                    ['section' => 'Gestión'],
+                    ['label' => 'Retenciones', 'url' => '/AtencionClientes/consulta', 'modulos' => [69]],
+                    ['label' => 'Solicitud de Adjudicación', 'url' => '/SolicitudAdjudicacion/atc', 'modulos' => [69]],
+                ],
+            ],
             'Motos Adjudicadas' => [
                 'icono' => 'fa-solid fa-motorcycle',
                 'subItems' => [
@@ -109,7 +117,6 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => '2.- Recuperación', 'url' => '/AtencionClientes/recuperacion', 'modulos' => [71]],
                     ['label' => '3.- Cartera', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],
                     ['label' => '4.- Recepción', 'url' => '/AtencionClientes/recepcion', 'modulos' => [73]],
-                    ['label' => 'Retenciones', 'url' => '/AtencionClientes/consulta', 'modulos' => [69]],
                     ['section' => 'Tracking'],
                     ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion/rutas', 'modulos' => [74]],
                     ['label' => 'Dashboard', 'url' => '/MotosAdjudicadas/dashboard', 'modulos' => [74]],
