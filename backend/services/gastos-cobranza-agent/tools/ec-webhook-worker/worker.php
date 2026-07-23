@@ -205,6 +205,10 @@ $logAvanceUltPct = -1;
 $reintentoPorS2Fallo = [];
 /** @var int[] */
 $reintentoPorBdFallo = [];
+$falloGlobalS2 = null;
+$umbralFallosGlobalesS2 = 10;
+/** @var array<int, string> id_credito => detalle del fallo global */
+$fallosGlobalesS2Detectados = [];
 
 foreach ($ids as $idx => $idCredito) {
     $n = $idx + 1;
@@ -232,7 +236,18 @@ foreach ($ids as $idx => $idCredito) {
                 postGoogleChat($webhookUrl, "EC #{$idCredito}: SKIP — {$errPre}");
             }
         } else {
-            $result = consultarEstadoCuentaS2($endpoint, $token, $idCredito, $fechaCorte);
+            $result = consultarEstadoCuentaS2ConFallback($endpoint, $token, $idCredito, $fechaCorte);
+            if (!empty($result['fallback_activado'])) {
+                echo "RECUPERADO: se activó automáticamente la ruta S2 vigente; ";
+                if (!$noChat) {
+                    postGoogleChat(
+                        $webhookUrl,
+                        "*Estado de cuenta (lote S2)*\n\n"
+                        . "*Recuperado:* la ruta configurada apuntaba a un controlador retirado. "
+                        . "Se activó la ruta S2 vigente y el lote continúa."
+                    );
+                }
+            }
             if (!$noAuditoria) {
                 \Models\EstadoCuenta::registrarAuditoria(
                     $usuarioAuditoria,
@@ -273,12 +288,28 @@ foreach ($ids as $idx => $idCredito) {
                 }
             } else {
                 $fail++;
-                $reintentoPorS2Fallo[] = (int) $idCredito;
                 $err = $result['error'] ?? 'Error desconocido';
                 $line = "EC #{$idCredito}: ERROR — {$err}";
                 echo "ERROR: {$err}\n";
-                if ($chatEach) {
-                    postGoogleChat($webhookUrl, $line);
+                if (!empty($result['fallo_global'])) {
+                    $fallosGlobalesS2Detectados[(int) $idCredito] = $err;
+                    $nFallosGlobales = count($fallosGlobalesS2Detectados);
+                    echo "AVISO: posible falla global de S2 {$nFallosGlobales}/{$umbralFallosGlobalesS2}; "
+                        . "se comprobará con más créditos antes de cancelar.\n";
+                    if ($chatEach) {
+                        postGoogleChat($webhookUrl, $line);
+                    }
+                    if ($nFallosGlobales >= $umbralFallosGlobalesS2) {
+                        $falloGlobalS2 = $err;
+                        echo "FATAL: {$umbralFallosGlobalesS2} créditos devolvieron una falla global de S2; "
+                            . "se cancela el lote sin reintentos ni carga a lista negra.\n";
+                        break;
+                    }
+                } else {
+                    $reintentoPorS2Fallo[] = (int) $idCredito;
+                    if ($chatEach) {
+                        postGoogleChat($webhookUrl, $line);
+                    }
                 }
             }
         }
@@ -299,7 +330,7 @@ foreach ($ids as $idx => $idCredito) {
 /** @var array<int, array{tipo: string, detalle: string}> id_credito => fila para CSV (solo tras 2.ª pasada si sigue mal) */
 $erroresTrasReintento = [];
 
-if (!$dryRun && !$noReintentoErrores) {
+if (!$dryRun && !$noReintentoErrores && $falloGlobalS2 === null) {
     $idsSegunda = array_values(array_unique(array_merge($reintentoPorS2Fallo, $reintentoPorBdFallo)));
     if ($idsSegunda !== []) {
         $n2 = count($idsSegunda);
@@ -325,7 +356,7 @@ if (!$dryRun && !$noReintentoErrores) {
                 echo "SKIP: {$errPre}\n";
                 continue;
             }
-            $result = consultarEstadoCuentaS2($endpoint, $token, $idCredito, $fechaCorte);
+            $result = consultarEstadoCuentaS2ConFallback($endpoint, $token, $idCredito, $fechaCorte);
             if (!$noAuditoria) {
                 \Models\EstadoCuenta::registrarAuditoria(
                     $usuarioAuditoria,
@@ -383,6 +414,18 @@ if (!$dryRun && !$noReintentoErrores) {
             ecWorkerWriteErroresReintentoCsv($idsXlsxOpt, $baseDir, $erroresTrasReintento);
         }
     }
+}
+
+if ($falloGlobalS2 !== null) {
+    $idsMuestra = implode(', ', array_keys($fallosGlobalesS2Detectados));
+    $cancelado = "Lote cancelado después de confirmar la falla global de S2 en "
+        . count($fallosGlobalesS2Detectados) . " créditos ({$idsMuestra}): {$falloGlobalS2}. "
+        . 'No se realizaron reintentos ni carga a lista negra.';
+    echo $cancelado . "\n";
+    if (!$noChat && $total > 0) {
+        postGoogleChat($webhookUrl, "*Estado de cuenta (lote S2)*\n\n*Cancelado:* {$cancelado}");
+    }
+    exit(3);
 }
 
 $resumen = buildResumenChatText($ok, $fail, $total, $fechaCorte, $bdErrors);
