@@ -1452,7 +1452,7 @@ class MotosAdjudicadas extends Controller
     public function reporteHistoricoFlujo()
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        self::set('titulo', 'Historico por etapas - Motos Adjudicadas ' . $emp);
+        self::set('titulo', 'Historico adjudicadas - Motos Adjudicadas ' . $emp);
         return self::render('motos_adjudicadas_reporte_historico_flujo');
     }
 

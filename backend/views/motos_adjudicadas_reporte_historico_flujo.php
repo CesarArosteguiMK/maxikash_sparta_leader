@@ -37,14 +37,7 @@
         font-weight: 900;
         line-height: 1.15;
     }
-    .madj-flow-board {
-        display: grid;
-        grid-auto-flow: column;
-        grid-auto-columns: minmax(310px, 1fr);
-        gap: .9rem;
-        overflow-x: auto;
-        padding-bottom: .65rem;
-    }
+    .madj-flow-list { display: flex; flex-direction: column; gap: .65rem; }
     .madj-flow-stage {
         min-height: 620px;
         border: 1px solid var(--madj-border);
@@ -83,6 +76,14 @@
         margin-bottom: .65rem;
         box-shadow: 0 .3rem .8rem rgba(15, 23, 42, .04);
     }
+    .madj-flow-list-row {
+        display: grid;
+        grid-template-columns: minmax(190px, 1.35fr) minmax(160px, 1fr) minmax(150px, .9fr) minmax(135px, .75fr) auto;
+        gap: 1rem;
+        align-items: center;
+    }
+    .madj-flow-list-label { color: #64748b; font-size: .64rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .madj-flow-list-value { color: var(--madj-navy); font-size: .79rem; font-weight: 700; overflow-wrap: anywhere; }
     .madj-flow-folio {
         display: inline-flex;
         background: rgba(245, 158, 11, .12);
@@ -383,6 +384,7 @@
         .madj-tl-detail-grid {
             grid-template-columns: 1fr;
         }
+        .madj-flow-list-row { grid-template-columns: 1fr; gap: .45rem; }
     }
 </style>
 
@@ -390,19 +392,8 @@
     <div class="madj-flow-hero p-4 mb-3">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div>
-                <h3 class="mb-1 text-white"><i class="fa-solid fa-diagram-project me-2"></i>Historico por etapas</h3>
-                <p class="mb-0" style="color:rgba(255,255,255,.76)">Reporte historico de todos los creditos que han entrado a motos adjudicadas, agrupados por etapa operativa.</p>
-            </div>
-            <div class="d-flex gap-2">
-                <a href="/MotosAdjudicadas/reporteria" class="btn btn-light">
-                    <i class="fa-solid fa-arrow-left me-1"></i>Reporteria
-                </a>
-                <button type="button" class="btn btn-outline-light" id="madjFlowXlsx">
-                    <i class="fa-solid fa-file-excel me-1"></i>XLSX
-                </button>
-                <button type="button" class="btn btn-outline-light" id="madjFlowPdf">
-                    <i class="fa-solid fa-file-pdf me-1"></i>PDF
-                </button>
+                <h3 class="mb-1 text-white"><i class="fa-solid fa-clock-rotate-left me-2"></i>Historico adjudicadas</h3>
+                <p class="mb-0" style="color:rgba(255,255,255,.76)">Tickets que ya concluyeron su flujo: recepción confirmada o cierre/cancelación registrada.</p>
             </div>
         </div>
     </div>
@@ -418,23 +409,19 @@
                 <input type="date" class="form-control" id="madjFlowHasta">
             </div>
             <div class="col-md-2">
-                <label class="form-label fw-semibold" for="madjFlowEtapa">Etapa</label>
-                <select class="form-select" id="madjFlowEtapa"><option value="">Todas</option></select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label fw-semibold" for="madjFlowEstado">Estado</label>
+                <label class="form-label fw-semibold" for="madjFlowEstado">Estado de resguardo</label>
                 <select class="form-select" id="madjFlowEstado"><option value="">Todos</option></select>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <label class="form-label fw-semibold" for="madjFlowQ">Buscar</label>
                 <input type="search" class="form-control" id="madjFlowQ" placeholder="Credito, cliente, VIN, folio...">
             </div>
-            <div class="col-md-1 d-flex gap-2">
-                <button type="button" class="btn btn-primary w-100" id="madjFlowBuscar" title="Buscar">
-                    <i class="fa-solid fa-magnifying-glass"></i>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="button" class="btn btn-primary flex-fill" id="madjFlowBuscar">
+                    <i class="fa-solid fa-magnifying-glass me-1"></i>Buscar
                 </button>
-                <button type="button" class="btn btn-outline-secondary" id="madjFlowLimpiar" title="Limpiar">
-                    <i class="fa-solid fa-eraser"></i>
+                <button type="button" class="btn btn-outline-secondary flex-fill" id="madjFlowLimpiar">
+                    <i class="fa-solid fa-eraser me-1"></i>Limpiar
                 </button>
             </div>
         </div>
@@ -442,33 +429,28 @@
 
     <div class="row g-3 mb-3" id="madjFlowMetrics"></div>
 
-    <div class="alert alert-warning d-none" id="madjFlowTrackingAviso">
-        <i class="fa-solid fa-triangle-exclamation me-1"></i>
-        Tracking de recoleccion aun no esta disponible en este ambiente; el historico se muestra con las demas etapas.
-    </div>
-
     <div class="madj-flow-card p-3">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
             <div>
-                <h5 class="fw-bold mb-0"><i class="fa-solid fa-layer-group me-1 text-primary"></i>Pipeline historico</h5>
-                <div class="text-muted small">Cada credito aparece en su etapa mas avanzada registrada.</div>
+                <h5 class="fw-bold mb-0"><i class="fa-solid fa-list me-1 text-primary"></i>Tickets concluidos</h5>
+                <div class="text-muted small">Listado de operaciones finalizadas; no incluye tickets que siguen dentro del flujo operativo.</div>
             </div>
             <div class="d-flex align-items-center gap-2">
                 <span>Mostrar</span>
                 <select class="form-select form-select-sm" id="madjFlowLimit" style="width: 95px;">
-                    <option value="300">300</option>
-                    <option value="800" selected>800</option>
-                    <option value="1500">1500</option>
-                    <option value="3000">3000</option>
+                    <option value="50">50</option>
+                    <option value="100" selected>100</option>
+                    <option value="200">200</option>
+                    <option value="500">500</option>
                 </select>
-                <span class="badge bg-label-primary" id="madjFlowTotal">0 creditos</span>
+                <span class="badge bg-label-primary" id="madjFlowTotal">0 tickets</span>
             </div>
         </div>
         <div id="madjFlowLoader" class="text-muted py-4">
             <span class="spinner-border spinner-border-sm me-2"></span>Cargando historico...
         </div>
         <div id="madjFlowError" class="alert alert-danger d-none"></div>
-        <div class="madj-flow-board d-none" id="madjFlowBoard"></div>
+        <div class="madj-flow-list d-none" id="madjFlowBoard"></div>
     </div>
 </div>
 
@@ -482,12 +464,7 @@
                     </h5>
                     <div class="text-muted small">Asignacion, evidencias, recuperacion, cartera, tracking y recepcion.</div>
                 </div>
-                <div class="d-flex align-items-center gap-2">
-                    <a href="#" class="btn btn-sm btn-outline-primary disabled" id="madjFlowTlPdf" aria-disabled="true" target="_blank" rel="noopener">
-                        <i class="fa-solid fa-file-pdf me-1"></i>PDF
-                    </a>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" data-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" data-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
                 <div class="container-fluid py-3 madj-tl-shell">
@@ -598,12 +575,11 @@
 
     function renderMetrics(data) {
         const resumen = data.resumen || {};
-        const etapas = data.etapas || [];
         const principal = [
-            { label: 'Total historico', value: resumen.total || 0, icon: 'fa-motorcycle' },
-            { label: 'Etapas operativas', value: etapas.length || 0, icon: 'fa-layer-group' },
-            { label: 'Mayor concentracion', value: Math.max.apply(null, etapas.map(e => Number(e.total || 0)).concat([0])), icon: 'fa-chart-simple' },
-            { label: 'Limite consultado', value: resumen.limit || 0, icon: 'fa-filter' },
+            { label: 'Tickets concluidos', value: resumen.total || 0, icon: 'fa-circle-check' },
+            { label: 'Recepción confirmada', value: resumen.recepcion_confirmada || 0, icon: 'fa-warehouse' },
+            { label: 'Cancelados / cerrados', value: resumen.cancelados_o_cerrados || 0, icon: 'fa-ban' },
+            { label: 'Límite consultado', value: resumen.limit || 0, icon: 'fa-filter' },
         ];
         document.getElementById('madjFlowMetrics').innerHTML = principal.map(item => `
             <div class="col-12 col-sm-6 col-xl-3">
@@ -875,58 +851,48 @@
 
     function renderBoard(data) {
         const board = document.getElementById('madjFlowBoard');
-        const etapas = data.etapas || [];
-        state.etapas = etapas;
-        state.rows = [];
-        document.getElementById('madjFlowTotal').textContent = `${fmt.format((data.resumen || {}).total || 0)} creditos`;
-        document.getElementById('madjFlowTrackingAviso').classList.toggle('d-none', !!((data.resumen || {}).tracking_disponible));
-
-        board.innerHTML = etapas.map(etapa => {
-            const creditos = etapa.creditos || [];
-            creditos.forEach(row => state.rows.push(row));
-            const body = creditos.length ? creditos.map(row => `
-                <article class="madj-flow-item">
-                    <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
-                        <span class="madj-flow-folio">${esc(row.folio || ('ADJ-' + row.id_operacion))}</span>
-                        <button type="button" class="btn btn-sm btn-outline-primary madj-flow-timeline-btn" data-id-credito="${esc(row.id_credito)}" title="Ver Timeline">
-                            <i class="fa-solid fa-timeline me-1"></i>Ver Timeline
-                        </button>
-                    </div>
-                    <div class="madj-flow-title">#${esc(row.id_credito)} - ${esc(row.nombre_cliente)}</div>
-                    <div class="madj-flow-muted mt-1"><i class="fa-solid fa-location-dot me-1"></i>${esc(row.estado || 'SIN ESTADO')} / ${esc(row.municipio || 'SIN MUNICIPIO')}</div>
-                    <div class="madj-flow-muted"><i class="fa-solid fa-motorcycle me-1"></i>${esc(row.unidad || 'Sin unidad')}</div>
-                    <div class="madj-flow-muted"><i class="fa-regular fa-clock me-1"></i>${esc(row.fecha_etapa_fmt || fecha(row.fecha_etapa))}</div>
-                    <div class="d-flex flex-wrap gap-1 mt-2">
-                        <span class="badge bg-label-secondary">${esc(row.estatus || 'Sin estatus')}</span>
-                        ${Number(row.evidencias_total || 0) ? `<span class="badge bg-label-info">${fmt.format(row.evidencias_total)} evid.</span>` : ''}
-                        ${Number(row.tracking_total || 0) ? `<span class="badge bg-label-success">${fmt.format(row.tracking_total)} ruta</span>` : ''}
-                    </div>
-                </article>
-            `).join('') : '<div class="madj-flow-empty">Sin creditos en esta etapa con los filtros actuales.</div>';
-
-            return `
-                <section class="madj-flow-stage">
-                    <div class="madj-flow-stage-head">
-                        <div class="d-flex align-items-start justify-content-between gap-2">
-                            <div>
-                                <div class="d-flex align-items-center gap-2 mb-2">
-                                    <span class="madj-flow-icon"><i class="fa-solid ${esc(etapa.icon || 'fa-circle-dot')}"></i></span>
-                                    <strong>${esc(etapa.titulo || '')}</strong>
-                                </div>
-                                <div class="madj-flow-muted">${esc(etapa.descripcion || '')}</div>
-                            </div>
-                            <span class="badge bg-label-primary">${fmt.format(etapa.total || 0)}</span>
+        const rows = Array.isArray(data.rows) ? data.rows : [];
+        state.rows = rows;
+        document.getElementById('madjFlowTotal').textContent = `${fmt.format((data.resumen || {}).total || 0)} tickets`;
+        if (rows.length === 0) {
+            board.innerHTML = '<div class="madj-flow-empty">No hay tickets con flujo concluido para los filtros actuales.</div>';
+            return;
+        }
+        board.innerHTML = rows.map(row => `
+            <article class="madj-flow-item">
+                <div class="madj-flow-list-row">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="madj-flow-folio">${esc(row.folio || ('ADJ-' + row.id_operacion))}</span>
+                            <span class="badge ${row.tipo_cierre === 'Recepción confirmada' ? 'bg-label-success' : 'bg-label-secondary'}">${esc(row.tipo_cierre || 'Cerrado')}</span>
                         </div>
+                        <div class="madj-flow-title">#${esc(row.id_credito)} - ${esc(row.nombre_cliente)}</div>
+                        <div class="madj-flow-muted mt-1"><i class="fa-solid fa-motorcycle me-1"></i>${esc(row.unidad || 'Sin unidad')}</div>
                     </div>
-                    <div class="madj-flow-stage-list">${body}</div>
-                </section>
-            `;
-        }).join('');
+                    <div>
+                        <div class="madj-flow-list-label">NIV / VIN</div>
+                        <div class="madj-flow-list-value">${esc(row.vin || 'Sin capturar')}</div>
+                    </div>
+                    <div>
+                        <div class="madj-flow-list-label">Gestor</div>
+                        <div class="madj-flow-list-value">${esc(row.gestor_nombre || 'Sin asignar')}</div>
+                    </div>
+                    <div>
+                        <div class="madj-flow-list-label">Fecha de cierre</div>
+                        <div class="madj-flow-list-value">${esc(row.fecha_cierre_fmt || 'Sin fecha')}</div>
+                        <div class="madj-flow-muted mt-1"><i class="fa-solid fa-location-dot me-1"></i>${esc(row.estado || 'SIN ESTADO')}</div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary madj-flow-timeline-btn" data-id-credito="${esc(row.id_credito)}" title="Ver detalle del ticket">
+                        <i class="fa-solid fa-timeline me-1"></i>Ver detalle
+                    </button>
+                </div>
+            </article>
+        `).join('');
     }
 
     async function cargar() {
         const qs = new URLSearchParams();
-        ['Desde', 'Hasta', 'Etapa', 'Estado', 'Q', 'Limit'].forEach(key => {
+        ['Desde', 'Hasta', 'Estado', 'Q', 'Limit'].forEach(key => {
             const el = document.getElementById('madjFlow' + key);
             if (el && el.value) qs.set(key.toLowerCase(), el.value);
         });
@@ -941,7 +907,6 @@
         if (!json.success) throw new Error(json.message || 'No se pudo cargar el historico.');
         const data = json.datos || {};
         if (!state.catalogsLoaded) {
-            llenarSelect('madjFlowEtapa', (data.catalogos || {}).etapas || [], 'titulo');
             llenarSelect('madjFlowEstado', (data.catalogos || {}).estados || [], 'label');
             state.catalogsLoaded = true;
         }
@@ -953,7 +918,7 @@
 
     function queryActual() {
         const qs = new URLSearchParams();
-        ['Desde', 'Hasta', 'Etapa', 'Estado', 'Q', 'Limit'].forEach(key => {
+        ['Desde', 'Hasta', 'Estado', 'Q', 'Limit'].forEach(key => {
             const el = document.getElementById('madjFlow' + key);
             if (el && el.value) qs.set(key.toLowerCase(), el.value);
         });
@@ -967,8 +932,6 @@
 
     document.getElementById('madjFlowBuscar').addEventListener('click', () => cargar().catch(mostrarError));
     document.getElementById('madjFlowLimit').addEventListener('change', () => cargar().catch(mostrarError));
-    document.getElementById('madjFlowXlsx').addEventListener('click', () => descargar('/MotosAdjudicadas/reporteHistoricoFlujoExcel'));
-    document.getElementById('madjFlowPdf').addEventListener('click', () => descargar('/MotosAdjudicadas/reporteHistoricoFlujoPdf'));
     document.getElementById('madjFlowBoard').addEventListener('click', ev => {
         const btn = ev.target.closest('.madj-flow-timeline-btn');
         if (!btn) return;
@@ -983,7 +946,7 @@
         }
     });
     document.getElementById('madjFlowLimpiar').addEventListener('click', () => {
-        ['Desde', 'Hasta', 'Etapa', 'Estado', 'Q'].forEach(key => {
+        ['Desde', 'Hasta', 'Estado', 'Q'].forEach(key => {
             const el = document.getElementById('madjFlow' + key);
             if (el) el.value = '';
         });

@@ -8710,7 +8710,25 @@ EOSQL;
     public function obtenerReporteHistoricoFlujoMotosAdjudicadas(array $filtros = []): array
     {
         $params = [];
-        $where = $this->madjWhereFechaAlta($filtros, $params);
+        // El histórico solo muestra tickets cuyo flujo ya terminó: recepción
+        // confirmada (incluye Retenciones posteriores) o cierre/cancelación explícita.
+        $where = '(
+            o.recepcion_confirmada_at IS NOT NULL
+            OR LOWER(TRIM(COALESCE(o.estatus, \'\'))) IN (
+                \'cancelado\', \'cancelada\', \'concluido\', \'concluida\',
+                \'finalizado\', \'finalizada\', \'cerrado\', \'cerrada\'
+            )
+        )';
+        $desde = $this->madjFechaFiltro($filtros['desde'] ?? null);
+        $hasta = $this->madjFechaFiltro($filtros['hasta'] ?? null);
+        if ($desde !== null) {
+            $where .= ' AND DATE(COALESCE(o.recepcion_confirmada_at, o.fecha_actualizacion, o.fecha_alta)) >= :desde';
+            $params['desde'] = $desde;
+        }
+        if ($hasta !== null) {
+            $where .= ' AND DATE(COALESCE(o.recepcion_confirmada_at, o.fecha_actualizacion, o.fecha_alta)) <= :hasta';
+            $params['hasta'] = $hasta;
+        }
         $estadoSql = $this->madjEstadoNormalizadoSql('o');
 
         $estado = trim((string) ($filtros['estado'] ?? ''));
@@ -8719,7 +8737,6 @@ EOSQL;
             $params['estado'] = strtoupper($estado);
         }
 
-        $etapaFiltro = trim((string) ($filtros['etapa'] ?? ''));
         $q = trim((string) ($filtros['q'] ?? ''));
         if ($q !== '') {
             $where .= " AND (
@@ -8734,8 +8751,8 @@ EOSQL;
             $params['q'] = '%' . $q . '%';
         }
 
-        $limit = (int) ($filtros['limit'] ?? 800);
-        $limit = max(100, min(3000, $limit));
+        $limit = (int) ($filtros['limit'] ?? 100);
+        $limit = max(25, min(500, $limit));
 
         $sql = $this->madjHistoricoFlujoQuery($where, $estadoSql, true) . " LIMIT {$limit}";
         try {
@@ -8747,31 +8764,23 @@ EOSQL;
             $trackingDisponible = false;
         }
 
-        $etapasMeta = $this->madjHistoricoFlujoEtapas();
-        $columnas = [];
-        foreach ($etapasMeta as $key => $meta) {
-            $columnas[$key] = array_merge($meta, [
-                'total' => 0,
-                'creditos' => [],
-            ]);
-        }
-
         $estadosConteo = [];
-        $totalFiltrado = 0;
+        $cerradosPorRecepcion = 0;
+        $cerradosPorCancelacion = 0;
+        $registros = [];
         foreach ($rows as $row) {
-            $clasificacion = $this->madjHistoricoFlujoClasificar($row);
-            $key = $clasificacion['key'];
-            if ($etapaFiltro !== '' && $etapaFiltro !== $key) {
-                continue;
-            }
-
-            $totalFiltrado++;
             $estadoLabel = (string) ($row['estado_normalizado'] ?? 'SIN ESTADO');
             $estadosConteo[$estadoLabel] = ($estadosConteo[$estadoLabel] ?? 0) + 1;
-            $fechaEtapa = $clasificacion['fecha'] ?? null;
-
-            $columnas[$key]['total']++;
-            $columnas[$key]['creditos'][] = [
+            $esRecepcionConfirmada = trim((string) ($row['recepcion_confirmada_at'] ?? '')) !== '';
+            $fechaCierre = $esRecepcionConfirmada
+                ? $row['recepcion_confirmada_at']
+                : ($row['fecha_actualizacion'] ?? $row['fecha_alta'] ?? null);
+            if ($esRecepcionConfirmada) {
+                $cerradosPorRecepcion++;
+            } else {
+                $cerradosPorCancelacion++;
+            }
+            $registros[] = [
                 'id_operacion' => (int) ($row['id'] ?? 0),
                 'folio' => $row['folio'] ?? '',
                 'id_credito' => (int) ($row['id_credito'] ?? 0),
@@ -8785,14 +8794,13 @@ EOSQL;
                 'gestor_nombre' => $row['gestor_nombre'] ?? '',
                 'fecha_alta' => $row['fecha_alta'] ?? null,
                 'fecha_actualizacion' => $row['fecha_actualizacion'] ?? null,
-                'fecha_etapa' => $fechaEtapa,
-                'fecha_etapa_fmt' => $this->madjFmtFecha($fechaEtapa),
+                'fecha_cierre' => $fechaCierre,
+                'fecha_cierre_fmt' => $this->madjFmtFecha($fechaCierre),
+                'tipo_cierre' => $esRecepcionConfirmada ? 'Recepción confirmada' : 'Cancelación / cierre',
                 'evidencias_total' => (int) ($row['evidencias_total'] ?? 0),
                 'tracking_total' => (int) ($row['tracking_total'] ?? 0),
                 'ruta_tracking' => $row['ruta_tracking'] ?? '',
                 'estatus_tracking' => $row['estatus_tracking'] ?? '',
-                'etapa_key' => $key,
-                'etapa_titulo' => $etapasMeta[$key]['titulo'] ?? $key,
             ];
         }
 
@@ -8806,13 +8814,14 @@ EOSQL;
 
         return [
             'resumen' => [
-                'total' => $totalFiltrado,
+                'total' => count($registros),
                 'limit' => $limit,
                 'tracking_disponible' => $trackingDisponible,
+                'recepcion_confirmada' => $cerradosPorRecepcion,
+                'cancelados_o_cerrados' => $cerradosPorCancelacion,
             ],
-            'etapas' => array_values($columnas),
+            'rows' => $registros,
             'catalogos' => [
-                'etapas' => array_values($etapasMeta),
                 'estados' => $estadoRows,
             ],
             'actualizado_at' => date('Y-m-d H:i:s'),
