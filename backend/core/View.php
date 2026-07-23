@@ -239,6 +239,7 @@ function getMenu(): string
                 ['section' => 'General'],
                 ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion',          'modulos' => [62, 80]],
                 ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',                'modulos' => [63]],
+                ['label' => 'Historico adjudicadas', 'url' => '/MotosAdjudicadas/reporteHistoricoFlujo', 'modulos' => [63]],
                 ['label' => 'Almacen Virtual',        'url' => '/MotosAdjudicadas/almacenVirtual',          'modulos' => [139]],
                 ['label' => 'Monitoreo', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                 ['label' => 'Consulta REPUVE',         'url' => '/MotosAdjudicadas/repuveConsulta',         'modulos' => [78]],
@@ -254,7 +255,6 @@ function getMenu(): string
                 ['label' => 'Dashboard', 'url' => '/MotosAdjudicadas/dashboard', 'modulos' => [74]],
                 ['section' => 'Reportería'],
                 ['label' => 'Reportería', 'url' => '/MotosAdjudicadas/reporteria', 'modulos' => [187]],
-                ['label' => 'Historico adjudicadas', 'url' => '/MotosAdjudicadas/reporteHistoricoFlujo', 'modulos' => [187]],
             ],
         ],
         'Direcciones' => [

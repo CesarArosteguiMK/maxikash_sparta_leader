@@ -107,6 +107,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['section' => 'General'],
                     ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion', 'modulos' => [62, 80]],
                     ['label' => 'Operaciones', 'url' => '/MotosAdjudicadas/pipeline', 'modulos' => [63]],
+                    ['label' => 'Historico adjudicadas', 'url' => '/MotosAdjudicadas/reporteHistoricoFlujo', 'modulos' => [63]],
                     ['label' => 'Almacen Virtual', 'url' => '/MotosAdjudicadas/almacenVirtual', 'modulos' => [139]],
                     ['label' => 'Inventario', 'url' => '/AlmacenVirtual/consulta', 'modulos' => [103]],
                     ['label' => 'Monitoreo', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
@@ -123,7 +124,6 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Administracion de transportistas', 'url' => '/TrackingRecoleccion/administracionTransportistas', 'modulos' => [74]],
                     ['section' => 'Reportería'],
                     ['label' => 'Reportería', 'url' => '/MotosAdjudicadas/reporteria', 'modulos' => [187]],
-                    ['label' => 'Historico adjudicadas', 'url' => '/MotosAdjudicadas/reporteHistoricoFlujo', 'modulos' => [187]],
                 ],
             ],
             'Direcciones' => [
