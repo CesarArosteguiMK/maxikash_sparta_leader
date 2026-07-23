@@ -123,6 +123,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Administracion de transportistas', 'url' => '/TrackingRecoleccion/administracionTransportistas', 'modulos' => [74]],
                     ['section' => 'Reportería'],
                     ['label' => 'Reportería', 'url' => '/MotosAdjudicadas/reporteria', 'modulos' => [187]],
+                    ['label' => 'Historico adjudicadas', 'url' => '/MotosAdjudicadas/reporteHistoricoFlujo', 'modulos' => [187]],
                 ],
             ],
             'Direcciones' => [
