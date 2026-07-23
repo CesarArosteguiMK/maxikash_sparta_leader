@@ -51,6 +51,7 @@ class LeonidasMotosAdjudicadasService
 
     public function resolver(string $mensaje, string $normalizado, array $contexto): ?array
     {
+        $consultaSemana = $this->extraerSemanaMotos($normalizado);
         $consultaAsignacion = preg_match(
             '/\b(quien|a quien|asignado|asignada|responsable)\b.*\b(credito|id)\b|\b(credito|id)\b.*\b(asignado|asignada|responsable)\b/u',
             $normalizado
@@ -58,7 +59,7 @@ class LeonidasMotosAdjudicadasService
         $moverEvidencias = str_contains($normalizado, 'evidencia')
             && preg_match('/\b(mueve|mover|envia|enviar|pasa|pasar|manda|mandar|forzar|fuerza)\b/u', $normalizado) === 1;
 
-        if (!$consultaAsignacion && !$moverEvidencias) {
+        if ($consultaSemana === null && !$consultaAsignacion && !$moverEvidencias) {
             return null;
         }
         if (empty($contexto['permisos_agente']['motos'])) {
@@ -66,6 +67,10 @@ class LeonidasMotosAdjudicadasService
                 'No puedo consultar ni modificar Motos Adjudicadas porque tu perfil no tiene acceso a ese modulo.',
                 'agente_denegado'
             );
+        }
+
+        if ($consultaSemana !== null) {
+            return $this->resolverCreditosSemana($consultaSemana['semana'], $consultaSemana['anio']);
         }
 
         $idCredito = $this->extraerCredito($mensaje);
@@ -132,8 +137,11 @@ class LeonidasMotosAdjudicadasService
         if (empty($contexto['permisos_agente']['motos_override_estatus'])) {
             return $this->respuesta(
                 $mensajeBloqueo
-                    . "\nTu usuario no tiene el permiso especial Posicionamiento de estatus (Override) para forzar el movimiento.",
-                'agente_diagnostico'
+                    . "\n\nEl movimiento solicitado requiere forzar el estatus. Tu perfil no tiene el permiso especial "
+                    . 'Posicionamiento de estatus (Override), por lo que no puedo ejecutarlo ni omitir el control. '
+                    . 'Un administrador debe asignarte ese permiso y despues puedes repetir: "mueve el credito '
+                    . $idCredito . ' a Evidencias".',
+                'agente_denegado'
             );
         }
 
@@ -152,6 +160,131 @@ class LeonidasMotosAdjudicadasService
                 'payload' => $this->payload($diagnostico),
             ],
         ];
+    }
+
+    private function resolverCreditosSemana(int $semana, int $anio): array
+    {
+        if ($this->legacy === null) {
+            return $this->respuesta(
+                'No pude consultar las motos adjudicadas porque Legacy no esta disponible. '
+                    . 'Detalle tecnico: ' . ($this->legacyError ?: 'conexion no inicializada') . '.',
+                'agente_error'
+            );
+        }
+
+        if ($semana < 1 || $semana > 53 || $anio < 2020 || $anio > 2100) {
+            return $this->respuesta(
+                'La semana o el anio no son validos. Indica una semana del 1 al 53 y el anio con cuatro digitos.',
+                'agente_pregunta'
+            );
+        }
+
+        $inicio = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))
+            ->setISODate($anio, $semana, 1)
+            ->setTime(0, 0, 0);
+        $fin = $inicio->modify('+7 days');
+
+        try {
+            $filas = $this->legacy->queryAll(
+                "SELECT TRIM(t.credit_number) AS id_credito,
+                        MAX(t.client_name) AS cliente,
+                        MAX(t.id) AS task_id,
+                        MAX(t.created_at) AS fecha_ingreso
+                   FROM tasks t
+                   INNER JOIN campaigns c ON c.id = t.campaign_id
+                  WHERE LOWER(TRIM(c.name)) = 'motos adjudicadas'
+                    AND c.deleted_at IS NULL
+                    AND t.deleted_at IS NULL
+                    AND t.created_at >= :inicio
+                    AND t.created_at < :fin
+                    AND TRIM(COALESCE(t.credit_number, '')) <> ''
+                  GROUP BY TRIM(t.credit_number)
+                  ORDER BY CAST(id_credito AS UNSIGNED), id_credito",
+                [
+                    'inicio' => $inicio->format('Y-m-d H:i:s'),
+                    'fin' => $fin->format('Y-m-d H:i:s'),
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log('[LeonidasMotosAdjudicadasService] Error reporte semanal: ' . $e->getMessage());
+            return $this->respuesta(
+                'No pude generar el reporte de Motos Adjudicadas de la semana ' . $semana
+                    . ' de ' . $anio . ' porque fallo la consulta de Legacy. No invente resultados.',
+                'agente_error'
+            );
+        }
+
+        $inicioTexto = $this->fechaCorta($inicio);
+        $finTexto = $this->fechaCorta($fin->modify('-1 day'));
+        if (!$filas) {
+            return [
+                'mensaje' => 'No encontre creditos ingresados a Motos Adjudicadas durante la semana '
+                    . $semana . ' de ' . $anio . ' (' . $inicioTexto . ' al ' . $finTexto . '). '
+                    . 'Consulte las tareas activas de la campania Motos Adjudicadas en Legacy.',
+                'tipo' => 'agente_reporte',
+                'reporte' => [
+                    'modulo' => 'Motos Adjudicadas',
+                    'semana' => $semana,
+                    'anio' => $anio,
+                    'total' => 0,
+                    'filas' => [],
+                ],
+            ];
+        }
+
+        $ids = array_values(array_map(
+            static fn(array $fila): string => trim((string) ($fila['id_credito'] ?? '')),
+            $filas
+        ));
+        $lineas = [
+            'Motos Adjudicadas de la semana ' . $semana . ' de ' . $anio
+                . ' (' . $inicioTexto . ' al ' . $finTexto . ').',
+            'Creditos unicos: ' . count($ids) . '.',
+            'IDs: ' . implode(', ', $ids) . '.',
+            '',
+            'Fuente: tareas activas de Legacy pertenecientes a la campania Motos Adjudicadas, '
+                . 'clasificadas por la fecha de creacion de la tarea. No mezcle campanias de asignacion masiva.',
+        ];
+
+        return [
+            'mensaje' => implode("\n", $lineas),
+            'tipo' => 'agente_reporte',
+            'reporte' => [
+                'modulo' => 'Motos Adjudicadas',
+                'semana' => $semana,
+                'anio' => $anio,
+                'desde' => $inicio->format('Y-m-d'),
+                'hasta' => $fin->modify('-1 day')->format('Y-m-d'),
+                'total' => count($ids),
+                'ids' => $ids,
+                'filas' => $filas,
+            ],
+        ];
+    }
+
+    private function extraerSemanaMotos(string $normalizado): ?array
+    {
+        if (!str_contains($normalizado, 'moto') || !str_contains($normalizado, 'semana')) {
+            return null;
+        }
+        if (preg_match('/\bsemana\s*(\d{1,2})(?:\s*(?:del|de)?\s*(20\d{2}))?\b/u', $normalizado, $match) !== 1) {
+            return null;
+        }
+
+        return [
+            'semana' => (int) $match[1],
+            'anio' => isset($match[2]) && $match[2] !== '' ? (int) $match[2] : (int) date('o'),
+        ];
+    }
+
+    private function fechaCorta(\DateTimeImmutable $fecha): string
+    {
+        $meses = [
+            1 => 'enero', 2 => 'febrero', 3 => 'marzo', 4 => 'abril',
+            5 => 'mayo', 6 => 'junio', 7 => 'julio', 8 => 'agosto',
+            9 => 'septiembre', 10 => 'octubre', 11 => 'noviembre', 12 => 'diciembre',
+        ];
+        return (int) $fecha->format('j') . ' de ' . $meses[(int) $fecha->format('n')];
     }
 
     public function ejecutar(string $accion, array $payload, array $contexto): array

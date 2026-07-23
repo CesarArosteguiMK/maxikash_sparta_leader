@@ -54,12 +54,29 @@ class MotosAdjudicadas extends Model
         'fis_checklist',
     ];
 
+    /** Perfil nuevo de Etapa 2: INE por ambos lados sustituye el video del cliente. */
+    private const MADJ_SLOTS_EVIDENCIA_MEDIA_ETAPA2 = [
+        'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+        'fis_ine_frente', 'fis_ine_reverso',
+        'fis_vin',
+        'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+        'fis_tacometro',
+        'fis_360_encendida', 'fis_video_vuelta_prueba',
+        'fis_checklist',
+    ];
+
     /** Mapeo del formulario de la app (dictums.form_response) a slots de Mis adjudicaciones. */
     private const DICTUM_APP_EVIDENCIA_SLOTS = [
         'foto_dacion_hoja_1' => 'fis_dacion_hoja_1',
         'foto_de_dacion_hoja_1' => 'fis_dacion_hoja_1',
         'foto_dacion_hoja_2' => 'fis_dacion_hoja_2',
         'foto_de_dacion_hoja_2' => 'fis_dacion_hoja_2',
+        'ine_frente' => 'fis_ine_frente',
+        'foto_ine_frente' => 'fis_ine_frente',
+        'foto_de_ine_frente' => 'fis_ine_frente',
+        'ine_reverso' => 'fis_ine_reverso',
+        'foto_ine_reverso' => 'fis_ine_reverso',
+        'foto_de_ine_reverso' => 'fis_ine_reverso',
         'foto_de_tacometro_legible_y_visible_el_kilometraje' => 'fis_tacometro',
         'text-1778722329133-0' => 'fis_tacometro',
         'foto_de_numero_de_serie_foto_legible_donde_se_lea_' => 'fis_vin',
@@ -2511,6 +2528,7 @@ class MotosAdjudicadas extends Model
             'rec_tacometro', 'rec_serie',     'rec_frontal', 'rec_lateral',
             'fis_vin',       'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360', 'fis_contrato_dacion',
             'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+            'fis_ine_frente', 'fis_ine_reverso',
             'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
             'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba',
             'fis_checklist',
@@ -4125,6 +4143,8 @@ SQL;
         'fis_contrato_dacion' => 'CONTRATO DACIÓN (FÍSICA) [LEGACY]',
         'fis_dacion_hoja_1' => 'DACIÓN HOJA 1 (FÍSICA)',
         'fis_dacion_hoja_2' => 'DACIÓN HOJA 2 (FÍSICA)',
+        'fis_ine_frente' => 'INE FRENTE (FÍSICA)',
+        'fis_ine_reverso' => 'INE REVERSO (FÍSICA)',
         'fis_lateral_der' => 'LATERAL DERECHA (FÍSICA)',
         'fis_trasera' => 'TRASERA (FÍSICA)',
         'fis_lateral_izq' => 'LATERAL IZQUIERDA (FÍSICA)',
@@ -4161,6 +4181,14 @@ SQL;
         'fis_checklist',
     ];
 
+    private const SLOTS_VALIDACION_ATENCION_MEDIA_ETAPA2 = [
+        'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+        'fis_ine_frente', 'fis_ine_reverso',
+        'fis_vin', 'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+        'fis_tacometro', 'fis_360_encendida', 'fis_video_vuelta_prueba',
+        'fis_checklist',
+    ];
+
     /** Repuve: solo debe existir PDF subido; no se usa val_atn en Atenci?n. */
     private const SLOT_REPVE_ATENCION = 'doc_repuve';
 
@@ -4172,6 +4200,7 @@ SQL;
      */
     private const SLOTS_PIPELINE_EXPEDIENTE = [
         'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+        'fis_ine_frente', 'fis_ine_reverso',
         'fis_vin',
         'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
         'fis_tacometro',
