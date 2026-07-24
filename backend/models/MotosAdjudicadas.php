@@ -7855,6 +7855,25 @@ EOSQL;
         return ['success' => true, 'detalle' => $op];
     }
 
+    /**
+     * Ruta original de una evidencia para servirla mediante un endpoint estable.
+     * Evita que las vistas dependan de la ubicacion publica de uploads.
+     */
+    public function obtenerArchivoEvidenciaPorId(int $idEvidencia): ?array
+    {
+        if ($idEvidencia <= 0) {
+            return null;
+        }
+
+        return $this->db->queryOne(
+            'SELECT id, url, tipo, slot
+             FROM adj_evidencia
+             WHERE id = :id
+             LIMIT 1',
+            ['id' => $idEvidencia]
+        ) ?: null;
+    }
+
     public function obtenerDetallesRapidosPorCreditos(array $idsCredito): array
     {
         $ids = [];
@@ -8024,6 +8043,70 @@ EOSQL;
             $nombreUsuario
         );
         return ['success' => true];
+    }
+
+    /**
+     * Rechazo originado desde Tracking de Recoleccion. Conserva el mismo
+     * mecanismo de evidencias, pero identifica el origen y envia la operacion
+     * directamente a la bandeja de Correcciones.
+     *
+     * @return array{success:bool, message?:string, enviado_a_correcciones?:bool}
+     */
+    public function rechazarEvidenciaDesdeTracking(
+        int $idOperacion,
+        int $idEvidencia,
+        string $motivo,
+        int $idUsuario,
+        string $nombreUsuario = ''
+    ): array {
+        $motivo = mb_substr(trim($motivo), 0, 1800);
+        if ($motivo === '') {
+            return ['success' => false, 'message' => 'Indica el motivo del rechazo.'];
+        }
+
+        $resultado = $this->guardarVeredictoEvidenciaAtn(
+            $idOperacion,
+            $idEvidencia,
+            2,
+            'RECHAZADO POR TRACKING: ' . $motivo,
+            $idUsuario,
+            $nombreUsuario
+        );
+        if (empty($resultado['success'])) {
+            return $resultado;
+        }
+
+        $operacion = $this->db->queryOne(
+            'SELECT estatus FROM adj_operacion WHERE id = :id LIMIT 1',
+            ['id' => $idOperacion]
+        );
+        if (!$operacion) {
+            return ['success' => false, 'message' => 'Operacion no encontrada.'];
+        }
+
+        $enviado = false;
+        if (!$this->esEstatusRevisionRecuperaciones((string) ($operacion['estatus'] ?? ''))) {
+            $cambio = $this->cambiarEstatus(
+                $idOperacion,
+                'RevisiÃ³n Recuperaciones',
+                $idUsuario,
+                $nombreUsuario,
+                'TRACKING RECOLECCION'
+            );
+            if (empty($cambio['success'])) {
+                return $cambio;
+            }
+            $enviado = true;
+        }
+
+        $this->registrarBitacora(
+            $idOperacion,
+            'RECHAZADO POR TRACKING - EVIDENCIA ' . $idEvidencia,
+            $idUsuario,
+            $nombreUsuario
+        );
+
+        return ['success' => true, 'enviado_a_correcciones' => $enviado];
     }
 
     private function diagnosticarValidacionAtencion(int $idOperacion): array

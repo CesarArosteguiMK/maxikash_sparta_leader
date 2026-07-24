@@ -491,6 +491,7 @@ SQL;
             OR bu.accion LIKE '%ENVIÓ EVIDENCIAS%'
             OR bu.accion LIKE '%ENVIO EVIDENCIAS%'
             OR bu.accion LIKE '%REGISTRO RECHAZOS EVIDENCIAS%'
+            OR UPPER(bu.accion) LIKE '%RECHAZADO POR TRACKING%'
             OR bu.accion LIKE '%REEMPLAZO ESPECIAL DE EVIDENCIA%'
             OR bu.accion LIKE '%SUBIÓ EVIDENCIA%'
             OR bu.accion LIKE '%SUBIO EVIDENCIA%'
@@ -1075,6 +1076,12 @@ SQL;
             {$ultimoAnalistaEvidencias},
             {$tiempoEnBandeja},
             {$formulario},
+            EXISTS (
+                SELECT 1
+                FROM adj_bitacora bt_tracking
+                WHERE bt_tracking.id_operacion = o.id
+                  AND UPPER(bt_tracking.accion) LIKE '%RECHAZADO POR TRACKING%'
+            ) AS rechazado_por_tracking,
             TRIM(CONCAT_WS(' ',
                 per.nombres,
                 per.segundo_nombre,

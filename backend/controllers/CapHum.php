@@ -40,6 +40,7 @@ class CapHum extends Controller
     private const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
     private const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
     private const MODULO_AUDITORIA_RRHH = 154;
+    private const MODULO_DESCARGAR_MUESTRA_EXPEDIENTES_RRHH = 197;
     private const MODULO_GESTION_ACTUALIZAR_ESTRUCTURA = 191;
     private const MODULO_CONTROL_BAJAS = 13;
     private const MODULOS_DOCUMENTO_RRHH = [
@@ -137,6 +138,12 @@ class CapHum extends Controller
     private static function puedeVerDocumentosSensiblesRrhh(): bool
     {
         return self::tieneModuloWeb(self::MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH);
+    }
+
+    private static function puedeDescargarMuestraExpedientesRrhh(): bool
+    {
+        return self::usuarioSesionId() === 1
+            || self::tieneModuloWeb(self::MODULO_DESCARGAR_MUESTRA_EXPEDIENTES_RRHH);
     }
 
     private static function puedeResetearTotpDocumentosSensiblesRrhh(): bool
@@ -482,6 +489,17 @@ class CapHum extends Controller
         ]);
     }
 
+    private function auditarMuestraExpedientesSensibleRrhh(string $accion, string $resultado, string $detalle = ''): void
+    {
+        $this->auditarDocumentoSensibleRrhh([
+            'id_persona' => 0,
+            'nombre_completo' => 'Muestra de expedientes RR.HH.',
+            'id_documento' => 0,
+            'documento_nombre' => 'Expediente auditoria (ZIP)',
+            'archivo' => '',
+        ], $accion, $resultado, $detalle);
+    }
+
     private function auditarSalarioSensibleRrhh(int $idPersona, string $accion, string $resultado, string $detalle = ''): void
     {
         $usuarioNombre = trim((string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? ''));
@@ -754,6 +772,78 @@ class CapHum extends Controller
         return ['success' => true, 'datos' => ['download_token' => $tokenDescarga]];
     }
 
+    private function autorizarMuestraExpedientesRrhh(string $codigoTotp = ''): array
+    {
+        if (!self::puedeDescargarMuestraExpedientesRrhh()) {
+            $this->auditarPlantillaGestoresRrhh('descargar_muestra_expedientes', 'denegado', 'Sin permiso especial');
+            $this->auditarMuestraExpedientesSensibleRrhh('autorizacion_muestra_expedientes', 'denegado', 'Sin permiso especial');
+            return ['success' => false, 'mensaje' => 'No tienes permiso para descargar muestras de expedientes.'];
+        }
+        $idUsuarioSesion = self::usuarioSesionId();
+        if ($idUsuarioSesion <= 0) {
+            $this->auditarMuestraExpedientesSensibleRrhh('autorizacion_muestra_expedientes', 'denegado', 'Sesion no valida');
+            return ['success' => false, 'mensaje' => 'Sesion no valida.'];
+        }
+
+        $codigoTotp = preg_replace('/\D+/', '', $codigoTotp);
+        $totp = CapHumDAO::getTotpDocumentoSensible($idUsuarioSesion);
+        if (!($totp['success'] ?? false)) {
+            $this->auditarMuestraExpedientesSensibleRrhh('autorizacion_muestra_expedientes', 'fallido', (string)($totp['mensaje'] ?? 'No se pudo consultar el segundo paso.'));
+            return ['success' => false, 'mensaje' => $totp['mensaje'] ?? 'No se pudo consultar el segundo paso.'];
+        }
+
+        $configTotp = $totp['datos'] ?? null;
+        if (empty($configTotp['secret'])) {
+            $secret = self::generarSecretoTotp();
+            $guardado = CapHumDAO::guardarTotpDocumentoSensible($idUsuarioSesion, $secret, false);
+            if (!($guardado['success'] ?? false)) {
+                $this->auditarMuestraExpedientesSensibleRrhh('totp_setup_muestra_expedientes', 'fallido', (string)($guardado['mensaje'] ?? 'No se pudo crear el segundo paso.'));
+                return ['success' => false, 'mensaje' => $guardado['mensaje'] ?? 'No se pudo crear el segundo paso.'];
+            }
+            $configTotp = ['secret' => $secret, 'confirmado' => 0];
+            $this->auditarPlantillaGestoresRrhh('totp_setup', 'pendiente', 'Google Authenticator generado para muestra de expedientes');
+            $this->auditarMuestraExpedientesSensibleRrhh('totp_setup_muestra_expedientes', 'pendiente', 'Google Authenticator generado para descarga de muestra');
+        }
+
+        $secret = (string)($configTotp['secret'] ?? '');
+        $confirmado = (int)($configTotp['confirmado'] ?? 0) === 1;
+        if ($codigoTotp === '') {
+            return [
+                'success' => true,
+                'datos' => [
+                    'requiere_totp' => true,
+                    'setup' => !$confirmado,
+                    'secret' => !$confirmado ? $secret : null,
+                    'otpauth_url' => !$confirmado ? self::otpauthUrlMuestraExpedientesRrhh($secret) : null,
+                    'cuenta' => self::cuentaTotpMuestraExpedientesRrhh(),
+                ],
+            ];
+        }
+
+        if (!self::verificarCodigoTotp($secret, $codigoTotp)) {
+            $this->auditarPlantillaGestoresRrhh('totp', 'denegado', 'Codigo TOTP invalido para muestra de expedientes');
+            $this->auditarMuestraExpedientesSensibleRrhh('autorizacion_muestra_expedientes', 'denegado', 'Codigo TOTP invalido');
+            return ['success' => false, 'mensaje' => 'El codigo de Google Authenticator no es correcto.'];
+        }
+
+        if (!$confirmado) {
+            $confirmacionTotp = CapHumDAO::confirmarTotpDocumentoSensible($idUsuarioSesion);
+            if (($confirmacionTotp['success'] ?? false)) {
+                $this->notificarRegistroTotpSubdirectorRrhh('documentos');
+            }
+            $this->auditarMuestraExpedientesSensibleRrhh(
+                'totp_confirmar_muestra_expedientes',
+                ($confirmacionTotp['success'] ?? false) ? 'autorizado' : 'fallido',
+                'Google Authenticator confirmado para descarga de muestra'
+            );
+        }
+
+        $token = self::crearTokenMuestraExpedientesRrhhSesion();
+        $this->auditarPlantillaGestoresRrhh('descargar_muestra_expedientes', 'autorizado', 'Segundo paso validado');
+        $this->auditarMuestraExpedientesSensibleRrhh('autorizacion_muestra_expedientes', 'autorizado', 'Segundo paso validado');
+        return ['success' => true, 'datos' => ['download_token' => $token]];
+    }
+
     private function crearTokenDocumentoSensibleSesion(int $idDocumentoCarga, string $accion = 'ver'): string
     {
         if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -824,6 +914,38 @@ class CapHum extends Controller
         }
         $_SESSION['rrhh_plantilla_gestores_tokens'][$token] = time() + 120;
         return $token;
+    }
+
+    private static function crearTokenMuestraExpedientesRrhhSesion(): string
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+        $token = bin2hex(random_bytes(24));
+        if (empty($_SESSION['rrhh_muestra_expedientes_tokens']) || !is_array($_SESSION['rrhh_muestra_expedientes_tokens'])) {
+            $_SESSION['rrhh_muestra_expedientes_tokens'] = [];
+        }
+        $_SESSION['rrhh_muestra_expedientes_tokens'][$token] = time() + 120;
+        return $token;
+    }
+
+    private static function tokenMuestraExpedientesRrhhValido(string $token): bool
+    {
+        if ($token === '' || empty($_SESSION['rrhh_muestra_expedientes_tokens']) || !is_array($_SESSION['rrhh_muestra_expedientes_tokens'])) {
+            return false;
+        }
+        $ahora = time();
+        foreach ($_SESSION['rrhh_muestra_expedientes_tokens'] as $valor => $expira) {
+            if ((int)$expira < $ahora) {
+                unset($_SESSION['rrhh_muestra_expedientes_tokens'][$valor]);
+            }
+        }
+        $expira = (int)($_SESSION['rrhh_muestra_expedientes_tokens'][$token] ?? 0);
+        if ($expira < $ahora) {
+            return false;
+        }
+        unset($_SESSION['rrhh_muestra_expedientes_tokens'][$token]);
+        return true;
     }
 
     private static function generarSecretoTotp(): string
@@ -909,6 +1031,23 @@ class CapHum extends Controller
     {
         $issuer = 'MaxiKash RRHH';
         $cuenta = self::cuentaTotpDocumentosSensibles();
+        return 'otpauth://totp/' . rawurlencode($issuer . ':' . $cuenta)
+            . '?secret=' . rawurlencode($secret)
+            . '&issuer=' . rawurlencode($issuer)
+            . '&digits=6&period=30';
+    }
+
+    private static function cuentaTotpMuestraExpedientesRrhh(): string
+    {
+        $usuario = trim((string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? ''));
+        $usuario = preg_replace('/\s+/', ' ', $usuario);
+        return ($usuario !== '' ? $usuario : 'Usuario') . ' (expediente auditoria)';
+    }
+
+    private static function otpauthUrlMuestraExpedientesRrhh(string $secret): string
+    {
+        $issuer = 'MaxiKash RRHH';
+        $cuenta = self::cuentaTotpMuestraExpedientesRrhh();
         return 'otpauth://totp/' . rawurlencode($issuer . ':' . $cuenta)
             . '?secret=' . rawurlencode($secret)
             . '&issuer=' . rawurlencode($issuer)
@@ -9949,13 +10088,175 @@ class CapHum extends Controller
 
     public function documentosRrhh()
     {
+        CapHumDAO::asegurarModuloAccesosCapitalHumano();
         self::set("titulo", "Expedientes RR.HH.");
+        self::set("puedeDescargarMuestraExpedientesRrhh", self::puedeDescargarMuestraExpedientesRrhh());
         self::render("caphum_documentos_rrhh");
     }
 
     public function getResumenDocumentosRrhh()
     {
         self::respuestaJSON(CapHumDAO::getResumenDocumentosRrhhGlobal());
+    }
+
+    public function autorizarDescargaMuestraExpedientesRrhh()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = $_POST;
+        }
+        self::respuestaJSON($this->autorizarMuestraExpedientesRrhh((string)($input['totp_code'] ?? '')));
+    }
+
+    public function descargarMuestraExpedientesRrhh()
+    {
+        $limpiarTemporales = [];
+        try {
+            if (!self::puedeDescargarMuestraExpedientesRrhh()) {
+                throw new \RuntimeException('No tienes permiso para descargar muestras de expedientes.');
+            }
+            if (!self::tokenMuestraExpedientesRrhhValido((string)($_GET['download_token'] ?? ''))) {
+                throw new \RuntimeException('La autorizacion vencio. Vuelve a validar el codigo de Google Authenticator.');
+            }
+
+            $empresa = (string)($_GET['empresa'] ?? 'ambas');
+            $modo = (string)($_GET['modo'] ?? 'aleatorio');
+            $idsPersona = $_GET['ids'] ?? [];
+            if (!is_array($idsPersona)) {
+                $idsPersona = explode(',', (string)$idsPersona);
+            }
+            $idsPersona = array_values(array_unique(array_filter(array_map('intval', $idsPersona))));
+            if (!in_array($modo, ['aleatorio', 'seleccion'], true)) {
+                throw new \RuntimeException('Modo de descarga no valido.');
+            }
+            if ($modo === 'seleccion' && count($idsPersona) !== 10) {
+                throw new \RuntimeException('Selecciona exactamente 10 colaboradores para generar el ZIP.');
+            }
+            if (count($idsPersona) > 10) {
+                throw new \RuntimeException('Solo se permiten hasta 10 colaboradores por descarga.');
+            }
+
+            $muestra = CapHumDAO::getPersonasMuestraExpedientesRrhh($empresa, $idsPersona, $modo === 'aleatorio', 10);
+            if (!($muestra['success'] ?? false)) {
+                throw new \RuntimeException($muestra['mensaje'] ?? 'No se pudo seleccionar la muestra.');
+            }
+            $personas = $muestra['datos'] ?? [];
+            if (empty($personas)) {
+                throw new \RuntimeException('No hay colaboradores elegibles para la empresa seleccionada.');
+            }
+            if ($modo === 'seleccion' && count($personas) !== count($idsPersona)) {
+                throw new \RuntimeException('Una o mas personas ya no pertenecen a la plantilla activa, son externas o no corresponden a la empresa elegida.');
+            }
+
+            $idsMuestra = array_values(array_filter(array_map(static fn($persona) => (int)($persona['id_persona'] ?? 0), $personas)));
+            $resultadoDocumentos = CapHumDAO::getDocumentosExpedienteRrhhPorPersonas($idsMuestra);
+            if (!($resultadoDocumentos['success'] ?? false)) {
+                throw new \RuntimeException($resultadoDocumentos['mensaje'] ?? 'No se pudieron consultar los documentos.');
+            }
+            $documentosPorPersona = [];
+            foreach (($resultadoDocumentos['datos'] ?? []) as $documento) {
+                $documentosPorPersona[(int)($documento['id_persona'] ?? 0)][] = $documento;
+            }
+
+            if (!class_exists('\ZipArchive')) {
+                throw new \RuntimeException('La extension ZIP no esta disponible en el servidor.');
+            }
+            $tmpZip = tempnam(sys_get_temp_dir(), 'rrhh_muestra_');
+            if ($tmpZip === false) {
+                throw new \RuntimeException('No se pudo preparar el archivo ZIP.');
+            }
+            $limpiarTemporales[] = $tmpZip;
+            $zip = new \ZipArchive();
+            if ($zip->open($tmpZip, \ZipArchive::OVERWRITE) !== true) {
+                throw new \RuntimeException('No se pudo crear el archivo ZIP.');
+            }
+
+            $incluidos = 0;
+            $omitidos = 0;
+            foreach ($personas as $indice => $persona) {
+                $idPersona = (int)($persona['id_persona'] ?? 0);
+                $codigo = trim((string)($persona['codigo_contpac'] ?? '')) ?: ('persona_' . $idPersona);
+                $carpeta = sprintf('%02d_%s_%s', $indice + 1, $codigo, $persona['nombre_completo'] ?? 'colaborador');
+                $carpeta = $this->nombreSeguroDescarga($carpeta);
+                $zip->addEmptyDir($carpeta);
+                $nombresUsados = [];
+                $documentosIncluidosPersona = 0;
+
+                foreach ($documentosPorPersona[$idPersona] ?? [] as $documento) {
+                    $idDocumento = (int)($documento['id_documento'] ?? 0);
+                    if (!self::documentoPermitidoParaPersonaRrhh($idDocumento, $idPersona)) {
+                        $omitidos++;
+                        continue;
+                    }
+
+                    $ruta = $this->resolverArchivoDocumentoPersona((string)($documento['archivo'] ?? ''), $idDocumento, $idPersona);
+                    if (!$ruta) {
+                        $omitidos++;
+                        continue;
+                    }
+                    $esSensible = self::esDocumentoSensibleRrhh($idDocumento);
+                    if ($esSensible) {
+                        $preparado = $this->prepararArchivoSensibleParaLectura($ruta);
+                        $ruta = $preparado['ruta'];
+                        foreach (($preparado['limpiar'] ?? []) as $temporal) {
+                            $limpiarTemporales[] = $temporal;
+                        }
+                    }
+
+                    $extension = strtolower(pathinfo((string)($documento['archivo'] ?? ''), PATHINFO_EXTENSION));
+                    $nombre = $this->nombreArchivoDocumentoPersona($idDocumento, $nombresUsados, $extension ?: 'pdf');
+                    if (!$zip->addFile($ruta, $carpeta . '/' . $nombre)) {
+                        $omitidos++;
+                        continue;
+                    }
+                    $incluidos++;
+                    $documentosIncluidosPersona++;
+                    if ($esSensible) {
+                        $documento['nombre_completo'] = $persona['nombre_completo'] ?? '';
+                        $this->auditarDocumentoSensibleRrhh($documento, 'descarga_muestra_zip', 'autorizado', 'ZIP de muestra de expedientes');
+                    }
+                }
+
+                if ($documentosIncluidosPersona === 0) {
+                    $zip->addFromString($carpeta . '/SIN_DOCUMENTOS.txt', 'No se encontraron documentos de expediente disponibles para este colaborador.');
+                }
+            }
+            $zip->addFromString('LEEME.txt', sprintf(
+                "Muestra de expedientes RR.HH.\r\nPersonas: %d\r\nDocumentos incluidos: %d\r\nArchivos omitidos o no encontrados: %d\r\nGenerado: %s\r\n",
+                count($personas),
+                $incluidos,
+                $omitidos,
+                self::ahoraMexicoCiudad()->format('Y-m-d H:i:s')
+            ));
+            $zip->close();
+
+            $this->auditarPlantillaGestoresRrhh(
+                'descargar_muestra_expedientes',
+                'autorizado',
+                sprintf('Empresa: %s; modo: %s; personas: %d; documentos: %d; omitidos: %d', $empresa, $modo, count($personas), $incluidos, $omitidos)
+            );
+            $this->auditarMuestraExpedientesSensibleRrhh(
+                'descarga_muestra_expedientes_zip',
+                'autorizado',
+                sprintf('Empresa: %s; modo: %s; personas: %d; documentos: %d; omitidos: %d', $empresa, $modo, count($personas), $incluidos, $omitidos)
+            );
+            $this->enviarArchivoDescarga(
+                $tmpZip,
+                'muestra_expedientes_rrhh_' . self::ahoraMexicoCiudad()->format('Ymd_His') . '.zip',
+                'application/zip',
+                $limpiarTemporales
+            );
+        } catch (\Throwable $e) {
+            foreach ($limpiarTemporales as $temporal) {
+                $this->borrarRutaTemporalDocumentos((string)$temporal);
+            }
+            $this->auditarPlantillaGestoresRrhh('descargar_muestra_expedientes', 'fallido', $e->getMessage());
+            $this->auditarMuestraExpedientesSensibleRrhh('descarga_muestra_expedientes_zip', 'fallido', $e->getMessage());
+            http_response_code(400);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo $e->getMessage();
+        }
     }
 
     /** Vista Candidatos (Capital Humano). Misma arquitectura que Gestión: heredoc con el script, self::set("script"), self::render. */
@@ -16203,6 +16504,11 @@ class CapHum extends Controller
         $_SESSION['candidato_documentos_token_publico'] = $token;
         $candidato = $res['datos'];
         $id_candidato = (int) $candidato['id_candidato'];
+        $candidatoCompletoRes = CandidatosDAO::getById($id_candidato);
+        $candidatoCompleto = (!empty($candidatoCompletoRes['success']) && !empty($candidatoCompletoRes['datos']))
+            ? $candidatoCompletoRes['datos']
+            : $candidato;
+        $requiereCartaCompromisoGestor = $this->candidatoRequiereCartaCompromisoGestor($candidatoCompleto);
         $nombreCompleto = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
         $tiposNombre = [
             'SOLICITUD INTERNA' => 1, 'CV O SOLICITUD DE TRABAJO' => 2, 'ACTA DE NACIMIENTO' => 3, 'ACTA DE NACIMIENTO Certificada' => 3, 'CURP' => 4,
@@ -16232,11 +16538,15 @@ class CapHum extends Controller
             && isset($documentos_subidos[4]) && isset($documentos_subidos[5]) && isset($documentos_subidos[6])
             && isset($documentos_subidos[7]) && isset($documentos_subidos[8]) && isset($documentos_subidos[9])
             && isset($documentos_subidos[10]);
+        if ($requiereCartaCompromisoGestor) {
+            $expediente_completo = $expediente_completo && isset($documentos_subidos[11]);
+        }
         $this->set('token', $token);
         $this->set('nombre_candidato', $nombreCompleto);
         $this->set('id_candidato', $id_candidato);
         $this->set('documentos_subidos', $documentos_subidos);
         $this->set('expediente_completo', $expediente_completo);
+        $this->set('requiere_carta_compromiso_gestor', $requiereCartaCompromisoGestor);
         $this->set('api_verificacion_base', $this->getApiVerificacionBase());
         $this->render('subir_documentos_candidato', true);
     }
@@ -16463,7 +16773,7 @@ class CapHum extends Controller
     /**
      * Descarga un documento para el candidato (carta no adeudo o solicitud interna prellenada).
      * No requiere login. URL: /CapHum/descargarDocumentoCandidato/{token}/{tipo}
-     * tipo = carta_no_adeudo | solicitud_interna | solicitud_llenar
+     * tipo = carta_no_adeudo | carta_compromiso_gestor | solicitud_interna | solicitud_llenar
      * - solicitud_interna: descarga la plantilla en blanco (solicitud_interna.pdf, sin AcroForm)
      *   para que el candidato la llene como quiera (a mano o en computadora).
      * - solicitud_llenar: abre en el navegador el PDF con AcroForm para llenar en línea (legacy).
@@ -16472,7 +16782,7 @@ class CapHum extends Controller
     {
         $token = trim($token ?? '');
         $tipo = strtolower(trim($tipo ?? ''));
-        if ($token === '' || !in_array($tipo, ['carta_no_adeudo', 'solicitud_interna', 'solicitud_llenar'], true)) {
+        if ($token === '' || !in_array($tipo, ['carta_no_adeudo', 'carta_compromiso_gestor', 'solicitud_interna', 'solicitud_llenar'], true)) {
             header('HTTP/1.0 400 Bad Request');
             echo 'Enlace no válido.';
             return;
@@ -16495,6 +16805,28 @@ class CapHum extends Controller
             }
             header('Content-Type: application/pdf');
             header('Content-Disposition: attachment; filename="Carta_No_Adeudo_INFONAVIT_FONACOT.pdf"');
+            readfile($archivo);
+            return;
+        }
+
+        if ($tipo === 'carta_compromiso_gestor') {
+            $candidatoRes = CandidatosDAO::getById($id_candidato);
+            $candidato = (!empty($candidatoRes['success']) && !empty($candidatoRes['datos']))
+                ? $candidatoRes['datos']
+                : $res['datos'];
+            if (!$this->candidatoRequiereCartaCompromisoGestor($candidato)) {
+                header('HTTP/1.0 403 Forbidden');
+                echo 'Este formato solo aplica para gestores de Cobranza.';
+                return;
+            }
+            $archivo = dirname(RAIZ) . '/public/assets/docs/carta_compromiso_gestor.pdf';
+            if (!is_file($archivo)) {
+                header('HTTP/1.0 404 Not Found');
+                echo 'Documento no disponible. Contacte al Ã¡rea de Recursos Humanos.';
+                return;
+            }
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: attachment; filename="Carta_Compromiso_Gestor.pdf"');
             readfile($archivo);
             return;
         }
@@ -17009,6 +17341,13 @@ class CapHum extends Controller
         return preg_match('/\bGESTOR(?:ES|A|AS)?\b/', $puesto) === 1;
     }
 
+    /** La carta se solicita solo a gestores cuya estructura pertenece a Cobranza. */
+    private function candidatoRequiereCartaCompromisoGestor(array $candidato): bool
+    {
+        return self::candidatoEsDireccionCobranza($candidato)
+            && $this->candidatoEsPuestoGestor($candidato);
+    }
+
     private function textoPuestoCandidatoGestor(array $candidato): string
     {
         $campos = [
@@ -17396,6 +17735,7 @@ class CapHum extends Controller
             'verificar-nss-documento',
             'verificar-estado-cuenta',
             'verificar-acta-documento',
+            'verificar-documento-rapido-ia',
             'validar-paginas-pdf',
         ];
         if (!in_array($endpoint, $permitidos, true)) {
@@ -20008,8 +20348,11 @@ class CapHum extends Controller
         $contrasenaSpartaHtml = $contrasenaSparta !== '' ? htmlspecialchars($contrasenaSparta) : 'Pendiente por confirmar';
         $bloqueCartaGestor = '';
         $esCandidatoGestor = $this->candidatoEsPuestoGestor($c);
-        $adjuntosBienvenida = $esCandidatoGestor ? $this->adjuntosCartaCompromisoGestor() : [];
-        if ($esCandidatoGestor) {
+        // La carta ahora forma parte del expediente público como documento 11.
+        // Se mantiene el código legado solo para no romper enlaces históricos.
+        $adjuntosBienvenida = [];
+        $enviarFlujoCartaSeparado = false;
+        if ($enviarFlujoCartaSeparado && $esCandidatoGestor) {
             $tokenCartaRes = CandidatosDAO::reactivarTokenDocumentos($id_candidato);
             if (!empty($tokenCartaRes['success']) && !empty($tokenCartaRes['datos']['token'])) {
                 $urlCartaPdf = $this->urlCartaCompromisoGestorPdf();
@@ -20760,6 +21103,7 @@ class CapHum extends Controller
         if (strpos($tipo, 'SEGURIDAD SOCIAL') !== false || strpos($tipo, 'NSS') !== false || strpos($tipo, 'IMSS') !== false) return 8;
         if (strpos($tipo, 'RETENCION') !== false || strpos($tipo, 'FONACOT') !== false || strpos($tipo, 'INFONAVIT') !== false) return 9;
         if (strpos($tipo, 'ESTADO DE CUENTA') !== false) return 10;
+        if (strpos($tipo, 'CARTA COMPROMISO') !== false && strpos($tipo, 'GESTOR') !== false) return 11;
         return 0;
     }
 
@@ -20779,6 +21123,7 @@ class CapHum extends Controller
         if (strpos($nombre, 'NSS') !== false || strpos($nombre, 'SEGURIDAD SOCIAL') !== false || strpos($nombre, 'IMSS') !== false) return 8;
         if (strpos($nombre, 'RETENCION') !== false || strpos($nombre, 'FONACOT') !== false || strpos($nombre, 'INFONAVIT') !== false) return 9;
         if (strpos($nombre, 'ESTADO DE CUENTA') !== false || strpos($nombre, 'CUENTA BANCARIA') !== false) return 10;
+        if (strpos($nombre, 'CARTA COMPROMISO') !== false && strpos($nombre, 'GESTOR') !== false) return 11;
         return 0;
     }
 
@@ -20910,7 +21255,7 @@ class CapHum extends Controller
             }
         }
 
-        if (in_array($tipoDocumento, [2, 9], true)) {
+        if (in_array($tipoDocumento, [2, 9, 11], true)) {
             $prechecks = $this->prevalidarContenidoDocumentosCandidatoEnParalelo([
                 $tipoDocumento => [
                     'tmp_name' => $rutaPdf,
@@ -20992,7 +21337,7 @@ class CapHum extends Controller
 
     private function tiposPrecheckContenidoCargaCandidato(): array
     {
-        return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
     }
 
     private function concurrenciaPrecheckCargaCandidato(): int
@@ -21064,7 +21409,7 @@ class CapHum extends Controller
             ];
         }
 
-        if ($tipoDocumento === 2 || $tipoDocumento === 9) {
+        if (in_array($tipoDocumento, [2, 9, 11], true)) {
             return [
                 array_merge($base, [
                     'key' => $tipoDocumento . ':contenido',
@@ -21074,7 +21419,9 @@ class CapHum extends Controller
                     'http_version_1_1' => true,
                     'forbid_reuse' => true,
                     'extra_fields' => [
-                        'tipo_esperado' => $tipoDocumento === 2 ? 'cv' : 'infonavit_fonacot',
+                        'tipo_esperado' => $tipoDocumento === 2
+                            ? 'cv'
+                            : ($tipoDocumento === 9 ? 'infonavit_fonacot' : 'carta_compromiso_gestor'),
                     ],
                 ]),
             ];
@@ -23609,6 +23956,11 @@ class CapHum extends Controller
             return;
         }
         $id_candidato = (int) $res['datos']['id_candidato'];
+        $candidatoCompletoRes = CandidatosDAO::getById($id_candidato);
+        $candidatoCompleto = (!empty($candidatoCompletoRes['success']) && !empty($candidatoCompletoRes['datos']))
+            ? $candidatoCompletoRes['datos']
+            : $res['datos'];
+        $requiereCartaCompromisoGestor = $this->candidatoRequiereCartaCompromisoGestor($candidatoCompleto);
 
         $tiposDocumento = [
             1  => 'SOLICITUD INTERNA',
@@ -23621,12 +23973,15 @@ class CapHum extends Controller
             8  => 'NÚMERO DE SEGURIDAD SOCIAL',
             9  => 'HOJA DE RETENCION FONACOT O INFONAVIT',
             10 => 'ESTADO DE CUENTA',
+            11 => 'CARTA DE COMPROMISO DEL GESTOR',
         ];
         $slugPorTipo = [
             1 => 'solicitud_interna', 2 => 'cv', 3 => 'acta_nacimiento', 4 => 'curp',
             5 => 'identificacion_frente', 6 => 'comprobante_domicilio', 7 => 'constancia_fiscal',
             8 => 'nss', 9 => 'hoja_retencion', 10 => 'estado_cuenta',
+            11 => 'carta_compromiso_gestor',
         ];
+        $ultimoDocumentoRequerido = $requiereCartaCompromisoGestor ? 11 : 10;
 
         $dirBase = defined('RAIZ') ? (RAIZ . '/storage/candidatos') : (__DIR__ . '/../storage/candidatos');
         $dirExpediente = $dirBase . '/' . $id_candidato . '/expediente';
@@ -23677,7 +24032,7 @@ class CapHum extends Controller
         // Envío parcial: solo exigir que venga al menos un archivo nuevo (el candidato puede subir el resto después)
         $tieneAlgunoNuevo = false;
         $archivosParaGuardar = [];
-        for ($i = 1; $i <= 10; $i++) {
+        for ($i = 1; $i <= $ultimoDocumentoRequerido; $i++) {
             if (!empty($yaSubidos[$i])) {
                 continue;
             }
@@ -23692,7 +24047,7 @@ class CapHum extends Controller
             exit;
         }
 
-        for ($i = 1; $i <= 10; $i++) {
+        for ($i = 1; $i <= $ultimoDocumentoRequerido; $i++) {
             if (!empty($tipoDocumentoValidadoRh[$i])) {
                 continue;
             }
@@ -23747,11 +24102,15 @@ class CapHum extends Controller
             ];
         }
 
-        // La carga no debe depender de que el servicio de lectura documental este
-        // disponible. Los archivos se guardan primero y la cola los revisa despues.
-        // Solo conservamos los rechazos locales y deterministas (PDF invalido,
-        // solicitud de una pagina o documento colocado en otro campo).
+        // La carta se revisa también en servidor: solo un rechazo explícito del
+        // motor (por ejemplo, formato vacío) impide guardarla.
         $prechecksContenido = [];
+        if (isset($archivosParaGuardar[11])) {
+            $prechecksContenido[11] = $this->verificarContenidoDocumentoCandidatoAntesDeGuardar(
+                11,
+                (string) ($archivosParaGuardar[11]['tmp_name'] ?? '')
+            );
+        }
 
         foreach ($archivosParaGuardar as $i => $archivoSubida) {
             $i = (int) $i;
@@ -23792,7 +24151,7 @@ class CapHum extends Controller
                 } else {
                     $verificacionCalidadJson = json_encode($verificacionPreviaContenido);
                 }
-            } elseif (in_array($i, [2, 4, 5, 6, 7, 8, 9, 10], true)) {
+            } elseif (in_array($i, [2, 4, 5, 6, 7, 8, 9, 10, 11], true)) {
                 $verificacionCalidadJson = json_encode([
                     'pendiente_revision_backend' => true,
                     'notas' => ['Documento guardado.'],
@@ -23897,8 +24256,8 @@ class CapHum extends Controller
                 && isset($documentosSubidosPayload[4]) && isset($documentosSubidosPayload[5]) && isset($documentosSubidosPayload[6])
                 && isset($documentosSubidosPayload[7]) && isset($documentosSubidosPayload[8]) && isset($documentosSubidosPayload[9])
                 && isset($documentosSubidosPayload[10]);
-            $payload['expediente_completo'] = $tieneLos10;
-            $expedienteCompleto = $tieneLos10;
+            $expedienteCompleto = $tieneLos10 && (!$requiereCartaCompromisoGestor || isset($documentosSubidosPayload[11]));
+            $payload['expediente_completo'] = $expedienteCompleto;
             // Notificar siempre que el expediente quede completo tras una subida
             // reemplaza un documento que Capital Humano había eliminado para corrección).
             error_log('CapHum::subirDocumentos: guardados=' . $guardados . ', expedienteCompleto=' . ($expedienteCompleto ? 'SI' : 'NO') . ', docsPayload=' . count($documentosSubidosPayload) . ', keys=' . implode(',', array_keys($documentosSubidosPayload)));
@@ -24124,7 +24483,7 @@ class CapHum extends Controller
                         ($revalidarDocumentosIndividuales && isset($tiposSubidosSet[$tipoNum]))
                         || $debeCompletarLecturaRapida
                     );
-                if (in_array($tipoNum, [1, 2, 6, 9], true)) {
+                if (in_array($tipoNum, [1, 2, 6, 9, 11], true)) {
                     if ($idDoc > 0 && $esReciente) {
                         CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
                             'pendiente_revision_backend' => true,
@@ -24251,8 +24610,13 @@ class CapHum extends Controller
                 }
             }
             if ($expedienteCompleto === null) {
+                $candidatoCompletoRes = CandidatosDAO::getById((int) $id_candidato);
+                $candidatoCompleto = (!empty($candidatoCompletoRes['success']) && !empty($candidatoCompletoRes['datos']))
+                    ? $candidatoCompletoRes['datos']
+                    : [];
+                $ultimoDocumentoRequerido = $this->candidatoRequiereCartaCompromisoGestor($candidatoCompleto) ? 11 : 10;
                 $expedienteCompleto = true;
-                for ($i = 1; $i <= 10; $i++) {
+                for ($i = 1; $i <= $ultimoDocumentoRequerido; $i++) {
                     if (empty($tiposPresentes[$i])) {
                         $expedienteCompleto = false;
                         break;
@@ -29105,8 +29469,22 @@ public function getEstadosMunicipiosMexico()
 
         $idPersona = (int)($input['id_persona'] ?? 0);
         $idJefe = $input['id_jefe'] ?? '';
-
-        self::respuestaJSON(CapHumDAO::actualizarJefePersonaOrganigrama($idPersona, $idJefe));
+        $contextoJefeAntes = $this->obtenerContextoNotificacionJefeBaja($idPersona);
+        $resultado = CapHumDAO::actualizarJefePersonaOrganigrama($idPersona, $idJefe);
+        if (!empty($resultado['success'])) {
+            $contextoJefeDespues = $this->obtenerContextoNotificacionJefeBaja($idPersona);
+            $contextoNotificacion = !empty($contextoJefeDespues['id_jefe'])
+                ? $contextoJefeDespues
+                : $contextoJefeAntes;
+            $datos = is_array($resultado['datos'] ?? null) ? $resultado['datos'] : [];
+            $datos['notificacion_jefe'] = $this->notificarJefeDirectoMovimientoBaja(
+                $contextoNotificacion,
+                'gestion_actualizada',
+                ['cambios' => ['jefe directo']]
+            );
+            $resultado['datos'] = $datos;
+        }
+        self::respuestaJSON($resultado);
     }
 
     public function resolverBajaOrganigrama()
@@ -29396,6 +29774,7 @@ public function getEstadosMunicipiosMexico()
 
         $idPersonaAudit = (int)($input['id'] ?? 0);
         $antesAudit = $idPersonaAudit > 0 ? CapHumDAO::snapshotPersonaAuditoria($idPersonaAudit) : [];
+        $contextoJefeAntes = $this->obtenerContextoNotificacionJefeBaja($idPersonaAudit);
         $resultado = CapHumDAO::UpdatePersona($input);
         if (!empty($resultado['success'])) {
             $idPersonaSync = (int)($input['id'] ?? 0);
@@ -29433,6 +29812,31 @@ public function getEstadosMunicipiosMexico()
                         'edicion_parcial' => !$puedeEditarCompleto,
                     ],
                 ]);
+
+                $camposNotificables = [
+                    'puestos' => 'puesto',
+                    'departamentos' => 'departamento',
+                    'area' => 'área',
+                    'jefe' => 'jefe directo',
+                ];
+                $cambiosNotificables = [];
+                foreach ($camposNotificables as $campo => $etiqueta) {
+                    if (array_key_exists($campo, $cambiosAudit)) {
+                        $cambiosNotificables[] = $etiqueta;
+                    }
+                }
+                if (!empty($cambiosNotificables)) {
+                    $contextoJefeDespues = $this->obtenerContextoNotificacionJefeBaja($idPersonaAudit);
+                    $contextoNotificacion = !empty($contextoJefeDespues['id_jefe'])
+                        ? $contextoJefeDespues
+                        : $contextoJefeAntes;
+                    $datos['notificacion_jefe'] = $this->notificarJefeDirectoMovimientoBaja(
+                        $contextoNotificacion,
+                        'gestion_actualizada',
+                        ['cambios' => $cambiosNotificables]
+                    );
+                    $resultado['datos'] = $datos;
+                }
             }
         }
 
@@ -30036,13 +30440,16 @@ public function getEstadosMunicipiosMexico()
             'usuario_baja' => $_SESSION['usuario_id'],
         ];
 
+        $contextoJefeBaja = $this->obtenerContextoNotificacionJefeBaja((int)$idGestor);
+
         //  Llamar al modelo / DAO
         $resultado = CapHumDAO::registrarBajaGestor($data);
 
         if ($resultado['success']) {
+            $notificacionJefe = $this->notificarJefeDirectoMovimientoBaja($contextoJefeBaja, 'inicio_baja');
             echo json_encode([
                 'success' => true,
-                'datos' => $resultado['datos'] ?? null,
+                'datos' => array_merge((array)($resultado['datos'] ?? []), ['notificacion_jefe' => $notificacionJefe]),
                 'message' => $resultado['mensaje'] ?? 'Trámite de baja iniciado correctamente.'
             ]);
         } else {
@@ -30117,17 +30524,92 @@ public function getEstadosMunicipiosMexico()
             'fecha_baja' => (new DateTime('now', new DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'),
             'usuario_baja' => (int)($_SESSION['usuario_id'] ?? 0),
         ];
+        $contextoJefeBaja = $this->obtenerContextoNotificacionJefeBaja($idGestor);
         $resultado = CapHumDAO::finalizarBajaGestor($data);
         if (!$resultado['success']) {
             @unlink($directorio . $nombreFinal);
         }
+        $notificacionJefe = !empty($resultado['success'])
+            ? $this->notificarJefeDirectoMovimientoBaja($contextoJefeBaja, 'baja_finalizada', ['modo_reasignacion' => $modo])
+            : null;
         echo json_encode([
             'success' => (bool)($resultado['success'] ?? false),
-            'datos' => $resultado['datos'] ?? null,
+            'datos' => !empty($resultado['success'])
+                ? array_merge((array)($resultado['datos'] ?? []), ['notificacion_jefe' => $notificacionJefe])
+                : ($resultado['datos'] ?? null),
             'message' => $resultado['mensaje'] ?? ($resultado['success'] ? 'Baja completada.' : 'No se pudo completar la baja.'),
             'error' => $resultado['error'] ?? null,
         ]);
         exit;
+    }
+
+    /** Recupera el jefe directo vigente antes de que una baja cambie la estructura. */
+    private function obtenerContextoNotificacionJefeBaja(int $idPersona): array
+    {
+        if ($idPersona <= 0) return [];
+        try {
+            $db = new \Core\Database();
+            $row = $db->queryOne(
+                "SELECT p.id AS id_persona,
+                        TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_persona,
+                        jefe.id AS id_jefe,
+                        TRIM(CONCAT_WS(' ', jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom)) AS nombre_jefe,
+                        jefe.correo AS correo_jefe,
+                        COALESCE(GROUP_CONCAT(DISTINCT pu.nombre ORDER BY pu.nombre SEPARATOR ', '), '') AS puestos,
+                        COALESCE(GROUP_CONCAT(DISTINCT dep.nombre ORDER BY dep.nombre SEPARATOR ', '), '') AS departamentos
+                 FROM estado_cuenta.persona p
+                 LEFT JOIN (
+                    SELECT aj1.id_persona, aj1.id_jefe
+                    FROM estado_cuenta.asigna_jefe aj1
+                    INNER JOIN (SELECT id_persona, MAX(id) AS id_ultimo FROM estado_cuenta.asigna_jefe GROUP BY id_persona) ultimo
+                      ON ultimo.id_ultimo = aj1.id
+                 ) aj ON aj.id_persona = p.id
+                 LEFT JOIN estado_cuenta.persona jefe ON jefe.id = aj.id_jefe
+                 LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                 LEFT JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
+                 LEFT JOIN estado_cuenta.departamento dep ON dep.id = pu.departamento_id
+                 WHERE p.id = :id_persona
+                 GROUP BY p.id, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, jefe.id, jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom, jefe.correo",
+                ['id_persona' => $idPersona]
+            );
+            return is_array($row) ? $row : [];
+        } catch (\Throwable $e) {
+            error_log('CapHum::obtenerContextoNotificacionJefeBaja -> ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /** Notificación interna al jefe directo; no envía correos. */
+    private function notificarJefeDirectoMovimientoBaja(array $contexto, string $evento, array $extra = []): array
+    {
+        $idJefe = (int)($contexto['id_jefe'] ?? 0);
+        $idPersona = (int)($contexto['id_persona'] ?? 0);
+        $nombrePersona = trim((string)($contexto['nombre_persona'] ?? 'Colaborador'));
+        if ($idJefe <= 0 || $idJefe === $idPersona) {
+            return ['notificado' => false, 'motivo' => 'La persona no tiene un jefe directo vigente.'];
+        }
+
+        $esInicio = $evento === 'inicio_baja';
+        if ($evento === 'gestion_actualizada') {
+            $cambios = array_values(array_filter((array)($extra['cambios'] ?? [])));
+            $mensaje = 'Se actualizó la gestión de ' . $nombrePersona
+                . (!empty($cambios) ? '. Cambios: ' . implode(', ', $cambios) . '.' : '.');
+            $tipo = 'rrhh_movimiento_gestion';
+        } else {
+            $mensaje = $esInicio
+                ? 'Se inició un trámite de baja para ' . $nombrePersona . '.'
+                : 'La baja de ' . $nombrePersona . ' fue finalizada' . (($extra['modo_reasignacion'] ?? '') === 'sustituto' ? ' con sustituto asignado.' : ' y la posición quedó como vacante.');
+            $tipo = 'rrhh_movimiento_baja';
+        }
+        try {
+            Notificacion::crearParaPersonas([$idJefe], $tipo, $mensaje, null, [
+                'url' => '/caphum/gestion', 'id_persona' => $idPersona, 'evento' => $evento, 'tipo_aviso' => 'movimiento_baja',
+            ]);
+        } catch (\Throwable $e) {
+            error_log('CapHum::notificarJefeDirectoMovimientoBaja notificacion -> ' . $e->getMessage());
+        }
+
+        return ['notificado' => true, 'id_jefe' => $idJefe];
     }
 
     /** Cancela el trámite y restaura a la persona a su estado previo. */

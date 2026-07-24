@@ -300,6 +300,10 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
             totp_setup: ['Configuro TOTP', 'auth', 'fa-qrcode'],
             totp_confirmar: ['Confirmo TOTP', 'auth', 'fa-check-double'],
             totp_estado: ['Reviso TOTP', 'auth', 'fa-mobile-screen-button'],
+            totp_setup_muestra_expedientes: ['Configuro TOTP ZIP', 'auth', 'fa-qrcode'],
+            totp_confirmar_muestra_expedientes: ['Confirmo TOTP ZIP', 'auth', 'fa-check-double'],
+            autorizacion_muestra_expedientes: ['Autorizo ZIP', 'auth', 'fa-shield-halved'],
+            descarga_muestra_expedientes_zip: ['Descargo ZIP', 'download', 'fa-file-zipper'],
             reset_totp: ['Reinicio TOTP', 'auth', 'fa-rotate-left'],
             generar_token: [tipo === 'documentos' ? 'Autorizo acceso' : 'Autorizo', 'auth', 'fa-shield-halved'],
         };
@@ -311,7 +315,15 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
     };
     const documentCell = (row) => {
         const accion = String(row.accion || '').toLowerCase();
-        if (['reset_totp', 'totp', 'totp_setup', 'totp_confirmar', 'totp_estado'].includes(accion)) {
+        if ([
+            'reset_totp',
+            'totp',
+            'totp_setup',
+            'totp_confirmar',
+            'totp_estado',
+            'totp_setup_muestra_expedientes',
+            'totp_confirmar_muestra_expedientes'
+        ].includes(accion)) {
             return `
                 <td class="ch-audit-document">
                     <strong>Google Authenticator</strong>
@@ -330,7 +342,9 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
         const documento = String(row.documento_nombre || row.recurso || '').trim();
         const idDocumento = String(row.id_documento || '').trim();
         const archivo = String(row.archivo || '').trim();
-        const protegido = ['28', '29', '31', '37', '38'].includes(idDocumento) || archivo.toLowerCase().endsWith('.fad');
+        const protegido = ['28', '29', '31', '37', '38'].includes(idDocumento)
+            || archivo.toLowerCase().endsWith('.fad')
+            || accion.includes('muestra_expedientes');
         const nota = protegido
             ? '<span class="ch-audit-doc-note protected"><i class="fa-solid fa-lock"></i>Documento protegido</span>'
             : '<span class="ch-audit-doc-note regular"><i class="fa-solid fa-file-lines"></i>Registro documental</span>';

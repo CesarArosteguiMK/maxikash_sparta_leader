@@ -3405,7 +3405,11 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         }
 
         if (r.rechazadas > 0 || pestana === 'correcciones') {
+            const etiquetaTracking = item && (Number(item.rechazado_por_tracking) === 1 || item.rechazado_por_tracking === true)
+                ? '<span class="ae-evidence-pill ae-evidence-pill--correction"><i class="fa-solid fa-route"></i>Rechazado por Tracking</span>'
+                : '';
             return '<span class="ae-evidence-pill ae-evidence-pill--correction"><i class="fa-solid fa-triangle-exclamation"></i>En correccion</span>'
+                + etiquetaTracking
                 + '<span class="ae-evidence-detail">'
                 + '<span class="ae-evidence-detail-ok"><i class="fa-solid fa-circle-check"></i>' + r.aceptadas + ' aceptadas</span>'
                 + '<span class="ae-evidence-detail-bad"><i class="fa-solid fa-circle-xmark"></i>' + r.rechazadas + ' rechazadas</span>'

@@ -1895,6 +1895,80 @@ class Reporteria extends Controller
         exit;
     }
 
+    /**
+     * Devuelve un error controlado para la descarga AJAX de la plantilla.
+     * No se exponen errores internos de PhpSpreadsheet en el navegador.
+     */
+    private function responderErrorDescargaPlantillaGestores(string $mensaje, int $estatus = 500): void
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        http_response_code($estatus);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        echo json_encode([
+            'success' => false,
+            'mensaje' => $mensaje,
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    /**
+     * Construye el Excel por completo antes de enviar encabezados HTTP.
+     * Así, una falla del writer no rompe la pantalla de Gestión de Personal.
+     */
+    private function enviarPlantillaGestoresExcel(string $nombreArchivo, array $columnas, array $filas): void
+    {
+        if (!class_exists(\ZipArchive::class) || !extension_loaded('zip')) {
+            throw new \RuntimeException('La extensión ZIP requerida para generar archivos Excel no está habilitada.');
+        }
+        if (!class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            throw new \RuntimeException('La librería PhpSpreadsheet no está disponible.');
+        }
+
+        $archivoTemporal = tempnam(sys_get_temp_dir(), 'sparta_reporte_personal_');
+        if ($archivoTemporal === false) {
+            throw new \RuntimeException('No se pudo crear el archivo temporal para el reporte.');
+        }
+
+        $libro = null;
+        try {
+            $libro = \PHPSpreadsheet::GeneraExcel(
+                'Reporte de Personal',
+                'Personal',
+                $columnas,
+                $filas
+            );
+            (new Xlsx($libro))->save($archivoTemporal);
+
+            $tamano = @filesize($archivoTemporal);
+            if ($tamano === false || $tamano < 100) {
+                throw new \RuntimeException('El archivo Excel se generó vacío.');
+            }
+
+            $nombreSeguro = preg_replace('/[^A-Za-z0-9._-]+/', '_', $nombreArchivo) . '.xlsx';
+            while (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="' . $nombreSeguro . '"');
+            header('Content-Length: ' . $tamano);
+            header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+            header('Pragma: public');
+            readfile($archivoTemporal);
+        } finally {
+            if ($libro instanceof \PhpOffice\PhpSpreadsheet\Spreadsheet) {
+                $libro->disconnectWorksheets();
+            }
+            @unlink($archivoTemporal);
+        }
+
+        exit;
+    }
+
     public function descargarPlantillaGestores()
     {
         // Aumentar tiempo de ejecución
@@ -1910,8 +1984,7 @@ class Reporteria extends Controller
             // Obtener filtros de GET
             $modulosSesion = array_map('intval', (array)($_SESSION['modulos'] ?? []));
             if (!in_array(94, $modulosSesion, true)) {
-                http_response_code(403);
-                die('No tienes permiso para descargar la plantilla de gestores.');
+                $this->responderErrorDescargaPlantillaGestores('No tienes permiso para descargar la plantilla de personal.', 403);
             }
             $tokenPlantilla = (string)($_REQUEST['plantilla_token'] ?? '');
             $tokensPlantilla = $_SESSION['rrhh_plantilla_gestores_tokens'] ?? [];
@@ -1927,8 +2000,7 @@ class Reporteria extends Controller
                 && isset($tokensPlantilla[$tokenPlantilla])
                 && (int)$tokensPlantilla[$tokenPlantilla] >= time();
             if (!$tokenValido) {
-                http_response_code(403);
-                die('Confirma la descarga con Google Authenticator antes de generar la plantilla.');
+                $this->responderErrorDescargaPlantillaGestores('Confirma la descarga con Google Authenticator antes de generar la plantilla.', 403);
             }
             unset($tokensPlantilla[$tokenPlantilla]);
             $_SESSION['rrhh_plantilla_gestores_tokens'] = $tokensPlantilla;
@@ -2015,8 +2087,7 @@ class Reporteria extends Controller
             }
             $incluyeSalario = in_array('salario_sensible', $columnasSeleccionadas, true);
             if ($incluyeSalario && !in_array(153, $modulosSesion, true)) {
-                http_response_code(403);
-                die('No tienes permiso especial para exportar salario sensible.');
+                $this->responderErrorDescargaPlantillaGestores('No tienes permiso especial para exportar salario sensible.', 403);
             }
 
             // Obtener datos usando el mismo método que getUsuarios
@@ -2024,7 +2095,7 @@ class Reporteria extends Controller
             $resultado = \Models\CapHum::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
 
             if (!$resultado['success'] || empty($resultado['datos'])) {
-                die("No se pudieron obtener los datos de los gestores.");
+                $this->responderErrorDescargaPlantillaGestores('No se pudieron obtener los datos del reporte.', 422);
             }
 
             $datos = $resultado['datos'];
@@ -2109,7 +2180,7 @@ class Reporteria extends Controller
 
             // Validar que haya datos después del filtro
             if (empty($datosFiltrados)) {
-                die("No se encontraron datos con los filtros aplicados.");
+                $this->responderErrorDescargaPlantillaGestores('No se encontraron datos con los filtros aplicados.', 422);
             }
 
             $columnas = [];
@@ -2354,20 +2425,13 @@ class Reporteria extends Controller
 
             $nombreArchivo .= "_{$fechaActual}";
 
-            // Descargar Excel
-            \PHPSpreadsheet::DescargaExcel(
-                $nombreArchivo,
-                "Reporte de Personal",
-                "Personal",
-                $columnas,
-                $datosFormateados
-            );
-
-            exit;
-
-        } catch (\Exception $e) {
+            $this->enviarPlantillaGestoresExcel($nombreArchivo, $columnas, $datosFormateados);
+        } catch (\Throwable $e) {
             error_log('Error en descargarPlantillaGestores: ' . $e->getMessage());
-            die('Error al generar el archivo Excel: ' . $e->getMessage());
+            $this->responderErrorDescargaPlantillaGestores(
+                'No se pudo generar el archivo Excel. El equipo técnico puede revisar el registro del servidor.',
+                500
+            );
         }
     }
 

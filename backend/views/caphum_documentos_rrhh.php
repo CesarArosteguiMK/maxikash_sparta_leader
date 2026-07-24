@@ -210,6 +210,11 @@
             <button type="button" class="btn btn-success" id="btnImportarDocsRrhh">
                 <i class="fa-solid fa-file-import me-1"></i>Importar documentos
             </button>
+            <?php if (!empty($puedeDescargarMuestraExpedientesRrhh)): ?>
+                <button type="button" class="btn btn-outline-primary" id="btnDescargarMuestraExpedientesRrhh">
+                    <i class="fa-solid fa-file-zipper me-1"></i>Descargar expedientes
+                </button>
+            <?php endif; ?>
             <button type="button" class="btn btn-outline-primary" id="btnActualizarDocsRrhh">
                 <i class="fa-solid fa-rotate me-1"></i>Actualizar
             </button>
@@ -565,6 +570,58 @@
     </div>
 </div>
 
+<?php if (!empty($puedeDescargarMuestraExpedientesRrhh)): ?>
+<div class="modal fade" id="docsRrhhMuestraModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-1"><i class="fa-solid fa-file-zipper me-2"></i>Descargar muestra de expedientes</h5>
+                    <div class="text-muted small">Solo incluye plantilla activa. Los colaboradores externos no participan.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 align-items-end mb-3">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label" for="docsRrhhMuestraEmpresa">Empresa</label>
+                        <select class="form-select" id="docsRrhhMuestraEmpresa">
+                            <option value="maxikash">MaxiKash</option>
+                            <option value="furia_moto">Furia Moto</option>
+                            <option value="ambas">Aleatorio entre ambas</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label d-block">Forma de selección</label>
+                        <div class="btn-group w-100" role="group" aria-label="Forma de selección">
+                            <input type="radio" class="btn-check" name="docsRrhhMuestraModo" id="docsRrhhMuestraAleatorio" value="aleatorio" checked>
+                            <label class="btn btn-outline-primary" for="docsRrhhMuestraAleatorio"><i class="fa-solid fa-shuffle me-1"></i>10 aleatorios</label>
+                            <input type="radio" class="btn-check" name="docsRrhhMuestraModo" id="docsRrhhMuestraSeleccion" value="seleccion">
+                            <label class="btn btn-outline-primary" for="docsRrhhMuestraSeleccion"><i class="fa-solid fa-list-check me-1"></i>Seleccionar 10</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="alert alert-info mb-0" id="docsRrhhMuestraAyuda">
+                    Se elegirán hasta 10 colaboradores al azar de la empresa indicada. El ZIP contendrá una carpeta por colaborador y los documentos disponibles de su expediente.
+                </div>
+                <div class="mt-3 d-none" id="docsRrhhMuestraSeleccionPanel">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                        <label class="form-label mb-0" for="docsRrhhMuestraBuscar">Colaboradores elegibles</label>
+                        <span class="badge bg-label-primary" id="docsRrhhMuestraContador">0 / 10 seleccionados</span>
+                    </div>
+                    <input class="form-control mb-2" id="docsRrhhMuestraBuscar" type="search" placeholder="Buscar por código o nombre">
+                    <div class="border rounded p-2" id="docsRrhhMuestraLista" style="max-height: 330px; overflow: auto;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnDocsRrhhMuestraDescargar"><i class="fa-solid fa-file-zipper me-1"></i>Descargar ZIP</button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <script>
 (function () {
     let colaboradores = [];
@@ -580,6 +637,7 @@
     let sueldosArchivo = null;
     let datosArchivo = null;
     let datosPrevisualizados = null;
+    let muestraSeleccionIds = new Set();
     const IMPORT_MAX_FILES_PER_REQUEST = 10;
     const IMPORT_MAX_BYTES_PER_REQUEST = 30 * 1024 * 1024;
     const IMPORT_MAX_ZIP_BYTES_PER_REQUEST = 30 * 1024 * 1024;
@@ -587,6 +645,7 @@
     const els = {
         importarSueldos: document.getElementById('btnImportarSueldosRrhh'),
         importar: document.getElementById('btnImportarDocsRrhh'),
+        descargarMuestra: document.getElementById('btnDescargarMuestraExpedientesRrhh'),
         actualizar: document.getElementById('btnActualizarDocsRrhh'),
         badge: document.getElementById('docsRrhhBadgeGlobal'),
         totalColaboradores: document.getElementById('docsRrhhTotalColaboradores'),
@@ -643,7 +702,17 @@
         datosBtnAnalizar: document.getElementById('btnDocsRrhhDatosAnalizar'),
         datosBtnAplicar: document.getElementById('btnDocsRrhhDatosAplicar'),
         datosArchivo: document.getElementById('docsRrhhDatosArchivo'),
-        datosResultado: document.getElementById('docsRrhhDatosResultado')
+        datosResultado: document.getElementById('docsRrhhDatosResultado'),
+        muestraModal: document.getElementById('docsRrhhMuestraModal'),
+        muestraEmpresa: document.getElementById('docsRrhhMuestraEmpresa'),
+        muestraAleatorio: document.getElementById('docsRrhhMuestraAleatorio'),
+        muestraSeleccion: document.getElementById('docsRrhhMuestraSeleccion'),
+        muestraAyuda: document.getElementById('docsRrhhMuestraAyuda'),
+        muestraSeleccionPanel: document.getElementById('docsRrhhMuestraSeleccionPanel'),
+        muestraBuscar: document.getElementById('docsRrhhMuestraBuscar'),
+        muestraLista: document.getElementById('docsRrhhMuestraLista'),
+        muestraContador: document.getElementById('docsRrhhMuestraContador'),
+        muestraDescargar: document.getElementById('btnDocsRrhhMuestraDescargar')
     };
 
     function escapeHtml(value) {
@@ -655,9 +724,201 @@
             .replace(/'/g, '&#039;');
     }
 
+    function cargarLibreriaQrMuestraExpedientesRrhh() {
+        if (window.QRCode && (typeof window.QRCode.toCanvas === 'function' || typeof window.QRCode.toDataURL === 'function')) {
+            return Promise.resolve();
+        }
+        const cargarScript = src => new Promise((resolve, reject) => {
+            const existente = document.querySelector(`script[data-docs-rrhh-muestra-qrcode="${src}"]`);
+            if (existente) {
+                existente.addEventListener('load', resolve, { once: true });
+                existente.addEventListener('error', reject, { once: true });
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = true;
+            script.dataset.docsRrhhMuestraQrcode = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+        return cargarScript('/assets/vendor/libs/qrcode/qrcode.js')
+            .catch(() => cargarScript('/public/assets/vendor/libs/qrcode/qrcode.js'));
+    }
+
     function iniciales(nombre) {
         const partes = String(nombre || 'CH').trim().split(/\s+/).filter(Boolean);
         return (partes.slice(0, 2).map(p => p.charAt(0)).join('') || 'CH').toUpperCase();
+    }
+
+    function muestraModoSeleccion() {
+        return Boolean(els.muestraSeleccion?.checked);
+    }
+
+    function colaboradoresMuestraElegibles() {
+        const empresa = String(els.muestraEmpresa?.value || 'ambas');
+        const texto = String(els.muestraBuscar?.value || '').trim().toLowerCase();
+        return colaboradores.filter(col => {
+            const empresaColaborador = String(col.empresa_clave || 'maxikash');
+            if (empresa !== 'ambas' && empresaColaborador !== empresa) return false;
+            if (!texto) return true;
+            return [col.codigo_contpac, col.nombre_completo, col.empresa_nombre]
+                .some(valor => String(valor || '').toLowerCase().includes(texto));
+        });
+    }
+
+    function renderMuestraSeleccion() {
+        if (!els.muestraLista || !els.muestraContador) return;
+        const elegibles = colaboradoresMuestraElegibles();
+        const idsElegibles = new Set(elegibles.map(col => Number(col.id_persona || 0)));
+        muestraSeleccionIds.forEach(id => {
+            if (!idsElegibles.has(Number(id))) muestraSeleccionIds.delete(id);
+        });
+        els.muestraContador.textContent = `${muestraSeleccionIds.size} / 10 seleccionados`;
+        if (!elegibles.length) {
+            els.muestraLista.innerHTML = '<div class="text-muted small p-2">No hay colaboradores elegibles para esta empresa.</div>';
+            return;
+        }
+        els.muestraLista.innerHTML = elegibles.map(col => {
+            const id = Number(col.id_persona || 0);
+            const seleccionado = muestraSeleccionIds.has(id);
+            const deshabilitado = !seleccionado && muestraSeleccionIds.size >= 10;
+            return `<label class="d-flex align-items-center gap-2 p-2 border-bottom cursor-pointer">
+                <input class="form-check-input m-0" type="checkbox" value="${id}" data-docs-muestra-persona ${seleccionado ? 'checked' : ''} ${deshabilitado ? 'disabled' : ''}>
+                <span class="flex-grow-1">
+                    <strong class="d-block small">${escapeHtml(col.nombre_completo || 'Sin nombre')}</strong>
+                    <span class="text-muted small">${escapeHtml(col.codigo_contpac || 'Sin código')} · ${escapeHtml(col.empresa_nombre || 'MaxiKash')}</span>
+                </span>
+            </label>`;
+        }).join('');
+    }
+
+    function actualizarMuestraModo() {
+        const seleccion = muestraModoSeleccion();
+        els.muestraSeleccionPanel?.classList.toggle('d-none', !seleccion);
+        if (els.muestraAyuda) {
+            els.muestraAyuda.textContent = seleccion
+                ? 'Selecciona exactamente 10 colaboradores. El servidor volverá a validar que sigan activos, pertenezcan a plantilla y no sean externos.'
+                : 'Se elegirán hasta 10 colaboradores al azar de la empresa indicada. El ZIP contendrá una carpeta por colaborador y los documentos disponibles de su expediente.';
+        }
+        if (seleccion) renderMuestraSeleccion();
+    }
+
+    async function abrirMuestraExpedientes() {
+        muestraSeleccionIds = new Set();
+        if (!colaboradores.length) await cargarResumen();
+        if (els.muestraEmpresa) els.muestraEmpresa.value = 'maxikash';
+        if (els.muestraAleatorio) els.muestraAleatorio.checked = true;
+        if (els.muestraBuscar) els.muestraBuscar.value = '';
+        actualizarMuestraModo();
+        bootstrap.Modal.getOrCreateInstance(els.muestraModal).show();
+    }
+
+    async function autorizarMuestraExpedientes(codigo = '') {
+        const response = await fetch('/CapHum/autorizarDescargaMuestraExpedientesRrhh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ totp_code: codigo })
+        });
+        const data = await response.json();
+        if (!data.success || !data.datos?.requiere_totp) return data;
+
+        const datos = data.datos || {};
+        const configuracion = datos.setup
+            ? `<div class="text-start">
+                <p class="small mb-2">Escanea este QR en Google Authenticator para <strong>${escapeHtml(datos.cuenta || 'tu cuenta')}</strong>.</p>
+                <div class="d-flex justify-content-center my-2" id="docs-rrhh-muestra-totp-qr-wrap"><canvas id="docs-rrhh-muestra-totp-qr" width="210" height="210"></canvas></div>
+                <div class="small text-muted">Cuenta: ${escapeHtml(datos.cuenta || '')}<br>Clave manual: <code>${escapeHtml(datos.secret || '')}</code></div>
+                <div class="small text-danger d-none mt-2" id="docs-rrhh-muestra-totp-qr-error">No se pudo pintar el QR. Usa la clave manual.</div>
+            </div>`
+            : '';
+        const dialogo = await Swal.fire({
+            title: 'Confirma la descarga',
+            html: `${configuracion}<p class="small text-muted mb-0">Escribe el código de 6 dígitos de Google Authenticator.</p>`,
+            input: 'text',
+            inputPlaceholder: '000000',
+            inputAttributes: { inputmode: 'numeric', maxlength: '6', autocapitalize: 'off', autocomplete: 'one-time-code' },
+            showCancelButton: true,
+            confirmButtonText: 'Autorizar',
+            cancelButtonText: 'Cancelar',
+            didOpen: async () => {
+                if (!datos.setup || !datos.otpauth_url) return;
+                try {
+                    await cargarLibreriaQrMuestraExpedientesRrhh();
+                    const canvas = document.getElementById('docs-rrhh-muestra-totp-qr');
+                    if (canvas && window.QRCode && typeof window.QRCode.toCanvas === 'function') {
+                        canvas.style.pointerEvents = 'none';
+                        await window.QRCode.toCanvas(canvas, datos.otpauth_url, { width: 210, margin: 2, errorCorrectionLevel: 'M' });
+                    } else if (window.QRCode && typeof window.QRCode.toDataURL === 'function') {
+                        const dataUrl = await window.QRCode.toDataURL(datos.otpauth_url, { width: 210, margin: 2, errorCorrectionLevel: 'M' });
+                        const wrap = document.getElementById('docs-rrhh-muestra-totp-qr-wrap');
+                        if (wrap) wrap.innerHTML = `<img src="${dataUrl}" width="210" height="210" alt="QR Google Authenticator">`;
+                    } else {
+                        throw new Error('La libreria QR no esta disponible.');
+                    }
+                } catch (error) {
+                    console.warn('No se pudo pintar QR de muestra de expedientes:', error);
+                    document.getElementById('docs-rrhh-muestra-totp-qr-error')?.classList.remove('d-none');
+                }
+            },
+            inputValidator: valor => /^\d{6}$/.test(String(valor || '')) ? undefined : 'Escribe los 6 dígitos del código.'
+        });
+        if (!dialogo.isConfirmed) return null;
+        return autorizarMuestraExpedientes(String(dialogo.value || ''));
+    }
+
+    async function descargarMuestraExpedientes() {
+        const modo = muestraModoSeleccion() ? 'seleccion' : 'aleatorio';
+        const ids = Array.from(muestraSeleccionIds);
+        if (modo === 'seleccion' && ids.length !== 10) {
+            Swal.fire('Descargar expedientes', 'Selecciona exactamente 10 colaboradores.', 'warning');
+            return;
+        }
+
+        const original = els.muestraDescargar?.innerHTML || '';
+        if (els.muestraDescargar) {
+            els.muestraDescargar.disabled = true;
+            els.muestraDescargar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Preparando...';
+        }
+        try {
+            const autorizacion = await autorizarMuestraExpedientes();
+            if (!autorizacion) return;
+            if (!autorizacion.success) throw new Error(autorizacion.mensaje || 'No se pudo autorizar la descarga.');
+            const token = String(autorizacion.datos?.download_token || '');
+            if (!token) throw new Error('No se generó el token seguro de descarga.');
+
+            const parametros = new URLSearchParams({
+                empresa: String(els.muestraEmpresa?.value || 'ambas'),
+                modo,
+                download_token: token
+            });
+            ids.forEach(id => parametros.append('ids[]', String(id)));
+            const respuesta = await fetch(`/CapHum/descargarMuestraExpedientesRrhh?${parametros.toString()}`, { cache: 'no-store' });
+            const tipo = String(respuesta.headers.get('content-type') || '').toLowerCase();
+            if (!respuesta.ok || !tipo.includes('application/zip')) {
+                const detalle = (await respuesta.text()).trim();
+                throw new Error(detalle || 'No se pudo generar el archivo ZIP.');
+            }
+            const archivo = await respuesta.blob();
+            const enlace = document.createElement('a');
+            const urlDescarga = URL.createObjectURL(archivo);
+            enlace.href = urlDescarga;
+            enlace.download = 'muestra_expedientes_rrhh.zip';
+            document.body.appendChild(enlace);
+            enlace.click();
+            enlace.remove();
+            setTimeout(() => URL.revokeObjectURL(urlDescarga), 1000);
+            bootstrap.Modal.getInstance(els.muestraModal)?.hide();
+            Swal.fire('Descarga lista', 'El ZIP fue generado y la descarga inició.', 'success');
+        } catch (error) {
+            Swal.fire('Descargar expedientes', error.message || 'No se pudo generar el archivo ZIP.', 'error');
+        } finally {
+            if (els.muestraDescargar) {
+                els.muestraDescargar.disabled = false;
+                els.muestraDescargar.innerHTML = original;
+            }
+        }
     }
 
     function abrirImportarSueldos() {
@@ -1961,6 +2222,31 @@
         renderTabla();
     });
     els.actualizar.addEventListener('click', cargarResumen);
+    els.descargarMuestra?.addEventListener('click', abrirMuestraExpedientes);
+    els.muestraAleatorio?.addEventListener('change', actualizarMuestraModo);
+    els.muestraSeleccion?.addEventListener('change', actualizarMuestraModo);
+    els.muestraEmpresa?.addEventListener('change', function () {
+        muestraSeleccionIds = new Set();
+        renderMuestraSeleccion();
+    });
+    els.muestraBuscar?.addEventListener('input', renderMuestraSeleccion);
+    els.muestraLista?.addEventListener('change', function (event) {
+        const check = event.target.closest('[data-docs-muestra-persona]');
+        if (!check) return;
+        const idPersona = Number(check.value || 0);
+        if (check.checked && idPersona > 0) {
+            if (muestraSeleccionIds.size >= 10) {
+                check.checked = false;
+                Swal.fire('Selección limitada', 'Solo puedes seleccionar 10 colaboradores.', 'warning');
+                return;
+            }
+            muestraSeleccionIds.add(idPersona);
+        } else {
+            muestraSeleccionIds.delete(idPersona);
+        }
+        renderMuestraSeleccion();
+    });
+    els.muestraDescargar?.addEventListener('click', descargarMuestraExpedientes);
     els.importar.addEventListener('click', function () {
         importPersonaObjetivo = null;
         if (els.importTitulo) {

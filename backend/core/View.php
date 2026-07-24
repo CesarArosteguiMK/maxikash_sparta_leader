@@ -82,6 +82,24 @@ function getMenu(): string
             return true;
         }
         $sameSection = [
+            '/trackingrecoleccion' => [
+                '/trackingrecoleccion',
+                '/trackingrecoleccion/rutas',
+                '/trackingrecoleccion/planeacion',
+                '/trackingrecoleccion/creditos',
+                '/trackingrecoleccion/borradores',
+                '/trackingrecoleccion/cedistransportistas',
+                '/trackingrecoleccion/administraciontransportistas',
+            ],
+            '/trackingrecoleccion/rutas' => [
+                '/trackingrecoleccion',
+                '/trackingrecoleccion/rutas',
+                '/trackingrecoleccion/planeacion',
+                '/trackingrecoleccion/creditos',
+                '/trackingrecoleccion/borradores',
+                '/trackingrecoleccion/cedistransportistas',
+                '/trackingrecoleccion/administraciontransportistas',
+            ],
             '/analitica/primerospagos' => [
                 '/analitica/primerospagos',
                 '/analitica/primerospagoshistorico',

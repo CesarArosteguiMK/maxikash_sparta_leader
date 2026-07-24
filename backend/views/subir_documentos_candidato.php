@@ -6,6 +6,7 @@ $id_candidato = (int)($id_candidato ?? 0);
 $documentos_subidos = $documentos_subidos ?? [];
 $tipo_documento_validado_rh = $tipo_documento_validado_rh ?? [];
 $expediente_completo = $expediente_completo ?? false;
+$requiere_carta_compromiso_gestor = !empty($requiere_carta_compromiso_gestor);
 $api_verificacion_base = $api_verificacion_base ?? '/CapHum/docVerificacionProxy';
 $iniSizeToBytes = static function ($value): int {
     $value = trim((string) $value);
@@ -32,6 +33,9 @@ $documentos = [
     9  => 'HOJA DE RETENCION FONACOT O INFONAVIT',
     10 => 'ESTADO DE CUENTA',
 ];
+if ($requiere_carta_compromiso_gestor) {
+    $documentos[11] = 'CARTA DE COMPROMISO DEL GESTOR';
+}
 $documentos_ayuda = [
     1  => 'Solicitud interna de MaxiKash. Llénala, fírmala y súbela en PDF.',
     2  => 'CV o solicitud de trabajo actualizada.',
@@ -44,6 +48,9 @@ $documentos_ayuda = [
     9  => 'Hoja de retención FONACOT o INFONAVIT. Si no tienes adeudo, descarga la carta de no adeudo desde aquí, llénala, fírmala y súbela en este apartado.',
     10 => 'Solo bancos físicos: BBVA, Banorte, Santander, Banamex, entre otros. No se aceptan bancos digitales como Nu, Mercado Pago o Klar.',
 ];
+if ($requiere_carta_compromiso_gestor) {
+    $documentos_ayuda[11] = 'Descarga el formato, escribe tu nombre en la declaración final, agrega la fecha y firma antes de subirlo en PDF.';
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -689,6 +696,7 @@ $documentos_ayuda = [
                         }
                         $esSolicitud = ($num === 1);
                         $esCartaAdeudo = ($num === 9);
+                        $esCartaCompromisoGestor = ($num === 11);
                         $soloPdf = in_array($num, $docsSoloPdf, true);
                         $yaSubido = isset($documentos_subidos[$num]);
                     ?>
@@ -722,6 +730,12 @@ $documentos_ayuda = [
                                     <p class="text-muted small mb-0">Primer espacio: nombre completo. Segundo: número de crédito. Tercero: monto de la cuota. <strong>Debe estar escrito a mano por usted.</strong></p>
                                 </div>
                             </details>
+                        </div>
+                        <?php endif; ?>
+                        <?php if ($esCartaCompromisoGestor): ?>
+                        <div class="descarga-doc mb-2">
+                            <a href="<?= htmlspecialchars($urlBaseDescarga) ?>/carta_compromiso_gestor" class="btn-descarga" target="_blank" rel="noopener"><i class="fa fa-download me-1"></i> Descargar carta de compromiso</a>
+                            <p class="small-text mt-2 mb-1">Llena la fecha, escribe tu nombre en la declaración final y firma en la línea de recibido.</p>
                         </div>
                         <?php endif; ?>
                         <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -958,6 +972,7 @@ $documentos_ayuda = [
             var targetNum = null;
 
             var API_BASE = <?= json_encode($api_verificacion_base) ?>;
+            var TOTAL_DOCUMENTOS_CANDIDATO = <?= $requiere_carta_compromiso_gestor ? '11' : '10' ?>;
             var API_KEY = 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
             var idVerificado = { front: false, back: false };
             var VERIFICACION_TIMEOUT_MS = 35000;
@@ -1248,6 +1263,7 @@ $documentos_ayuda = [
                 if (base.indexOf('NSS') !== -1 || base.indexOf('SEGURIDAD SOCIAL') !== -1 || base.indexOf('IMSS') !== -1) return 8;
                 if (base.indexOf('RETENCION') !== -1 || base.indexOf('FONACOT') !== -1 || base.indexOf('INFONAVIT') !== -1) return 9;
                 if (base.indexOf('ESTADO DE CUENTA') !== -1 || base.indexOf('CUENTA BANCARIA') !== -1) return 10;
+                if (base.indexOf('CARTA DE COMPROMISO') !== -1 && base.indexOf('GESTOR') !== -1) return 11;
                 return 0;
             }
 
@@ -1262,7 +1278,8 @@ $documentos_ayuda = [
                     7: 'Constancia de situación fiscal',
                     8: 'Número de seguridad social',
                     9: 'Hoja de retención Fonacot o Infonavit',
-                    10: 'Estado de cuenta'
+                    10: 'Estado de cuenta',
+                    11: 'Carta de compromiso del gestor'
                 };
                 return nombres[num] || 'documento';
             }
@@ -2070,6 +2087,55 @@ $documentos_ayuda = [
                 });
             });
 
+            var inputCartaCompromisoGestor = document.getElementById('archivo_11');
+            if (inputCartaCompromisoGestor) {
+                inputCartaCompromisoGestor.addEventListener('change', function() {
+                    var file = this.files && this.files[0];
+                    if (!file) return;
+                    if (file.name.split('.').pop().toLowerCase() !== 'pdf') {
+                        showResultado(document.getElementById('mensajeResultado'), null, 'La carta de compromiso debe estar en PDF.', true);
+                        inputCartaCompromisoGestor.value = '';
+                        actualizarCheckmark(11, false);
+                        return;
+                    }
+                    if (!VALIDACION_PREVIA_REMOTA) {
+                        actualizarCheckmark(11, true);
+                        return;
+                    }
+                    var msg = document.getElementById('mensajeResultado');
+                    var verificandoDiv = showVerificando(msg, 'Revisando carta de compromiso...');
+                    var formData = new FormData();
+                    formData.append('documento', file, file.name);
+                    formData.append('tipo_esperado', 'carta_compromiso_gestor');
+                    formData.append('nombre_candidato', <?= json_encode($nombre_candidato, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>);
+                    fetchWithTimeout(API_BASE + '/verificar-documento-rapido-ia', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, VERIFICACION_TIMEOUT_MS)
+                    .then(function(r) {
+                        return r.json().catch(function() { return {}; }).then(function(body) {
+                            if (!r.ok) throw new Error((body && body.detail) || 'No se pudo revisar la carta.');
+                            return body;
+                        });
+                    })
+                    .then(function(res) {
+                        if (res && res.rechazado === true) {
+                            showResultado(msg, verificandoDiv, res.mensaje || 'La carta de compromiso está en blanco. Completa nombre, fecha y firma.', true);
+                            inputCartaCompromisoGestor.value = '';
+                            actualizarCheckmark(11, false);
+                            return;
+                        }
+                        var alertas = Array.isArray(res && res.alertas) ? res.alertas : [];
+                        var texto = alertas.length ? 'Carta recibida. Alerta para revisión: ' + alertas.join('; ') : 'Carta de compromiso lista.';
+                        showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> ' + texto, false);
+                        actualizarCheckmark(11, true);
+                        actualizarFirmaMotorDocumento(11, res);
+                    })
+                    .catch(function() {
+                        showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Carta recibida. Capital Humano la revisará.', false);
+                        actualizarCheckmark(11, true);
+                        actualizarFirmaMotorDocumento(11, null, true);
+                    });
+                });
+            }
+
             if (!FLUJO_CAPTURA_DOCUMENTOS_ACTIVO) {
                 return;
             }
@@ -2702,7 +2768,7 @@ $documentos_ayuda = [
             }
             // Envío parcial: solo exigir que haya al menos un archivo seleccionado
             var tieneAlgunArchivo = false;
-            for (var i = 1; i <= 10; i++) {
+            for (var i = 1; i <= TOTAL_DOCUMENTOS_CANDIDATO; i++) {
                 var input = document.getElementById('archivo_' + i);
                 if (input && input.files && input.files.length > 0) { tieneAlgunArchivo = true; break; }
             }
@@ -2713,7 +2779,7 @@ $documentos_ayuda = [
             }
             var totalBytesSeleccionados = 0;
             var archivoMayorLimite = null;
-            for (var pesoIdx = 1; pesoIdx <= 10; pesoIdx++) {
+            for (var pesoIdx = 1; pesoIdx <= TOTAL_DOCUMENTOS_CANDIDATO; pesoIdx++) {
                 var inputPeso = document.getElementById('archivo_' + pesoIdx);
                 if (!inputPeso || !inputPeso.files || inputPeso.files.length === 0) continue;
                 totalBytesSeleccionados += Number(inputPeso.files[0].size || 0);
@@ -2747,7 +2813,7 @@ $documentos_ayuda = [
                     console.warn('Revision rapida de solicitud interna omitida:', err);
                 }
             }
-            for (var j = 1; j <= 10; j++) {
+            for (var j = 1; j <= TOTAL_DOCUMENTOS_CANDIDATO; j++) {
                 var inputDoc = document.getElementById('archivo_' + j);
                 if (!inputDoc || !inputDoc.files || inputDoc.files.length === 0) continue;
                 var fileDoc = inputDoc.files[0];
