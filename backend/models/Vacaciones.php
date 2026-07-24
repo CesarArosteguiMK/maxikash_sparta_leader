@@ -811,6 +811,30 @@ class Vacaciones extends Model
         return $persona;
     }
 
+    /**
+     * Base limpia para cruzar la plantilla de vacaciones con colaboradores activos.
+     * El código se toma directamente de persona para evitar cruces por nombre.
+     */
+    public static function plantillaCruceColaboradores(): array
+    {
+        try {
+            $db = new Database();
+            $rows = $db->queryAll("
+                SELECT
+                    TRIM(COALESCE(p.curp, '')) AS curp,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
+                    TRIM(COALESCE(p.codigo_contpac, '')) AS codigo_contpac
+                FROM estado_cuenta.persona p
+                WHERE COALESCE(LOWER(TRIM(p.estatus)), 'activo') NOT IN ('baja', 'transito de baja')
+                ORDER BY nombre_completo ASC, p.id ASC
+            ");
+
+            return self::resultado(true, 'Plantilla de colaboradores generada.', $rows ?: []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'No se pudo generar la plantilla de colaboradores.', [], $e->getMessage());
+        }
+    }
+
     private static function idsResponsablesAreaPersona(Database $db, int $idPersona): array
     {
         if ($idPersona <= 0) {
@@ -872,7 +896,7 @@ class Vacaciones extends Model
             INNER JOIN estado_cuenta.puesto pu
                 ON pu.id = ap.id_puesto
             WHERE p.id > 0
-              AND COALESCE(p.estatus, '') <> 'Baja'
+              AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
               AND {$filtroPuestos}
         ", $params) ?: [];
 
@@ -904,7 +928,7 @@ class Vacaciones extends Model
             INNER JOIN estado_cuenta.puesto pu
                 ON pu.id = ap.id_puesto
             WHERE p.id = :id_persona
-              AND COALESCE(p.estatus, '') <> 'Baja'
+              AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
               AND {$filtroPuestos}
             LIMIT 1
         ", $params);

@@ -272,9 +272,16 @@
             <h2 class="fw-bold mb-1"><i class="fa-solid fa-clipboard-check me-2"></i>Panel admin vacaciones</h2>
             <p class="text-muted mb-0">Revisión de solicitudes por RR.HH. y Responsable del Área.</p>
         </div>
-        <button type="button" class="btn btn-outline-primary" id="vacAdminRefresh">
-            <i class="fa-solid fa-rotate me-1"></i> Actualizar
-        </button>
+        <div class="d-flex flex-wrap gap-2">
+            <?php if (!empty($puedeDescargarPlantillaCruceVacaciones)): ?>
+            <a class="btn btn-outline-success" href="/CapHum/descargarPlantillaCruceVacaciones">
+                <i class="fa-solid fa-file-excel me-1"></i> Plantilla para cruce
+            </a>
+            <?php endif; ?>
+            <button type="button" class="btn btn-outline-primary" id="vacAdminRefresh">
+                <i class="fa-solid fa-rotate me-1"></i> Actualizar
+            </button>
+        </div>
     </div>
 
     <div class="vac-admin-card p-3 p-lg-4">

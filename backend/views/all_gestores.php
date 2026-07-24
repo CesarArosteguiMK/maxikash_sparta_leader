@@ -514,13 +514,10 @@
     }
 
     #modalBajas .modal-bajas-dialog {
-        max-width: min(1260px, calc(100vw - 2rem));
+        max-width: min(760px, calc(100vw - 2rem));
     }
     #modalBajas .modal-bajas-shell {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 420px;
-        gap: 0.85rem;
-        align-items: stretch;
+        display: block;
         background: transparent;
         border: 0;
         box-shadow: none;
@@ -538,6 +535,9 @@
         min-width: 0;
         border-radius: 0.85rem;
         overflow: hidden;
+    }
+    #modalBajas .baja-side-panel {
+        display: none !important;
     }
     #modalBajas .baja-side-panel {
         border-radius: 0.85rem;
@@ -6838,19 +6838,23 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
             <div class="modal-content modal-bajas-shell">
                 <div class="baja-main-panel">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="modalRFCLabel">Registro de Baja</h5>
+                    <h5 class="modal-title" id="modalRFCLabel">Iniciar trámite de baja</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
 
                 <div class="modal-body">
                     <p id="gestor"></p>
+                    <div class="alert alert-warning small" role="alert">
+                        <strong>Trámite pendiente.</strong> La persona quedará fuera de cartera, asignaciones y acceso al sistema.
+                        Aún no será una baja definitiva: las vacantes y reasignaciones se realizarán hasta completar los documentos requeridos.
+                    </div>
 
                     <div class="mb-3" style="display: none;">
                         <label for="id" class="form-label"><strong>Id</strong></label>
                     </div>
 
                     <div class="mb-3">
-                        <label for="motivoBaja" class="form-label"><strong>Motivo de baja: </strong></label>
+                        <label for="motivoBaja" class="form-label"><strong>Motivo del trámite: </strong></label>
                         <select class="form-select" id="motivoBaja">
                             <option value="">-- Selecciona un motivo --</option>
                             <option value="Renuncia voluntaria">Renuncia voluntaria</option>
@@ -6864,12 +6868,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
                     <!-- ðŸ†• Motivo de baja -->
                     <div class="mb-3">
-                        <label for="motivoBajaDescripcion" class="form-label"><strong>Descripción de la baja:</strong></label>
+                        <label for="motivoBajaDescripcion" class="form-label"><strong>Descripción del trámite:</strong></label>
                         <textarea class="form-control" id="motivoBajaDescripcion" rows="3" placeholder="Escribe el motivo..."></textarea>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label"><strong>Documento de baja (PDF):</strong></label>
+                        <label class="form-label"><strong>Documentos de respaldo (PDF, opcionales por ahora):</strong></label>
                         <div class="d-flex gap-2 align-items-center mb-2">
                             <input
                                 type="file"
@@ -6896,8 +6900,8 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
 
                     <!-- ðŸ†• Botón para confirmar baja -->
-                    <button type="button" class="btn btn-danger" onclick="confirmarBaja()">
-                        Confirmar Baja
+                    <button type="button" class="btn btn-warning" id="btnIniciarTransitoBaja" onclick="confirmarBaja()">
+                        Iniciar trámite
                     </button>
                 </div>
                 </div>
@@ -17057,6 +17061,18 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     return Array.isArray(usuario.puestos) && usuario.puestos.some(puesto => String(puesto.id_departamento || '') === String(idDepartamento));
   }
 
+  function etiquetaJefeRrhh(jefe) {
+    const nombre = jefe.nombre_completo || jefe.nombre || '';
+    const detalles = [];
+    const area = String(jefe.area || '').trim();
+    const departamento = String(jefe.departamento || '').trim();
+    const puesto = String(jefe.nombre_puesto || jefe.puesto || '').trim();
+    if (area) detalles.push(`Área: ${area}`);
+    if (departamento) detalles.push(`Departamento: ${departamento}`);
+    if (puesto) detalles.push(`Puesto: ${puesto}`);
+    return detalles.length ? `${nombre} (${detalles.join(' | ')})` : nombre;
+  }
+
   function fillRrhhJefesFallback(idDepartamento, idPuesto) {
     const selectJefe = document.getElementById('rrhh_jefe_id');
     if (!selectJefe) return;
@@ -17076,8 +17092,16 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         const nombre = usuarioNombreCompleto(usuario);
         if (!id || !nombre || vistos.has(String(id))) return;
         vistos.add(String(id));
-        const puesto = usuario.nombre_puesto && usuario.nombre_puesto !== 'Sin puesto' ? ` - ${usuario.nombre_puesto}` : '';
-        opciones.push({ id, nombre, label: `${nombre}${puesto}` });
+        opciones.push({
+          id,
+          nombre,
+          label: etiquetaJefeRrhh({
+            nombre_completo: nombre,
+            area: usuario.nombre_area || usuario.area || '',
+            departamento: usuario.nombre_departamento || usuario.departamento || '',
+            nombre_puesto: usuario.nombre_puesto || ''
+          })
+        });
       });
 
     selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>' +
@@ -17090,10 +17114,12 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   }
 
   async function fillRrhhJefes(seleccionadoForzado = '', etiquetaSeleccionado = '') {
+    const selectArea = document.getElementById('rrhh_area_id');
     const selectDepartamento = document.getElementById('rrhh_departamento_id');
     const selectPuesto = document.getElementById('rrhh_puesto_id');
     const selectJefe = document.getElementById('rrhh_jefe_id');
     if (!selectJefe) return;
+    const idArea = selectArea?.value || '';
     const idDepartamento = selectDepartamento?.value || '';
     const idPuesto = selectPuesto?.value || '';
 
@@ -17101,7 +17127,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     selectJefe.disabled = true;
     setRrhhHiddenText('rrhh_jefe_id', 'rrhh_jefe_directo_texto');
     refreshRrhhSelect('rrhh_jefe_id');
-    if (!idDepartamento || !idPuesto) return;
+    if (!idArea || !idDepartamento || !idPuesto) return;
 
     if (seleccionadoForzado) {
       ensureSelectOptionRrhh('rrhh_jefe_id', seleccionadoForzado, etiquetaSeleccionado);
@@ -17113,7 +17139,12 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       const response = await fetch('/CapHum/getJefeDirecto', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ id_departamento: idDepartamento, id_puesto: idPuesto })
+        body: JSON.stringify({
+          id_area: idArea,
+          id_departamento: idDepartamento,
+          id_puesto: idPuesto,
+          id_persona: inputEditIdRrhh?.value || ''
+        })
       });
       const data = await response.json();
       if (!data.success || !Array.isArray(data.datos)) {
@@ -17124,14 +17155,21 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         .map(jefe => ({
           id: jefe.id,
           nombre: jefe.nombre_completo || jefe.nombre || '',
-          puesto: jefe.nombre_puesto || jefe.puesto || ''
+          puesto: jefe.nombre_puesto || jefe.puesto || '',
+          area: jefe.area || '',
+          departamento: jefe.departamento || ''
         }))
         .filter(jefe => jefe.id && jefe.nombre);
 
       selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>' +
         opciones
           .sort((a, b) => a.nombre.localeCompare(b.nombre))
-          .map(jefe => optionHtml(jefe.id, `${jefe.nombre}${jefe.puesto ? ' - ' + jefe.puesto : ''}`))
+          .map(jefe => optionHtml(jefe.id, etiquetaJefeRrhh({
+            nombre_completo: jefe.nombre,
+            nombre_puesto: jefe.puesto,
+            area: jefe.area,
+            departamento: jefe.departamento
+          })))
           .join('');
       const seleccionado = seleccionadoForzado || selectJefe.value || '';
       if (seleccionado && Array.from(selectJefe.options).some(option => String(option.value) === String(seleccionado))) {

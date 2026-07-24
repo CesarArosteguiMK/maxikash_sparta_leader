@@ -183,7 +183,7 @@ class CapHum extends Controller
                 LIMIT 1
             ", ['id' => $idPersona]);
             $estatus = trim((string)($persona['estatus'] ?? ''));
-            $cache[$idPersona] = strcasecmp($estatus, 'Baja') === 0;
+            $cache[$idPersona] = in_array(strtolower($estatus), ['baja', 'transito de baja'], true);
         } catch (\Throwable $e) {
             error_log('CapHum::personaRrhhEstaDeBaja -> ' . $e->getMessage());
             $cache[$idPersona] = false;
@@ -537,6 +537,60 @@ class CapHum extends Controller
             'ambito' => in_array($ambito, ['salario', 'plantilla'], true) ? $ambito : 'documentos',
             'id_usuario' => $idUsuario,
         ]);
+    }
+
+    /**
+     * Informa los movimientos organizacionales al puesto vigente de Subdirector de Recursos Humanos.
+     * Los destinatarios se resuelven por puesto y area en la base, nunca por un nombre fijo.
+     */
+    private function notificarCambioAreaColaboradorRrhh(array $antes, array $despues, int $idPersona): void
+    {
+        $idAreaAntes = (int)($antes['id_area'] ?? 0);
+        $idAreaNueva = (int)($despues['id_area'] ?? 0);
+        $areaAntes = trim((string)($antes['area'] ?? ''));
+        $areaNueva = trim((string)($despues['area'] ?? ''));
+
+        // Se compara el identificador cuando existe; el texto cubre datos historicos sin id_area.
+        $cambioArea = $idAreaAntes > 0 || $idAreaNueva > 0
+            ? $idAreaAntes !== $idAreaNueva
+            : mb_strtolower($areaAntes) !== mb_strtolower($areaNueva);
+        if (!$cambioArea) {
+            return;
+        }
+
+        $destinatarios = CapHumDAO::getSubdirectoresRecursosHumanos();
+        if (empty($destinatarios)) {
+            error_log('CapHum: no se encontro un Subdirector activo de Recursos Humanos para notificar un cambio de area.');
+            return;
+        }
+
+        $nombreColaborador = trim((string)($despues['nombre_completo'] ?? $antes['nombre_completo'] ?? ''));
+        if ($nombreColaborador === '') {
+            $nombreColaborador = 'Colaborador #' . $idPersona;
+        }
+        $areaAntesTexto = $areaAntes !== '' ? $areaAntes : 'Sin area asignada';
+        $areaNuevaTexto = $areaNueva !== '' ? $areaNueva : 'Sin area asignada';
+        $idUsuario = self::usuarioSesionId();
+        $usuarioNombre = trim((string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? ''));
+
+        Notificacion::crearParaPersonas(
+            $destinatarios,
+            'rrhh_cambio_area_colaborador',
+            sprintf('Se actualizo el area de %s: %s a %s.', $nombreColaborador, $areaAntesTexto, $areaNuevaTexto),
+            null,
+            [
+                'modulo' => 'capital_humano',
+                'accion' => 'cambio_area_colaborador',
+                'id_persona' => $idPersona,
+                'persona_nombre' => $nombreColaborador,
+                'id_area_anterior' => $idAreaAntes ?: null,
+                'area_anterior' => $areaAntesTexto,
+                'id_area_nueva' => $idAreaNueva ?: null,
+                'area_nueva' => $areaNuevaTexto,
+                'id_usuario_accion' => $idUsuario ?: null,
+                'usuario_accion' => $usuarioNombre,
+            ]
+        );
     }
 
     private function autorizarSalarioSensibleRrhh(int $idPersona, string $accion, string $codigoTotp = ''): array
@@ -6530,6 +6584,94 @@ class CapHum extends Controller
 
 
 
+
+            // El segundo flujo sustituye la baja inmediata por un trámite bloqueado.
+            // Se declara después para reemplazar la función heredada sin tocar otros controles del modal.
+            function confirmarBaja() {
+                const idGestor = document.getElementById('edit_id')?.value;
+                const motivo = document.getElementById('motivoBaja')?.value || '';
+                const descripcion = document.getElementById('motivoBajaDescripcion')?.value || '';
+
+                if (!idGestor || !motivo || !descripcion.trim()) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Completa los datos',
+                        text: 'Selecciona el motivo y escribe la descripción del trámite.'
+                    });
+                    return;
+                }
+
+                Swal.fire({
+                    icon: 'question',
+                    title: '¿Iniciar trámite de baja?',
+                    html: '<div class="text-start">La persona quedará bloqueada para cartera, asignaciones y acceso al sistema.<br><br>La baja definitiva, vacante y reasignaciones se harán al completar los documentos requeridos.</div>',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, iniciar trámite',
+                    cancelButtonText: 'Cancelar',
+                    reverseButtons: true
+                }).then((result) => {
+                    if (!result.isConfirmed) {
+                        return;
+                    }
+
+                    const formData = new FormData();
+                    formData.append('idGestor', idGestor);
+                    formData.append('motivo', motivo);
+                    formData.append('descripcion', descripcion);
+                    archivosSeleccionados.forEach((file) => formData.append('archivosPDF[]', file));
+
+                    const boton = document.getElementById('btnIniciarTransitoBaja');
+                    if (boton) {
+                        boton.disabled = true;
+                        boton.textContent = 'Procesando...';
+                    }
+
+                    fetch('/CapHum/registrarBaja', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (!data.success) {
+                            throw new Error(data.message || 'No se pudo iniciar el trámite de baja.');
+                        }
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Trámite iniciado',
+                            text: data.message || 'La persona quedó en tránsito de baja.'
+                        }).then(() => {
+                            $('#modalBajas').modal('hide');
+                            archivosSeleccionados = [];
+                            const lista = document.getElementById('listaArchivos');
+                            if (lista) {
+                                lista.innerHTML = '';
+                                lista.style.display = 'none';
+                            }
+                            const nombreArchivo = document.getElementById('bajaModal_nombreArchivo');
+                            if (nombreArchivo) {
+                                nombreArchivo.textContent = 'No se ha seleccionado ningún archivo';
+                            }
+                            if (typeof getUsuarios === 'function') getUsuarios();
+                            if (typeof getBajas === 'function') getBajas();
+                        });
+                    })
+                    .catch((error) => {
+                        console.error('Error al iniciar trámite de baja:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: error.message || 'No se pudo iniciar el trámite de baja.'
+                        });
+                    })
+                    .finally(() => {
+                        if (boton) {
+                            boton.disabled = false;
+                            boton.textContent = 'Iniciar trámite';
+                        }
+                    });
+                });
+            }
 
             function onModuloChange(checkbox, opts) {
                 opts = opts || {};
@@ -15254,7 +15396,7 @@ class CapHum extends Controller
                  LEFT JOIN estado_cuenta.departamento d ON d.id = pu.departamento_id
                  LEFT JOIN estado_cuenta.asigna_direcciones ad ON ad.id_departamento_organizacional = d.id_departamento_organizacional AND COALESCE(ad.activo, 1) = 1
                  LEFT JOIN estado_cuenta.direcciones_organizacion dir ON dir.id = ad.id_direccion
-                 WHERE COALESCE(p.estatus, '') <> 'Baja'
+                 WHERE LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                    AND (
                         UPPER(pu.nombre) LIKE '%GERENTE DIVISIONAL%'
                         OR (
@@ -16673,7 +16815,7 @@ class CapHum extends Controller
                 $row = $db->queryOne(
                     "SELECT id
                      FROM estado_cuenta.persona
-                     WHERE COALESCE(estatus, '') <> 'Baja'
+                     WHERE LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')
                        AND ((:email <> '' AND correo = :email) OR (:usuario <> '' AND user_name = :usuario))
                      ORDER BY id DESC
                      LIMIT 1",
@@ -16691,7 +16833,7 @@ class CapHum extends Controller
             $row = $db->queryOne(
                 "SELECT id
                  FROM estado_cuenta.persona
-                 WHERE COALESCE(estatus, '') <> 'Baja'
+                 WHERE LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')
                    AND nombres = :nombres
                    AND COALESCE(segundo_nombre, '') = :segundo
                    AND apellidop = :apellidop
@@ -19781,7 +19923,7 @@ class CapHum extends Controller
                  FROM asigna_modulo_web am
                  INNER JOIN persona p ON p.id = am.usuario_id
                  WHERE am.modulo_web_id = :modulo
-                   AND COALESCE(p.estatus, '') <> 'Baja'
+                   AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                  ORDER BY p.nombres, p.apellidop",
                 ['modulo' => $moduloRevision]
             );
@@ -19879,7 +20021,7 @@ class CapHum extends Controller
                     user_name
                  FROM estado_cuenta.persona
                  WHERE UPPER(user_name) IN (" . implode(',', $placeholders) . ")
-                   AND COALESCE(estatus, '') <> 'Baja'",
+                   AND LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')",
                 $params
             );
         } catch (\Throwable $e) {
@@ -21317,7 +21459,7 @@ class CapHum extends Controller
                  LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
                  LEFT JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
                  WHERE p.id = :id
-                   AND COALESCE(p.estatus, '') <> 'Baja'
+                   AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                  GROUP BY p.id, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.correo
                  LIMIT 1",
                 ['id' => $idPersona]
@@ -21387,7 +21529,7 @@ class CapHum extends Controller
                  WHERE pu.departamento_id = :id_departamento
                    AND UPPER(pu.nombre) LIKE 'GERENTE DIVISIONAL%'
                    AND UPPER(pu.nombre) NOT LIKE '%PRUEBA%'
-                   AND COALESCE(p.estatus, '') <> 'Baja'
+                   AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                  ORDER BY pu.nivel DESC, p.nombres, p.apellidop",
                 ['id_departamento' => $idDepartamento]
             );
@@ -27213,6 +27355,12 @@ class CapHum extends Controller
                 'resumen' => CapHumDAO::resumenAuditoriaUsuarioDesdeCambios($cambios, 'usuario RR.HH.'),
                 'cambios' => $cambios,
             ]);
+            try {
+                $this->notificarCambioAreaColaboradorRrhh($antes, $despues, $idPersonaAudit);
+            } catch (\Throwable $e) {
+                // El cambio de estructura ya se guardo; una falla al avisar no debe revertirlo.
+                error_log('CapHum::notificarCambioAreaColaboradorRrhh -> ' . $e->getMessage());
+            }
         }
         self::respuestaJSON($resultado);
     }
@@ -28764,6 +28912,7 @@ public function getEstadosMunicipiosMexico()
     public function getJefeDirecto()
     {
         $input = json_decode(file_get_contents("php://input"), true);
+        $idArea = isset($input['id_area']) && $input['id_area'] !== '' ? (int)$input['id_area'] : null;
         $idDepartamento = $input['id_departamento'] ?? null;
         $idPuesto = $input['id_puesto'] ?? null;
         $idPersonaActual = (int)($input['id_persona'] ?? 0);
@@ -28835,13 +28984,15 @@ public function getEstadosMunicipiosMexico()
 
         // 1) Si hay puesto seleccionado: jefes por nivel (mismo departamento, nivel superior)
         if ($idPuesto) {
-            $porPuesto = CapHumDAO::getConsultaGestoresPorPuesto($idPuesto);
+            $porPuesto = CapHumDAO::getConsultaGestoresPorPuesto($idPuesto, $idArea);
             if ($porPuesto['success'] && !empty($porPuesto['datos'])) {
                 $datos = array_map(function ($row) {
                     return [
                         'id' => $row['id'],
                         'nombre_completo' => $row['nombre_completo'] ?? '',
-                        'nombre_puesto' => $row['puesto'] ?? $row['nombre_puesto'] ?? ''
+                        'nombre_puesto' => $row['puesto'] ?? $row['nombre_puesto'] ?? '',
+                        'area' => $row['area'] ?? '',
+                        'departamento' => $row['departamento'] ?? '',
                     ];
                 }, $porPuesto['datos']);
                 $datos = $deduplicarPorPersona($datos);
@@ -29540,15 +29691,6 @@ public function getEstadosMunicipiosMexico()
         $idGestor    = $_POST['idGestor'] ?? null;
         $motivo      = $_POST['motivo'] ?? null;
         $descripcion = $_POST['descripcion'] ?? null;
-        $modoReasignacion = $_POST['modo_reasignacion'] ?? 'sin_subordinados';
-        $sustitutoId = $_POST['sustituto_id'] ?? null;
-        $subordinadosSeleccionadosRaw = $_POST['subordinados_seleccionados'] ?? '[]';
-        $subordinadosSeleccionados = json_decode($subordinadosSeleccionadosRaw, true);
-        if (!is_array($subordinadosSeleccionados)) $subordinadosSeleccionados = [];
-        $asignacionesJefeRaw = $_POST['asignaciones_jefe'] ?? '{}';
-        $asignacionesJefe = json_decode($asignacionesJefeRaw, true);
-        if (!is_array($asignacionesJefe)) $asignacionesJefe = [];
-        $vacanteExistenteId = $_POST['vacante_existente_id'] ?? null;
 
         //  Validaciones obligatorias
         if (empty($idGestor)) {
@@ -29608,13 +29750,8 @@ public function getEstadosMunicipiosMexico()
             'motivo'      => $motivo,
             'descripcion' => $descripcion,
             'archivos'    => $rutasPDF, // ï¿½Ë† ahora es un arreglo
-            'fecha_baja'  => date('Y-m-d H:i:s'),
+            'fecha_baja'  => (new DateTime('now', new DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'),
             'usuario_baja' => $_SESSION['usuario_id'],
-            'modo_reasignacion' => $modoReasignacion,
-            'sustituto_id' => $sustitutoId,
-            'subordinados_seleccionados' => $subordinadosSeleccionados,
-            'asignaciones_jefe' => $asignacionesJefe,
-            'vacante_existente_id' => $vacanteExistenteId
         ];
 
         //  Llamar al modelo / DAO
@@ -29624,12 +29761,12 @@ public function getEstadosMunicipiosMexico()
             echo json_encode([
                 'success' => true,
                 'datos' => $resultado['datos'] ?? null,
-                'message' => 'La baja se registró correctamente'
+                'message' => $resultado['mensaje'] ?? 'Trámite de baja iniciado correctamente.'
             ]);
         } else {
             echo json_encode([
                 'success' => false,
-                'message' => $resultado['mensaje'] ?? 'Error al registrar la baja',
+                'message' => $resultado['mensaje'] ?? 'Error al iniciar el trámite de baja',
                 'error'   => $resultado['error'] ?? null
             ]);
         }
@@ -31671,6 +31808,7 @@ public function getEstadosMunicipiosMexico()
     public function vacacionesAdmin()
     {
         self::set('titulo', 'Panel admin vacaciones');
+        self::set('puedeDescargarPlantillaCruceVacaciones', self::tieneModuloWeb(CapHumDAO::MODULO_DESCARGAR_PLANTILLA_CRUCE_VACACIONES));
         $idResponsableArea = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
         $solicitudes = VacacionesDAO::listarAdmin(150, $idResponsableArea);
         self::set('vacacionesAdminJson', json_encode(
@@ -31678,6 +31816,68 @@ public function getEstadosMunicipiosMexico()
             JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
         ));
         self::render('caphum_vacaciones_admin');
+    }
+
+    public function descargarPlantillaCruceVacaciones()
+    {
+        if (!self::tieneModuloWeb(CapHumDAO::MODULO_DESCARGAR_PLANTILLA_CRUCE_VACACIONES)) {
+            http_response_code(403);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'No tienes permiso para descargar la plantilla de vacaciones.';
+            return;
+        }
+
+        $resultado = VacacionesDAO::plantillaCruceColaboradores();
+        if (empty($resultado['success'])) {
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo $resultado['mensaje'] ?? 'No se pudo generar la plantilla.';
+            return;
+        }
+
+        try {
+            if (!class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+                require_once dirname(__DIR__) . '/bootstrap_composer.php';
+                sparta_require_composer_autoload();
+            }
+
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Cruce vacaciones');
+            $headers = ['CURP', 'NOMBRE COMPLETO', 'CODIGO CONTPAC'];
+            foreach ($headers as $indice => $header) {
+                $celda = chr(65 + $indice) . '1';
+                $sheet->setCellValue($celda, $header);
+            }
+            $sheet->getStyle('A1:C1')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+            $sheet->getStyle('A1:C1')->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setARGB('FF26344E');
+            $sheet->freezePane('A2');
+
+            $fila = 2;
+            foreach ((array)($resultado['datos'] ?? []) as $persona) {
+                $sheet->setCellValueExplicit('A' . $fila, (string)($persona['curp'] ?? ''), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                $sheet->setCellValue('B' . $fila, (string)($persona['nombre_completo'] ?? ''));
+                $sheet->setCellValueExplicit('C' . $fila, (string)($persona['codigo_contpac'] ?? ''), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                $fila++;
+            }
+            $sheet->setAutoFilter('A1:C1');
+            foreach (['A' => 22, 'B' => 44, 'C' => 20] as $columna => $ancho) {
+                $sheet->getColumnDimension($columna)->setWidth($ancho);
+            }
+
+            $nombre = 'plantilla_cruce_vacaciones_' . date('Y-m-d_His') . '.xlsx';
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="' . $nombre . '"');
+            header('Cache-Control: max-age=0');
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save('php://output');
+            exit;
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'No se pudo generar el Excel de vacaciones.';
+        }
     }
 
     public function getVacacionesAdmin()

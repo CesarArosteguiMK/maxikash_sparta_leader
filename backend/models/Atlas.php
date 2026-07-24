@@ -1758,7 +1758,7 @@ class Atlas extends Model
                            AND au.excluido_operativo = 0
                     INNER JOIN persona p
                             ON p.id = dvl.persona_id
-                           AND p.estatus <> 'Baja'
+                           AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                     WHERE dvl.id = :id
                       AND dvl.activo = 1
                       AND dvl.tipo_asignacion = 'persona'
@@ -1840,7 +1840,7 @@ class Atlas extends Model
                 FROM atlas_acceso_usuarios au
                 INNER JOIN persona p
                         ON p.id = au.persona_id
-                       AND p.estatus <> 'Baja'
+                       AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                 LEFT JOIN atlas_catalogo_divisionales dvl
                        ON dvl.persona_id = au.persona_id
                       AND dvl.activo = 1
@@ -1910,7 +1910,7 @@ class Atlas extends Model
                 FROM atlas_acceso_usuarios au
                 INNER JOIN persona p
                         ON p.id = au.persona_id
-                       AND p.estatus <> 'Baja'
+                       AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                 WHERE au.persona_id = :persona_id
                   AND au.activo = 1
                   AND au.excluido_operativo = 0
@@ -3502,7 +3502,7 @@ class Atlas extends Model
             SELECT id, estatus,
                    TRIM(CONCAT_WS(' ', NULLIF(nombres, ''), NULLIF(segundo_nombre, ''), NULLIF(apellidop, ''), NULLIF(apellidom, ''))) AS nombre
             FROM persona
-            WHERE estatus <> 'Baja'
+            WHERE LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')
         ");
         $catalogos = [
             'atlas_catalogo_supervisores',
@@ -6205,7 +6205,7 @@ class Atlas extends Model
                 TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre
             FROM persona
             WHERE TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) <> ''
-              AND (estatus IS NULL OR estatus = '' OR LOWER(estatus) NOT IN ('baja', 'inactivo'))
+              AND (estatus IS NULL OR estatus = '' OR LOWER(TRIM(estatus)) NOT IN ('baja', 'transito de baja', 'inactivo'))
         ") ?: [];
 
         $map = [];

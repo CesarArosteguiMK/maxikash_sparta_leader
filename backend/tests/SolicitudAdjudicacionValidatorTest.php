@@ -83,4 +83,57 @@ final class SolicitudAdjudicacionValidatorTest extends TestCase
         self::assertFalse($result['valid']);
         self::assertArrayHasKey('kilometraje', $result['errors']);
     }
+
+    public function testCallCenterSoloExigeNombreTelefonoYMotivoParaTercero(): void
+    {
+        $result = SolicitudAdjudicacionValidator::validarCreacion([
+            'id_credito' => 901,
+            'entregara_titular' => false,
+            'nombre_entregante' => 'Familiar autorizado',
+            'telefono_actual' => '5512345678',
+            'motivo' => 'Entrega voluntaria',
+        ], SolicitudAdjudicacionValidator::CANAL_CALLCENTER);
+
+        self::assertTrue($result['valid']);
+        self::assertNull($result['data']['kilometraje']);
+        self::assertNull($result['data']['direccion_resguardo']);
+    }
+
+    public function testDespachosExigeVinYTipoDeAsignacion(): void
+    {
+        $result = SolicitudAdjudicacionValidator::validarCreacion([
+            'id_credito' => 902,
+            'entregara_titular' => true,
+        ], SolicitudAdjudicacionValidator::CANAL_DESPACHOS);
+
+        self::assertFalse($result['valid']);
+        self::assertArrayHasKey('vin', $result['errors']);
+        self::assertArrayHasKey('tipo_asignacion', $result['errors']);
+    }
+
+    public function testDespachosPermiteEquipoMaxikashSinGestor(): void
+    {
+        $result = SolicitudAdjudicacionValidator::validarCreacion([
+            'id_credito' => 903,
+            'entregara_titular' => true,
+            'vin' => '3H1KA0940MD123456',
+            'tipo_asignacion' => 'EQUIPO_MAXIKASH',
+        ], SolicitudAdjudicacionValidator::CANAL_DESPACHOS);
+
+        self::assertTrue($result['valid']);
+        self::assertNull($result['data']['id_persona_gestor']);
+    }
+
+    public function testDespachosExigeGestorAlElegirDespacho(): void
+    {
+        $result = SolicitudAdjudicacionValidator::validarCreacion([
+            'id_credito' => 904,
+            'entregara_titular' => true,
+            'vin' => '3H1KA0940MD123456',
+            'tipo_asignacion' => 'DESPACHO',
+        ], SolicitudAdjudicacionValidator::CANAL_DESPACHOS);
+
+        self::assertFalse($result['valid']);
+        self::assertArrayHasKey('id_persona_gestor', $result['errors']);
+    }
 }

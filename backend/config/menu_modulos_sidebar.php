@@ -83,7 +83,6 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'icono' => 'fa-solid fa-building-columns',
                 'subItems' => [
                     ['section' => 'Gestion'],
-                    ['label' => 'Solicitud de Adjudicacion', 'url' => '/SolicitudAdjudicacion/despachos', 'modulos' => [20, 45]],
                     ['label' => 'Asignación de Créditos', 'url' => '/Despachos/AsignacionCreditosDespacho', 'modulos' => [20]],
                     ['label' => 'Mi Cartera', 'url' => '/Despachos/MiGestion', 'modulos' => [45]],
                     ['section' => 'Operacion de convenios'],
@@ -92,14 +91,6 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['section' => 'Reporteria'],
                     ['label' => 'Reporteria', 'url' => '/convenios/reporteria', 'modulos' => [186]],
                     ['label' => 'Estadísticas', 'url' => '/convenios/estadisticas', 'modulos' => [56]],
-                ],
-            ],
-            'ATC' => [
-                'icono' => 'fa-solid fa-headset',
-                'subItems' => [
-                    ['section' => 'Gestión'],
-                    ['label' => 'Retenciones', 'url' => '/AtencionClientes/consulta', 'modulos' => [69]],
-                    ['label' => 'Solicitud de Adjudicación', 'url' => '/SolicitudAdjudicacion/atc', 'modulos' => [69]],
                 ],
             ],
             'Motos Adjudicadas' => [
@@ -114,6 +105,11 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Monitoreo', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                     ['label' => 'Consulta REPUVE', 'url' => '/MotosAdjudicadas/repuveConsulta', 'modulos' => [78]],
                     ['label' => 'OTP DE EMERGENCIA', 'url' => '/MotosAdjudicadas/otpEmergenciaLegacy', 'modulos' => [150]],
+                    ['section' => 'Solicitudes de adjudicación'],
+                    ['label' => 'ATC - Retenciones', 'url' => '/AtencionClientes/consulta', 'modulos' => [69]],
+                    ['label' => 'ATC - Nueva solicitud', 'url' => '/SolicitudAdjudicacion/atc', 'modulos' => [69]],
+                    ['label' => 'Call Center - Solicitud', 'url' => '/SolicitudAdjudicacion/callCenter', 'modulos' => [35]],
+                    ['label' => 'Despachos - Solicitud', 'url' => '/SolicitudAdjudicacion/despachos', 'modulos' => [20, 45]],
                     ['section' => 'Flujo operativo'],
                     ['label' => '1.- Evidencias', 'url' => '/AtencionClientes/evidencias', 'modulos' => [70]],
                     ['label' => '2.- Recuperación', 'url' => '/AtencionClientes/recuperacion', 'modulos' => [71]],

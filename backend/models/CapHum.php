@@ -22,6 +22,7 @@ class CapHum extends Model
     public const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
     public const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
     public const MODULO_AUDITORIA_RRHH = 154;
+    public const MODULO_DESCARGAR_PLANTILLA_CRUCE_VACACIONES = 196;
     public const MODULO_ASISTENTE_SPARTA = 194;
     public const MODULO_DESBLOQUEAR_COMPONENTES_MOTOS_ADJUDICADAS = 195;
     public const PERSONA_LAZARO_RAUDEL = 878;
@@ -60,7 +61,7 @@ class CapHum extends Model
         140, 141, 142, 143, 144, 147, 151, 152, 153, 154,
         155, 156, 157, 158, 159, 160, 161, 162, 163, 164,
         165, 166, 167, 168, 169, 170, 171, 172, 173, 174,
-        175, 176, 177, 178, 179, 184, 185,
+        175, 176, 177, 178, 179, 184, 185, 196,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -150,6 +151,12 @@ class CapHum extends Model
                 'nombre' => 'Vacaciones',
                 'pestana' => 'Capital Humano',
                 'descripcion' => 'Capital Humano > Vacaciones',
+            ],
+            [
+                'id' => self::MODULO_DESCARGAR_PLANTILLA_CRUCE_VACACIONES,
+                'nombre' => 'Plantilla para cruce',
+                'pestana' => 'Capital Humano',
+                'descripcion' => 'Permite descargar la plantilla con CURP, nombre y codigo Contpaqi para el cruce de vacaciones.',
             ],
             [
                 'id' => self::MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS,
@@ -894,7 +901,7 @@ class CapHum extends Model
             INNER JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
             LEFT JOIN estado_cuenta.departamento dep ON dep.id = pu.departamento_id
             WHERE COALESCE(ap.activo, 1) = 1
-              AND p.estatus != 'Baja'
+              AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
               AND NOT EXISTS (
                   SELECT 1
                   FROM estado_cuenta.persona_puesto_trayectoria t
@@ -1132,7 +1139,7 @@ class CapHum extends Model
         LEFT JOIN puesto pvj
                ON pvj.id = vj.id_puesto
 
-        WHERE p.estatus != 'Baja'
+        WHERE LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
         {$sqlExP}
         {$filtroPuestosSesion}
 
@@ -1199,7 +1206,7 @@ class CapHum extends Model
                    ON vj.id = aj.id_vacante_jefe
             LEFT JOIN puesto pvj
                    ON pvj.id = vj.id_puesto
-            WHERE p.estatus != 'Baja'
+            WHERE LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
               {$sqlExP}AND (
                     aj.id_jefe = $id_gestor_sesion
                     OR aj.id_jefe IS NULL
@@ -1207,7 +1214,7 @@ class CapHum extends Model
                         SELECT 1
                         FROM persona jefe_activo
                         WHERE jefe_activo.id = aj.id_jefe
-                          AND jefe_activo.estatus != 'Baja'
+                          AND LOWER(TRIM(COALESCE(jefe_activo.estatus, ''))) NOT IN ('baja', 'transito de baja')
                     )
                   )
 
@@ -1265,7 +1272,7 @@ class CapHum extends Model
                    ON pvj2.id = vj2.id_puesto
             JOIN Jerarquia j
                  ON aj2.id_jefe = j.id
-            WHERE p2.estatus != 'Baja'
+            WHERE LOWER(TRIM(COALESCE(p2.estatus, ''))) NOT IN ('baja', 'transito de baja')
               {$sqlExP2}
         )
 
@@ -1328,7 +1335,7 @@ class CapHum extends Model
                 LEFT JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
                 LEFT JOIN estado_cuenta.departamento d ON d.id = pp.departamento_id
                 WHERE aj.id_jefe = :id
-                  AND p.estatus != 'Baja'
+                  AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                 ORDER BY nombre_completo ASC
             ", ['id' => $idPersona]);
 
@@ -1343,7 +1350,7 @@ class CapHum extends Model
                 LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
                 LEFT JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
                 LEFT JOIN estado_cuenta.departamento d ON d.id = pp.departamento_id
-                WHERE p.estatus != 'Baja'
+                WHERE LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                   AND p.id <> :id
                 ORDER BY nombre_completo ASC
             ", ['id' => $idPersona]);
@@ -1646,7 +1653,7 @@ class CapHum extends Model
                 LEFT JOIN estado_cuenta.departamento d ON d.id = v.id_departamento
                 LEFT JOIN estado_cuenta.persona pj ON pj.id = v.id_jefe
                 LEFT JOIN estado_cuenta.asigna_jefe ajv ON ajv.id_vacante_jefe = v.id
-                LEFT JOIN estado_cuenta.persona ps ON ps.id = ajv.id_persona AND ps.estatus != 'Baja'
+                LEFT JOIN estado_cuenta.persona ps ON ps.id = ajv.id_persona AND LOWER(TRIM(COALESCE(ps.estatus, ''))) NOT IN ('baja', 'transito de baja')
                 WHERE v.id_departamento = :id_departamento
                   AND v.id_puesto = :id_puesto
                   AND UPPER(TRIM(v.estatus)) = 'ACTIVA'
@@ -1703,7 +1710,7 @@ class CapHum extends Model
                 INNER JOIN estado_cuenta.puesto pp ON pp.id = v.id_puesto
                 LEFT JOIN estado_cuenta.departamento d ON d.id = v.id_departamento
                 LEFT JOIN estado_cuenta.asigna_jefe ajv ON ajv.id_vacante_jefe = v.id
-                LEFT JOIN estado_cuenta.persona ps ON ps.id = ajv.id_persona AND ps.estatus != 'Baja'
+                LEFT JOIN estado_cuenta.persona ps ON ps.id = ajv.id_persona AND LOWER(TRIM(COALESCE(ps.estatus, ''))) NOT IN ('baja', 'transito de baja')
                 WHERE v.id_departamento = :id_departamento
                   AND UPPER(TRIM(v.estatus)) = 'ACTIVA'
                   $whereNivel
@@ -1745,7 +1752,7 @@ class CapHum extends Model
                 SELECT p.id
                 FROM estado_cuenta.persona p
                 WHERE p.id = :id_jefe
-                  AND COALESCE(p.estatus, '') != 'Baja'
+                  AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                 LIMIT 1
             ", ['id_jefe' => $idJefe]);
 
@@ -1863,7 +1870,7 @@ class CapHum extends Model
                 SELECT id
                 FROM estado_cuenta.persona
                 WHERE id = :id_jefe
-                  AND COALESCE(estatus, '') != 'Baja'
+                  AND LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')
                 LIMIT 1
             ", ['id_jefe' => $jefeDestino]);
 
@@ -1881,7 +1888,7 @@ class CapHum extends Model
                 ) ult ON ult.id_persona = aj.id_persona AND ult.mid = aj.id
                 INNER JOIN estado_cuenta.persona p
                         ON p.id = aj.id_persona
-                       AND COALESCE(p.estatus, '') != 'Baja'
+                       AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                 WHERE aj.id_vacante_jefe = :id_vacante
             ", ['id_vacante' => $idVacante]);
 
@@ -1965,7 +1972,7 @@ class CapHum extends Model
                 SELECT id
                 FROM estado_cuenta.persona
                 WHERE id = :id_persona
-                  AND COALESCE(estatus, '') != 'Baja'
+                  AND LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')
                 LIMIT 1
             ", ['id_persona' => $idPersona]);
 
@@ -1978,7 +1985,7 @@ class CapHum extends Model
                     SELECT id
                     FROM estado_cuenta.persona
                     WHERE id = :id_jefe
-                      AND COALESCE(estatus, '') != 'Baja'
+                      AND LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')
                     LIMIT 1
                 ", ['id_jefe' => $idJefe]);
 
@@ -2111,7 +2118,7 @@ class CapHum extends Model
                 FROM estado_cuenta.asigna_jefe aj
                 INNER JOIN estado_cuenta.persona p ON p.id = aj.id_persona
                 WHERE aj.id_jefe = :id_persona
-                  AND COALESCE(p.estatus, '') != 'Baja'
+                  AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
             ", ['id_persona' => $idPersona]);
 
             if (!empty($subordinados) && $modoReasignacion === 'sin_subordinados') {
@@ -2127,7 +2134,7 @@ class CapHum extends Model
                     SELECT id
                     FROM estado_cuenta.persona
                     WHERE id = :id_sustituto
-                      AND COALESCE(estatus, '') != 'Baja'
+                      AND LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')
                     LIMIT 1
                 ", ['id_sustituto' => $sustitutoId]);
 
@@ -2417,7 +2424,7 @@ class CapHum extends Model
                        AND v.estatus = 'Activa'
                 INNER JOIN estado_cuenta.persona p
                         ON p.id = aj.id_persona
-                       AND p.estatus != 'Baja'
+                       AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                 LEFT JOIN (
                     SELECT ap.id_persona, MIN(ap.id_puesto) AS id_puesto
                     FROM estado_cuenta.asigna_puesto ap
@@ -2710,7 +2717,7 @@ class CapHum extends Model
 
         $params = [];
         $whereConditions = [
-            "p.estatus != 'Baja'",
+            "LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')",
             UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p'),
         ];
 
@@ -3172,7 +3179,7 @@ class CapHum extends Model
             LEFT JOIN asigna_jefe aj ON aj.id_persona = p.id
             LEFT JOIN asigna_legion al ON al.id_persona = p.id AND al.activo = 1
             WHERE p.id = $idPersona
-              AND p.estatus != 'Baja'
+              AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
             LIMIT 1
         SQL;
 
@@ -3771,7 +3778,7 @@ class CapHum extends Model
                 LEFT JOIN estado_cuenta.persona pj ON pj.id = aj.id_jefe
                 LEFT JOIN estado_cuenta.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
                 LEFT JOIN estado_cuenta.puesto pvj ON pvj.id = vj.id_puesto
-                WHERE COALESCE(p.estatus, '') <> 'Baja'
+                WHERE LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                   AND NOT EXISTS (
                       SELECT 1
                       FROM estado_cuenta.carga_documento_persona cdp
@@ -3917,7 +3924,7 @@ class CapHum extends Model
                 LEFT JOIN estado_cuenta.persona pj ON pj.id = aj.id_jefe
                 LEFT JOIN estado_cuenta.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
                 LEFT JOIN estado_cuenta.puesto pvj ON pvj.id = vj.id_puesto
-                WHERE COALESCE(p.estatus, '') <> 'Baja'
+                WHERE LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                 ORDER BY nombre_completo ASC
             ", ['id_documento' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR]);
 
@@ -4025,7 +4032,7 @@ class CapHum extends Model
                     ON org.id_persona = p.id
                    AND org.tiene_gestor = 1
                 WHERE p.id = :id_persona
-                  AND COALESCE(p.estatus, '') <> 'Baja'
+                  AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                 LIMIT 1
             ", [
                 'id_persona' => $idPersona,
@@ -5588,19 +5595,19 @@ class CapHum extends Model
                     && self::normalizarTextoCambioEstructura($detalle['nombre_excel']) !== self::normalizarTextoCambioEstructura($detalle['persona_nombre'])) {
                     $avisos[] = 'El nombre del Excel "' . $detalle['nombre_excel'] . '" no coincide exactamente con "' . $detalle['persona_nombre'] . '", pero se identifico a la persona por external_id ' . $external . '.';
                 }
-                if (strcasecmp(trim((string)($persona['estatus'] ?? '')), 'Baja') === 0) {
+                if (in_array(strtolower(trim((string)($persona['estatus'] ?? ''))), ['baja', 'transito de baja'], true)) {
                     $puestosActuales = $puestosActivosPorPersona[(int)$persona['id']] ?? [];
                     $puestoActual = array_values($puestosActuales)[0] ?? null;
                     $jefeActual = $jefesActualesPorPersona[(int)$persona['id']] ?? null;
                     $detalle['puesto_actual'] = (string)($puestoActual['nombre_puesto'] ?? 'Sin puesto');
                     $detalle['departamento_actual'] = (string)($puestoActual['nombre_departamento'] ?? 'Sin departamento');
                     $detalle['jefe_actual'] = $jefeActual ? (string)$jefeActual['nombre'] : 'Sin jefe';
-                    $detalle['jefe_nuevo'] = 'No evaluado por estatus Baja';
+                    $detalle['jefe_nuevo'] = 'No evaluado por estatus Baja o Tránsito de baja';
                     // Las bajas pueden venir en la misma plantilla que los activos. Se
                     // informan y se omiten, sin bloquear la actualizacion de los demas.
                     $detalle['estado'] = 'omitido';
                     $detalle['mensajes'] = [
-                        'La persona esta en estatus Baja; se omitio de la actualizacion de estructura.',
+                        'La persona esta en estatus Baja o Tránsito de baja; se omitio de la actualizacion de estructura.',
                         'El archivo proponia asignar ' . $detalle['puesto_nuevo'] . ' en ' . $detalle['departamento_nuevo'] . '. No se evaluo ni aplico el cambio de puesto o jefe.',
                     ];
                     $detalles[] = $detalle;
@@ -5786,7 +5793,7 @@ class CapHum extends Model
         $rows = $db->queryAll("
             SELECT id, numero_empleado, nombres, segundo_nombre, apellidop, apellidom, estatus
             FROM estado_cuenta.persona
-            WHERE COALESCE(estatus, '') <> 'Baja'
+            WHERE LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')
         ");
         $out = [];
         foreach ($rows as $row) {
@@ -5987,7 +5994,7 @@ class CapHum extends Model
             SELECT id
             FROM estado_cuenta.persona
             WHERE id = :id_persona
-              AND COALESCE(estatus, '') <> 'Baja'
+              AND LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')
             LIMIT 1
         ", ['id_persona' => $idPersona]);
         if (!$persona) {
@@ -5998,7 +6005,7 @@ class CapHum extends Model
             SELECT id
             FROM estado_cuenta.persona
             WHERE id = :id_jefe
-              AND COALESCE(estatus, '') <> 'Baja'
+              AND LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')
             LIMIT 1
         ", ['id_jefe' => $idJefe]);
         if (!$jefe) {
@@ -6163,7 +6170,7 @@ class CapHum extends Model
                 LEFT JOIN puesto pu ON pu.id = COALESCE(pdr.id_puesto, ap.id_puesto)
                 LEFT JOIN departamento dep ON dep.id = COALESCE(pdr.id_departamento, pu.departamento_id)
                 WHERE am.modulo_web_id = :modulo
-                  AND COALESCE(p.estatus, '') <> 'Baja'
+                  AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                 ORDER BY nombre ASC
             ", ['modulo' => self::MODULO_VER_SALARIO_SENSIBLE_RRHH]) ?: [];
 
@@ -6270,7 +6277,7 @@ class CapHum extends Model
                     LEFT JOIN puesto pu ON pu.id = COALESCE(pdr.id_puesto, ap.id_puesto)
                     LEFT JOIN departamento dep ON dep.id = COALESCE(pdr.id_departamento, pu.departamento_id)
                     WHERE am.modulo_web_id = :modulo
-                      AND COALESCE(p.estatus, '') <> 'Baja'
+                      AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                     ORDER BY nombre ASC
                 ", ['modulo' => $modulo]) ?: [];
             };
@@ -6612,6 +6619,11 @@ class CapHum extends Model
                     p.domicilio_num_exterior,
                     p.domicilio_num_interior,
                     p.codigo_postal,
+                    COALESCE(pdr.id_area, dep_rrhh.id_departamento_organizacional) AS id_area,
+                    COALESCE(
+                        NULLIF(TRIM(pdr.area_texto), ''),
+                        NULLIF(TRIM(area_rrhh.nombre), '')
+                    ) AS area,
                     GROUP_CONCAT(DISTINCT pu.nombre ORDER BY pu.nombre SEPARATOR ', ') AS puestos,
                     GROUP_CONCAT(DISTINCT dep.nombre ORDER BY dep.nombre SEPARATOR ', ') AS departamentos,
                     COALESCE(
@@ -6619,6 +6631,9 @@ class CapHum extends Model
                         NULLIF(TRIM(v.nombre_vacante), '')
                     ) AS jefe
                 FROM estado_cuenta.persona p
+                LEFT JOIN estado_cuenta.persona_datos_rrhh pdr ON pdr.id_persona = p.id
+                LEFT JOIN estado_cuenta.departamento dep_rrhh ON dep_rrhh.id = pdr.id_departamento
+                LEFT JOIN estado_cuenta.departamento_organizacional area_rrhh ON area_rrhh.id = COALESCE(pdr.id_area, dep_rrhh.id_departamento_organizacional)
                 LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
                 LEFT JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
                 LEFT JOIN estado_cuenta.departamento dep ON dep.id = pu.departamento_id
@@ -7222,7 +7237,7 @@ class CapHum extends Model
             LEFT JOIN paises pais
                    ON pais.id = p.id_pais
             WHERE p.id = $idPersona
-              AND p.estatus != 'Baja'
+              AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
             LIMIT 1
         SQL;
 
@@ -7465,7 +7480,7 @@ class CapHum extends Model
                     WHERE modulo_web_id IN ($idsSql)
                     GROUP BY usuario_id
                 ) am ON am.usuario_id = p.id
-                WHERE COALESCE(p.estatus, '') <> 'Baja'
+                WHERE LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                 $filtroAlcance
                 ORDER BY CASE WHEN p.estatus = 'Activo' THEN 0 ELSE 1 END, nombre ASC
             ");
@@ -7538,7 +7553,7 @@ class CapHum extends Model
                    AND COALESCE(ad.activo, 1) = 1
                 LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
                 WHERE p.id = :id
-                  AND COALESCE(p.estatus, '') <> 'Baja'
+                  AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                   $filtroAlcance
                 LIMIT 1
             ", ['id' => $idPersona]);
@@ -7613,7 +7628,7 @@ class CapHum extends Model
             $idsSql = self::idsGestionablesAccesosCapitalHumanoSql();
 
             $usuario = $db->queryOne(
-                "SELECT id FROM persona WHERE id = :id AND COALESCE(estatus, '') <> 'Baja' LIMIT 1",
+                "SELECT id FROM persona WHERE id = :id AND LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja') LIMIT 1",
                 ['id' => $idPersona]
             );
             if (!$usuario) {
@@ -8045,8 +8060,8 @@ class CapHum extends Model
             }
 
             $estatus = strtolower(trim((string) ($persona['estatus'] ?? '')));
-            if ($estatus === 'baja') {
-                return self::resultado(false, 'No se puede forzar cierre porque el usuario esta dado de baja.');
+            if (in_array($estatus, ['baja', 'transito de baja'], true)) {
+                return self::resultado(false, 'No se puede forzar cierre porque el usuario esta en baja o en trámite de baja.');
             }
 
             if ((int) ($persona['force_logout'] ?? 0) === 1) {
@@ -8290,7 +8305,7 @@ class CapHum extends Model
             ON pu.id = ap.id_puesto
         WHERE
             COALESCE(ap.activo, 1) = 1
-            AND pu.es_jefe = 1 AND per.estatus != 'Baja'
+            AND pu.es_jefe = 1 AND LOWER(TRIM(COALESCE(per.estatus, ''))) NOT IN ('baja', 'transito de baja')
             AND {$predPer}
             AND pu.departamento_id = $id_departamento
         ORDER BY per.nombres ASC;
@@ -8364,7 +8379,7 @@ class CapHum extends Model
                    ON ap.id_persona = per.id
                   AND COALESCE(ap.activo, 1) = 1
             LEFT JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
-            WHERE per.estatus != 'Baja'
+            WHERE LOWER(TRIM(COALESCE(per.estatus, ''))) NOT IN ('baja', 'transito de baja')
               AND {$predPer}
               AND (
                     UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'ZAIRA YAEL TORRES DIAZ'
@@ -8403,7 +8418,7 @@ class CapHum extends Model
           INNER JOIN persona per ON per.id = ap.id_persona
           INNER JOIN puesto pu ON pu.id = ap.id_puesto
           WHERE COALESCE(ap.activo, 1) = 1
-            AND per.estatus != 'Baja'
+            AND LOWER(TRIM(COALESCE(per.estatus, ''))) NOT IN ('baja', 'transito de baja')
             AND {$predPer}
             AND pu.departamento_id = $id_departamento
           ORDER BY per.nombres ASC
@@ -8447,7 +8462,9 @@ class CapHum extends Model
           SELECT
             per.id,
             CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom) AS nombre_completo,
-            COALESCE(MIN(pu.nombre), '') AS nombre_puesto
+            COALESCE(MIN(pu.nombre), '') AS nombre_puesto,
+            COALESCE(MIN(dep.nombre), '') AS departamento,
+            COALESCE(MIN(dorg.nombre), '') AS area
           FROM persona per
           LEFT JOIN asigna_puesto ap
             ON ap.id_persona = per.id
@@ -8464,7 +8481,7 @@ class CapHum extends Model
             ON ad.id_departamento_organizacional = dorg.id
           LEFT JOIN direcciones_organizacion dir
             ON dir.id = ad.id_direccion
-          WHERE per.estatus != 'Baja'
+          WHERE LOWER(TRIM(COALESCE(per.estatus, ''))) NOT IN ('baja', 'transito de baja')
             AND {$predPer}
             {$whereEmpresa}
           GROUP BY per.id, per.nombres, per.segundo_nombre, per.apellidop, per.apellidom
@@ -8490,7 +8507,7 @@ class CapHum extends Model
           FROM persona per
           LEFT JOIN asigna_puesto ap ON ap.id_persona = per.id AND COALESCE(ap.activo, 1) = 1
           LEFT JOIN puesto pu ON pu.id = ap.id_puesto
-          WHERE per.estatus != 'Baja'
+          WHERE LOWER(TRIM(COALESCE(per.estatus, ''))) NOT IN ('baja', 'transito de baja')
             AND {$predPer}
             AND per.nombres LIKE '%JONNATHAN%'
             AND (per.apellidop LIKE '%FLORES%' OR per.apellidop LIKE '%FLÓRES%')
@@ -8549,7 +8566,7 @@ class CapHum extends Model
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
-    public static function getConsultaGestoresPorPuesto($id_puesto)
+    public static function getConsultaGestoresPorPuesto($id_puesto, ?int $idArea = null)
     {
         $predP = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
         $query = <<<SQL
@@ -8557,29 +8574,44 @@ class CapHum extends Model
             p.id,
             CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
             pp.nombre AS puesto,
-            pp.nivel
+            pp.nombre AS nombre_puesto,
+            pp.nivel,
+            d.nombre AS departamento,
+            dorg.nombre AS area
         FROM persona p
         INNER JOIN asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
         INNER JOIN puesto pp ON pp.id = ap.id_puesto
-        WHERE p.estatus != 'Baja'
+        INNER JOIN departamento d ON d.id = pp.departamento_id
+        LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+        WHERE COALESCE(LOWER(TRIM(p.estatus)), 'activo') NOT IN ('baja', 'transito de baja')
           AND {$predP}
           AND pp.nivel > (
                 SELECT nivel
                 FROM puesto
-                WHERE id = $id_puesto
+                WHERE id = :id_puesto_nivel
             )
           AND pp.departamento_id = (
                 SELECT departamento_id
                 FROM puesto
-                WHERE id = $id_puesto
+                WHERE id = :id_puesto_departamento
             )
+          AND (:id_area_nula IS NULL OR d.id_departamento_organizacional = :id_area)
         ORDER BY pp.nivel ASC, nombre_completo
     SQL;
 
         try {
             $db = new Database();
-            $r = $db->queryAll($query);
-            $r = self::agregarJefasFuriaMotoSiAplica($db, $r, (int)$id_puesto, null);
+            $r = $db->queryAll($query, [
+                'id_puesto_nivel' => (int)$id_puesto,
+                'id_puesto_departamento' => (int)$id_puesto,
+                'id_area_nula' => $idArea,
+                'id_area' => $idArea,
+            ]);
+            // Las jefas especiales de Furia son un respaldo histórico. En el editor
+            // RR.HH. se requiere coincidencia estricta de área/departamento/puesto.
+            if ($idArea === null) {
+                $r = self::agregarJefasFuriaMotoSiAplica($db, $r, (int)$id_puesto, null);
+            }
             return self::resultado(true, 'Jefes encontrados.', $r);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener jefes.', null, $e->getMessage());
@@ -8662,7 +8694,7 @@ class CapHum extends Model
             INNER JOIN asigna_puesto ap ON ap.id_persona = p.id AND ap.activo = 1
             INNER JOIN puesto pp ON pp.id = ap.id_puesto
             WHERE ap.id_puesto IN ($placeholdersStr)
-              AND p.estatus != 'Baja'
+              AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
               AND {$predOrg}
             ORDER BY
                 pp.nivel DESC,
@@ -8945,7 +8977,7 @@ class CapHum extends Model
         $query = <<<SQL
             SELECT id, CONCAT(TRIM(COALESCE(nombres,'')), ' ', TRIM(COALESCE(apellidop,'')), ' ', TRIM(COALESCE(apellidom,''))) AS nombre
             FROM persona
-            WHERE (estatus IS NULL OR estatus != 'Baja')
+            WHERE (estatus IS NULL OR LOWER(TRIM(estatus)) NOT IN ('baja', 'transito de baja'))
               AND ({$pred})
             ORDER BY nombres, apellidop, apellidom
         SQL;
@@ -9730,7 +9762,7 @@ class CapHum extends Model
                     FROM estado_cuenta.asigna_jefe aj
                     INNER JOIN estado_cuenta.persona p ON p.id = aj.id_persona
                     WHERE aj.id_jefe = :id_persona
-                      AND p.estatus != 'Baja'
+                      AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                     ORDER BY p.nombres ASC, p.apellidop ASC
                 ", ['id_persona' => $id_persona]);
             }
@@ -9747,7 +9779,7 @@ class CapHum extends Model
                     FROM estado_cuenta.persona p
                     INNER JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
                     INNER JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
-                    WHERE p.estatus != 'Baja'
+                    WHERE LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                       AND p.id <> :id_persona
                       AND pp.departamento_id = :id_departamento
                     GROUP BY p.id, nombre_completo, pp.nombre
@@ -9775,7 +9807,7 @@ class CapHum extends Model
                     INNER JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
                     INNER JOIN estado_cuenta.puesto pp ON pp.id = ap.id_puesto
                     WHERE p.id = :id_sustituto
-                      AND p.estatus != 'Baja'
+                      AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                       AND pp.departamento_id = :id_departamento
                     LIMIT 1
                 ", [
@@ -10212,7 +10244,249 @@ class CapHum extends Model
         return null;
     }
 
+    /**
+     * Asegura las columnas que permiten separar el trámite de baja de la baja definitiva.
+     * Los registros anteriores se conservan como bajas finalizadas.
+     */
+    private static function asegurarSeguimientoTransitoBaja(Database $db): void
+    {
+        static $columnasVerificadas = false;
+        if ($columnasVerificadas) {
+            return;
+        }
+
+        $columnaEstatus = $db->queryOne("
+            SHOW COLUMNS FROM estado_cuenta.baja_persona LIKE 'estatus_tramite'
+        ");
+        if (!$columnaEstatus) {
+            $db->CRUD("
+                ALTER TABLE estado_cuenta.baja_persona
+                ADD COLUMN estatus_tramite VARCHAR(30) NOT NULL DEFAULT 'Finalizada'
+                AFTER usuario_baja
+            ");
+        }
+
+        $columnaFecha = $db->queryOne("
+            SHOW COLUMNS FROM estado_cuenta.baja_persona LIKE 'fecha_transito'
+        ");
+        if (!$columnaFecha) {
+            $db->CRUD("
+                ALTER TABLE estado_cuenta.baja_persona
+                ADD COLUMN fecha_transito DATETIME NULL
+                AFTER fecha_baja
+            ");
+        }
+
+        $columnasSeguimiento = [
+            'estatus_anterior' => "VARCHAR(30) NULL AFTER estatus_tramite",
+            'despachos_activos_previos' => "INT NOT NULL DEFAULT 0 AFTER estatus_anterior",
+            'fecha_cancelacion' => "DATETIME NULL AFTER fecha_transito",
+            'usuario_cancelacion' => "INT NULL AFTER fecha_cancelacion",
+            'fecha_finalizacion' => "DATETIME NULL AFTER usuario_cancelacion",
+            'usuario_finalizacion' => "INT NULL AFTER fecha_finalizacion",
+            'tipo_documento_final' => "VARCHAR(50) NULL AFTER usuario_finalizacion",
+        ];
+        foreach ($columnasSeguimiento as $nombreColumna => $definicionColumna) {
+            $columna = $db->queryOne("SHOW COLUMNS FROM estado_cuenta.baja_persona LIKE '" . $nombreColumna . "'");
+            if (!$columna) {
+                $db->CRUD("ALTER TABLE estado_cuenta.baja_persona ADD COLUMN " . $nombreColumna . " " . $definicionColumna);
+            }
+        }
+
+        $db->CRUD("
+            UPDATE estado_cuenta.baja_persona
+            SET estatus_tramite = 'Finalizada'
+            WHERE estatus_tramite IS NULL OR TRIM(estatus_tramite) = ''
+        ");
+
+        $columnasVerificadas = true;
+    }
+
+    /**
+     * Primer paso de baja: bloquea a la persona para operación sin ejecutar aún
+     * la baja definitiva, las reasignaciones ni la sincronización al sistema legado.
+     */
     public static function registrarBajaGestor($data)
+    {
+        $db = null;
+
+        try {
+            $db = new Database();
+            self::asegurarSeguimientoTransitoBaja($db);
+
+            $idPersona = (int)($data['id_gestor'] ?? 0);
+            $motivo = trim((string)($data['motivo'] ?? ''));
+            $descripcion = trim((string)($data['descripcion'] ?? ''));
+            $fechaTransito = (string)($data['fecha_baja'] ?? '');
+            $usuarioBaja = (int)($data['usuario_baja'] ?? 0);
+            $archivos = is_array($data['archivos'] ?? null) ? $data['archivos'] : [];
+
+            if ($idPersona < 1 || $motivo === '' || $descripcion === '') {
+                return self::resultado(false, 'Faltan datos obligatorios para iniciar el trámite de baja.');
+            }
+
+            if ($fechaTransito === '') {
+                $fechaTransito = (new \DateTime('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
+            }
+
+            $db->beginTransaction();
+
+            $personaActual = $db->queryOne("
+                SELECT id, COALESCE(estatus, '') AS estatus
+                FROM estado_cuenta.persona
+                WHERE id = :id_persona
+                FOR UPDATE
+            ", ['id_persona' => $idPersona]);
+
+            if (!$personaActual) {
+                $db->rollback();
+                return self::resultado(false, 'La persona indicada no existe.');
+            }
+
+            $estatusActual = strtolower(trim((string)$personaActual['estatus']));
+            if ($estatusActual === 'baja') {
+                $db->rollback();
+                return self::resultado(false, 'Esta persona ya se encuentra dada de baja definitivamente.');
+            }
+            if ($estatusActual === 'transito de baja') {
+                $db->rollback();
+                return self::resultado(false, 'Esta persona ya tiene un trámite de baja pendiente de documentos.');
+            }
+
+            $bloqueoBaja = self::obtenerBloqueoBajaActivo($db, $idPersona);
+            if ($bloqueoBaja) {
+                $db->rollback();
+                return self::resultado(false, $bloqueoBaja['mensaje']);
+            }
+
+            $despachosPrevios = $db->queryOne("
+                SELECT COUNT(*) AS total
+                FROM estado_cuenta.despachos
+                WHERE id_persona = :id_persona AND estatus = 'Activo'
+            ", ['id_persona' => $idPersona]);
+            $despachosActivosPrevios = (int)($despachosPrevios['total'] ?? 0);
+
+            $db->CRUD("
+                INSERT INTO estado_cuenta.baja_persona
+                    (id_persona, motivo, fecha_baja, fecha_transito, descripcion, usuario_baja, estatus_tramite, estatus_anterior, despachos_activos_previos)
+                VALUES
+                    (:id_persona, :motivo, :fecha_baja, :fecha_transito, :descripcion, :usuario_baja, 'Transito', :estatus_anterior, :despachos_activos_previos)
+            ", [
+                'id_persona' => $idPersona,
+                'motivo' => $motivo,
+                'fecha_baja' => $fechaTransito,
+                'fecha_transito' => $fechaTransito,
+                'descripcion' => $descripcion,
+                'usuario_baja' => $usuarioBaja,
+                'estatus_anterior' => trim((string)$personaActual['estatus']) ?: 'Activo',
+                'despachos_activos_previos' => $despachosActivosPrevios,
+            ]);
+
+            $idBaja = (int)$db->lastInsertId();
+            if ($idBaja < 1) {
+                throw new \RuntimeException('No se pudo crear el trámite de baja.');
+            }
+
+            foreach ($archivos as $archivo) {
+                $archivo = trim((string)$archivo);
+                if ($archivo === '') {
+                    continue;
+                }
+                $db->CRUD("
+                    INSERT INTO estado_cuenta.carga_documento_persona
+                        (id_persona, id_documento, archivo, fecha_carga)
+                    VALUES
+                        (:id_persona, :id_documento, :archivo, :fecha_carga)
+                ", [
+                    'id_persona' => $idPersona,
+                    'id_documento' => 15,
+                    'archivo' => $archivo,
+                    'fecha_carga' => $fechaTransito,
+                ]);
+            }
+
+            $db->CRUD("
+                UPDATE estado_cuenta.persona
+                SET estatus = 'Transito de baja'
+                WHERE id = :id_persona
+            ", ['id_persona' => $idPersona]);
+
+            // El despacho se inhabilita de inmediato para impedir nuevas asignaciones operativas.
+            $db->CRUD("
+                UPDATE estado_cuenta.despachos
+                SET estatus = 'Inactivo'
+                WHERE id_persona = :id_persona
+                  AND estatus = 'Activo'
+            ", ['id_persona' => $idPersona]);
+
+            $db->commit();
+
+            return self::resultado(true, 'Trámite de baja iniciado. La persona queda fuera de cartera y asignaciones hasta completar sus documentos.', [
+                'id_persona' => $idPersona,
+                'id_baja' => $idBaja,
+                'estatus_tramite' => 'Transito',
+            ]);
+        } catch (\Exception $e) {
+            if ($db) {
+                try {
+                    $db->rollback();
+                } catch (\Exception $rollbackError) {
+                }
+            }
+
+            return self::resultado(false, 'Error al iniciar el trámite de baja.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Flujo definitivo reservado para cuando el expediente de baja esté completo.
+     */
+    /** Cancela un trámite pendiente y devuelve a la persona a su estado anterior. */
+    public static function cancelarTransitoBajaGestor($data)
+    {
+        $db = null;
+        try {
+            $db = new Database();
+            self::asegurarSeguimientoTransitoBaja($db);
+            $idPersona = (int)($data['id_gestor'] ?? 0);
+            $usuario = (int)($data['usuario_cancelacion'] ?? 0);
+            $fecha = trim((string)($data['fecha_cancelacion'] ?? ''));
+            if ($idPersona < 1) return self::resultado(false, 'La persona indicada no es válida.');
+            if ($fecha === '') $fecha = (new \DateTime('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
+
+            $db->beginTransaction();
+            $persona = $db->queryOne("SELECT id, COALESCE(estatus, '') AS estatus FROM estado_cuenta.persona WHERE id = :id_persona FOR UPDATE", ['id_persona' => $idPersona]);
+            if (!$persona || strtolower(trim((string)$persona['estatus'])) !== 'transito de baja') {
+                $db->rollback();
+                return self::resultado(false, 'La persona ya no tiene un trámite de baja que se pueda cancelar.');
+            }
+            $tramite = $db->queryOne("
+                SELECT id, COALESCE(estatus_anterior, '') AS estatus_anterior, COALESCE(despachos_activos_previos, 0) AS despachos_activos_previos
+                FROM estado_cuenta.baja_persona
+                WHERE id_persona = :id_persona AND estatus_tramite = 'Transito'
+                ORDER BY id DESC LIMIT 1 FOR UPDATE
+            ", ['id_persona' => $idPersona]);
+            if (!$tramite) {
+                $db->rollback();
+                return self::resultado(false, 'No se encontró el registro del trámite de baja pendiente.');
+            }
+
+            $estatusAnterior = trim((string)$tramite['estatus_anterior']);
+            if ($estatusAnterior === '' || in_array(strtolower($estatusAnterior), ['baja', 'transito de baja'], true)) $estatusAnterior = 'Activo';
+            $db->CRUD("UPDATE estado_cuenta.persona SET estatus = :estatus WHERE id = :id_persona", ['estatus' => $estatusAnterior, 'id_persona' => $idPersona]);
+            if ((int)$tramite['despachos_activos_previos'] > 0) {
+                $db->CRUD("UPDATE estado_cuenta.despachos SET estatus = 'Activo' WHERE id_persona = :id_persona AND estatus = 'Inactivo'", ['id_persona' => $idPersona]);
+            }
+            $db->CRUD("UPDATE estado_cuenta.baja_persona SET estatus_tramite = 'Cancelado', fecha_cancelacion = :fecha, usuario_cancelacion = :usuario WHERE id = :id", ['fecha' => $fecha, 'usuario' => $usuario ?: null, 'id' => (int)$tramite['id']]);
+            $db->commit();
+            return self::resultado(true, 'Se canceló el trámite de baja y la persona volvió a su estado anterior.', ['id_persona' => $idPersona, 'estatus' => $estatusAnterior]);
+        } catch (\Exception $e) {
+            if ($db) { try { $db->rollback(); } catch (\Exception $ignored) {} }
+            return self::resultado(false, 'No se pudo cancelar el trámite de baja.', null, $e->getMessage());
+        }
+    }
+
+    public static function finalizarBajaGestor($data)
     {
         try {
             $db = new Database();
@@ -10224,7 +10498,8 @@ class CapHum extends Model
             $fecha_baja  = addslashes($data['fecha_baja']);
             $usuario_baja  = addslashes($data['usuario_baja']);
             $archivos    = $data['archivos'] ?? [];
-            $modoReasignacion = $data['modo_reasignacion'] ?? 'sin_subordinados';
+            $modoReasignacion = $data['modo_reasignacion'] ?? '';
+            $tipoDocumentoFinal = strtolower(trim((string)($data['tipo_documento_final'] ?? '')));
             $sustitutoId = !empty($data['sustituto_id']) ? (int) $data['sustituto_id'] : null;
             $subordinadosSeleccionadosRaw = $data['subordinados_seleccionados'] ?? null;
             $asignacionesJefeRaw = is_array($data['asignaciones_jefe'] ?? null) ? $data['asignaciones_jefe'] : [];
@@ -10237,8 +10512,17 @@ class CapHum extends Model
             $personaActual = $db->queryOne("
                 SELECT estatus FROM estado_cuenta.persona WHERE id = '$id_persona' LIMIT 1
             ");
-            if ($personaActual && $personaActual['estatus'] === 'Baja') {
-                return self::resultado(false, 'Esta persona ya se encuentra dada de baja en el sistema.');
+            if (!$personaActual || strtolower(trim((string)$personaActual['estatus'])) !== 'transito de baja') {
+                return self::resultado(false, 'La baja definitiva solo se puede completar desde un trámite de baja pendiente.');
+            }
+            if (!in_array($modoReasignacion, ['vacante', 'sustituto'], true)) {
+                return self::resultado(false, 'Debe elegir si la posición queda como vacante o con sustituto.');
+            }
+            if (!in_array($tipoDocumentoFinal, ['renuncia', 'aviso_rescision'], true)) {
+                return self::resultado(false, 'Debe elegir Renuncia o Aviso de rescisión como documento de baja.');
+            }
+            if (empty($archivos)) {
+                return self::resultado(false, 'Debe adjuntar obligatoriamente el documento de baja en PDF.');
             }
 
             $bloqueoBaja = self::obtenerBloqueoBajaActivo($db, (int)$id_persona);
@@ -10251,7 +10535,7 @@ class CapHum extends Model
                 FROM estado_cuenta.asigna_jefe aj
                 INNER JOIN estado_cuenta.persona p ON p.id = aj.id_persona
                 WHERE aj.id_jefe = :id_persona
-                  AND p.estatus != 'Baja'
+                  AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
             ", ['id_persona' => (int) $id_persona]);
 
             if (!empty($subordinadosActivos) && is_array($subordinadosSeleccionadosRaw)) {
@@ -10313,7 +10597,7 @@ class CapHum extends Model
                     $jefesActivosRows = $db->queryAll("
                         SELECT id
                         FROM estado_cuenta.persona
-                        WHERE estatus != 'Baja'
+                        WHERE LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')
                           AND id IN (" . implode(',', $phJefes) . ")
                     ", $paramsJefes);
                     $jefesActivos = [];

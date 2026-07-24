@@ -38,6 +38,8 @@ class LeonidasAssistantService
                 );
                 unset($respuesta['propuesta_especificacion']);
             }
+        } elseif ($medio = (new LeonidasMediaService())->resolver($mensaje, $normalizado, $contexto)) {
+            $respuesta = $medio;
         } elseif ($repeticion = $this->resolverRepeticionLudica($mensaje)) {
             $respuesta = $repeticion;
         } elseif ($this->esProvocacionComica($normalizado)) {
@@ -52,7 +54,7 @@ class LeonidasAssistantService
                 'mensaje' => 'Puedo responder preguntas sobre Sparta, consultar datos operativos autorizados, localizar colaboradores, explicar módulos, abrir menús y preparar reportes. También puedo llevar un mensaje a otra persona: primero verifico al destinatario, te muestro el texto y solo lo envío cuando confirmas.',
                 'tipo' => 'capacidades',
             ];
-            $respuesta['mensaje'] = 'Puedo consultar en tiempo real S2, créditos, pagos, Segundómetro, gastos de cobranza, plantilla, candidatos y las fuentes conectadas a Sparta. También genero reportes y gráficas, localizo colaboradores, explico módulos, abro menús permitidos, preparo solicitudes de vacaciones y llevo mensajes entre usuarios. Consultar y abrir se hace de inmediato; solo modificar datos o enviar comunicaciones requiere confirmación final.';
+            $respuesta['mensaje'] = 'Puedo consultar en tiempo real S2, créditos, pagos, Segundómetro, gastos de cobranza, plantilla, candidatos y las fuentes conectadas a Sparta. También genero reportes, gráficas, imágenes y videos, y puedo crear música cuando Vertex AI está configurado. Localizo colaboradores, explico módulos, abro menús permitidos, preparo solicitudes de vacaciones y llevo mensajes entre usuarios. Consultar y abrir se hace de inmediato; solo modificar datos o enviar comunicaciones requiere confirmación final.';
             if (!empty($contexto['permisos_agente']['servicios_locales'])) {
                 $respuesta['mensaje'] .= ' Tambien puedo consultar el estado y, con tu confirmacion, iniciar, detener o reiniciar los agentes de Segundometro, correos de primeros pagos y gastos de cobranza.';
             }
@@ -576,6 +578,7 @@ class LeonidasAssistantService
             || str_starts_with($tipo, 'vacaciones_')
             || str_starts_with($tipo, 'agente_')
             || str_starts_with($tipo, 'analitica_')
+            || str_starts_with($tipo, 'media_')
             || in_array($tipo, [
             'conversacion',
             'metrica_personal',
@@ -1440,6 +1443,7 @@ class LeonidasAssistantService
                 'Consultar mediante pasarelas de solo lectura las bases configuradas de Sparta, Legacy, Geografia, Segundometro, Maxi produccion, Maxi Guatemala y AWS operativa.',
                 'Consultar estados de cuenta, pagos, saldos, mora y cuotas mediante la API S2 usando el identificador del credito.',
                 'Consultar indicadores de Sabueso, Segundometro y Gastos de Cobranza con atribucion de fuente.',
+                'Generar imagenes y videos con Gemini y entregarlos de forma privada dentro del chat; generar musica cuando Vertex AI y Lyria estan configurados.',
                 'Abrir menus permitidos de Capital Humano desde una instruccion.',
                 'Preparar solicitudes de permisos, mensajes, descargas o cambios para confirmacion; no las ejecuta sin confirmar.',
                 'Enviar mensajes internos confirmados, mostrarlos al destinatario y regresar con su respuesta o reaccion.',

@@ -38,6 +38,16 @@ class SolicitudAdjudicacion extends Controller
         self::render('solicitud_adjudicacion_despachos');
     }
 
+    public function callCenter(): void
+    {
+        if (!$this->autorizarCanal('CALLCENTER', false)) {
+            return;
+        }
+        self::set('titulo', 'Call Center - Solicitud de Adjudicacion');
+        self::set('solicitudes_tablas_disponibles', $this->model->tablasDisponibles());
+        self::render('solicitud_adjudicacion_callcenter');
+    }
+
     public function buscarCredito(): void
     {
         if (!$this->autorizarCanal('ATC', true)) {
@@ -120,6 +130,15 @@ class SolicitudAdjudicacion extends Controller
         $this->json($this->model->listarPorSolicitante($actorId, ['q' => $_GET['q'] ?? ''], 'DESPACHOS'));
     }
 
+    public function listarCallCenter(): void
+    {
+        if (!$this->autorizarCanal('CALLCENTER', true)) {
+            return;
+        }
+        [$actorId] = $this->actor();
+        $this->json($this->model->listarPorSolicitante($actorId, ['q' => $_GET['q'] ?? ''], 'CALLCENTER'));
+    }
+
     public function detalle($id = 0): void
     {
         if (!$this->autorizarCanal('ATC', true)) {
@@ -131,6 +150,14 @@ class SolicitudAdjudicacion extends Controller
     public function detalleDespachos($id = 0): void
     {
         if (!$this->autorizarCanal('DESPACHOS', true)) {
+            return;
+        }
+        $this->detalleRespuesta((int) $id);
+    }
+
+    public function detalleCallCenter($id = 0): void
+    {
+        if (!$this->autorizarCanal('CALLCENTER', true)) {
             return;
         }
         $this->detalleRespuesta((int) $id);
