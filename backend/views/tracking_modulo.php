@@ -6143,6 +6143,47 @@ $trackingIsPlaneacion = $trackingShowMainTabs
 </div>
 
 <!-- ==========================================================
+     Modal - Consulta y rechazo de evidencias desde Tracking
+========================================================== -->
+<div class="modal fade" id="modalEvidenciasTracking" tabindex="-1" aria-labelledby="modalEvidenciasTrackingLabel">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-sm-down">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title mb-0" id="modalEvidenciasTrackingLabel">
+                    <i class="fa-solid fa-motorcycle me-2" style="color:var(--track-color);"></i>
+                    Datos y evidencias de la moto
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="trkEvidenciasTrackingBody">
+                <div class="text-center text-muted py-5"><span class="spinner-border spinner-border-sm me-2"></span>Cargando...</div>
+            </div>
+            <div class="modal-footer py-2">
+                <span class="small text-muted me-auto"><i class="fa-solid fa-circle-info me-1"></i>Al rechazar, la operaci&oacute;n se enviar&aacute; a Correcciones.</span>
+                <button type="button" class="btn btn-sm btn-label-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalVistaEvidenciaTracking" tabindex="-1" aria-labelledby="modalVistaEvidenciaTrackingLabel">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-fullscreen-md-down" style="max-width:1180px;">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-secondary py-2 text-white">
+                <h6 class="modal-title mb-0" id="modalVistaEvidenciaTrackingLabel">Evidencia</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-2 text-center" id="trkVistaEvidenciaTrackingBody" style="height:72vh;min-height:520px;"></div>
+            <div class="modal-footer border-secondary py-2" id="trkVistaEvidenciaTrackingFooter">
+                <span class="small text-white-50 me-auto" id="trkVistaEvidenciaTrackingContador">1 / 1</span>
+                <button type="button" class="btn btn-sm btn-danger d-none" id="btnVistaEvidenciaTrackingRechazar"><i class="fa-solid fa-xmark me-1"></i>Rechazar evidencia</button>
+                <button type="button" class="btn btn-sm btn-outline-light" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================================
      Offcanvas  -  Chat Operativo (gestor / Sparta Ledger)
      Se abre desde el boton de chat en la tabla de rutas.
      Una pestana por cada id_detalle (punto de recoleccion).
@@ -7077,11 +7118,18 @@ function _trkInicializarTablaCreditosDT() {
                 orderable: false,
                 searchable: false,
                 className: 'text-center align-middle',
-                render: r => `<button class="btn btn-icon btn-sm rounded-pill btn-label-success trk-action-btn btn-agregar-a-ruta"
-                                  data-id="${r.id_credito}"
-                                  title="Agregar a ruta">
-                                  <i class="fa-solid fa-plus"></i>
-                              </button>`,
+                render: r => `<div class="d-inline-flex gap-1">
+                    <button class="btn btn-icon btn-sm rounded-pill btn-label-primary trk-action-btn btn-ver-evidencias-tracking"
+                            data-id="${r.id_credito}"
+                            title="Ver datos y evidencias">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                    <button class="btn btn-icon btn-sm rounded-pill btn-label-success trk-action-btn btn-agregar-a-ruta"
+                            data-id="${r.id_credito}"
+                            title="Agregar a ruta">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>`,
             },
         ],
     });
@@ -7091,6 +7139,28 @@ function _trkInicializarTablaCreditosDT() {
         const cred   = _trk.creditosDisponibles.find(c => String(c.id_credito) === String(idCred));
         if (!cred) return;
         _trkAbrirModalAgregarCreditoRuta(cred);
+    });
+
+    $('#tablaCreditos').on('click', '.btn-ver-evidencias-tracking', function () {
+        _trkAbrirEvidenciasTracking(Number($(this).data('id')));
+    });
+
+    $('#modalEvidenciasTracking').on('click', '.btn-vista-evidencia-tracking', function () {
+        _trkAbrirVistaEvidenciaTracking(Number($(this).data('indice')));
+    });
+    $('#modalVistaEvidenciaTracking').on('click', '.btn-vista-evidencia-tracking-nav', function () {
+        _trkCambiarVistaEvidenciaTracking(Number($(this).data('direccion')));
+    });
+    $('#btnVistaEvidenciaTrackingRechazar').on('click', () => {
+        const actual = _trkVistaEvidenciasTracking.items[_trkVistaEvidenciasTracking.indice];
+        if (!actual) return;
+        bootstrap.Modal.getInstance(document.getElementById('modalVistaEvidenciaTracking'))?.hide();
+        _trkConfirmarRechazoEvidenciaTracking(actual.idOperacion, actual.idEvidencia, actual.etiqueta);
+    });
+    document.getElementById('modalVistaEvidenciaTracking')?.addEventListener('hidden.bs.modal', () => {
+        if (!_trkVistaEvidenciasTracking.reabrirModalPrincipal) return;
+        _trkVistaEvidenciasTracking.reabrirModalPrincipal = false;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEvidenciasTracking')).show();
     });
 
     $('#trkQuickRoutesList').on('click', '.btn-quick-add-ruta', function () {
@@ -7117,6 +7187,257 @@ function _trkInicializarTablaCreditosDT() {
         $('#trkCambiarCedisMotivoCount').text(`${String(this.value || '').length}/200`);
     });
     $('#btnConfirmarCambioCedisDestino').on('click', _trkConfirmarCambioCedisDestino);
+}
+
+function _trkEtiquetaEvidenciaTracking(evidencia) {
+    const slot = String(evidencia?.slot || evidencia?.tipo || 'Evidencia').trim();
+    const etiquetas = {
+        fis_dacion_hoja_1: 'Dación hoja 1', fis_dacion_hoja_2: 'Dación hoja 2',
+        fis_ine_frente: 'INE frente', fis_ine_reverso: 'INE reverso', fis_vin: 'VIN',
+        fis_frontal: 'Foto frontal', fis_lateral_izq: 'Lateral izquierdo', fis_lateral_der: 'Lateral derecho',
+        fis_trasera: 'Foto trasera', fis_tacometro: 'Tacómetro',
+        fis_video_cliente_acuerdo: 'Video cliente de acuerdo', fis_video_vuelta_prueba: 'Video vuelta de prueba',
+        fis_checklist: 'Checklist', fis_360: 'Video 360°', fis_360_encendida: 'Video moto encendida',
+        doc_repuve: 'Documento REPUVE'
+    };
+    return etiquetas[slot] || slot.replace(/^fis_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+const _trkVistaEvidenciasTracking = { items: [], indice: 0, reabrirModalPrincipal: false, solicitud: 0 };
+
+function _trkEvidenciaEsVideo(evidencia, url = '') {
+    const slot = String(evidencia?.slot || '').toLowerCase();
+    const tipo = String(evidencia?.tipo || '').toLowerCase();
+    return tipo.includes('video') || slot.includes('video') || slot === 'fis_360' || slot === 'fis_360_encendida' || /\.(mp4|mov|webm)(\?|#|$)/i.test(url);
+}
+
+function _trkEvidenciaEsPdf(evidencia, url = '') {
+    return String(evidencia?.slot || '') === 'doc_repuve'
+        || String(evidencia?.tipo || '').toLowerCase().includes('pdf')
+        || /\.pdf(\?|#|$)/i.test(url);
+}
+
+function _trkUrlsAlternasEvidenciaTracking(url) {
+    const original = String(url || '').trim();
+    if (!original) return [];
+    const alternativas = [];
+    try {
+        const parsed = new URL(original, window.location.origin);
+        const matchUploads = parsed.pathname.match(/(\/uploads\/.*)$/i);
+        if (!matchUploads) return [];
+        const archivo = matchUploads[1] + parsed.search + parsed.hash;
+        alternativas.push(archivo);
+
+        const marcadorRuta = '/trackingrecoleccion/';
+        const rutaActual = window.location.pathname || '';
+        const indiceModulo = rutaActual.toLowerCase().indexOf(marcadorRuta);
+        if (indiceModulo > 0) {
+            alternativas.push(rutaActual.slice(0, indiceModulo).replace(/\/$/, '') + archivo);
+        }
+    } catch (_) {
+        return [];
+    }
+    return alternativas.filter((item, indice, lista) => item && item !== original && lista.indexOf(item) === indice);
+}
+
+async function _trkResolverUrlEvidenciaTracking(url) {
+    const candidatos = [String(url || '').trim(), ..._trkUrlsAlternasEvidenciaTracking(url)].filter(Boolean);
+    for (const candidato of candidatos) {
+        try {
+            const parsed = new URL(candidato, window.location.origin);
+            if (parsed.origin !== window.location.origin) return candidato;
+            const respuesta = await fetch(candidato, { method: 'HEAD', credentials: 'same-origin' });
+            if (respuesta.ok) return candidato;
+        } catch (_) {
+            // Probar la siguiente ruta posible del mismo archivo.
+        }
+    }
+    return candidatos[0] || '';
+}
+
+function _trkActivarFallbackEvidenciasTracking(contenedor) {
+    (contenedor || document).querySelectorAll?.('[data-url-principal]').forEach(media => {
+        media.addEventListener('error', function () {
+            const alternativas = String(this.dataset.urlAlternas || '').split('||').filter(Boolean);
+            const indice = Number(this.dataset.fallbackIndice || 0);
+            if (!alternativas[indice]) {
+                this.classList.add('opacity-50');
+                return;
+            }
+            this.dataset.fallbackIndice = String(indice + 1);
+            this.src = alternativas[indice];
+        });
+        if (!media.getAttribute('src')) {
+            media.src = String(media.dataset.urlPrincipal || '');
+        }
+    });
+}
+
+function _trkVistaPreviaEvidenciaTracking(evidencia, etiqueta, url, indice) {
+    const urlEsc = _trkChatEscapeHtml(url);
+    const etiquetaEsc = _trkChatEscapeHtml(etiqueta);
+    const attrs = `data-indice="${Number(indice)}"`;
+    const urlsAlternas = _trkUrlsAlternasEvidenciaTracking(url);
+    const fuentes = ` data-url-principal="${urlEsc}"${urlsAlternas.length ? ` data-url-alternas="${_trkChatEscapeHtml(urlsAlternas.join('||'))}" data-fallback-indice="0"` : ''}`;
+    if (!url) {
+        return '<div class="border rounded bg-light text-muted d-flex align-items-center justify-content-center" style="height:150px;"><i class="fa-solid fa-image fa-2x"></i></div>';
+    }
+    if (_trkEvidenciaEsPdf(evidencia, url)) {
+        return `<button type="button" class="btn-vista-evidencia-tracking border-0 rounded w-100 bg-light text-danger" ${attrs} style="height:150px;"><i class="fa-solid fa-file-pdf fa-3x d-block mb-2"></i><span class="small">Vista previa del PDF</span></button>`;
+    }
+    if (_trkEvidenciaEsVideo(evidencia, url)) {
+        return `<button type="button" class="btn-vista-evidencia-tracking border-0 rounded w-100 position-relative overflow-hidden bg-dark" ${attrs} style="height:150px;"><video${fuentes} muted preload="metadata" class="w-100 h-100" style="object-fit:cover;pointer-events:none;"></video><span class="position-absolute top-50 start-50 translate-middle rounded-circle bg-dark bg-opacity-75 text-white d-inline-flex align-items-center justify-content-center" style="width:42px;height:42px;"><i class="fa-solid fa-play"></i></span></button>`;
+    }
+    return `<button type="button" class="btn-vista-evidencia-tracking border-0 rounded w-100 overflow-hidden p-0 bg-light" ${attrs} title="Clic para ampliar" style="height:150px;"><img${fuentes} alt="${etiquetaEsc}" class="w-100 h-100" style="object-fit:cover;"></button>`;
+}
+
+function _trkEstadoEvidenciaTracking(evidencia) {
+    const valor = Number(evidencia?.val_atn || 0);
+    if (valor === 2) {
+        const porTracking = /RECHAZADO POR TRACKING/i.test(String(evidencia?.comentario_atn || ''));
+        return `<span class="badge ${porTracking ? 'bg-label-danger' : 'bg-label-warning'}">${porTracking ? 'Rechazado por Tracking' : 'Rechazada'}</span>`;
+    }
+    if (valor === 1) return '<span class="badge bg-label-success">Aceptada</span>';
+    return '<span class="badge bg-label-secondary">Pendiente</span>';
+}
+
+function _trkRenderEvidenciasTracking(detalle) {
+    const esc = _trkChatEscapeHtml;
+    const datos = detalle?.datos_moto || detalle || {};
+    const campos = [
+        ['Crédito', detalle?.id_credito], ['Cliente', detalle?.nombre_cliente], ['Estatus', detalle?.estatus],
+        ['Marca', datos?.moto_marca], ['Modelo', datos?.moto_modelo], ['Año', datos?.moto_anio],
+        ['Color', datos?.moto_color], ['VIN / serie', datos?.moto_no_serie], ['Motor', datos?.moto_no_motor],
+        ['Placas', datos?.moto_placas], ['Ubicación', [datos?.log_estado, datos?.log_ciudad].filter(Boolean).join(' - ')]
+    ].filter(([, valor]) => valor !== null && valor !== undefined && String(valor).trim() !== '');
+    const resumen = campos.length
+        ? `<div class="row g-2 mb-4">${campos.map(([etiqueta, valor]) => `<div class="col-12 col-md-4"><div class="border rounded p-2 h-100"><div class="small text-muted">${esc(etiqueta)}</div><div class="fw-semibold small">${esc(valor)}</div></div></div>`).join('')}</div>`
+        : '<div class="alert alert-light border mb-4">No hay datos adicionales de la moto.</div>';
+    const evidencias = Array.isArray(detalle?.evidencias) ? detalle.evidencias : [];
+    _trkVistaEvidenciasTracking.items = evidencias
+        .filter(ev => String(ev?.url || '').trim() !== '')
+        .map(ev => ({
+            url: String(ev.url || '').trim(),
+            etiqueta: _trkEtiquetaEvidenciaTracking(ev),
+            tipo: String(ev?.tipo || ''),
+            idOperacion: Number(detalle?.id || 0),
+            idEvidencia: Number(ev?.id || 0),
+            puedeRechazar: String(ev?.slot || '') !== 'doc_repuve' && Number(ev?.val_atn || 0) !== 2,
+        }));
+    const tarjetas = evidencias.length
+        ? evidencias.map(ev => {
+            const url = String(ev?.url || '').trim();
+            const etiqueta = _trkEtiquetaEvidenciaTracking(ev);
+            const indice = _trkVistaEvidenciasTracking.items.findIndex(item => item.idEvidencia === Number(ev?.id || 0));
+            const previsualizacion = _trkVistaPreviaEvidenciaTracking(ev, etiqueta, url, indice);
+            const comentario = ev?.comentario_atn ? `<div class="small text-danger mt-2">${esc(ev.comentario_atn)}</div>` : '';
+            return `<div class="col-12 col-sm-6 col-lg-3"><div class="border rounded p-3 h-100 d-flex flex-column gap-2"><div class="d-flex align-items-start justify-content-between gap-2"><strong class="small">${esc(etiqueta)}</strong>${_trkEstadoEvidenciaTracking(ev)}</div>${previsualizacion}${comentario}</div></div>`;
+        }).join('')
+        : '<div class="col-12"><div class="alert alert-warning mb-0">Esta moto no tiene evidencias cargadas.</div></div>';
+    return `${resumen}<div class="d-flex align-items-center justify-content-between mb-2"><h6 class="mb-0"><i class="fa-solid fa-images me-1"></i>Evidencias</h6><span class="badge bg-label-primary">${evidencias.length}</span></div><div class="row g-3">${tarjetas}</div>`;
+}
+
+async function _trkAbrirVistaEvidenciaTracking(indice) {
+    if (!Number.isInteger(indice) || !_trkVistaEvidenciasTracking.items[indice]) return;
+    _trkVistaEvidenciasTracking.indice = indice;
+    const modalEl = document.getElementById('modalVistaEvidenciaTracking');
+    const titulo = document.getElementById('modalVistaEvidenciaTrackingLabel');
+    const body = document.getElementById('trkVistaEvidenciaTrackingBody');
+    if (!modalEl || !body) return;
+    const actual = _trkVistaEvidenciasTracking.items[indice];
+    const { url, etiqueta, tipo } = actual;
+    const esc = _trkChatEscapeHtml;
+    const solicitud = ++_trkVistaEvidenciasTracking.solicitud;
+    if (titulo) titulo.textContent = etiqueta || 'Evidencia';
+    body.innerHTML = '<div class="h-100 d-flex align-items-center justify-content-center text-white"><span class="spinner-border spinner-border-sm me-2"></span>Cargando evidencia...</div>';
+    const urlVisual = await _trkResolverUrlEvidenciaTracking(url);
+    if (solicitud !== _trkVistaEvidenciasTracking.solicitud || _trkVistaEvidenciasTracking.indice !== indice) return;
+    const urlsAlternas = _trkUrlsAlternasEvidenciaTracking(urlVisual);
+    const fuentes = ` data-url-principal="${esc(urlVisual)}"${urlsAlternas.length ? ` data-url-alternas="${esc(urlsAlternas.join('||'))}" data-fallback-indice="0"` : ''}`;
+    const evidencia = { tipo, slot: '' };
+    const total = _trkVistaEvidenciasTracking.items.length;
+    const navegacion = total > 1
+        ? `<button type="button" class="btn btn-dark rounded-circle position-absolute top-50 start-0 translate-middle-y ms-2 btn-vista-evidencia-tracking-nav" data-direccion="-1" title="Evidencia anterior" style="z-index:2;width:42px;height:42px;"><i class="fa-solid fa-chevron-left"></i></button>
+           <button type="button" class="btn btn-dark rounded-circle position-absolute top-50 end-0 translate-middle-y me-2 btn-vista-evidencia-tracking-nav" data-direccion="1" title="Evidencia siguiente" style="z-index:2;width:42px;height:42px;"><i class="fa-solid fa-chevron-right"></i></button>`
+        : '';
+    let medio = '';
+    if (_trkEvidenciaEsPdf(evidencia, urlVisual)) {
+        medio = `<iframe src="${esc(urlVisual)}" title="${esc(etiqueta)}" class="w-100 h-100 bg-white" style="border:0;"></iframe>`;
+    } else if (_trkEvidenciaEsVideo(evidencia, urlVisual)) {
+        medio = `<video${fuentes} controls autoplay class="mw-100 mh-100" style="max-height:100%;max-width:100%;"></video>`;
+    } else {
+        medio = `<img${fuentes} alt="${esc(etiqueta)}" class="mw-100 mh-100" style="max-height:100%;max-width:100%;object-fit:contain;">`;
+    }
+    body.innerHTML = `<div class="position-relative d-flex align-items-center justify-content-center h-100 w-100 overflow-hidden">${medio}${navegacion}</div>`;
+    _trkActivarFallbackEvidenciasTracking(body);
+    $('#trkVistaEvidenciaTrackingContador').text(`${indice + 1} / ${total}`);
+    $('#btnVistaEvidenciaTrackingRechazar').toggleClass('d-none', !actual.puedeRechazar);
+    const modalPrincipalEl = document.getElementById('modalEvidenciasTracking');
+    const modalPrincipal = modalPrincipalEl ? bootstrap.Modal.getInstance(modalPrincipalEl) : null;
+    const visor = bootstrap.Modal.getOrCreateInstance(modalEl);
+    if (modalEl.classList.contains('show')) {
+        visor.show();
+    } else if (modalPrincipalEl?.classList.contains('show') && modalPrincipal) {
+        _trkVistaEvidenciasTracking.reabrirModalPrincipal = true;
+        modalPrincipalEl.addEventListener('hidden.bs.modal', () => visor.show(), { once: true });
+        modalPrincipal.hide();
+    } else {
+        visor.show();
+    }
+}
+
+function _trkCambiarVistaEvidenciaTracking(delta) {
+    const total = _trkVistaEvidenciasTracking.items.length;
+    if (total <= 1) return;
+    const siguiente = (_trkVistaEvidenciasTracking.indice + Number(delta) + total) % total;
+    _trkAbrirVistaEvidenciaTracking(siguiente);
+}
+
+async function _trkAbrirEvidenciasTracking(idCredito) {
+    if (!idCredito) return;
+    const modalEl = document.getElementById('modalEvidenciasTracking');
+    const body = document.getElementById('trkEvidenciasTrackingBody');
+    if (!modalEl || !body) return;
+    body.innerHTML = '<div class="text-center text-muted py-5"><span class="spinner-border spinner-border-sm me-2"></span>Cargando datos y evidencias...</div>';
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    try {
+        const respuesta = await trkFetch('/MotosAdjudicadas/obtenerEvidenciasCredito', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ id_credito: idCredito, rapido: true })
+        });
+        if (!respuesta?.success || !respuesta?.detalle) throw new Error(respuesta?.message || 'No se encontraron datos de la moto.');
+        body.innerHTML = _trkRenderEvidenciasTracking(respuesta.detalle);
+        _trkActivarFallbackEvidenciasTracking(body);
+    } catch (error) {
+        body.innerHTML = `<div class="alert alert-danger mb-0">${_trkChatEscapeHtml(error?.message || 'No se pudieron cargar las evidencias.')}</div>`;
+    }
+}
+
+async function _trkConfirmarRechazoEvidenciaTracking(idOperacion, idEvidencia, etiqueta) {
+    if (!idOperacion || !idEvidencia) return;
+    const dialogo = await Swal.fire({
+        icon: 'warning', title: 'Rechazar evidencia',
+        html: `Indica el motivo para <b>${_trkChatEscapeHtml(etiqueta)}</b>. La operación pasará a <b>Correcciones</b> y se identificará como <b>Rechazado por Tracking</b>.`,
+        input: 'textarea', inputPlaceholder: 'Motivo del rechazo...', inputAttributes: { maxlength: 1800 },
+        showCancelButton: true, confirmButtonText: 'Rechazar y enviar a Correcciones', cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#dc3545', inputValidator: value => !String(value || '').trim() && 'El motivo es requerido.'
+    });
+    if (!dialogo.isConfirmed) return;
+    try {
+        Swal.fire({ title: 'Guardando rechazo...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        const respuesta = await trkFetch('/TrackingRecoleccion/rechazarEvidenciaTracking', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ id_operacion: idOperacion, id_evidencia: idEvidencia, motivo: String(dialogo.value || '').trim() })
+        });
+        if (!respuesta?.success) throw new Error(respuesta?.message || respuesta?.mensaje || 'No se pudo rechazar la evidencia.');
+        await Swal.fire({ icon: 'success', title: 'Evidencia rechazada', text: 'La operación fue enviada a Correcciones con la etiqueta Rechazado por Tracking.' });
+        await _trkCargarCreditosPaso2(true);
+        const credito = _trk.creditosFiltroBase.find(c => Number(c.id_operacion) === idOperacion);
+        if (credito) _trkAbrirEvidenciasTracking(Number(credito.id_credito));
+        else bootstrap.Modal.getInstance(document.getElementById('modalEvidenciasTracking'))?.hide();
+    } catch (error) {
+        Swal.fire({ icon: 'error', title: 'No se pudo rechazar', text: error?.message || 'Intenta nuevamente.' });
+    }
 }
 
 function _trkCargarCreditosPaso2(silent = false) {

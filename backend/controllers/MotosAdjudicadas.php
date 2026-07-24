@@ -3536,17 +3536,12 @@ class MotosAdjudicadas extends Controller
 
             if (!empty($detalle['evidencias']) && is_array($detalle['evidencias'])) {
                 foreach ($detalle['evidencias'] as &$ev) {
-                    if (!is_array($ev) || empty($ev['url'])) {
+                    if (!is_array($ev) || empty($ev['url']) || empty($ev['id'])) {
                         continue;
                     }
-                    $u = str_replace('\\', '/', trim((string) $ev['url']));
-                    $u = preg_replace('#^https?://uploads(?=/|$)#i', '/uploads', $u);
-                    $u = preg_replace('#^/{2,}uploads(?=/|$)#i', '/uploads', $u);
-                    $u = preg_replace('#^/uploads/uploads/#i', '/uploads/', $u);
-                    if (function_exists('sparta_url_publica_desde_repositorio')) {
-                        $u = sparta_url_publica_desde_repositorio($u);
-                    }
-                    $ev['url'] = $u;
+                    // La vista consume una URL estable del controlador; asi no depende
+                    // de si uploads esta publicado en raiz o dentro de una subcarpeta.
+                    $ev['url'] = '/MotosAdjudicadas/verEvidencia?id=' . (int) $ev['id'];
                 }
                 unset($ev);
             }
@@ -3631,6 +3626,97 @@ class MotosAdjudicadas extends Controller
             echo json_encode(['success' => true, 'detalle' => $detalleCompacto]);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * GET /MotosAdjudicadas/verEvidencia?id=N
+     * Sirve fotos, videos y PDFs desde una unica URL controlada por Sparta.
+     */
+    public function verEvidencia()
+    {
+        $idEvidencia = (int) ($_GET['id'] ?? 0);
+        if ($idEvidencia <= 0) {
+            http_response_code(400);
+            exit;
+        }
+
+        try {
+            $evidencia = $this->model->obtenerArchivoEvidenciaPorId($idEvidencia);
+            if (!$evidencia || trim((string) ($evidencia['url'] ?? '')) === '') {
+                http_response_code(404);
+                exit;
+            }
+
+            $archivo = $this->resolverArchivoEvidencia((string) $evidencia['url']);
+            if (!$archivo || empty($archivo['path']) || !is_file((string) $archivo['path'])) {
+                http_response_code(404);
+                exit;
+            }
+
+            $ruta = (string) $archivo['path'];
+            $mime = 'application/octet-stream';
+            if (class_exists('\\finfo')) {
+                $detectado = (new \finfo(FILEINFO_MIME_TYPE))->file($ruta);
+                if (is_string($detectado) && $detectado !== '') {
+                    $mime = $detectado;
+                }
+            }
+            if (strpos($mime, 'application/octet-stream') === 0) {
+                $ext = strtolower((string) ($archivo['ext'] ?? ''));
+                $mime = [
+                    'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png',
+                    'webp' => 'image/webp', 'pdf' => 'application/pdf', 'mp4' => 'video/mp4',
+                    'mov' => 'video/quicktime', 'webm' => 'video/webm',
+                ][$ext] ?? $mime;
+            }
+
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            $tamano = filesize($ruta);
+            $inicio = 0;
+            $fin = max(0, $tamano - 1);
+            $rango = trim((string) ($_SERVER['HTTP_RANGE'] ?? ''));
+            if ($rango !== '' && preg_match('/bytes=(\d*)-(\d*)/i', $rango, $coincide)) {
+                $inicio = $coincide[1] !== '' ? (int) $coincide[1] : 0;
+                $fin = $coincide[2] !== '' ? min((int) $coincide[2], $fin) : $fin;
+                if ($inicio > $fin || $inicio >= $tamano) {
+                    header('Content-Range: bytes */' . $tamano);
+                    http_response_code(416);
+                    exit;
+                }
+                http_response_code(206);
+                header('Content-Range: bytes ' . $inicio . '-' . $fin . '/' . $tamano);
+            }
+            header('Content-Type: ' . $mime);
+            header('Accept-Ranges: bytes');
+            header('Content-Length: ' . (($fin - $inicio) + 1));
+            header('Cache-Control: private, max-age=3600');
+            header('X-Content-Type-Options: nosniff');
+            $manejador = fopen($ruta, 'rb');
+            if ($manejador === false) {
+                http_response_code(404);
+                exit;
+            }
+            fseek($manejador, $inicio);
+            $restantes = ($fin - $inicio) + 1;
+            while ($restantes > 0 && !feof($manejador)) {
+                $bloque = fread($manejador, min(1024 * 1024, $restantes));
+                if ($bloque === false) {
+                    break;
+                }
+                echo $bloque;
+                $restantes -= strlen($bloque);
+            }
+            fclose($manejador);
+            if (!empty($archivo['temp']) && is_file($ruta)) {
+                @unlink($ruta);
+            }
+            exit;
+        } catch (\Throwable $e) {
+            http_response_code(404);
+            exit;
         }
     }
 

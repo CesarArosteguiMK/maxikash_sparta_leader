@@ -5,6 +5,7 @@ namespace Controllers;
 use Core\Controller;
 use Models\TrackingRecoleccion as TrackingModel;
 use Models\ConfigMotosAdj;
+use Models\MotosAdjudicadas as MotosAdjudicadasModel;
 
 class TrackingRecoleccion extends Controller
 {
@@ -685,6 +686,42 @@ class TrackingRecoleccion extends Controller
             self::respuestaJSON(self::respuesta(true, null, $creditos));
         } catch (\Throwable $e) {
             self::respuestaJSON(self::respuesta(false, 'Error al obtener créditos.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * POST /TrackingRecoleccion/rechazarEvidenciaTracking
+     * Rechaza una evidencia desde la planeacion y la envia a Correcciones.
+     */
+    public function rechazarEvidenciaTracking()
+    {
+        $body = json_decode((string) file_get_contents('php://input'), true) ?: [];
+        $idOperacion = (int) ($body['id_operacion'] ?? 0);
+        $idEvidencia = (int) ($body['id_evidencia'] ?? 0);
+        $motivo = trim((string) ($body['motivo'] ?? ''));
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+
+        if ($idOperacion <= 0 || $idEvidencia <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'La operacion y la evidencia son requeridas.'));
+            return;
+        }
+        if ($motivo === '') {
+            self::respuestaJSON(self::respuesta(false, 'Indica el motivo del rechazo.'));
+            return;
+        }
+
+        try {
+            $resultado = (new MotosAdjudicadasModel())->rechazarEvidenciaDesdeTracking(
+                $idOperacion,
+                $idEvidencia,
+                $motivo,
+                $idUsuario,
+                $nombreUsuario
+            );
+            self::respuestaJSON($resultado);
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'No se pudo rechazar la evidencia.', null, $e->getMessage()));
         }
     }
 

@@ -23,6 +23,7 @@ class CapHum extends Model
     public const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
     public const MODULO_AUDITORIA_RRHH = 154;
     public const MODULO_DESCARGAR_PLANTILLA_CRUCE_VACACIONES = 196;
+    public const MODULO_DESCARGAR_MUESTRA_EXPEDIENTES_RRHH = 197;
     public const MODULO_ASISTENTE_SPARTA = 194;
     public const MODULO_DESBLOQUEAR_COMPONENTES_MOTOS_ADJUDICADAS = 195;
     public const PERSONA_LAZARO_RAUDEL = 878;
@@ -61,7 +62,7 @@ class CapHum extends Model
         140, 141, 142, 143, 144, 147, 151, 152, 153, 154,
         155, 156, 157, 158, 159, 160, 161, 162, 163, 164,
         165, 166, 167, 168, 169, 170, 171, 172, 173, 174,
-        175, 176, 177, 178, 179, 184, 185, 196,
+        175, 176, 177, 178, 179, 184, 185, 196, 197,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -157,6 +158,12 @@ class CapHum extends Model
                 'nombre' => 'Plantilla para cruce',
                 'pestana' => 'Capital Humano',
                 'descripcion' => 'Permite descargar la plantilla con CURP, nombre y codigo Contpaqi para el cruce de vacaciones.',
+            ],
+            [
+                'id' => self::MODULO_DESCARGAR_MUESTRA_EXPEDIENTES_RRHH,
+                'nombre' => 'Descargar muestra de expedientes',
+                'pestana' => 'Control documental RR.HH.',
+                'descripcion' => 'Permite descargar hasta 10 expedientes de plantilla activa en un ZIP, protegido con Google Authenticator.',
             ],
             [
                 'id' => self::MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS,
@@ -4204,12 +4211,21 @@ class CapHum extends Model
                     TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
                     p.correo,
                     COALESCE(p.estatus, '') AS estatus,
+                    MIN(pla.id_empresa) AS id_empresa,
+                    CASE
+                        WHEN LOWER(COALESCE(emp.nombre_comercial, '')) LIKE '%furia%'
+                            THEN 'furia_moto'
+                        ELSE 'maxikash'
+                    END AS empresa_clave,
+                    COALESCE(NULLIF(emp.nombre_comercial, ''), 'MaxiKash') AS empresa_nombre,
                     GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', ') AS departamentos,
                     GROUP_CONCAT(DISTINCT pp.nombre ORDER BY pp.nombre SEPARATOR ', ') AS puestos
                 FROM estado_cuenta.persona p
                 INNER JOIN estado_cuenta.rrhh_plantilla_activa pla
                     ON pla.id_persona = p.id
                    AND pla.activo = 1
+                LEFT JOIN estado_cuenta.rrhh_empresas emp
+                    ON emp.id = pla.id_empresa
                 LEFT JOIN estado_cuenta.asigna_puesto ap
                     ON ap.id_persona = p.id
                    AND COALESCE(ap.activo, 1) = 1
@@ -4219,7 +4235,7 @@ class CapHum extends Model
                     ON d.id = pp.departamento_id
                 WHERE p.estatus = 'Activo'
                   AND COALESCE(p.es_externo, 0) = 0
-                GROUP BY p.id, p.numero_empleado, p.codigo_contpac, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.correo, p.estatus
+                GROUP BY p.id, p.numero_empleado, p.codigo_contpac, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.correo, p.estatus, emp.nombre_comercial
                 ORDER BY nombre_completo ASC
             ");
 
@@ -4324,6 +4340,9 @@ class CapHum extends Model
                     'codigo_contpac' => $persona['codigo_contpac'] ?? '',
                     'nombre_completo' => $persona['nombre_completo'] ?? '',
                     'correo' => $persona['correo'] ?? '',
+                    'id_empresa' => (int)($persona['id_empresa'] ?? 0),
+                    'empresa_clave' => $persona['empresa_clave'] ?? 'maxikash',
+                    'empresa_nombre' => $persona['empresa_nombre'] ?? 'MaxiKash',
                     'departamentos' => $persona['departamentos'] ?: 'Sin departamento',
                     'puestos' => $persona['puestos'] ?: 'Sin puesto',
                     'estatus' => $persona['estatus'] ?? '',
@@ -4367,6 +4386,115 @@ class CapHum extends Model
             ]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener resumen documental global.', [], $e->getMessage());
+        }
+    }
+
+    /**
+     * Devuelve una muestra acotada de la plantilla vigente. La consulta vuelve a
+     * validar activo, empresa y externo en servidor antes de cualquier descarga.
+     */
+    public static function getPersonasMuestraExpedientesRrhh(string $empresa, array $idsPersona = [], bool $aleatorio = true, int $limite = 10)
+    {
+        try {
+            $empresa = in_array($empresa, ['maxikash', 'furia_moto', 'ambas'], true) ? $empresa : 'ambas';
+            $idsPersona = array_values(array_unique(array_filter(array_map('intval', $idsPersona))));
+            $limite = max(1, min(10, $limite));
+
+            $db = new Database();
+            self::asegurarPersonaEsExterno($db);
+            self::asegurarPlantillaActivaExpedientes($db);
+
+            $params = [];
+            $where = [
+                "p.estatus = 'Activo'",
+                'COALESCE(p.es_externo, 0) = 0',
+            ];
+            $empresaTexto = "LOWER(COALESCE(emp.nombre_comercial, ''))";
+            if ($empresa === 'furia_moto') {
+                $where[] = "$empresaTexto LIKE '%furia%'";
+            } elseif ($empresa === 'maxikash') {
+                $where[] = "($empresaTexto NOT LIKE '%furia%' OR $empresaTexto = '')";
+            }
+
+            if (!empty($idsPersona)) {
+                $placeholders = [];
+                foreach ($idsPersona as $indice => $idPersona) {
+                    $clave = 'persona_' . $indice;
+                    $params[$clave] = $idPersona;
+                    $placeholders[] = ':' . $clave;
+                }
+                $where[] = 'p.id IN (' . implode(', ', $placeholders) . ')';
+            }
+
+            $orden = $aleatorio && empty($idsPersona) ? 'RAND()' : 'nombre_completo ASC';
+            $personas = $db->queryAll("
+                SELECT
+                    p.id AS id_persona,
+                    p.codigo_contpac,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
+                    pla.id_empresa,
+                    CASE
+                        WHEN $empresaTexto LIKE '%furia%' THEN 'furia_moto'
+                        ELSE 'maxikash'
+                    END AS empresa_clave,
+                    COALESCE(NULLIF(emp.nombre_comercial, ''), 'MaxiKash') AS empresa_nombre
+                FROM estado_cuenta.persona p
+                INNER JOIN estado_cuenta.rrhh_plantilla_activa pla
+                    ON pla.id_persona = p.id
+                   AND pla.activo = 1
+                LEFT JOIN estado_cuenta.rrhh_empresas emp
+                    ON emp.id = pla.id_empresa
+                WHERE " . implode(' AND ', $where) . "
+                GROUP BY p.id, p.codigo_contpac, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, pla.id_empresa, emp.nombre_comercial
+                ORDER BY $orden
+                LIMIT $limite
+            ", $params);
+
+            return self::resultado(true, 'Personas de plantilla encontradas.', $personas ?? []);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'Error al seleccionar la muestra de expedientes.', [], $e->getMessage());
+        }
+    }
+
+    /** Obtiene unicamente los documentos que forman parte del expediente RR.HH. base. */
+    public static function getDocumentosExpedienteRrhhPorPersonas(array $idsPersona)
+    {
+        try {
+            $idsPersona = array_values(array_unique(array_filter(array_map('intval', $idsPersona))));
+            if (empty($idsPersona)) {
+                return self::resultado(true, 'No hay personas seleccionadas.', []);
+            }
+
+            $params = [];
+            $placeholders = [];
+            foreach ($idsPersona as $indice => $idPersona) {
+                $clave = 'persona_' . $indice;
+                $params[$clave] = $idPersona;
+                $placeholders[] = ':' . $clave;
+            }
+            $idsDocumento = array_values(array_unique(array_merge(
+                self::DOCUMENTOS_EXPEDIENTE_RRHH,
+                array_keys(self::DOCUMENTOS_ALIAS_RRHH)
+            )));
+
+            $db = new Database();
+            $documentos = $db->queryAll("
+                SELECT
+                    cdp.id,
+                    cdp.id_persona,
+                    cdp.id_documento,
+                    cdp.archivo,
+                    cdp.fecha_carga
+                FROM estado_cuenta.carga_documento_persona cdp
+                WHERE cdp.id_persona IN (" . implode(', ', $placeholders) . ")
+                  AND cdp.id_documento IN (" . implode(',', array_map('intval', $idsDocumento)) . ")
+                  AND COALESCE(cdp.archivo, '') <> ''
+                ORDER BY cdp.id_persona ASC, cdp.id_documento ASC, cdp.fecha_carga ASC, cdp.id ASC
+            ", $params);
+
+            return self::resultado(true, 'Documentos de expediente encontrados.', $documentos ?? []);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'Error al consultar documentos de la muestra.', [], $e->getMessage());
         }
     }
 

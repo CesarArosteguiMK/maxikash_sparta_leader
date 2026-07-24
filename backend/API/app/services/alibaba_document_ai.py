@@ -44,6 +44,7 @@ DOCUMENT_TYPES = {
     "constancia_fiscal",
     "infonavit_fonacot",
     "carta_no_adeudo",
+    "carta_compromiso_gestor",
     "__SPARTA_SECRET_REDACTED__",
     "curp",
     "desconocido",
@@ -59,6 +60,7 @@ EXPECTED_LABELS = {
     "constancia_fiscal": "constancia de situacion fiscal",
     "infonavit_fonacot": "retencion FONACOT o INFONAVIT",
     "carta_no_adeudo": "carta de no adeudo",
+    "carta_compromiso_gestor": "carta de compromiso del gestor",
     "__SPARTA_SECRET_REDACTED__": "estado de cuenta",
     "curp": "CURP",
 }
@@ -77,6 +79,7 @@ DOCUMENT_ALIASES = {
     "cv": {"cv"},
     "infonavit_fonacot": {"infonavit_fonacot", "carta_no_adeudo"},
     "hoja_retencion": {"infonavit_fonacot", "carta_no_adeudo"},
+    "carta_compromiso_gestor": {"carta_compromiso_gestor"},
 }
 
 BANCOS_DIGITALES = {
@@ -126,6 +129,7 @@ Tipos permitidos:
 - constancia_fiscal
 - infonavit_fonacot
 - carta_no_adeudo
+- carta_compromiso_gestor
 - __SPARTA_SECRET_REDACTED__
 - curp
 - desconocido
@@ -222,6 +226,9 @@ Estructura exacta:
     "regimenes_fiscales": [],
     "firma_detectada": null,
     "nombre_y_firma_lleno": null,
+    "fecha_detectada": null,
+    "formato_base_detectado": null,
+    "carta_en_blanco": null,
     "apellido_paterno": null,
     "apellido_materno": null,
     "nombres": null,
@@ -1199,6 +1206,22 @@ def quick_prompt_for(expected_doc_type: Optional[str], nombre_candidato: Optiona
             "nombre escrito en la linea final o no hay firma/trazo manuscrito, devuelve "
             "nombre_y_firma_lleno=false, firma_detectada=false y evidencia_insuficiente=true."
         )
+    elif expected_doc_type == "carta_compromiso_gestor":
+        extra = (
+            "\n\nInstruccion especial para carta de compromiso del gestor: identifica el formato "
+            "MaxiKash dirigido a gestores de cobranza. La linea 'Estimado (nombre de gestor)' "
+            "puede conservarse impresa y vacia; NO la uses para decidir si la carta esta completa. "
+            "Revisa especificamente tres elementos manuscritos: 1) fecha en la parte superior derecha; "
+            "2) nombre completo escrito por la persona en la declaracion final que inicia con 'Yo'; y "
+            "3) firma o trazo manuscrito visible en la linea inferior 'Nombre y firma de recibido'. "
+            "firma_detectada=true solo si existe un trazo de firma o firma digital visible, no por una "
+            "linea impresa ni por el texto de la plantilla. Devuelve fecha_documento en YYYY-MM-DD cuando "
+            "sea legible, fecha_detectada, formato_base_detectado y carta_en_blanco dentro de campos. "
+            "Marca carta_en_blanco=true UNICAMENTE cuando sea el formato sin llenar, sin fecha, sin nombre "
+            "y sin firma/trazo. Si falta solo uno o dos de esos elementos, carta_en_blanco debe ser false, "
+            "evidencia_insuficiente debe ser false y agrega una observacion concreta de lo que falta; esos "
+            "faltantes requieren revision humana, pero no rechazan la carga."
+        )
     elif expected_doc_type == "identificacion_oficial":
         extra = (
             "\n\nInstruccion especial para identificacion oficial/INE: puedes recibir la pagina "
@@ -1468,6 +1491,26 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
             errors.append("La carta de no adeudo no esta firmada")
         if firma_detectada is None and nombre_y_firma_lleno is None:
             warnings.append("No se pudo confirmar automaticamente la firma de la carta")
+
+    if doc_type == "carta_compromiso_gestor":
+        carta_en_blanco = _bool_from_field(fields.get("carta_en_blanco"))
+        if carta_en_blanco is None:
+            carta_en_blanco = _bool_from_field(data.get("carta_en_blanco"))
+        if carta_en_blanco is True:
+            errors.append("La carta de compromiso del gestor esta en blanco. Completa nombre, fecha y firma antes de subirla")
+        else:
+            if _bool_from_field(fields.get("formato_base_detectado")) is False:
+                warnings.append("No se pudo confirmar el formato de carta de compromiso del gestor")
+            if not fields.get("nombre_completo"):
+                warnings.append("Falta el nombre completo en la declaracion final de la carta")
+            fecha_detectada = fields.get("fecha_detectada")
+            fecha_confirmada = _bool_from_field(fecha_detectada)
+            if fecha_confirmada is None and isinstance(fecha_detectada, str):
+                fecha_confirmada = bool(fecha_detectada.strip())
+            if not (fields.get("fecha_documento") or fecha_confirmada is True):
+                warnings.append("Falta la fecha manuscrita de la carta")
+            if _bool_from_field(fields.get("firma_detectada")) is not True:
+                warnings.append("Falta la firma o trazo manuscrito de recibido")
 
     if errors:
         if expired_identification_message and len(errors) == 1:

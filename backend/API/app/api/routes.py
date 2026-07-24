@@ -2953,6 +2953,10 @@ def _respuesta_alibaba_documento_generico(res: Dict[str, Any], expected_doc_type
         "numero_cuenta": campos.get("numero_cuenta"),
         "firma_detectada": campos.get("firma_detectada"),
         "nombre_y_firma_lleno": campos.get("nombre_y_firma_lleno"),
+        "fecha_documento": campos.get("fecha_documento"),
+        "fecha_detectada": campos.get("fecha_detectada"),
+        "formato_base_detectado": campos.get("formato_base_detectado"),
+        "carta_en_blanco": campos.get("carta_en_blanco"),
         "evidencia_insuficiente": extraccion.get("evidencia_insuficiente"),
         "paginas": extraccion.get("paginas_pdf") or extraccion.get("paginas_analizadas"),
         "paginas_pdf": extraccion.get("paginas_pdf") or extraccion.get("paginas_analizadas"),
@@ -4745,6 +4749,7 @@ async def verificar_documento_rapido_ia(
         "cv",
         "infonavit_fonacot",
         "carta_no_adeudo",
+        "carta_compromiso_gestor",
         "solicitud___SPARTA_SECRET_REDACTED__",
         "solicitud_interna",
     }:

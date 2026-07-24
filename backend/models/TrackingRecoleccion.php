@@ -1043,7 +1043,7 @@ class TrackingRecoleccion extends Model
         $params = [];
 
         // Excluir estatus terminales
-        $where[] = "ao.estatus NOT IN ('cancelado','Cancelado','Cartera','concluida')";
+        $where[] = "ao.estatus NOT IN ('cancelado','Cancelado','Cartera','concluida','RevisiÃ³n Recuperaciones')";
 
         // RN-04: excluir créditos ya en una ruta activa (borrador / enviada / en_proceso)
         $where[] = "ao.id_credito NOT IN (

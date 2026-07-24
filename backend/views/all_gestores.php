@@ -9383,44 +9383,70 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         didOpen: () => Swal.showLoading()
       });
 
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/Reporteria/descargarPlantillaGestores';
-      form.style.display = 'none';
+      const parametros = new URLSearchParams();
+      const agregarParametro = (name, value) => parametros.append(name, String(value));
+      if (empresa) agregarParametro('empresa', empresa);
+      if (direccion) agregarParametro('direccion', direccion);
+      if (area) agregarParametro('area', area);
+      if (departamento) agregarParametro('departamento', departamento);
+      if (puesto) agregarParametro('puesto', puesto);
+      if (multipuesto) agregarParametro('multipuesto', multipuesto);
+      if (estatus) agregarParametro('estatus', estatus);
+      agregarParametro('plantilla_token', downloadToken);
+      columnas.forEach(columna => agregarParametro('columnas[]', columna));
 
-      const agregarInput = (name, value) => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = name;
-        input.value = value;
-        form.appendChild(input);
-      };
-      if (empresa) agregarInput('empresa', empresa);
-      if (direccion) agregarInput('direccion', direccion);
-      if (area) agregarInput('area', area);
-      if (departamento) agregarInput('departamento', departamento);
-      if (puesto) agregarInput('puesto', puesto);
-      if (multipuesto) agregarInput('multipuesto', multipuesto);
-      if (estatus) agregarInput('estatus', estatus);
-      agregarInput('plantilla_token', downloadToken);
-      columnas.forEach(columna => agregarInput('columnas[]', columna));
+      const respuesta = await fetch('/Reporteria/descargarPlantillaGestores', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json'
+        },
+        body: parametros.toString()
+      });
+      const tipoContenido = String(respuesta.headers.get('content-type') || '').toLowerCase();
+      if (!respuesta.ok || !tipoContenido.includes('spreadsheetml.sheet')) {
+        let mensaje = 'No se pudo generar el archivo Excel.';
+        const respuestaTexto = await respuesta.text();
+        try {
+          const datosError = JSON.parse(respuestaTexto);
+          mensaje = datosError.mensaje || mensaje;
+        } catch (_) {
+          if (respuestaTexto.trim()) mensaje = respuestaTexto.trim().slice(0, 300);
+        }
+        throw new Error(mensaje);
+      }
 
-      document.body.appendChild(form);
-      form.submit();
+      const archivo = await respuesta.blob();
+      if (!archivo.size) {
+        throw new Error('El servidor generó un archivo vacío.');
+      }
+      const cabeceraArchivo = String(respuesta.headers.get('content-disposition') || '');
+      const coincidenciaNombre = cabeceraArchivo.match(/filename="?([^";]+)"?/i);
+      const nombreArchivo = coincidenciaNombre?.[1] || 'Reporte_Personal.xlsx';
+      const urlArchivo = URL.createObjectURL(archivo);
+      const enlace = document.createElement('a');
+      enlace.href = urlArchivo;
+      enlace.download = nombreArchivo;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      window.setTimeout(() => URL.revokeObjectURL(urlArchivo), 1000);
 
-      setTimeout(() => {
-        Swal.close();
-        Swal.fire({
-          icon: 'success',
-          title: 'Descarga iniciada',
-          text: 'El archivo se esta descargando.',
-          timer: 3000,
-          showConfirmButton: false
-        });
-        form.remove();
-      }, 3000);
+      Swal.close();
+      Swal.fire({
+        icon: 'success',
+        title: 'Descarga lista',
+        text: 'El archivo Excel se descargó correctamente.',
+        timer: 2500,
+        showConfirmButton: false
+      });
     } catch (error) {
-      Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo iniciar la descarga.' });
+      Swal.fire({
+        icon: 'error',
+        title: 'No se pudo descargar',
+        text: error?.message || 'No se pudo generar el archivo Excel.'
+      });
     }
   }
 
