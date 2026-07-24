@@ -40,7 +40,7 @@ class Login extends Model
                 "INSERT INTO asigna_modulo_web (usuario_id, modulo_web_id)
                  SELECT p.id, :modulo_web_id
                    FROM persona p
-                  WHERE COALESCE(p.estatus, '') <> 'Baja'
+                  WHERE LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                     AND NOT EXISTS (
                         SELECT 1
                           FROM asigna_modulo_web am

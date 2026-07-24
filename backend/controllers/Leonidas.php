@@ -6,6 +6,7 @@ use Core\Controller;
 use Services\LeonidasAccessService;
 use Services\LeonidasAgentService;
 use Services\LeonidasAssistantService;
+use Services\LeonidasMediaService;
 use Services\LeonidasMessagingService;
 use Services\LeonidasRealtimeTtsService;
 use Services\LeonidasSpreadsheetService;
@@ -284,6 +285,65 @@ class Leonidas extends Controller
             error_log('[Leonidas] Audio fallido: ' . $error->getMessage());
             http_response_code(500);
             self::respuestaJSON(['success' => false, 'error' => 'No se pudo reproducir la voz de Leonidas.']);
+        }
+    }
+
+    public function estadoMedio(): void
+    {
+        try {
+            $actor = $this->exigirAccesoLeonidas();
+            $payload = $this->payloadJson();
+            $token = is_string($payload['token'] ?? null) ? trim($payload['token']) : '';
+            $respuesta = (new LeonidasMediaService())->estado($token, (int) ($actor['actor_id'] ?? 0));
+            self::respuestaJSON(['success' => true, 'respuesta' => $respuesta]);
+        } catch (\InvalidArgumentException $error) {
+            http_response_code(422);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\DomainException $error) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\RuntimeException $error) {
+            http_response_code(410);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\Throwable $error) {
+            error_log('[Leonidas] Estado multimedia fallido: ' . $error->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'error' => 'No se pudo consultar la generacion multimedia.']);
+        }
+    }
+
+    public function medio(): void
+    {
+        try {
+            $actor = $this->exigirAccesoLeonidas();
+            $token = is_string($_GET['token'] ?? null) ? trim($_GET['token']) : '';
+            $archivo = (new LeonidasMediaService())->obtener($token, (int) ($actor['actor_id'] ?? 0));
+            $nombre = preg_replace('/[^A-Za-z0-9._-]/', '_', (string) ($archivo['name'] ?? 'leonidas-media.bin'));
+            $descargar = (string) ($_GET['download'] ?? '') === '1';
+
+            header('Content-Type: ' . (string) $archivo['mime']);
+            header('Content-Length: ' . strlen((string) $archivo['body']));
+            header('Cache-Control: private, no-store, max-age=0');
+            header('X-Content-Type-Options: nosniff');
+            header(
+                'Content-Disposition: ' . ($descargar ? 'attachment' : 'inline')
+                . '; filename="' . ($nombre !== '' ? $nombre : 'leonidas-media.bin') . '"'
+            );
+            echo $archivo['body'];
+            exit;
+        } catch (\InvalidArgumentException $error) {
+            http_response_code(422);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\DomainException $error) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\RuntimeException $error) {
+            http_response_code(410);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\Throwable $error) {
+            error_log('[Leonidas] Entrega multimedia fallida: ' . $error->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'error' => 'No se pudo entregar el archivo multimedia.']);
         }
     }
 

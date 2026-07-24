@@ -25,8 +25,14 @@ class LeonidasUniversalQueryService
     private array $schemaCache = [];
 
     /** @return array<string, mixed>|null */
-    public function resolver(string $question, int $actorId): ?array
+    public function resolver(string $question, int $actorId, array $permissions = []): ?array
     {
+        $domain = (new LeonidasCapabilityRegistry())->detectar($question);
+        $access = (new LeonidasDomainAccessService())->verificar($domain, $permissions);
+        if (!$access['autorizado']) {
+            return $access['respuesta'] ?? null;
+        }
+
         if (!$this->isDataQuestion($question)) {
             return null;
         }
@@ -41,18 +47,26 @@ class LeonidasUniversalQueryService
             $schema = $this->discoverSchema($db, $source);
             $context = $this->relevantSchema($schema, $question);
             if ($context === []) {
-                return null;
+                return $this->queryError(
+                    $source,
+                    'No encontre tablas o columnas relacionadas con la consulta en el esquema disponible.',
+                    'esquema_sin_coincidencias'
+                );
             }
 
             $plan = $this->plan($question, $source, $context);
             if (!is_array($plan) || ($plan['accion'] ?? '') !== 'consultar') {
-                return null;
+                return $this->queryError(
+                    $source,
+                    'No fue posible construir un plan de lectura valido con las tablas encontradas.',
+                    'plan_no_generado'
+                );
             }
 
             return $this->execute($db, $source, $schema, $plan, $actorId);
         } catch (\InvalidArgumentException $error) {
             error_log('[Leonidas universal] Rejected plan: ' . $error->getMessage());
-            return null;
+            return $this->queryError($source, $error->getMessage(), 'plan_rechazado');
         } catch (\Throwable $error) {
             error_log('[Leonidas universal] Source ' . $source . ' failed: ' . $error->getMessage());
             return [
@@ -60,9 +74,30 @@ class LeonidasUniversalQueryService
                     . ', pero no respondió correctamente. No se modificó ningún dato.',
                 'tipo' => 'consulta_semantica_error',
                 'fuente' => $source,
-                'metricas' => ['dataset' => 'consulta_universal'],
+                'motivo' => 'fuente_no_disponible',
+                'metricas' => [
+                    'dataset' => 'consulta_universal',
+                    'motivo' => 'fuente_no_disponible',
+                ],
             ];
         }
+    }
+
+    /** @return array<string, mixed> */
+    private function queryError(string $source, string $detail, string $reason): array
+    {
+        return [
+            'mensaje' => 'Localice la fuente ' . $this->sourceLabel($source)
+                . ', pero no pude completar la consulta. Detalle: ' . $detail
+                . ' No se modifico ningun dato.',
+            'tipo' => 'consulta_semantica_error',
+            'fuente' => $source,
+            'motivo' => $reason,
+            'metricas' => [
+                'dataset' => 'consulta_universal',
+                'motivo' => $reason,
+            ],
+        ];
     }
 
     private function isDataQuestion(string $question): bool
@@ -81,14 +116,18 @@ class LeonidasUniversalQueryService
     private function selectSource(string $question): ?string
     {
         $text = $this->normalize($question);
+        if (preg_match('/\blegacy\b/', $text)) {
+            return 'legacy';
+        }
+
         $rules = [
             'segundometro' => '/\b(segundometro|bucket|buckets|avance de bucket)\b/',
+            'sparta_principal' => '/\b(sparta|capital humano|convenio|convenios|moto adjudicada|motos adjudicadas|adjudicacion|evidencia|evidencias|dictamen|dictamenes|direccion|direcciones|atlas|ticket|tickets|incidencia|incidencias|analitica|gastos de cobranza|organizacion|estructura organizacional|servicio|servicios|agente|agentes|persona|personas|usuario|usuarios|candidato|candidatos|plantilla|empleado|empleados|vacacion|vacaciones|baja|bajas|permiso|permisos|modulo|modulos|documento|documentos)\b/',
             'geografia' => '/\b(geografia|pais|paises|estado|estados|municipio|municipios|colonia|colonias|codigo postal)\b/',
             'maxi_guatemala' => '/\b(guatemala|maxi guat)\b/',
             'maxi_produccion' => '/\b(maxi produccion|base de produccion|produccion maxi)\b/',
             'aws_operativa' => '/\b(aws|rds|base operativa aws)\b/',
             'legacy' => '/\b(legacy|credito|creditos|gestion|gestiones|cobranza|distribuidor|distribuidores|cliente|clientes|cartera|pago|pagos)\b/',
-            'sparta_principal' => '/\b(sparta|capital humano|persona|personas|usuario|usuarios|candidato|candidatos|plantilla|empleado|empleados|vacacion|vacaciones|baja|bajas|permiso|permisos|modulo|modulos|documento|documentos)\b/',
         ];
         foreach ($rules as $source => $pattern) {
             if (preg_match($pattern, $text)) {

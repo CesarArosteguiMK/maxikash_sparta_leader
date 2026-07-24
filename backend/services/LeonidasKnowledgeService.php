@@ -17,6 +17,7 @@ class LeonidasKnowledgeService
 
     public function contextoPara(string $pregunta, array $modulosUsuario): array
     {
+        $capacidades = new LeonidasCapabilityRegistry();
         $contexto = [
             'identidad_del_producto' => 'Sparta es la plataforma operativa de MaxiKash y Furia Motos para credito, cobranza, capital humano, analitica y operacion.',
             'principios_criticos' => [
@@ -27,6 +28,8 @@ class LeonidasKnowledgeService
                 'Los reportes deben usar datos autorizados por servidor; Leonidas no inventa resultados ni consulta datos sin una herramienta aprobada.',
             ],
             'fuentes_de_datos' => (new LeonidasDataSourceRegistry())->catalogoPublico(),
+            'dominios_operativos_relevantes' => $capacidades->relevantes($pregunta),
+            'cobertura_operativa_sparta' => $capacidades->catalogoPublico(),
             'modulos_del_sistema' => $this->catalogoModulos(),
             'catalogo_real_relevante' => $this->buscarModulosReales($pregunta, $modulosUsuario),
             'modulos_disponibles_para_el_usuario' => array_values(array_unique(array_map('intval', $modulosUsuario))),
@@ -108,8 +111,11 @@ class LeonidasKnowledgeService
             ['modulo' => 'Analitica', 'funcion' => 'Ofrece reportes de cartera, primeros pagos, campo, comparativas, asignacion y avance operativo.'],
             ['modulo' => 'Convenios', 'funcion' => 'Calcula ofertas por reglas de credito y producto, registra convenios, valida pagos, concilia comprobantes y administra cancelaciones y reactivaciones auditadas.'],
             ['modulo' => 'Motos Adjudicadas', 'funcion' => 'Gestiona operaciones, evidencias, recuperacion, cartera, recepcion, inventario y tracking de motos.'],
+            ['modulo' => 'Direcciones', 'funcion' => 'Consulta y administra la estructura operativa de direcciones, rutas, zonas y responsables autorizados.'],
+            ['modulo' => 'Legacy', 'funcion' => 'Consulta creditos, usuarios, gestiones, campanias, tareas, asignaciones, dictamenes y pagos del sistema Legacy.'],
             ['modulo' => 'Tickets', 'funcion' => 'Registra y administra tickets de Sabueso y su seguimiento.'],
             ['modulo' => 'Atlas', 'funcion' => 'Administra rutas, presupuestos, creditos operativos, catalogos, riesgos y accesos Atlas.'],
+            ['modulo' => 'Gastos de Cobranza', 'funcion' => 'Consulta conceptos, solicitudes, responsables, estatus y operacion del agente de Gastos de Cobranza.'],
             ['modulo' => 'Organizacion', 'funcion' => 'Mantiene paises, estructura, equivalencias de puestos y sincronizacion con Legacy.'],
             ['modulo' => 'Servicios', 'funcion' => 'Muestra y controla servicios operativos locales como Segundometro, Gastos Cobranza y Cartera.'],
         ];

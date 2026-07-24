@@ -716,6 +716,14 @@ function ocultarEnlacePdfGenerado() {
   if (cont) cont.classList.remove('visible');
 }
 
+function regresarASubirDocumentos() {
+  const destino = String(window.__URL_REGRESO_DOCUMENTOS__ || '');
+  if (!destino) return;
+  // La descarga ya se disparó; dejamos al navegador iniciarla antes de volver
+  // a la pantalla donde el candidato debe adjuntar el archivo firmado.
+  window.setTimeout(function() { window.location.assign(destino); }, 1500);
+}
+
 function entregarPdfGenerado(out, nombre, ventanaMovil) {
   const movil = esNavegadorMovil();
   const blob = new Blob([out], {type:'application/pdf'});
@@ -738,6 +746,7 @@ function entregarPdfGenerado(out, nombre, ventanaMovil) {
       document.body.removeChild(aMovil);
     }
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1800000);
+    regresarASubirDocumentos();
     return;
   }
 
@@ -748,6 +757,7 @@ function entregarPdfGenerado(out, nombre, ventanaMovil) {
   a.click();
   document.body.removeChild(a);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1800000);
+  regresarASubirDocumentos();
 }
 
 async function generarPDF() {

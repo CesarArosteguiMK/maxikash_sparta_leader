@@ -706,7 +706,6 @@ $documentos_ayuda = [
                         <?php if ($esSolicitud): ?>
                         <div class="descarga-doc mb-2">
                             <a href="/CapHum/llenarSolicitudEnLinea/<?= htmlspecialchars($token) ?>" class="btn-descarga btn-llenar"><i class="fa fa-edit me-1"></i> Llenar solicitud en línea</a>
-                            <a href="<?= htmlspecialchars($urlBaseDescarga) ?>/solicitud_interna" class="btn-descarga" target="_blank" rel="noopener"><i class="fa fa-download me-1"></i> Descargar solicitud en blanco</a>
                             <span class="d-block small-text mt-1">Llena la solicitud en línea. Al terminar, guarda el PDF firmado y súbelo aquí.</span>
                         </div>
                         <?php elseif ($esCartaAdeudo): ?>

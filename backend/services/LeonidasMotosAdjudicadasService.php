@@ -192,6 +192,334 @@ class LeonidasMotosAdjudicadasService
         ];
     }
 
+    private function resolverCapturaDatosMoto(string $mensaje, string $normalizado, array $contexto): ?array
+    {
+        $borrador = $this->obtenerBorradorCaptura($contexto);
+        if ($borrador !== null && preg_match('/^\s*(cancelar|cancela|olvidalo|salir)\s*[.!]?\s*$/u', $normalizado)) {
+            $this->eliminarBorradorCaptura($contexto);
+            return $this->respuesta('Entendido. Cancele la captura de datos de la motocicleta y no realice cambios.', 'agente_cancelado');
+        }
+
+        $camposRecibidos = $this->extraerCamposCapturaMoto($mensaje);
+        $esPeticionCaptura = preg_match(
+            '/\b(edita|editar|actualiza|actualizar|captura|capturar|registra|registrar|rellena|rellenar|guarda|guardar)\b.*'
+                . '\b(moto|motocicleta|adjudicacion|formulario|datos)\b/u',
+            $normalizado
+        ) === 1 || count($camposRecibidos) >= 2;
+
+        if ($borrador === null && !$esPeticionCaptura) {
+            return null;
+        }
+        if (empty($contexto['permisos_agente']['motos'])) {
+            return $this->respuesta(
+                'No puedo consultar ni editar Motos Adjudicadas porque tu perfil no tiene acceso a ese modulo.',
+                'agente_denegado'
+            );
+        }
+
+        if ($borrador === null) {
+            $idCredito = $this->extraerCreditoCaptura($mensaje);
+            if ($idCredito <= 0) {
+                return $this->respuesta(
+                    'Necesito el ID numerico del credito cuya informacion de motocicleta deseas editar.',
+                    'agente_pregunta'
+                );
+            }
+
+            $diagnostico = $this->diagnosticar($idCredito);
+            $operacion = is_array($diagnostico['operacion'] ?? null) ? $diagnostico['operacion'] : [];
+            if (!$operacion) {
+                return $this->respuesta(
+                    'No encontre una operacion local de Motos Adjudicadas para el credito ' . $idCredito
+                        . '. No realice cambios.',
+                    'agente_diagnostico'
+                );
+            }
+
+            $borrador = [
+                'id_credito' => $idCredito,
+                'id_operacion' => (int) ($operacion['id'] ?? 0),
+                'estatus_esperado' => (string) ($operacion['estatus'] ?? ''),
+                'valores' => [],
+                'esperando' => null,
+                'created_at' => time(),
+                'updated_at' => time(),
+            ];
+        }
+
+        $esperando = (string) ($borrador['esperando'] ?? '');
+        if (!$camposRecibidos && $esperando !== '' && trim($mensaje) !== '') {
+            $camposRecibidos[$esperando] = trim($mensaje);
+        }
+
+        foreach ($camposRecibidos as $campo => $valorCrudo) {
+            $normalizadoCampo = $this->normalizarValorCapturaMoto($campo, (string) $valorCrudo);
+            if (empty($normalizadoCampo['ok'])) {
+                $borrador['esperando'] = $campo;
+                $borrador['updated_at'] = time();
+                $this->guardarBorradorCaptura($contexto, $borrador);
+                return $this->respuesta(
+                    (string) ($normalizadoCampo['mensaje'] ?? 'El dato no tiene un formato valido.')
+                        . ' ' . $this->preguntaCampoCaptura($campo),
+                    'agente_pregunta'
+                );
+            }
+            $borrador['valores'][$campo] = $normalizadoCampo['valor'];
+            $borrador['esperando'] = null;
+        }
+
+        $faltante = $this->primerCampoFaltanteCaptura((array) ($borrador['valores'] ?? []));
+        if ($faltante !== null) {
+            $borrador['esperando'] = $faltante;
+            $borrador['updated_at'] = time();
+            $this->guardarBorradorCaptura($contexto, $borrador);
+            return $this->respuesta($this->preguntaCampoCaptura($faltante), 'agente_pregunta');
+        }
+
+        $borrador['esperando'] = null;
+        $borrador['updated_at'] = time();
+        $this->guardarBorradorCaptura($contexto, $borrador);
+        $datos = $this->construirDatosDbCaptura((array) $borrador['valores']);
+        $idCredito = (int) ($borrador['id_credito'] ?? 0);
+
+        return [
+            'mensaje' => $this->resumenCapturaMoto($idCredito, (array) $borrador['valores'])
+                . "\n\nSi los datos son correctos, confirma para guardarlos. No se ha modificado ningun dato todavia.",
+            'tipo' => 'agente_propuesta',
+            'propuesta_especificacion' => [
+                'accion' => self::ACTION_GUARDAR_DATOS_MOTO,
+                'resumen' => 'guardar los datos de la motocicleta del credito ' . $idCredito,
+                'payload' => [
+                    'id_credito' => $idCredito,
+                    'id_operacion' => (int) ($borrador['id_operacion'] ?? 0),
+                    'estatus_esperado' => (string) ($borrador['estatus_esperado'] ?? ''),
+                    'datos' => $datos,
+                ],
+            ],
+        ];
+    }
+
+    private function extraerCamposCapturaMoto(string $mensaje): array
+    {
+        $campos = [];
+        $lineas = preg_split('/\R/u', $mensaje) ?: [];
+        foreach ($lineas as $linea) {
+            if (preg_match('/^\s*([^:]{2,60})\s*:\s*(.*?)\s*$/u', $linea, $match) !== 1) {
+                continue;
+            }
+            $campo = $this->mapearCampoCaptura($match[1]);
+            if ($campo !== null) {
+                $campos[$campo] = trim((string) $match[2]);
+            }
+        }
+        return $campos;
+    }
+
+    private function mapearCampoCaptura(string $etiqueta): ?string
+    {
+        $etiqueta = preg_replace('/[^a-z0-9]+/u', ' ', $this->normalizar($etiqueta)) ?? '';
+        $etiqueta = trim($etiqueta);
+
+        return match (true) {
+            str_contains($etiqueta, 'direccion') && str_contains($etiqueta, 'resguardo') => 'direccion',
+            str_contains($etiqueta, 'lugar') && str_contains($etiqueta, 'resguardo') => 'lugar_resguardo',
+            str_contains($etiqueta, 'tarjeta') && str_contains($etiqueta, 'circulacion') => 'tarjeta_circulacion',
+            str_contains($etiqueta, 'llave') => 'llave_fisica',
+            str_contains($etiqueta, 'placa') && str_contains($etiqueta, 'fisica') => 'placa_fisica',
+            in_array($etiqueta, ['placa', 'placas'], true) => 'placas',
+            str_contains($etiqueta, 'no motor') || str_contains($etiqueta, 'numero motor') || $etiqueta === 'motor' => 'motor',
+            str_contains($etiqueta, 'serie') || str_contains($etiqueta, 'vin') => 'serie',
+            str_contains($etiqueta, 'kilometraje') || $etiqueta === 'km' => 'kilometraje',
+            str_contains($etiqueta, 'responsable') => 'responsable',
+            str_contains($etiqueta, 'telefono') || str_contains($etiqueta, 'celular') => 'telefono',
+            $etiqueta === 'marca' => 'marca',
+            $etiqueta === 'modelo' => 'modelo',
+            $etiqueta === 'ano' || $etiqueta === 'anio' => 'anio',
+            $etiqueta === 'color' => 'color',
+            default => null,
+        };
+    }
+
+    private function normalizarValorCapturaMoto(string $campo, string $valor): array
+    {
+        $valor = trim($valor);
+        $valorNormalizado = trim(preg_replace('/\s+/u', ' ', $this->normalizar($valor)) ?? '');
+        $esVacioExplicito = preg_match(
+            '/^(no|no hay|no tiene|ninguno|ninguna|sin dato|sin datos|no aplica|n\/?a|na|inexistente)$/u',
+            $valorNormalizado
+        ) === 1;
+
+        if (in_array($campo, ['llave_fisica', 'placa_fisica', 'tarjeta_circulacion'], true)) {
+            if ($esVacioExplicito || in_array($valorNormalizado, ['no', 'falso', '0'], true)) {
+                return ['ok' => true, 'valor' => 'no'];
+            }
+            if (in_array($valorNormalizado, ['si', 's', 'yes', 'verdadero', '1'], true)) {
+                return ['ok' => true, 'valor' => 'si'];
+            }
+            return ['ok' => false, 'mensaje' => 'Responde SI o NO para este campo.'];
+        }
+
+        if ($esVacioExplicito) {
+            return ['ok' => true, 'valor' => ''];
+        }
+        if ($valor === '') {
+            return ['ok' => false, 'mensaje' => 'El dato quedo vacio. Si no existe, responde NO.'];
+        }
+
+        if ($campo === 'serie') {
+            $valor = strtoupper(preg_replace('/\s+/u', '', $valor) ?? '');
+            if (preg_match('/^[A-HJ-NPR-Z0-9]{8,17}$/', $valor) !== 1) {
+                return ['ok' => false, 'mensaje' => 'El numero de serie debe contener entre 8 y 17 caracteres validos.'];
+            }
+        } elseif ($campo === 'motor') {
+            $valor = strtoupper(preg_replace('/\s+/u', '', $valor) ?? '');
+            if (preg_match('/^[A-Z0-9\-]{4,24}$/', $valor) !== 1) {
+                return ['ok' => false, 'mensaje' => 'El numero de motor debe contener de 4 a 24 letras, numeros o guiones.'];
+            }
+        } elseif ($campo === 'anio') {
+            $anio = (int) preg_replace('/\D+/', '', $valor);
+            if ($anio < 1900 || $anio > ((int) date('Y') + 2)) {
+                return ['ok' => false, 'mensaje' => 'El ano de la motocicleta no es valido.'];
+            }
+            $valor = (string) $anio;
+        } elseif ($campo === 'kilometraje') {
+            $numero = str_replace([',', ' '], '', $valor);
+            if (!is_numeric($numero) || (float) $numero < 0) {
+                return ['ok' => false, 'mensaje' => 'El kilometraje debe ser un numero igual o mayor que cero.'];
+            }
+            $valor = (string) (0 + $numero);
+        } elseif ($campo === 'telefono') {
+            $valor = preg_replace('/\D+/', '', $valor) ?? '';
+            if (strlen($valor) !== 10) {
+                return ['ok' => false, 'mensaje' => 'El telefono debe contener 10 digitos.'];
+            }
+        } elseif ($campo === 'placas') {
+            $valor = strtoupper(preg_replace('/\s+/u', '', $valor) ?? '');
+        } else {
+            $valor = trim(preg_replace('/\s+/u', ' ', $valor) ?? $valor);
+        }
+
+        return ['ok' => true, 'valor' => $valor];
+    }
+
+    private function primerCampoFaltanteCaptura(array $valores): ?string
+    {
+        foreach (array_keys(self::CAMPOS_CAPTURA_MOTO) as $campo) {
+            if (!array_key_exists($campo, $valores)) {
+                return $campo;
+            }
+        }
+        return null;
+    }
+
+    private function preguntaCampoCaptura(string $campo): string
+    {
+        $etiqueta = (string) (self::CAMPOS_CAPTURA_MOTO[$campo]['etiqueta'] ?? 'el dato faltante');
+        $referencia = match (true) {
+            str_starts_with($etiqueta, 'el ') => 'del ' . mb_substr($etiqueta, 3),
+            str_starts_with($etiqueta, 'la ') => 'de la ' . mb_substr($etiqueta, 3),
+            str_starts_with($etiqueta, 'las ') => 'de las ' . mb_substr($etiqueta, 4),
+            str_starts_with($etiqueta, 'si ') => 'que indica ' . $etiqueta,
+            default => 'de ' . $etiqueta,
+        };
+        $pregunta = "Falta el dato {$referencia}, \u{00BF}cu\u{00E1}l ser\u{00ED}a?";
+        if (in_array($campo, ['llave_fisica', 'placa_fisica', 'tarjeta_circulacion'], true)) {
+            return $pregunta . ' Responde SI o NO.';
+        }
+        return $pregunta . " Si no existe, responde NO y lo dejar\u{00E9} vac\u{00ED}o.";
+    }
+
+    private function construirDatosDbCaptura(array $valores): array
+    {
+        $datos = [];
+        foreach (self::CAMPOS_CAPTURA_MOTO as $campo => $configuracion) {
+            if ($campo === 'lugar_resguardo') {
+                continue;
+            }
+            $datos[(string) $configuracion['db']] = $valores[$campo] ?? '';
+        }
+
+        $lugar = trim((string) ($valores['lugar_resguardo'] ?? ''));
+        $lugarNormalizado = $this->normalizar($lugar);
+        if ($lugar === '') {
+            $datos['log_lugar_resguardo'] = '';
+            $datos['log_lugar_otro'] = '';
+        } elseif (str_contains($lugarNormalizado, 'domicilio')) {
+            $datos['log_lugar_resguardo'] = 'mi_domicilio';
+            $datos['log_lugar_otro'] = '';
+        } elseif (str_contains($lugarNormalizado, 'sucursal')) {
+            $datos['log_lugar_resguardo'] = 'sucursal';
+            $datos['log_lugar_otro'] = '';
+        } else {
+            $datos['log_lugar_resguardo'] = 'otro';
+            $datos['log_lugar_otro'] = $lugar;
+        }
+
+        return $datos;
+    }
+
+    private function resumenCapturaMoto(int $idCredito, array $valores): string
+    {
+        $lineas = ['Vista previa de los datos de Adjudicacion de Motos del credito ' . $idCredito . ':'];
+        foreach (self::CAMPOS_CAPTURA_MOTO as $campo => $configuracion) {
+            $valor = (string) ($valores[$campo] ?? '');
+            $lineas[] = '- ' . ucfirst((string) $configuracion['etiqueta']) . ': ' . ($valor !== '' ? $valor : 'sin dato');
+        }
+        return implode("\n", $lineas);
+    }
+
+    private function extraerCreditoCaptura(string $mensaje): int
+    {
+        $limpio = str_replace([',', '.'], '', $mensaje);
+        if (preg_match('/\b(?:credito|id)\s*(?:>|:|#|-)?\s*(\d{4,12})\b/iu', $limpio, $match) === 1) {
+            return (int) $match[1];
+        }
+        return $this->extraerCredito($mensaje);
+    }
+
+    private function obtenerBorradorCaptura(array $contexto): ?array
+    {
+        $this->asegurarSesionCaptura();
+        $clave = $this->claveBorradorCaptura($contexto);
+        $borrador = $_SESSION[self::SESSION_DRAFT][$clave] ?? null;
+        if (!is_array($borrador)) {
+            return null;
+        }
+        if (time() - (int) ($borrador['updated_at'] ?? 0) > self::DRAFT_TTL_SECONDS) {
+            unset($_SESSION[self::SESSION_DRAFT][$clave]);
+            return null;
+        }
+        return $borrador;
+    }
+
+    private function guardarBorradorCaptura(array $contexto, array $borrador): void
+    {
+        $this->asegurarSesionCaptura();
+        $_SESSION[self::SESSION_DRAFT][$this->claveBorradorCaptura($contexto)] = $borrador;
+    }
+
+    private function eliminarBorradorCaptura(array $contexto): void
+    {
+        $this->asegurarSesionCaptura();
+        unset($_SESSION[self::SESSION_DRAFT][$this->claveBorradorCaptura($contexto)]);
+    }
+
+    private function asegurarSesionCaptura(): void
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            @session_start();
+        }
+        if (!isset($_SESSION[self::SESSION_DRAFT]) || !is_array($_SESSION[self::SESSION_DRAFT])) {
+            $_SESSION[self::SESSION_DRAFT] = [];
+        }
+    }
+
+    private function claveBorradorCaptura(array $contexto): string
+    {
+        $actorId = (int) ($contexto['actor_id'] ?? 0);
+        return $actorId > 0 ? 'actor_' . $actorId : 'session_' . session_id();
+    }
+
     private function resolverCreditosSemana(int $semana, int $anio): array
     {
         if ($this->legacy === null) {
@@ -345,6 +673,63 @@ class LeonidasMotosAdjudicadasService
         $actorId = (int) ($contexto['actor_id'] ?? 0);
         $actorNombre = trim((string) ($contexto['nombre'] ?? 'Leonidas'));
 
+        if ($accion === self::ACTION_GUARDAR_DATOS_MOTO) {
+            $estatusEsperado = trim((string) ($payload['estatus_esperado'] ?? ''));
+            $estatusActual = trim((string) ($operacion['estatus'] ?? ''));
+            if ($estatusEsperado !== '' && $estatusActual !== $estatusEsperado) {
+                throw new \RuntimeException(
+                    'El estatus de la operacion cambio despues de la vista previa. '
+                    . 'Vuelve a solicitar la actualizacion para revisar los datos actuales.'
+                );
+            }
+
+            $datos = is_array($payload['datos'] ?? null) ? $payload['datos'] : [];
+            $camposPermitidos = [
+                'moto_marca',
+                'moto_no_serie',
+                'moto_modelo',
+                'moto_anio',
+                'moto_color',
+                'moto_no_motor',
+                'moto_placas',
+                'kilometraje',
+                'tiene_llave_fisica',
+                'la_moto_tiene_placa_fisica',
+                'tiene_tarjeta_de_circulacion_en_fisico',
+                'log_lugar_resguardo',
+                'log_lugar_otro',
+                'responsable_entrega',
+                'log_telefono',
+                'log_direccion',
+            ];
+            $datos = array_intersect_key($datos, array_flip($camposPermitidos));
+            if (!$datos) {
+                throw new \RuntimeException('La confirmacion no contiene datos de la motocicleta para guardar.');
+            }
+
+            $resultado = $modelo->guardarDatosMoto(
+                $idOperacionEsperado,
+                $datos,
+                $actorId,
+                $actorNombre,
+                true,
+                null,
+                true
+            );
+            if (empty($resultado['success'])) {
+                throw new \RuntimeException(
+                    trim((string) ($resultado['message'] ?? 'No se pudieron guardar los datos de la motocicleta.'))
+                );
+            }
+
+            $this->eliminarBorradorCaptura($contexto);
+            return $this->respuesta(
+                'Listo. Guarde los datos de Adjudicacion de Motos del credito ' . $idCredito
+                    . '. La actualizacion quedo registrada en la bitacora.',
+                'agente_ejecutado'
+            );
+        }
+
         if ($accion === self::ACTION_ENVIAR_EVIDENCIAS) {
             if (empty($operacion['datos_moto_at']) || (int) ($operacion['evidencias_total'] ?? 0) <= 0) {
                 throw new \RuntimeException('El credito dejo de cumplir los requisitos del flujo normal. Vuelve a solicitar el diagnostico.');
@@ -357,6 +742,10 @@ class LeonidasMotosAdjudicadasService
                 'Listo. Envie las evidencias del credito ' . $idCredito . ' por el flujo normal y registre la accion en la bitacora.',
                 'agente_ejecutado'
             );
+        }
+
+        if ($accion !== self::ACTION_FORZAR_EVIDENCIAS) {
+            throw new \RuntimeException('La accion confirmada de Motos Adjudicadas no tiene un ejecutor habilitado.');
         }
 
         $resultado = $modelo->cambiarEstatus($idOperacionEsperado, 'Recibido', $actorId, $actorNombre, 'monitoreo');
@@ -642,13 +1031,14 @@ class LeonidasMotosAdjudicadasService
     private function normalizar(string $valor): string
     {
         $valor = mb_strtolower(trim($valor), 'UTF-8');
+        $valor = strtr($valor, [
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+        ]);
         $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $valor);
         if ($ascii !== false) {
             return $ascii;
         }
-        return strtr($valor, [
-            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
-        ]);
+        return $valor;
     }
 
     private function nombre(string $valor): string

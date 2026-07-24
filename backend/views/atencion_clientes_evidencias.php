@@ -4003,7 +4003,11 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             });
     }
 
-    /** Carga inicial paralela (badges + bandeja) con el mismo Swal que Retenciones. */
+    /**
+     * Primero carga la bandeja: esta petición fuerza la sincronización de los
+     * dictámenes enviados desde la app. Los badges se piden después para que no
+     * queden en cero por una carrera contra esa sincronización.
+     */
     function aeCargarVistaInicialConSpinner() {
         const hasSwal = typeof Swal !== 'undefined';
         if (hasSwal) {
@@ -4016,12 +4020,12 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 didOpen: function () { Swal.showLoading(); },
             });
         }
-        Promise.allSettled([
-            aeCargarSeccion('bandeja', true),
-            aeCargarConteosPestanas()
-        ]).finally(function () {
-            if (hasSwal) Swal.close();
-        });
+        aeCargarSeccion('bandeja', true)
+            .then(function () { return aeCargarConteosPestanas(); })
+            .catch(function () { return aeCargarConteosPestanas(); })
+            .finally(function () {
+                if (hasSwal) Swal.close();
+            });
     }
 
     document.addEventListener('DOMContentLoaded', function () {

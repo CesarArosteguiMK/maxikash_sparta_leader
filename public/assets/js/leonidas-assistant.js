@@ -784,6 +784,188 @@
         messages.scrollTop = messages.scrollHeight;
     }
 
+    function mediaLabel(kind) {
+        if (kind === 'image') return 'Imagen generada';
+        if (kind === 'video') return 'Video generado';
+        if (kind === 'audio') return 'Musica generada';
+        if (kind === 'diagram') return 'Diagrama generado';
+        if (kind === 'pdf') return 'Documento PDF';
+        if (kind === 'excel') return 'Archivo Excel';
+        return 'Contenido generado';
+    }
+
+    function mediaIcon(kind) {
+        if (kind === 'image') return 'fa-image';
+        if (kind === 'video') return 'fa-film';
+        if (kind === 'audio') return 'fa-music';
+        if (kind === 'diagram') return 'fa-diagram-project';
+        if (kind === 'pdf') return 'fa-file-pdf';
+        if (kind === 'excel') return 'fa-file-excel';
+        return 'fa-wand-magic-sparkles';
+    }
+
+    function mediaDownloadLabel(kind) {
+        if (kind === 'pdf') return 'Descargar PDF';
+        if (kind === 'excel') return 'Descargar Excel';
+        if (kind === 'diagram') return 'Descargar diagrama';
+        return 'Descargar';
+    }
+
+    function renderMediaCard(card, media) {
+        if (!card || !media) return;
+        card.replaceChildren();
+        card.className = 'leonidas-media-card' + (media.estado === 'error' ? ' is-error' : '');
+
+        var header = document.createElement('div');
+        var title = document.createElement('strong');
+        var icon = document.createElement('i');
+        var model = document.createElement('small');
+        header.className = 'leonidas-media-card__header';
+        title.className = 'leonidas-media-card__title';
+        icon.className = 'fa-solid ' + mediaIcon(media.tipo);
+        title.appendChild(icon);
+        title.appendChild(document.createTextNode(mediaLabel(media.tipo)));
+        model.className = 'leonidas-media-card__model';
+        model.textContent = media.modelo || 'Gemini';
+        header.appendChild(title);
+        header.appendChild(model);
+        card.appendChild(header);
+
+        if (media.estado === 'procesando') {
+            var processing = document.createElement('div');
+            var spinner = document.createElement('i');
+            spinner.className = 'fa-solid fa-circle-notch fa-spin';
+            processing.className = 'leonidas-media-card__status';
+            processing.appendChild(spinner);
+            processing.appendChild(document.createTextNode('Gemini esta generando el video. Esta tarjeta se actualizara sola.'));
+            card.appendChild(processing);
+            return;
+        }
+
+        if (media.estado === 'error') {
+            var error = document.createElement('div');
+            var warning = document.createElement('i');
+            warning.className = 'fa-solid fa-triangle-exclamation';
+            error.className = 'leonidas-media-card__status';
+            error.appendChild(warning);
+            error.appendChild(document.createTextNode(media.error || 'No se pudo completar la generacion.'));
+            card.appendChild(error);
+            return;
+        }
+
+        var preview;
+        if (media.tipo === 'image' || media.tipo === 'diagram') {
+            preview = document.createElement('img');
+            preview.alt = media.nombre || mediaLabel(media.tipo);
+            preview.loading = 'lazy';
+            preview.src = media.url;
+            preview.className = 'leonidas-media-card__preview';
+        } else if (media.tipo === 'video') {
+            preview = document.createElement('video');
+            preview.controls = true;
+            preview.playsInline = true;
+            preview.preload = 'metadata';
+            preview.src = media.url;
+            preview.className = 'leonidas-media-card__preview';
+        } else if (media.tipo === 'audio') {
+            preview = document.createElement('audio');
+            preview.controls = true;
+            preview.preload = 'metadata';
+            preview.src = media.url;
+            preview.className = 'leonidas-media-card__audio';
+        } else {
+            preview = document.createElement('div');
+            preview.className = 'leonidas-media-card__document';
+
+            var documentIcon = document.createElement('span');
+            var documentIconGlyph = document.createElement('i');
+            documentIcon.className = 'leonidas-media-card__document-icon';
+            documentIconGlyph.className = 'fa-solid ' + mediaIcon(media.tipo);
+            documentIcon.appendChild(documentIconGlyph);
+
+            var documentInfo = document.createElement('span');
+            var documentName = document.createElement('strong');
+            var documentHelp = document.createElement('small');
+            documentInfo.className = 'leonidas-media-card__document-info';
+            documentName.textContent = media.nombre || mediaLabel(media.tipo);
+            documentHelp.textContent = media.tipo === 'excel'
+                ? 'Hoja de calculo lista para abrir en Excel.'
+                : 'Documento listo para consultar o descargar.';
+            documentInfo.appendChild(documentName);
+            documentInfo.appendChild(documentHelp);
+
+            preview.appendChild(documentIcon);
+            preview.appendChild(documentInfo);
+        }
+        card.appendChild(preview);
+
+        var actions = document.createElement('div');
+        actions.className = 'leonidas-media-card__actions';
+        if (media.tipo === 'pdf') {
+            var open = document.createElement('a');
+            var openIcon = document.createElement('i');
+            open.className = 'leonidas-media-card__open';
+            open.href = media.url;
+            open.target = '_blank';
+            open.rel = 'noopener noreferrer';
+            openIcon.className = 'fa-solid fa-up-right-from-square';
+            open.appendChild(openIcon);
+            open.appendChild(document.createTextNode('Abrir PDF'));
+            actions.appendChild(open);
+        }
+
+        var download = document.createElement('a');
+        var downloadIcon = document.createElement('i');
+        download.className = 'leonidas-media-card__download';
+        download.href = media.descarga_url || media.url;
+        downloadIcon.className = 'fa-solid fa-download';
+        download.appendChild(downloadIcon);
+        download.appendChild(document.createTextNode(mediaDownloadLabel(media.tipo)));
+        actions.appendChild(download);
+        card.appendChild(actions);
+    }
+
+    function pollMedia(token, card, attempt) {
+        if (!token || !card || !card.isConnected) return;
+        if (attempt >= 120) {
+            renderMediaCard(card, {
+                tipo: 'video',
+                estado: 'error',
+                error: 'El video sigue en proceso. Puedes volver a solicitarlo o intentarlo mas tarde.'
+            });
+            return;
+        }
+        window.setTimeout(function () {
+            if (!card.isConnected) return;
+            request('/Leonidas/estadoMedio', { token: token }, 30000)
+                .then(function (response) {
+                    var media = response.medio || {};
+                    renderMediaCard(card, media);
+                    if (media.estado === 'procesando') pollMedia(token, card, attempt + 1);
+                })
+                .catch(function (error) {
+                    if (attempt < 3) {
+                        pollMedia(token, card, attempt + 1);
+                        return;
+                    }
+                    renderMediaCard(card, {
+                        tipo: 'video',
+                        estado: 'error',
+                        error: error.message || 'No se pudo consultar el avance del video.'
+                    });
+                });
+        }, 5000);
+    }
+
+    function addMedia(media) {
+        if (!media || !media.token) return;
+        var card = document.createElement('section');
+        renderMediaCard(card, media);
+        messages.appendChild(card);
+        messages.scrollTop = messages.scrollHeight;
+        if (media.estado === 'procesando') pollMedia(media.token, card, 0);
+    }
+
     function request(endpoint, payload, timeoutMs) {
         var controller = typeof window.AbortController === 'function'
             ? new window.AbortController()
@@ -960,6 +1142,7 @@
         addPeople(response.personas);
         addReport(response.reporte);
         addChart(response.grafica);
+        addMedia(response.medio);
         addProposal(response.propuesta);
         setSecureInputMode(response.entrada_segura || null);
         if (response.navegar_a) {
@@ -1228,7 +1411,7 @@
             request('/Leonidas/conversar', {
                 mensaje: value,
                 archivo_token: requestAttachment ? requestAttachment.token : null
-            }, requestAttachment ? 90000 : undefined)
+            }, requestAttachment ? 90000 : 120000)
                 .then(function (response) {
                     thinkingIndicator.remove();
                     renderResponse(response);

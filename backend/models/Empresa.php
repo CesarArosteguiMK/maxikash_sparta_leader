@@ -27,7 +27,7 @@ class Empresa extends Model
             LEFT JOIN asigna_jefe aj
                   ON p.id = aj.id_persona
                  AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
-            WHERE p.estatus != 'Baja'
+            WHERE LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
               AND {$predP}
             LIMIT 1
         SQL;
@@ -584,7 +584,7 @@ class Empresa extends Model
                 INNER JOIN departamento  dd ON dd.id = pu.departamento_id
                 INNER JOIN asigna_jefe   aj ON aj.id_persona = p.id
                 WHERE p.id = :id_persona
-                  AND p.estatus != 'Baja'
+                  AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                 LIMIT 1
             SQL;
 
@@ -685,7 +685,7 @@ class Empresa extends Model
                 LEFT JOIN equivalencias_legacy_puestos el ON el.id_puesto = pp.id
                 LEFT JOIN puestos_legacy               pl ON pl.id = el.id_puesto_legacy
                 LEFT JOIN linea_jefes                  lj ON lj.persona_id = p.id
-                WHERE p.estatus <> 'Baja'
+                WHERE LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                   AND ({$predP})
                 ORDER BY COALESCE(pp.nivel, 999) ASC
             ";

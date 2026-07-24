@@ -65,6 +65,9 @@ backend/storage/tmp_mpdf/
 backend/storage/tmp_rrhh_import/
 backend/storage/runtime/
 backend/storage/leonidas/*.jsonl
+backend/storage/leonidas_media/
+backend/storage/.vertex-ai-token.json
+.phpunit.result.cache
 # Expedientes/documentos de candidatos (runtime; no subir PDFs ni archivos personales al repo)
 backend/storage/candidatos/**
 !backend/storage/candidatos/.gitkeep

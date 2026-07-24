@@ -2839,6 +2839,9 @@
                 } else if (tipoEstado === 'baja') {
                     wrapperClass += ' org-estado-baja text-dark';
                     badgeHtml = '<div class="badge text-bg-secondary rounded-1 mt-1">Baja</div>';
+                } else if (tipoEstado === 'transito_baja') {
+                    wrapperClass += ' org-estado-transito-baja text-dark';
+                    badgeHtml = '<div class="badge text-bg-warning rounded-1 mt-1">Tránsito de baja</div>';
                 }
                 data.addRow([
                     {
@@ -2857,12 +2860,13 @@
             const chart = new google.visualization.OrgChart(container);
 
             function aplicarColorEstadoNodos() {
-                container.querySelectorAll('.org-estado-vacante, .org-estado-ausencia, .org-estado-baja').forEach(function (el) {
+                container.querySelectorAll('.org-estado-vacante, .org-estado-ausencia, .org-estado-baja, .org-estado-transito-baja').forEach(function (el) {
                     var node = el.closest('.google-visualization-orgchart-node');
                     if (!node) return;
                     var esVacante = el.classList.contains('org-estado-vacante');
                     var esAusencia = el.classList.contains('org-estado-ausencia');
                     var esBaja = el.classList.contains('org-estado-baja');
+                    var esTransitoBaja = el.classList.contains('org-estado-transito-baja');
                     node.dataset.orgId = el.dataset.orgId || '';
                     node.dataset.orgEstado = el.dataset.orgEstado || '';
                     node.style.cursor = 'pointer';
@@ -2883,6 +2887,9 @@
                     } else if (esBaja) {
                         node.classList.add('bg-secondary-subtle', 'border', 'border-secondary-subtle', 'text-dark');
                         node.style.setProperty('background-color', 'var(--bs-secondary-bg-subtle)', 'important');
+                    } else if (esTransitoBaja) {
+                        node.classList.add('bg-warning-subtle', 'border', 'border-warning', 'text-dark');
+                        node.style.setProperty('background-color', '#fff3cd', 'important');
                     }
                 });
             }

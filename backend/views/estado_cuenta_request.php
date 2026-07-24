@@ -3176,6 +3176,9 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
                        id="idCredito_dictamen"
                        name="idCredito_dictamen"
                        value="<?= htmlspecialchars($dataEstadoCuenta['idCredito'] ?? '') ?>">
+                <input type="hidden"
+                       id="nombreCliente_dictamen"
+                       value="<?= htmlspecialchars($dataCliente['nombreCliente'] ?? '') ?>">
 
                 <div class="row g-3 align-items-end">
                     <div class="col-md-4" id="dictamen_llamada_wrap_selector">
@@ -3267,6 +3270,41 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
                     <textarea id="comentarios" rows="3"
                               class="form-control"
                               placeholder="Detalle de la gestión..."></textarea>
+                </div>
+
+                <div class="card border-primary mt-4">
+                    <div class="card-body">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="cc-solicitar-adjudicacion">
+                            <label class="form-check-label fw-semibold" for="cc-solicitar-adjudicacion">
+                                Levantar solicitud de adjudicación
+                            </label>
+                        </div>
+                        <small class="text-muted">La solicitud se registra junto con este dictamen de Call Center.</small>
+
+                        <div id="cc-adjudicacion-campos" class="d-none mt-3">
+                            <label class="form-label fw-semibold">¿Entregará el titular?</label>
+                            <div class="d-flex gap-4 mb-3">
+                                <label class="form-check"><input class="form-check-input" type="radio" name="cc_entregara_titular" value="1"> Sí</label>
+                                <label class="form-check"><input class="form-check-input" type="radio" name="cc_entregara_titular" value="0"> No</label>
+                            </div>
+                            <div id="cc-adjudicacion-tercero" class="row g-3 d-none">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" for="cc-adj-nombre">Nombre de quien entrega</label>
+                                    <input id="cc-adj-nombre" class="form-control" maxlength="180">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" for="cc-adj-telefono">Teléfono</label>
+                                    <input id="cc-adj-telefono" class="form-control" maxlength="20">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" for="cc-adj-motivo">Motivo</label>
+                                    <textarea id="cc-adj-motivo" class="form-control" rows="2" maxlength="1000"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
             </div>
@@ -4080,6 +4118,44 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
     });
     }
 
+    const ccSolicitarAdjudicacion = document.getElementById('cc-solicitar-adjudicacion');
+    if (ccSolicitarAdjudicacion) {
+        ccSolicitarAdjudicacion.addEventListener('change', function () {
+            document.getElementById('cc-adjudicacion-campos')?.classList.toggle('d-none', !this.checked);
+        });
+    }
+    document.querySelectorAll('[name="cc_entregara_titular"]').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+            const tercero = document.querySelector('[name="cc_entregara_titular"]:checked')?.value === '0';
+            document.getElementById('cc-adjudicacion-tercero')?.classList.toggle('d-none', !tercero);
+        });
+    });
+
+    function obtenerSolicitudAdjudicacionCallCenter() {
+        if (!ccSolicitarAdjudicacion?.checked) {
+            return null;
+        }
+        const titular = document.querySelector('[name="cc_entregara_titular"]:checked');
+        if (!titular) {
+            Swal.fire("Atención", "Indica si la motocicleta será entregada por el titular", "warning");
+            return false;
+        }
+        const payload = {
+            solicitar: true,
+            nombre_cliente: (document.getElementById('nombreCliente_dictamen')?.value || '').trim(),
+            entregara_titular: titular.value,
+            nombre_entregante: (document.getElementById('cc-adj-nombre')?.value || '').trim(),
+            telefono_actual: (document.getElementById('cc-adj-telefono')?.value || '').trim(),
+            motivo: (document.getElementById('cc-adj-motivo')?.value || '').trim(),
+            idempotency_key: `callcenter-${document.getElementById('idCredito_dictamen')?.value || 0}-${Date.now()}`
+        };
+        if (titular.value === '0' && (!payload.nombre_entregante || !payload.telefono_actual || !payload.motivo)) {
+            Swal.fire("Atención", "Completa nombre, teléfono y motivo de la persona que entregará la motocicleta", "warning");
+            return false;
+        }
+        return payload;
+    }
+
     function guardarDictamen() {
 
         const id_credito = document.getElementById('idCredito_dictamen')?.value;
@@ -4162,6 +4238,11 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
         }
 
         // 🔄 ENVÍO
+        const solicitudAdjudicacion = obtenerSolicitudAdjudicacionCallCenter();
+        if (solicitudAdjudicacion === false) {
+            return;
+        }
+
         fetch('/EstadoCuenta/guardarDictamen', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -4175,6 +4256,7 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
                 plataforma_id: plataforma || null,
                 fuente_ingresos: fuenteIngresos,
                 comentarios: comentarios,
+                solicitud_adjudicacion: solicitudAdjudicacion,
                 ...payloadLlamada
             })
         })
@@ -4189,12 +4271,22 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
                     return;
                 }
 
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Dictamen guardado',
-                    timer: 1300,
-                    showConfirmButton: false
-                });
+                const solicitud = resp.solicitud_adjudicacion;
+                if (solicitud && !solicitud.success) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Dictamen guardado',
+                        text: 'La solicitud de adjudicación no se registró: ' + (solicitud.message || 'revisa los datos capturados.')
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'success',
+                        title: solicitud?.success ? 'Dictamen y solicitud guardados' : 'Dictamen guardado',
+                        text: solicitud?.solicitud?.folio || '',
+                        timer: solicitud?.success ? 2200 : 1300,
+                        showConfirmButton: false
+                    });
+                }
 
                 const idCredRefetch = document.getElementById('idCredito_dictamen')?.value;
                 if (idCredRefetch) {
@@ -4253,6 +4345,18 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
         if (oN) oN.value = '';
         if (typeof actualizarVistaDictamenLlamadaContacto === 'function') {
             actualizarVistaDictamenLlamadaContacto();
+        }
+        if (ccSolicitarAdjudicacion) {
+            ccSolicitarAdjudicacion.checked = false;
+            document.getElementById('cc-adjudicacion-campos')?.classList.add('d-none');
+            document.getElementById('cc-adjudicacion-tercero')?.classList.add('d-none');
+            document.querySelectorAll('[name="cc_entregara_titular"]').forEach(function (radio) {
+                radio.checked = false;
+            });
+            ['cc-adj-nombre', 'cc-adj-telefono', 'cc-adj-motivo'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
         }
     }
 

@@ -183,7 +183,7 @@ class CapHum extends Controller
                 LIMIT 1
             ", ['id' => $idPersona]);
             $estatus = trim((string)($persona['estatus'] ?? ''));
-            $cache[$idPersona] = strcasecmp($estatus, 'Baja') === 0;
+            $cache[$idPersona] = in_array(strtolower($estatus), ['baja', 'transito de baja'], true);
         } catch (\Throwable $e) {
             error_log('CapHum::personaRrhhEstaDeBaja -> ' . $e->getMessage());
             $cache[$idPersona] = false;
@@ -537,6 +537,60 @@ class CapHum extends Controller
             'ambito' => in_array($ambito, ['salario', 'plantilla'], true) ? $ambito : 'documentos',
             'id_usuario' => $idUsuario,
         ]);
+    }
+
+    /**
+     * Informa los movimientos organizacionales al puesto vigente de Subdirector de Recursos Humanos.
+     * Los destinatarios se resuelven por puesto y area en la base, nunca por un nombre fijo.
+     */
+    private function notificarCambioAreaColaboradorRrhh(array $antes, array $despues, int $idPersona): void
+    {
+        $idAreaAntes = (int)($antes['id_area'] ?? 0);
+        $idAreaNueva = (int)($despues['id_area'] ?? 0);
+        $areaAntes = trim((string)($antes['area'] ?? ''));
+        $areaNueva = trim((string)($despues['area'] ?? ''));
+
+        // Se compara el identificador cuando existe; el texto cubre datos historicos sin id_area.
+        $cambioArea = $idAreaAntes > 0 || $idAreaNueva > 0
+            ? $idAreaAntes !== $idAreaNueva
+            : mb_strtolower($areaAntes) !== mb_strtolower($areaNueva);
+        if (!$cambioArea) {
+            return;
+        }
+
+        $destinatarios = CapHumDAO::getSubdirectoresRecursosHumanos();
+        if (empty($destinatarios)) {
+            error_log('CapHum: no se encontro un Subdirector activo de Recursos Humanos para notificar un cambio de area.');
+            return;
+        }
+
+        $nombreColaborador = trim((string)($despues['nombre_completo'] ?? $antes['nombre_completo'] ?? ''));
+        if ($nombreColaborador === '') {
+            $nombreColaborador = 'Colaborador #' . $idPersona;
+        }
+        $areaAntesTexto = $areaAntes !== '' ? $areaAntes : 'Sin area asignada';
+        $areaNuevaTexto = $areaNueva !== '' ? $areaNueva : 'Sin area asignada';
+        $idUsuario = self::usuarioSesionId();
+        $usuarioNombre = trim((string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? ''));
+
+        Notificacion::crearParaPersonas(
+            $destinatarios,
+            'rrhh_cambio_area_colaborador',
+            sprintf('Se actualizo el area de %s: %s a %s.', $nombreColaborador, $areaAntesTexto, $areaNuevaTexto),
+            null,
+            [
+                'modulo' => 'capital_humano',
+                'accion' => 'cambio_area_colaborador',
+                'id_persona' => $idPersona,
+                'persona_nombre' => $nombreColaborador,
+                'id_area_anterior' => $idAreaAntes ?: null,
+                'area_anterior' => $areaAntesTexto,
+                'id_area_nueva' => $idAreaNueva ?: null,
+                'area_nueva' => $areaNuevaTexto,
+                'id_usuario_accion' => $idUsuario ?: null,
+                'usuario_accion' => $usuarioNombre,
+            ]
+        );
     }
 
     private function autorizarSalarioSensibleRrhh(int $idPersona, string $accion, string $codigoTotp = ''): array
@@ -5183,7 +5237,8 @@ class CapHum extends Controller
 
                 if (!bajaSubordinadosActuales.length) {
                     lista.innerHTML = '<div class="list-group-item text-muted">Esta persona no tiene subordinados directos activos.</div>';
-                    wrap.style.display = 'none';
+                    wrap.style.display = 'block';
+                    actualizarVistaReasignacionBaja();
                     return;
                 }
 
@@ -5446,12 +5501,18 @@ class CapHum extends Controller
                     document.getElementById("motivoBaja").value = "";
                     document.getElementById("motivoBajaDescripcion").value = "";
                     document.getElementById("archivoPDF").value = "";
+                    const archivoFinalBaja = document.getElementById('archivoFinalBaja');
+                    const tipoDocumentoFinal = document.getElementById('tipoDocumentoFinal');
+                    const nombreArchivoFinal = document.getElementById('bajaFinal_nombreArchivo');
+                    if (archivoFinalBaja) archivoFinalBaja.value = '';
+                    if (tipoDocumentoFinal) tipoDocumentoFinal.value = '';
+                    if (nombreArchivoFinal) nombreArchivoFinal.textContent = 'No se ha seleccionado ningún archivo';
                     document.getElementById("listaArchivos").innerHTML = "";
                     document.getElementById("listaArchivos").style.display = "none";
                     const spanBaja = document.getElementById("bajaModal_nombreArchivo");
                     if (spanBaja) spanBaja.textContent = "No se ha seleccionado ningún archivo";
                     archivosSeleccionados = [];
-                    document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> ";
+                    document.getElementById("gestor").textContent = "";
                     resetBajaReasignacion();
 
                     fetch('/CapHum/getDetalles', {
@@ -5477,10 +5538,16 @@ class CapHum extends Controller
                             return;
                         }
                         document.getElementById("edit_id").value = persona.id;
-                        // Concatenar el nombre completo en el <p id="gestor">
-                        document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> " + persona.nombres + " " + persona.apellidop + " " + persona.apellidom;
+                        // Mostrar únicamente el nombre completo de la persona en el modal de baja.
+                        document.getElementById("gestor").textContent = [persona.nombres, persona.apellidop, persona.apellidom]
+                            .filter(Boolean)
+                            .join(" ");
 
-                        cargarDatosReasignacionBaja(persona.id);
+                        const enTransito = String(persona.estatus || '').trim().toLowerCase() === 'transito de baja';
+                        configurarModalBaja(enTransito);
+                        if (enTransito) {
+                            cargarDatosReasignacionBaja(persona.id);
+                        }
 
                         $("#modalBajas").modal("show");
                     })
@@ -6245,7 +6312,7 @@ class CapHum extends Controller
                 // Texto del gestor (opcional)
                 const gestor = document.getElementById("gestor");
                 if (gestor) {
-                    gestor.innerHTML = "<strong>Gestor:</strong>";
+                    gestor.textContent = "";
                 }
             }
 
@@ -6528,6 +6595,250 @@ class CapHum extends Controller
 
 
 
+
+            // El segundo flujo sustituye la baja inmediata por un trámite bloqueado.
+            // Se declara después para reemplazar la función heredada sin tocar otros controles del modal.
+            function confirmarBaja() {
+                const idGestor = document.getElementById('edit_id')?.value;
+                const motivo = document.getElementById('motivoBaja')?.value || '';
+                const descripcion = document.getElementById('motivoBajaDescripcion')?.value || '';
+
+                if (!idGestor || !motivo || !descripcion.trim()) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Completa los datos',
+                        text: 'Selecciona el motivo y escribe la descripción del trámite.'
+                    });
+                    return;
+                }
+
+                Swal.fire({
+                    icon: 'question',
+                    title: '¿Iniciar trámite de baja?',
+                    html: '<div class="text-start">La persona quedará bloqueada para cartera, asignaciones y acceso al sistema.<br><br>La baja definitiva, vacante y reasignaciones se harán al completar los documentos requeridos.</div>',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, iniciar trámite',
+                    cancelButtonText: 'Cancelar',
+                    reverseButtons: true
+                }).then((result) => {
+                    if (!result.isConfirmed) {
+                        return;
+                    }
+
+                    const formData = new FormData();
+                    formData.append('idGestor', idGestor);
+                    formData.append('motivo', motivo);
+                    formData.append('descripcion', descripcion);
+                    archivosSeleccionados.forEach((file) => formData.append('archivosPDF[]', file));
+
+                    const boton = document.getElementById('btnIniciarTransitoBaja');
+                    if (boton) {
+                        boton.disabled = true;
+                        boton.textContent = 'Procesando...';
+                    }
+
+                    fetch('/CapHum/registrarBaja', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (!data.success) {
+                            throw new Error(data.message || 'No se pudo iniciar el trámite de baja.');
+                        }
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Trámite iniciado',
+                            text: data.message || 'La persona quedó en tránsito de baja.'
+                        }).then(() => {
+                            $('#modalBajas').modal('hide');
+                            archivosSeleccionados = [];
+                            const lista = document.getElementById('listaArchivos');
+                            if (lista) {
+                                lista.innerHTML = '';
+                                lista.style.display = 'none';
+                            }
+                            const nombreArchivo = document.getElementById('bajaModal_nombreArchivo');
+                            if (nombreArchivo) {
+                                nombreArchivo.textContent = 'No se ha seleccionado ningún archivo';
+                            }
+                            if (typeof getUsuarios === 'function') getUsuarios();
+                            if (typeof getBajas === 'function') getBajas();
+                        });
+                    })
+                    .catch((error) => {
+                        console.error('Error al iniciar trámite de baja:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: error.message || 'No se pudo iniciar el trámite de baja.'
+                        });
+                    })
+                    .finally(() => {
+                        if (boton) {
+                            boton.disabled = false;
+                            boton.textContent = 'Iniciar trámite';
+                        }
+                    });
+                });
+            }
+
+            function configurarModalBaja(enTransito) {
+                const modal = document.getElementById('modalBajas');
+                const dialogo = modal ? modal.querySelector('.modal-bajas-dialog') : null;
+                const shell = modal ? modal.querySelector('.modal-bajas-shell') : null;
+                const titulo = document.getElementById('modalRFCLabel');
+                const mensaje = document.getElementById('bajaMensajeFlujo');
+                const motivo = document.getElementById('motivoBaja');
+                const descripcion = document.getElementById('motivoBajaDescripcion');
+                const respaldo = document.getElementById('archivoPDF')?.closest('.mb-3');
+                const listaRespaldos = document.getElementById('listaArchivos');
+                const documentoFinal = document.getElementById('bajaDocumentoFinalWrap');
+                const botonInicio = document.getElementById('btnIniciarTransitoBaja');
+                const botonFinal = document.getElementById('btnFinalizarBaja');
+
+                if (dialogo) dialogo.classList.toggle('modo-final', enTransito);
+                if (shell) shell.classList.toggle('modo-final', enTransito);
+                if (titulo) titulo.textContent = enTransito ? 'Completar baja definitiva' : 'Iniciar trámite de baja';
+                if (mensaje) {
+                    mensaje.innerHTML = enTransito
+                        ? '<strong>Tránsito de baja activo.</strong> Para concluir debes decidir si queda Vacante o tendrá Sustituto y adjuntar el PDF de Renuncia o Aviso de rescisión.'
+                        : '<strong>Trámite pendiente.</strong> La persona quedará fuera de cartera, asignaciones y acceso al sistema. Aún no será una baja definitiva: podrás cancelarlo si el proceso no se completa.';
+                    mensaje.className = 'alert small ' + (enTransito ? 'alert-danger' : 'alert-warning');
+                }
+                if (motivo) motivo.disabled = enTransito;
+                if (descripcion) descripcion.disabled = enTransito;
+                if (respaldo) respaldo.style.display = enTransito ? 'none' : '';
+                if (listaRespaldos) listaRespaldos.style.display = 'none';
+                if (documentoFinal) documentoFinal.style.display = enTransito ? '' : 'none';
+                if (botonInicio) botonInicio.style.display = enTransito ? 'none' : '';
+                if (botonFinal) botonFinal.style.display = enTransito ? '' : 'none';
+            }
+
+            function actualizarNombreArchivoFinalBaja() {
+                const archivo = document.getElementById('archivoFinalBaja');
+                const etiqueta = document.getElementById('bajaFinal_nombreArchivo');
+                if (etiqueta) etiqueta.textContent = archivo && archivo.files && archivo.files[0]
+                    ? archivo.files[0].name
+                    : 'No se ha seleccionado ningún archivo';
+            }
+
+            function cancelarTransitoBaja(idPersona) {
+                if (!idPersona) return;
+                Swal.fire({
+                    icon: 'warning',
+                    title: '¿Cancelar trámite de baja?',
+                    text: 'La persona recuperará su estado anterior y sus asignaciones activas previas.',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, reactivar persona',
+                    cancelButtonText: 'Conservar en tránsito',
+                    reverseButtons: true
+                }).then(function (result) {
+                    if (!result.isConfirmed) return;
+                    fetch('/CapHum/cancelarTransitoBaja', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ idGestor: idPersona })
+                    })
+                    .then(function (response) { return response.json(); })
+                    .then(function (data) {
+                        if (!data.success) throw new Error(data.message || 'No se pudo cancelar el trámite.');
+                        Swal.fire({ icon: 'success', title: 'Trámite cancelado', text: data.message || 'La persona recuperó su estado anterior.' });
+                        if (typeof getUsuarios === 'function') getUsuarios();
+                        if (typeof getBajas === 'function') getBajas();
+                    })
+                    .catch(function (error) {
+                        Swal.fire({ icon: 'error', title: 'No se pudo reactivar', text: error.message || 'Ocurrió un error al cancelar el trámite.' });
+                    });
+                });
+            }
+
+            function finalizarBaja() {
+                const idGestor = document.getElementById('edit_id')?.value;
+                const modo = document.querySelector('input[name="bajaModoReasignacion"]:checked')?.value || '';
+                const sustituto = document.getElementById('bajaSustitutoId')?.value || '';
+                const tipoDocumento = document.getElementById('tipoDocumentoFinal')?.value || '';
+                const archivo = document.getElementById('archivoFinalBaja')?.files?.[0];
+                const asignacionesJefe = {};
+                Object.keys(bajaAsignacionesJefe || {}).forEach(function (idSubordinado) {
+                    if (bajaAsignacionesJefe[idSubordinado]) {
+                        asignacionesJefe[idSubordinado] = bajaAsignacionesJefe[idSubordinado];
+                    }
+                });
+                const subordinadosSeleccionados = modo === 'sustituto'
+                    ? Object.keys(asignacionesJefe)
+                    : Array.from(document.querySelectorAll('.baja-subordinado-check:checked')).map(function (check) {
+                        return check.value;
+                    });
+                const vacanteSeleccionada = document.querySelector('.baja-vacante-check:checked');
+                const vacanteExistenteId = vacanteSeleccionada ? vacanteSeleccionada.value : '';
+                const pendientesAsignacion = modo === 'sustituto'
+                    ? bajaSubordinadosActuales.length - Object.keys(asignacionesJefe).length
+                    : 0;
+                const tieneVacantesActivasParaPuesto = Array.isArray(bajaVacantesMismoPuestoActuales)
+                    && bajaVacantesMismoPuestoActuales.length > 0;
+
+                if (!idGestor || !modo || !tipoDocumento || !archivo) {
+                    Swal.fire({ icon: 'warning', title: 'Faltan datos obligatorios', text: 'Selecciona Vacante o Sustituto y adjunta el PDF de Renuncia o Aviso de rescisión.' });
+                    return;
+                }
+                if (modo === 'sustituto' && !sustituto) {
+                    Swal.fire({ icon: 'warning', title: 'Selecciona sustituto', text: 'Indica quién recibirá las personas asignadas.' });
+                    return;
+                }
+                if (modo === 'sustituto' && pendientesAsignacion > 0) {
+                    Swal.fire({ icon: 'warning', title: 'Faltan asignaciones', text: 'Aún quedan ' + pendientesAsignacion + ' persona(s) sin jefe destino.' });
+                    return;
+                }
+                if (modo === 'vacante' && tieneVacantesActivasParaPuesto && !vacanteExistenteId) {
+                    Swal.fire({ icon: 'warning', title: 'Selecciona una vacante', text: 'Elige la vacante que recibirá las personas asignadas antes de completar la baja.' });
+                    return;
+                }
+                if (!/\.pdf$/i.test(archivo.name)) {
+                    Swal.fire({ icon: 'warning', title: 'Archivo no válido', text: 'El documento final debe ser un PDF.' });
+                    return;
+                }
+
+                Swal.fire({
+                    icon: 'warning',
+                    title: '¿Completar baja definitiva?',
+                    text: 'Esta acción cerrará el trámite y cambiará el estatus de la persona a Baja.',
+                    showCancelButton: true,
+                    confirmButtonText: 'Completar baja',
+                    cancelButtonText: 'Cancelar',
+                    reverseButtons: true
+                }).then(function (result) {
+                    if (!result.isConfirmed) return;
+                    const formData = new FormData();
+                    formData.append('idGestor', idGestor);
+                    formData.append('modo_reasignacion', modo);
+                    formData.append('sustituto_id', sustituto);
+                    formData.append('subordinados_seleccionados', JSON.stringify(subordinadosSeleccionados));
+                    formData.append('asignaciones_jefe', JSON.stringify(asignacionesJefe));
+                    formData.append('vacante_existente_id', vacanteExistenteId);
+                    formData.append('tipo_documento_final', tipoDocumento);
+                    formData.append('archivoFinalBaja', archivo);
+                    const boton = document.getElementById('btnFinalizarBaja');
+                    if (boton) { boton.disabled = true; boton.textContent = 'Completando...'; }
+                    fetch('/CapHum/finalizarBaja', { method: 'POST', body: formData })
+                    .then(function (response) { return response.json(); })
+                    .then(function (data) {
+                        if (!data.success) throw new Error(data.message || 'No se pudo completar la baja.');
+                        Swal.fire({ icon: 'success', title: 'Baja completada', text: data.message || 'La baja quedó registrada correctamente.' }).then(function () {
+                            $('#modalBajas').modal('hide');
+                            if (typeof getUsuarios === 'function') getUsuarios();
+                            if (typeof getBajas === 'function') getBajas();
+                        });
+                    })
+                    .catch(function (error) {
+                        Swal.fire({ icon: 'error', title: 'No se pudo completar la baja', text: error.message || 'Ocurrió un error al finalizar el trámite.' });
+                    })
+                    .finally(function () {
+                        if (boton) { boton.disabled = false; boton.textContent = 'Completar baja'; }
+                    });
+                });
+            }
 
             function onModuloChange(checkbox, opts) {
                 opts = opts || {};
@@ -14156,6 +14467,59 @@ class CapHum extends Controller
         candidatoReingresoTimer = setTimeout(detectarReingresoCandidato, 450);
         }
 
+            function escaparTextoHistorialCandidato(valor) {
+        return String(valor == null ? "" : valor).replace(/[&<>\"']/g, function(caracter) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" }[caracter];
+        });
+        }
+
+            function confirmarHistorialPrevioCandidato(coincidencias) {
+        coincidencias = Array.isArray(coincidencias) ? coincidencias : [];
+        if (!coincidencias.length) return Promise.resolve(true);
+        var detalle = coincidencias.map(function(item) {
+            var datos = [
+                item.estatus ? "Estatus: " + item.estatus : "",
+                item.fecha_accion ? "Fecha: " + item.fecha_accion : "",
+                item.puesto ? "Puesto: " + item.puesto : "",
+                item.departamento ? "Departamento: " + item.departamento : "",
+                item.motivo_cierre ? "Motivo: " + item.motivo_cierre : "",
+                item.motivos_coincidencia && item.motivos_coincidencia.length ? "Coincide por: " + item.motivos_coincidencia.join(", ") : ""
+            ].filter(Boolean);
+            return "<li class='mb-2'><strong>" + escaparTextoHistorialCandidato(item.nombre_completo || "Candidato anterior") + "</strong><br><small>" + escaparTextoHistorialCandidato(datos.join(" · ")) + "</small></li>";
+        }).join("");
+        var texto = "Se encontr\u00f3 " + coincidencias.length + " proceso" + (coincidencias.length === 1 ? "" : "s") + " anterior(es) de esta persona. No se crear\u00e1 nada hasta que lo confirmes.";
+        if (typeof Swal === "undefined") return Promise.resolve(window.confirm(texto + "\n\n\u00bfDeseas crear un proceso nuevo?"));
+        return Swal.fire({
+            icon: "warning",
+            title: "Proceso anterior encontrado",
+            html: "<p class='text-start mb-2'>" + escaparTextoHistorialCandidato(texto) + "</p><ul class='text-start ps-3 mb-0'>" + detalle + "</ul>",
+            showCancelButton: true,
+            confirmButtonText: "S\u00ed, crear proceso nuevo",
+            cancelButtonText: "Cancelar alta",
+            focusCancel: true,
+            reverseButtons: true
+        }).then(function(resultado) { return !!resultado.isConfirmed; });
+        }
+
+            function guardarCandidatoConValidacionHistorial(data) {
+        var enviar = function(payload) {
+            return fetch("/caphum/guardarCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(payload) })
+                .then(function(r) { return r.json(); });
+        };
+        return enviar(data).then(function(respuesta) {
+            if (!respuesta || !respuesta.requiere_confirmacion_historial) return respuesta;
+            var coincidencias = respuesta.datos && respuesta.datos.coincidencias ? respuesta.datos.coincidencias : [];
+            return confirmarHistorialPrevioCandidato(coincidencias).then(function(confirmado) {
+                if (!confirmado) return { success: false, alta_historial_cancelada: true };
+                data.confirmar_historial_previo = true;
+                data.historial_previo_coincidencias = coincidencias.map(function(item) {
+                    return { id_candidato: item.id_candidato || null, estatus: item.estatus || "", motivos_coincidencia: item.motivos_coincidencia || [] };
+                });
+                return enviar(data);
+            });
+        });
+        }
+
             function guardarCandidatoEdicion() {
         var form = document.getElementById("formAgregarCandidato");
         setRequiredOrganizacionCandidato(false);
@@ -14199,9 +14563,9 @@ class CapHum extends Controller
         if (!data.nombres || !data.apellidop) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Faltan datos", text: "Nombre y apellido paterno son obligatorios." }); return; }
         var btnSubmit = document.getElementById("btnSubmitCandidato");
         if (btnSubmit) { btnSubmit.disabled = true; }
-        fetch("/caphum/guardarCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) })
-        .then(function(r){ return r.json(); }).then(function(res){
+        guardarCandidatoConValidacionHistorial(data).then(function(res){
             if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; }
+            if (res && res.alta_historial_cancelada) return;
             if (!res.success) { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || res.error || "No se pudo guardar." }); return; }
             var idCand = res.datos && res.datos.id; if (!idCand) return;
             candidatoNuevoId = idCand; candidatoNuevoEmail = data.email || ""; candidatoDatosEnvio = null; candidatoReenviarId = null; candidatoReenviarEmail = null;
@@ -14313,8 +14677,8 @@ class CapHum extends Controller
         var data = candidatoDatosEnvio || buildCandidatoPayloadFromForm();
         if (!data.nombres || !data.apellidop) { btn.disabled = false; btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato"; if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Nombre y apellido paterno son obligatorios." }); return; }
         var form = document.getElementById("formAgregarCandidato");
-        fetch("/caphum/guardarCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) })
-        .then(function(r){ return r.json(); }).then(function(res){
+        guardarCandidatoConValidacionHistorial(data).then(function(res){
+            if (res && res.alta_historial_cancelada) { btn.disabled = false; btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulaci\u00f3n al candidato"; return; }
             if (res.success) {
                 candidatoDatosEnvio = null; var idCand = res.datos && res.datos.id; cargarLinkDocumentosCandidato(idCand);
                 fetch("/caphum/enviarPostulacionCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: idCand, email: data.email }) })
@@ -15252,7 +15616,7 @@ class CapHum extends Controller
                  LEFT JOIN estado_cuenta.departamento d ON d.id = pu.departamento_id
                  LEFT JOIN estado_cuenta.asigna_direcciones ad ON ad.id_departamento_organizacional = d.id_departamento_organizacional AND COALESCE(ad.activo, 1) = 1
                  LEFT JOIN estado_cuenta.direcciones_organizacion dir ON dir.id = ad.id_direccion
-                 WHERE COALESCE(p.estatus, '') <> 'Baja'
+                 WHERE LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                    AND (
                         UPPER(pu.nombre) LIKE '%GERENTE DIVISIONAL%'
                         OR (
@@ -15401,10 +15765,36 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, $validacionJefeDivisional['mensaje'] ?? 'Selecciona el jefe divisional.', null));
             exit;
         }
+        $confirmoHistorial = !empty($data['confirmar_historial_previo']);
+        $historial = CandidatosDAO::buscarCoincidenciasHistoricasParaAlta($data);
+        if (empty($historial['success'])) {
+            echo json_encode(self::respuesta(false, $historial['mensaje'] ?? 'No se pudo validar el historial del candidato. No se realizo el alta.', null, $historial['error'] ?? null));
+            exit;
+        }
+        $coincidenciasHistorial = is_array($historial['datos'] ?? null) ? $historial['datos'] : [];
+        if (!$confirmoHistorial && !empty($coincidenciasHistorial)) {
+            echo json_encode([
+                'success' => false,
+                'requiere_confirmacion_historial' => true,
+                'mensaje' => 'Esta persona ya tuvo un proceso anterior. Revisa el historial antes de crear una nueva alta.',
+                'datos' => ['coincidencias' => $coincidenciasHistorial],
+            ]);
+            exit;
+        }
         $resultado = CandidatosDAO::insert($data);
         if ($resultado['success'] && !empty($resultado['datos']['id'])) {
             $idNuevo = (int) $resultado['datos']['id'];
             CandidatosDAO::getOrCreateTokenDocumentos($idNuevo);
+            if ($confirmoHistorial) {
+                CandidatosDAO::registrarBitacoraCandidato(
+                    $idNuevo,
+                    'HISTORIAL_PREVIO_CONFIRMADO',
+                    'Alta nueva confirmada con historial previo',
+                    'Se confirmo crear un proceso nuevo despues de revisar procesos anteriores del candidato.',
+                    ['coincidencias' => $coincidenciasHistorial],
+                    (int) ($_SESSION['usuario_id'] ?? 0) ?: null
+                );
+            }
             $snapshot = CapHumDAO::snapshotCandidatoAuditoria($idNuevo);
             CapHumDAO::registrarAuditoriaInternaRrhh([
                 'modulo' => 'Seleccion de Personal',
@@ -16016,9 +16406,39 @@ class CapHum extends Controller
             return;
         }
         $html = file_get_contents($htmlPath);
-        $script = '<script>window.__CANDIDATO__=' . json_encode($datosParaForm) . ';document.addEventListener("DOMContentLoaded",function(){var d=window.__CANDIDATO__||{};["fecha","puesto","ap_paterno","ap_materno","nombres","telefono","correo"].forEach(function(id){var el=document.getElementById(id);if(el&&d[id]!==undefined)el.value=d[id]||"";});});</script>';
-        $html = str_replace('</body>', $script . "\n</body>", $html);
+        // Los datos se insertan dentro de un <script>. JSON_HEX_TAG evita que un
+        // valor capturado (por ejemplo, un nombre) pueda cerrar ese bloque HTML.
+        $datosJson = json_encode(
+            $datosParaForm,
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE
+        );
+        if ($datosJson === false) {
+            $datosJson = '{}';
+        }
+        $urlRegresoDocumentos = '/CapHum/subirDocumentosCandidato/' . rawurlencode($token);
+        $urlRegresoJson = json_encode(
+            $urlRegresoDocumentos,
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE
+        );
+        if ($urlRegresoJson === false) {
+            $urlRegresoJson = '""';
+        }
+        $script = '<script>window.__CANDIDATO__=' . $datosJson . ';window.__URL_REGRESO_DOCUMENTOS__=' . $urlRegresoJson . ';document.addEventListener("DOMContentLoaded",function(){var d=window.__CANDIDATO__||{};["fecha","puesto","ap_paterno","ap_materno","nombres","telefono","correo"].forEach(function(id){var el=document.getElementById(id);if(el&&d[id]!==undefined)el.value=d[id]||"";});});</script>';
+        // No usar str_replace: la plantilla contiene </body> dentro de una
+        // cadena JavaScript para la ventana de descarga móvil. Reemplazarlo
+        // ahí cortaría el script y el navegador imprimiría el código restante.
+        $cierreBody = strripos($html, '</body>');
+        if ($cierreBody !== false) {
+            $html = substr_replace($html, $script . "\n", $cierreBody, 0);
+        } else {
+            $html .= $script;
+        }
         header('Content-Type: text/html; charset=UTF-8');
+        // El formulario se actualiza con frecuencia y debe evitarse que un
+        // candidato reciba una copia anterior desde la caché del navegador.
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
         echo $html;
     }
 
@@ -16671,7 +17091,7 @@ class CapHum extends Controller
                 $row = $db->queryOne(
                     "SELECT id
                      FROM estado_cuenta.persona
-                     WHERE COALESCE(estatus, '') <> 'Baja'
+                     WHERE LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')
                        AND ((:email <> '' AND correo = :email) OR (:usuario <> '' AND user_name = :usuario))
                      ORDER BY id DESC
                      LIMIT 1",
@@ -16689,7 +17109,7 @@ class CapHum extends Controller
             $row = $db->queryOne(
                 "SELECT id
                  FROM estado_cuenta.persona
-                 WHERE COALESCE(estatus, '') <> 'Baja'
+                 WHERE LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')
                    AND nombres = :nombres
                    AND COALESCE(segundo_nombre, '') = :segundo
                    AND apellidop = :apellidop
@@ -19779,7 +20199,7 @@ class CapHum extends Controller
                  FROM asigna_modulo_web am
                  INNER JOIN persona p ON p.id = am.usuario_id
                  WHERE am.modulo_web_id = :modulo
-                   AND COALESCE(p.estatus, '') <> 'Baja'
+                   AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                  ORDER BY p.nombres, p.apellidop",
                 ['modulo' => $moduloRevision]
             );
@@ -19877,7 +20297,7 @@ class CapHum extends Controller
                     user_name
                  FROM estado_cuenta.persona
                  WHERE UPPER(user_name) IN (" . implode(',', $placeholders) . ")
-                   AND COALESCE(estatus, '') <> 'Baja'",
+                   AND LOWER(TRIM(COALESCE(estatus, ''))) NOT IN ('baja', 'transito de baja')",
                 $params
             );
         } catch (\Throwable $e) {
@@ -20144,12 +20564,13 @@ class CapHum extends Controller
             ];
         }
 
-        $resultado['destinatarios'] = array_keys($destinatarios);
-        $resultado['total_destinatarios'] = count($destinatarios);
         if (empty($destinatarios)) {
             $resultado['error'] = 'No hay jefe divisional con correo valido para notificar el alta a nomina.';
             return $resultado;
         }
+
+        $resultado['destinatarios'] = array_keys($destinatarios);
+        $resultado['total_destinatarios'] = count($destinatarios);
 
         $puesto = trim((string) ($candidato['nombre_puesto'] ?? ''));
         $departamento = trim((string) ($candidato['nombre_departamento'] ?? ''));
@@ -21315,7 +21736,7 @@ class CapHum extends Controller
                  LEFT JOIN estado_cuenta.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
                  LEFT JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
                  WHERE p.id = :id
-                   AND COALESCE(p.estatus, '') <> 'Baja'
+                   AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                  GROUP BY p.id, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.correo
                  LIMIT 1",
                 ['id' => $idPersona]
@@ -21385,7 +21806,7 @@ class CapHum extends Controller
                  WHERE pu.departamento_id = :id_departamento
                    AND UPPER(pu.nombre) LIKE 'GERENTE DIVISIONAL%'
                    AND UPPER(pu.nombre) NOT LIKE '%PRUEBA%'
-                   AND COALESCE(p.estatus, '') <> 'Baja'
+                   AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
                  ORDER BY pu.nivel DESC, p.nombres, p.apellidop",
                 ['id_departamento' => $idDepartamento]
             );
@@ -26791,7 +27212,9 @@ class CapHum extends Controller
 
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeVerGestionPersonal = in_array(4, $modulos);
-        $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id'], !$puedeVerGestionPersonal);
+        // Gestion de Personal debe mostrar el tramite para permitir continuarlo o cancelarlo.
+        // Los consumidores operativos mantienen excluido el estatus "Transito de baja".
+        $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id'], !$puedeVerGestionPersonal, true);
         $usuarios = $resultado['datos'] ?? [];
         $catalogoDepartamentos = CapHumDAO::getTodosDepartamentosGestion();
         $rowsDepartamentos = (is_array($catalogoDepartamentos) && !empty($catalogoDepartamentos['success']) && !empty($catalogoDepartamentos['datos']))
@@ -27211,6 +27634,12 @@ class CapHum extends Controller
                 'resumen' => CapHumDAO::resumenAuditoriaUsuarioDesdeCambios($cambios, 'usuario RR.HH.'),
                 'cambios' => $cambios,
             ]);
+            try {
+                $this->notificarCambioAreaColaboradorRrhh($antes, $despues, $idPersonaAudit);
+            } catch (\Throwable $e) {
+                // El cambio de estructura ya se guardo; una falla al avisar no debe revertirlo.
+                error_log('CapHum::notificarCambioAreaColaboradorRrhh -> ' . $e->getMessage());
+            }
         }
         self::respuestaJSON($resultado);
     }
@@ -28762,6 +29191,7 @@ public function getEstadosMunicipiosMexico()
     public function getJefeDirecto()
     {
         $input = json_decode(file_get_contents("php://input"), true);
+        $idArea = isset($input['id_area']) && $input['id_area'] !== '' ? (int)$input['id_area'] : null;
         $idDepartamento = $input['id_departamento'] ?? null;
         $idPuesto = $input['id_puesto'] ?? null;
         $idPersonaActual = (int)($input['id_persona'] ?? 0);
@@ -28833,13 +29263,15 @@ public function getEstadosMunicipiosMexico()
 
         // 1) Si hay puesto seleccionado: jefes por nivel (mismo departamento, nivel superior)
         if ($idPuesto) {
-            $porPuesto = CapHumDAO::getConsultaGestoresPorPuesto($idPuesto);
+            $porPuesto = CapHumDAO::getConsultaGestoresPorPuesto($idPuesto, $idArea);
             if ($porPuesto['success'] && !empty($porPuesto['datos'])) {
                 $datos = array_map(function ($row) {
                     return [
                         'id' => $row['id'],
                         'nombre_completo' => $row['nombre_completo'] ?? '',
-                        'nombre_puesto' => $row['puesto'] ?? $row['nombre_puesto'] ?? ''
+                        'nombre_puesto' => $row['puesto'] ?? $row['nombre_puesto'] ?? '',
+                        'area' => $row['area'] ?? '',
+                        'departamento' => $row['departamento'] ?? '',
                     ];
                 }, $porPuesto['datos']);
                 $datos = $deduplicarPorPersona($datos);
@@ -29300,6 +29732,9 @@ public function getEstadosMunicipiosMexico()
         if (strcasecmp($estatus, 'Baja') === 0) {
             $row['tipo_estado'] = 'baja';
             $row['estado_label'] = 'Baja';
+        } elseif (strcasecmp($estatus, 'Transito de baja') === 0) {
+            $row['tipo_estado'] = 'transito_baja';
+            $row['estado_label'] = 'Transito de baja';
         }
         $rows[] = $row;
 
@@ -29538,15 +29973,6 @@ public function getEstadosMunicipiosMexico()
         $idGestor    = $_POST['idGestor'] ?? null;
         $motivo      = $_POST['motivo'] ?? null;
         $descripcion = $_POST['descripcion'] ?? null;
-        $modoReasignacion = $_POST['modo_reasignacion'] ?? 'sin_subordinados';
-        $sustitutoId = $_POST['sustituto_id'] ?? null;
-        $subordinadosSeleccionadosRaw = $_POST['subordinados_seleccionados'] ?? '[]';
-        $subordinadosSeleccionados = json_decode($subordinadosSeleccionadosRaw, true);
-        if (!is_array($subordinadosSeleccionados)) $subordinadosSeleccionados = [];
-        $asignacionesJefeRaw = $_POST['asignaciones_jefe'] ?? '{}';
-        $asignacionesJefe = json_decode($asignacionesJefeRaw, true);
-        if (!is_array($asignacionesJefe)) $asignacionesJefe = [];
-        $vacanteExistenteId = $_POST['vacante_existente_id'] ?? null;
 
         //  Validaciones obligatorias
         if (empty($idGestor)) {
@@ -29606,13 +30032,8 @@ public function getEstadosMunicipiosMexico()
             'motivo'      => $motivo,
             'descripcion' => $descripcion,
             'archivos'    => $rutasPDF, // ï¿½Ë† ahora es un arreglo
-            'fecha_baja'  => date('Y-m-d H:i:s'),
+            'fecha_baja'  => (new DateTime('now', new DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'),
             'usuario_baja' => $_SESSION['usuario_id'],
-            'modo_reasignacion' => $modoReasignacion,
-            'sustituto_id' => $sustitutoId,
-            'subordinados_seleccionados' => $subordinadosSeleccionados,
-            'asignaciones_jefe' => $asignacionesJefe,
-            'vacante_existente_id' => $vacanteExistenteId
         ];
 
         //  Llamar al modelo / DAO
@@ -29622,15 +30043,119 @@ public function getEstadosMunicipiosMexico()
             echo json_encode([
                 'success' => true,
                 'datos' => $resultado['datos'] ?? null,
-                'message' => 'La baja se registró correctamente'
+                'message' => $resultado['mensaje'] ?? 'Trámite de baja iniciado correctamente.'
             ]);
         } else {
             echo json_encode([
                 'success' => false,
-                'message' => $resultado['mensaje'] ?? 'Error al registrar la baja',
+                'message' => $resultado['mensaje'] ?? 'Error al iniciar el trámite de baja',
                 'error'   => $resultado['error'] ?? null
             ]);
         }
+        exit;
+    }
+
+    /** Completa una baja que ya se encuentra en tránsito. */
+    public function finalizarBaja()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!self::puedeAccionGestion(self::MODULO_GESTION_DAR_BAJA)) {
+            echo json_encode(['success' => false, 'message' => 'No tienes permiso para completar bajas.']);
+            exit;
+        }
+
+        $idGestor = (int)($_POST['idGestor'] ?? 0);
+        $motivo = trim((string)($_POST['motivo'] ?? ''));
+        $descripcion = trim((string)($_POST['descripcion'] ?? ''));
+        $modo = trim((string)($_POST['modo_reasignacion'] ?? ''));
+        $tipoDocumento = strtolower(trim((string)($_POST['tipo_documento_final'] ?? '')));
+        if ($idGestor < 1) {
+            echo json_encode(['success' => false, 'message' => 'La persona indicada no es válida.']);
+            exit;
+        }
+        if (!in_array($modo, ['vacante', 'sustituto'], true)) {
+            echo json_encode(['success' => false, 'message' => 'Elige si la posición quedará como vacante o con sustituto.']);
+            exit;
+        }
+        if (!in_array($tipoDocumento, ['renuncia', 'aviso_rescision'], true)) {
+            echo json_encode(['success' => false, 'message' => 'Elige Renuncia o Aviso de rescisión para el documento de baja.']);
+            exit;
+        }
+        if (empty($_FILES['archivoFinalBaja']) || ($_FILES['archivoFinalBaja']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            echo json_encode(['success' => false, 'message' => 'Debes cargar el documento obligatorio de baja en PDF.']);
+            exit;
+        }
+
+        $archivo = $_FILES['archivoFinalBaja'];
+        if (!SecureUpload::validateMime($archivo['tmp_name'], SecureUpload::MIME_PDF)) {
+            echo json_encode(['success' => false, 'message' => 'El documento de baja debe ser un PDF válido.']);
+            exit;
+        }
+
+        $directorio = sparta_uploads_join('bajas') . DIRECTORY_SEPARATOR;
+        SecureUpload::ensureDir($directorio);
+        $nombreFinal = SecureUpload::generateSafeFilename('pdf');
+        if (!move_uploaded_file($archivo['tmp_name'], $directorio . $nombreFinal)) {
+            echo json_encode(['success' => false, 'message' => 'No se pudo guardar el documento obligatorio de baja.']);
+            exit;
+        }
+
+        $subordinados = json_decode((string)($_POST['subordinados_seleccionados'] ?? '[]'), true);
+        $asignaciones = json_decode((string)($_POST['asignaciones_jefe'] ?? '{}'), true);
+        $data = [
+            'id_gestor' => $idGestor,
+            'motivo' => $motivo,
+            'descripcion' => $descripcion,
+            'modo_reasignacion' => $modo,
+            'tipo_documento_final' => $tipoDocumento,
+            'sustituto_id' => (int)($_POST['sustituto_id'] ?? 0),
+            'vacante_existente_id' => (int)($_POST['vacante_existente_id'] ?? 0),
+            'subordinados_seleccionados' => is_array($subordinados) ? $subordinados : [],
+            'asignaciones_jefe' => is_array($asignaciones) ? $asignaciones : [],
+            'archivos' => [$nombreFinal],
+            'fecha_baja' => (new DateTime('now', new DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'),
+            'usuario_baja' => (int)($_SESSION['usuario_id'] ?? 0),
+        ];
+        $resultado = CapHumDAO::finalizarBajaGestor($data);
+        if (!$resultado['success']) {
+            @unlink($directorio . $nombreFinal);
+        }
+        echo json_encode([
+            'success' => (bool)($resultado['success'] ?? false),
+            'datos' => $resultado['datos'] ?? null,
+            'message' => $resultado['mensaje'] ?? ($resultado['success'] ? 'Baja completada.' : 'No se pudo completar la baja.'),
+            'error' => $resultado['error'] ?? null,
+        ]);
+        exit;
+    }
+
+    /** Cancela el trámite y restaura a la persona a su estado previo. */
+    public function cancelarTransitoBaja()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeAccionGestion(self::MODULO_GESTION_DAR_BAJA)) {
+            echo json_encode(['success' => false, 'message' => 'No tienes permiso para cancelar trámites de baja.']);
+            exit;
+        }
+        $body = json_decode(file_get_contents('php://input'), true);
+        $payload = is_array($body) ? $body : $_POST;
+        $idGestor = (int)($payload['idGestor'] ?? $payload['idPersona'] ?? 0);
+        if ($idGestor < 1) {
+            echo json_encode(['success' => false, 'message' => 'La persona indicada no es válida.']);
+            exit;
+        }
+        $resultado = CapHumDAO::cancelarTransitoBajaGestor([
+            'id_gestor' => $idGestor,
+            'usuario_cancelacion' => (int)($_SESSION['usuario_id'] ?? 0),
+            'fecha_cancelacion' => (new DateTime('now', new DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'),
+        ]);
+        echo json_encode([
+            'success' => (bool)($resultado['success'] ?? false),
+            'datos' => $resultado['datos'] ?? null,
+            'message' => $resultado['mensaje'] ?? ($resultado['success'] ? 'Trámite cancelado.' : 'No se pudo cancelar el trámite.'),
+            'error' => $resultado['error'] ?? null,
+        ]);
         exit;
     }
 
@@ -31669,6 +32194,7 @@ public function getEstadosMunicipiosMexico()
     public function vacacionesAdmin()
     {
         self::set('titulo', 'Panel admin vacaciones');
+        self::set('puedeDescargarPlantillaCruceVacaciones', self::tieneModuloWeb(CapHumDAO::MODULO_DESCARGAR_PLANTILLA_CRUCE_VACACIONES));
         $idResponsableArea = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
         $solicitudes = VacacionesDAO::listarAdmin(150, $idResponsableArea);
         self::set('vacacionesAdminJson', json_encode(
@@ -31676,6 +32202,68 @@ public function getEstadosMunicipiosMexico()
             JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
         ));
         self::render('caphum_vacaciones_admin');
+    }
+
+    public function descargarPlantillaCruceVacaciones()
+    {
+        if (!self::tieneModuloWeb(CapHumDAO::MODULO_DESCARGAR_PLANTILLA_CRUCE_VACACIONES)) {
+            http_response_code(403);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'No tienes permiso para descargar la plantilla de vacaciones.';
+            return;
+        }
+
+        $resultado = VacacionesDAO::plantillaCruceColaboradores();
+        if (empty($resultado['success'])) {
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo $resultado['mensaje'] ?? 'No se pudo generar la plantilla.';
+            return;
+        }
+
+        try {
+            if (!class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+                require_once dirname(__DIR__) . '/bootstrap_composer.php';
+                sparta_require_composer_autoload();
+            }
+
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Cruce vacaciones');
+            $headers = ['CURP', 'NOMBRE COMPLETO', 'CODIGO CONTPAC'];
+            foreach ($headers as $indice => $header) {
+                $celda = chr(65 + $indice) . '1';
+                $sheet->setCellValue($celda, $header);
+            }
+            $sheet->getStyle('A1:C1')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+            $sheet->getStyle('A1:C1')->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setARGB('FF26344E');
+            $sheet->freezePane('A2');
+
+            $fila = 2;
+            foreach ((array)($resultado['datos'] ?? []) as $persona) {
+                $sheet->setCellValueExplicit('A' . $fila, (string)($persona['curp'] ?? ''), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                $sheet->setCellValue('B' . $fila, (string)($persona['nombre_completo'] ?? ''));
+                $sheet->setCellValueExplicit('C' . $fila, (string)($persona['codigo_contpac'] ?? ''), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                $fila++;
+            }
+            $sheet->setAutoFilter('A1:C1');
+            foreach (['A' => 22, 'B' => 44, 'C' => 20] as $columna => $ancho) {
+                $sheet->getColumnDimension($columna)->setWidth($ancho);
+            }
+
+            $nombre = 'plantilla_cruce_vacaciones_' . date('Y-m-d_His') . '.xlsx';
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="' . $nombre . '"');
+            header('Cache-Control: max-age=0');
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save('php://output');
+            exit;
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'No se pudo generar el Excel de vacaciones.';
+        }
     }
 
     public function getVacacionesAdmin()

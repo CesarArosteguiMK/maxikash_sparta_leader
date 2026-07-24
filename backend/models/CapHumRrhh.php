@@ -510,6 +510,74 @@ class CapHumRrhh extends Model
         return [$idJefe, $idVacanteJefe];
     }
 
+    /** Evita guardar un jefe ajeno a la estructura laboral elegida. */
+    private static function validarJefeDirectoEstructura(Database $db, int $idPersona, array $rrhh): array
+    {
+        [$idJefe, $idVacanteJefe] = self::jefeSeleccionado($rrhh);
+        if (!$idJefe && !$idVacanteJefe) {
+            return [true, null];
+        }
+
+        $idArea = (int)($rrhh['area_id'] ?? 0);
+        $idDepartamento = (int)($rrhh['departamento_id'] ?? 0);
+        $idPuesto = (int)($rrhh['puesto_id'] ?? 0);
+        if ($idArea <= 0 || $idDepartamento <= 0 || $idPuesto <= 0) {
+            return [false, 'Para asignar un jefe directo primero selecciona el área, departamento y puesto.'];
+        }
+        if ($idJefe && $idJefe === $idPersona) {
+            return [false, 'Una persona no puede asignarse como su propio jefe directo.'];
+        }
+
+        if ($idVacanteJefe) {
+            $vacante = $db->queryOne("
+                SELECT v.id
+                FROM estado_cuenta.vacantes_personal v
+                INNER JOIN estado_cuenta.puesto jefe_puesto ON jefe_puesto.id = v.id_puesto
+                INNER JOIN estado_cuenta.puesto puesto_actual ON puesto_actual.id = :id_puesto
+                INNER JOIN estado_cuenta.departamento d ON d.id = v.id_departamento
+                WHERE v.id = :id_vacante
+                  AND v.id_departamento = :id_departamento
+                  AND UPPER(TRIM(v.estatus)) = 'ACTIVA'
+                  AND jefe_puesto.nivel > puesto_actual.nivel
+                  AND d.id_departamento_organizacional = :id_area
+                LIMIT 1
+            ", [
+                'id_vacante' => $idVacanteJefe,
+                'id_puesto' => $idPuesto,
+                'id_departamento' => $idDepartamento,
+                'id_area' => $idArea,
+            ]);
+            return $vacante
+                ? [true, null]
+                : [false, 'La vacante seleccionada no corresponde al área, departamento o nivel jerárquico del colaborador.'];
+        }
+
+        $jefe = $db->queryOne("
+            SELECT jefe.id
+            FROM estado_cuenta.persona jefe
+            INNER JOIN estado_cuenta.asigna_puesto jefe_asignacion
+                ON jefe_asignacion.id_persona = jefe.id AND COALESCE(jefe_asignacion.activo, 1) = 1
+            INNER JOIN estado_cuenta.puesto jefe_puesto ON jefe_puesto.id = jefe_asignacion.id_puesto
+            INNER JOIN estado_cuenta.puesto puesto_actual ON puesto_actual.id = :id_puesto
+            INNER JOIN estado_cuenta.departamento d ON d.id = jefe_puesto.departamento_id
+            WHERE jefe.id = :id_jefe
+              AND COALESCE(LOWER(TRIM(jefe.estatus)), 'activo') NOT IN ('baja', 'transito de baja')
+              AND jefe_puesto.departamento_id = :id_departamento
+              AND d.id_departamento_organizacional = :id_area
+              AND jefe_puesto.nivel > puesto_actual.nivel
+            LIMIT 1
+        ", [
+            'id_jefe' => $idJefe,
+            'id_puesto' => $idPuesto,
+            'id_departamento' => $idDepartamento,
+            'id_area' => $idArea,
+        ]);
+
+        return $jefe
+            ? [true, null]
+            : [false, 'El jefe directo debe estar activo y pertenecer al área, departamento y nivel jerárquico correspondiente.'];
+    }
+
     private static function guardarDatosRrhh(Database $db, int $idPersona, array $persona, array $rrhh, array $nomina): void
     {
         [$idJefe] = self::jefeSeleccionado($rrhh);
@@ -1714,6 +1782,11 @@ class CapHumRrhh extends Model
             $db = new Database();
             self::asegurarTablas($db);
             self::completarPuestoRrhhDesdeTexto($db, $rrhh);
+
+            [$jefeValido, $mensajeJefe] = self::validarJefeDirectoEstructura($db, $idPersona, $rrhh);
+            if (!$jefeValido) {
+                return self::resultado(false, $mensajeJefe);
+            }
 
             $existePersona = $db->queryOne("SELECT id FROM estado_cuenta.persona WHERE id = :id_persona LIMIT 1", ['id_persona' => $idPersona]);
             if (!$existePersona) {

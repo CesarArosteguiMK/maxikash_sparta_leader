@@ -3497,7 +3497,7 @@ SQL;
     {
         $buscar = trim($buscar);
         $params = [];
-        $where = "WHERE pa.estatus = 'Activo' AND COALESCE(p.estatus, 'Activo') <> 'Baja'";
+        $where = "WHERE pa.estatus = 'Activo' AND LOWER(TRIM(COALESCE(p.estatus, 'Activo'))) NOT IN ('baja', 'transito de baja')";
         if ($buscar !== '') {
             $where .= " AND (
                 pa.id = :idExacto
@@ -3571,7 +3571,7 @@ SQL;
              FROM persona p
              LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
              LEFT JOIN puesto pu ON pu.id = ap.id_puesto
-             WHERE COALESCE(p.estatus, 'Activo') <> 'Baja'
+             WHERE LOWER(TRIM(COALESCE(p.estatus, 'Activo'))) NOT IN ('baja', 'transito de baja')
                AND TRIM(COALESCE(p.numero_empleado, '')) <> ''
                AND (
                     p.id = :idExacto
@@ -3669,7 +3669,7 @@ SQL;
              INNER JOIN persona p ON p.id = pa.id_persona
              WHERE p.id = :id
                AND pa.estatus = 'Activo'
-               AND COALESCE(p.estatus, 'Activo') <> 'Baja'
+               AND LOWER(TRIM(COALESCE(p.estatus, 'Activo'))) NOT IN ('baja', 'transito de baja')
              ORDER BY pa.id DESC
              LIMIT 1",
             ['id' => $idPersonaDestino]
@@ -7573,7 +7573,15 @@ EOSQL;
         return $out;
     }
 
-    public function guardarDatosMoto(int $idOperacion, array $datos, int $idUsuario = 0, string $nombreUsuario = '', bool $registrarBitacora = true, ?string $fechaOperacion = null): array
+    public function guardarDatosMoto(
+        int $idOperacion,
+        array $datos,
+        int $idUsuario = 0,
+        string $nombreUsuario = '',
+        bool $registrarBitacora = true,
+        ?string $fechaOperacion = null,
+        bool $permitirVaciosExplicitos = false
+    ): array
     {
         if ($idOperacion <= 0) {
             return ['success' => false, 'message' => 'Operaci?n inv?lida.'];
@@ -7591,7 +7599,16 @@ EOSQL;
 
         // REPUVE/Nubarium: confiar en el origen; la validación estricta evitaba guardar en adj_operacion.
         if ($nombreUsuario !== 'REPUVE') {
-            $fmtErr = $this->validarDatosMotoFormatos($datos);
+            $datosValidacion = $datos;
+            if ($permitirVaciosExplicitos) {
+                foreach ($datosValidacion as $campo => $valor) {
+                    if (is_scalar($valor) && trim((string) $valor) === '') {
+                        unset($datosValidacion[$campo]);
+                    }
+                }
+            }
+
+            $fmtErr = $this->validarDatosMotoFormatos($datosValidacion);
             if ($fmtErr !== null) {
                 return ['success' => false, 'message' => $fmtErr];
             }
