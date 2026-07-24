@@ -516,6 +516,9 @@
     #modalBajas .modal-bajas-dialog {
         max-width: min(760px, calc(100vw - 2rem));
     }
+    #modalBajas .modal-bajas-dialog.modo-final {
+        max-width: min(1200px, calc(100vw - 2rem));
+    }
     #modalBajas .modal-bajas-shell {
         display: block;
         background: transparent;
@@ -538,6 +541,15 @@
     }
     #modalBajas .baja-side-panel {
         display: none !important;
+    }
+    #modalBajas .modal-bajas-shell.modo-final {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+        align-items: stretch;
+        gap: 1rem;
+    }
+    #modalBajas .modal-bajas-shell.modo-final .baja-side-panel {
+        display: block !important;
     }
     #modalBajas .baja-side-panel {
         border-radius: 0.85rem;
@@ -6844,7 +6856,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
                 <div class="modal-body">
                     <p id="gestor"></p>
-                    <div class="alert alert-warning small" role="alert">
+                    <div class="alert alert-warning small" id="bajaMensajeFlujo" role="alert">
                         <strong>Trámite pendiente.</strong> La persona quedará fuera de cartera, asignaciones y acceso al sistema.
                         Aún no será una baja definitiva: las vacantes y reasignaciones se realizarán hasta completar los documentos requeridos.
                     </div>
@@ -6894,6 +6906,23 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <small class="text-muted">Puedes subir múltiples archivos PDF.</small>
                     </div>
                     <div id="listaArchivos" class="mt-2" style="display: none;"></div>
+
+                    <div id="bajaDocumentoFinalWrap" class="mb-3" style="display: none;">
+                        <label for="tipoDocumentoFinal" class="form-label"><strong>Documento obligatorio para completar la baja:</strong></label>
+                        <select class="form-select mb-2" id="tipoDocumentoFinal">
+                            <option value="">-- Selecciona el tipo de documento --</option>
+                            <option value="renuncia">Renuncia</option>
+                            <option value="aviso_rescision">Aviso de rescisi&oacute;n</option>
+                        </select>
+                        <div class="d-flex gap-2 align-items-center">
+                            <input type="file" id="archivoFinalBaja" class="form-control d-none" accept=".pdf" onchange="actualizarNombreArchivoFinalBaja()" />
+                            <button type="button" class="btn btn-outline-danger" onclick="document.getElementById('archivoFinalBaja').click()">
+                                <i class="fa fa-file-pdf me-2"></i>Cargar PDF
+                            </button>
+                            <span id="bajaFinal_nombreArchivo" class="text-muted small">No se ha seleccionado ning&uacute;n archivo</span>
+                        </div>
+                        <small class="text-danger d-block mt-2">Para completar la baja debes adjuntar un PDF de Renuncia o Aviso de rescisi&oacute;n.</small>
+                    </div>
                 </div>
 
                 <div class="modal-footer">
@@ -6902,6 +6931,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <!-- ðŸ†• Botón para confirmar baja -->
                     <button type="button" class="btn btn-warning" id="btnIniciarTransitoBaja" onclick="confirmarBaja()">
                         Iniciar trámite
+                    </button>
+                    <button type="button" class="btn btn-danger" id="btnFinalizarBaja" onclick="finalizarBaja()" style="display: none;">
+                        Completar baja
                     </button>
                 </div>
                 </div>
@@ -12015,6 +12047,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         ? `<span class="gestion-personal-code-value">${escapeAttr(codigoContpacPersona)}</span>`
         : '<span class="gestion-personal-code-value">Sin id</span>';
       const externalIdPersona = String(p.numero_empleado || '').trim();
+      const enTransitoBaja = String(p.estatus || '').trim().toLowerCase() === 'transito de baja';
       const puestosPersonaTexto = tienePuestos
         ? p.puestos.map(puesto => puesto.nombre_puesto || '').filter(Boolean).join(' | ')
         : (p.nombre_puesto || '');
@@ -12119,6 +12152,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
               </div>
               <div class="gestion-personal-name-main text-uppercase">
                 ${nombreCompleto}
+                ${enTransitoBaja ? '<span class="badge bg-warning text-dark ms-1">Tránsito de baja</span>' : ''}
               </div>
               <div class="gestion-personal-external-id">
                 <span>External id:</span>
@@ -12181,8 +12215,11 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
               ${puedeRegistrarAusencia ? `<button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
                   <i class="fa fa-person-circle-minus"></i>
               </button>` : ''}
-             ${puedeDarBaja ? `<button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
-                 <i class="fa fa-user-slash"></i>
+             ${puedeDarBaja && enTransitoBaja ? `<button class="btn btn-sm btn-outline-success" onclick="cancelarTransitoBaja(${p.id})" title="Cancelar trámite de baja" aria-label="Cancelar trámite de baja">
+                 <i class="fa fa-rotate-left"></i>
+             </button>` : ''}
+             ${puedeDarBaja ? `<button class="btn btn-sm ${enTransitoBaja ? 'btn-warning' : 'btn-danger'}" onclick="baja_gestor(${p.id})" title="${enTransitoBaja ? 'Continuar baja' : 'Iniciar baja'}" aria-label="${enTransitoBaja ? 'Continuar baja' : 'Iniciar baja'}">
+                 <i class="fa ${enTransitoBaja ? 'fa-file-circle-check' : 'fa-user-slash'}"></i>
              </button>` : ''}
              ${puedePermisos ? `<button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="${tienePuestos ? 'Permisos (Gestionar múltiples puestos)' : 'Permisos'}">
                  <i class="fa fa-lock" style="color: #007bff;"></i>

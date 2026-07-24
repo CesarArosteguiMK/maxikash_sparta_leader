@@ -57,6 +57,11 @@ class LeonidasS2Service
             'fecha_credito' => $this->buscarEscalar($data, ['fechainicio', 'fechacredito', 'fechaotorgamiento', 'fechaapertura']),
             'fecha_liquidacion' => $this->buscarEscalar($data, ['fechaliquidacion', 'fechafiniquito']),
             'siguiente_pago' => $this->buscarEscalar($data, ['fechasiguientepago', 'siguientepago']),
+            'referencia_stp' => $this->buscarEscalar($data, ['referenciastp', 'referenciapago']),
+            'domiciliado' => $this->buscarEscalar($data, ['domiciliado', 'esdomiciliado', 'creditodomiciliado']),
+            'cuenta_concentradora' => $this->buscarEscalar($data, ['cuentaconcentradora', 'cuentaconcentrada', 'cuentapago']),
+            'clabe_concentradora' => $this->buscarEscalar($data, ['clabeconcentradora', 'clabeconcentrada', 'clabepago']),
+            'banco_concentrador' => $this->buscarEscalar($data, ['bancoconcentrador', 'bancopago']),
         ];
 
         return [

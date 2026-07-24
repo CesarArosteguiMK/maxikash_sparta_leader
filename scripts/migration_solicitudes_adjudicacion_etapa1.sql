@@ -19,6 +19,12 @@ CREATE TABLE IF NOT EXISTS adj_solicitud (
     tipo_asignacion VARCHAR(30) NULL,
     id_persona_gestor INT NULL,
     nombre_gestor VARCHAR(180) NULL,
+    id_persona_asignada INT NULL,
+    nombre_persona_asignada VARCHAR(180) NULL,
+    asignada_por INT NULL,
+    asignada_por_nombre VARCHAR(180) NULL,
+    fecha_asignacion DATETIME NULL,
+    comentario_asignacion VARCHAR(1000) NULL,
     id_usuario_solicitante INT NOT NULL,
     nombre_usuario_solicitante VARCHAR(180) NULL,
     id_operacion INT NULL,
@@ -45,6 +51,7 @@ CREATE TABLE IF NOT EXISTS adj_solicitud (
     KEY idx_adj_solicitud_credito (id_credito),
     KEY idx_adj_solicitud_canal_estatus (canal, estatus),
     KEY idx_adj_solicitud_gestor (id_persona_gestor),
+    KEY idx_adj_solicitud_asignada (id_persona_asignada, estatus),
     KEY idx_adj_solicitud_solicitante_fecha (id_usuario_solicitante, fecha_alta),
     KEY idx_adj_solicitud_operacion (id_operacion)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

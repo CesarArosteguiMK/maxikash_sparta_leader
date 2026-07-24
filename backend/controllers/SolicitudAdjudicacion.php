@@ -38,14 +38,14 @@ class SolicitudAdjudicacion extends Controller
         self::render('solicitud_adjudicacion_despachos');
     }
 
-    public function callCenter(): void
+    public function bandeja(): void
     {
-        if (!$this->autorizarCanal('CALLCENTER', false)) {
+        if (!$this->autorizarCanal('BANDEJA', false)) {
             return;
         }
-        self::set('titulo', 'Call Center - Solicitud de Adjudicacion');
+        self::set('titulo', 'Motos Adjudicadas - Bandeja de Solicitudes');
         self::set('solicitudes_tablas_disponibles', $this->model->tablasDisponibles());
-        self::render('solicitud_adjudicacion_callcenter');
+        self::render('solicitud_adjudicacion_bandeja');
     }
 
     public function buscarCredito(): void
@@ -130,13 +130,16 @@ class SolicitudAdjudicacion extends Controller
         $this->json($this->model->listarPorSolicitante($actorId, ['q' => $_GET['q'] ?? ''], 'DESPACHOS'));
     }
 
-    public function listarCallCenter(): void
+    public function listarBandeja(): void
     {
-        if (!$this->autorizarCanal('CALLCENTER', true)) {
+        if (!$this->autorizarCanal('BANDEJA', true)) {
             return;
         }
-        [$actorId] = $this->actor();
-        $this->json($this->model->listarPorSolicitante($actorId, ['q' => $_GET['q'] ?? ''], 'CALLCENTER'));
+        $this->json($this->model->listarBandeja([
+            'q' => $_GET['q'] ?? '',
+            'canal' => $_GET['canal'] ?? '',
+            'estatus' => $_GET['estatus'] ?? '',
+        ]));
     }
 
     public function detalle($id = 0): void
@@ -155,12 +158,88 @@ class SolicitudAdjudicacion extends Controller
         $this->detalleRespuesta((int) $id);
     }
 
-    public function detalleCallCenter($id = 0): void
+    public function detalleBandeja($id = 0): void
     {
-        if (!$this->autorizarCanal('CALLCENTER', true)) {
+        if (!$this->autorizarCanal('BANDEJA', true)) {
             return;
         }
-        $this->detalleRespuesta((int) $id);
+        $row = $this->model->obtenerPorIdBandeja((int) $id);
+        $this->json($row
+            ? ['success' => true, 'solicitud' => $row]
+            : ['success' => false, 'message' => 'Solicitud no encontrada.']);
+    }
+
+    public function responsablesBandeja(): void
+    {
+        if (!$this->autorizarCanal('BANDEJA', true)) {
+            return;
+        }
+        try {
+            $this->json([
+                'success' => true,
+                'rows' => $this->creditos->obtenerResponsables(),
+            ]);
+        } catch (\Throwable $e) {
+            error_log('[SolicitudAdjudicacion::responsablesBandeja] ' . $e->getMessage());
+            $this->json(['success' => false, 'rows' => [], 'message' => 'No se pudo cargar el catalogo de responsables.']);
+        }
+    }
+
+    public function asignarBandeja(): void
+    {
+        if (!$this->autorizarCanal('BANDEJA', true)) {
+            return;
+        }
+        $body = $this->payload();
+        $idSolicitud = (int) ($body['id_solicitud'] ?? 0);
+        $idPersona = (int) ($body['id_persona'] ?? 0);
+        $comentario = trim((string) ($body['comentario'] ?? ''));
+        if ($idSolicitud <= 0 || $idPersona <= 0) {
+            $this->json(['success' => false, 'message' => 'Selecciona una solicitud y un responsable validos.']);
+            return;
+        }
+
+        $solicitud = $this->model->obtenerPorIdBandeja($idSolicitud);
+        if (!$solicitud) {
+            $this->json(['success' => false, 'message' => 'La solicitud ya no esta disponible.']);
+            return;
+        }
+        if (!$this->creditos->idPersonaEsResponsableActivo($idPersona)) {
+            $this->json(['success' => false, 'message' => 'El responsable seleccionado no esta activo en Motos Adjudicadas.']);
+            return;
+        }
+        $responsable = $this->creditos->obtenerDatosResponsable($idPersona);
+        $nombreResponsable = trim((string) ($responsable['nombre_completo'] ?? ''));
+        if ($nombreResponsable === '') {
+            $this->json(['success' => false, 'message' => 'No se pudo identificar al responsable seleccionado.']);
+            return;
+        }
+
+        [$actorId, $actorNombre] = $this->actor();
+        $asignacion = $this->creditos->reasignarCredito(
+            $idPersona,
+            (int) $solicitud['id_credito'],
+            $actorId
+        );
+        if (empty($asignacion['success'])) {
+            $this->json([
+                'success' => false,
+                'message' => $asignacion['message'] ?? 'No se pudo completar la asignacion operativa.',
+                'asignacion' => $asignacion,
+            ]);
+            return;
+        }
+
+        $resultado = $this->model->registrarAsignacionBandeja(
+            $idSolicitud,
+            $idPersona,
+            $nombreResponsable,
+            $actorId,
+            $actorNombre,
+            $comentario
+        );
+        $resultado['asignacion_operativa'] = $asignacion;
+        $this->json($resultado);
     }
 
     private function detalleRespuesta(int $id): void
@@ -194,13 +273,16 @@ class SolicitudAdjudicacion extends Controller
             'ATC' => [69],
             'CALLCENTER' => [35],
             'DESPACHOS' => [20, 45],
+            'BANDEJA' => [62, 63, 80],
         ];
         if (array_intersect($permisos[$canal] ?? [], $modulos)) {
             return true;
         }
 
         http_response_code(403);
-        $etiqueta = $canal === 'CALLCENTER' ? 'Call Center' : ucfirst(strtolower($canal));
+        $etiqueta = $canal === 'CALLCENTER'
+            ? 'Call Center'
+            : ($canal === 'BANDEJA' ? 'la bandeja de solicitudes' : ucfirst(strtolower($canal)));
         if ($json) {
             $this->json(['success' => false, 'message' => 'No tienes permiso para operar solicitudes de ' . $etiqueta . '.']);
         } else {

@@ -1025,9 +1025,12 @@ class CapHum extends Model
      * @return array
      */
 
-    public static function getConsultaGestoresAll($id_gestor_sesion, $tieneDepartamento = true)
+    public static function getConsultaGestoresAll($id_gestor_sesion, $tieneDepartamento = true, $incluirTransitoBaja = false)
     {
         $id_gestor_sesion = (int)$id_gestor_sesion;
+        $filtroEstatusPersona = $incluirTransitoBaja
+            ? "LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja')"
+            : "LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')";
         $sqlExP = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
         $sqlExP2 = UsuarioFantasmaReporteria::sqlExcluirPersona('p2');
 
@@ -1139,7 +1142,8 @@ class CapHum extends Model
         LEFT JOIN puesto pvj
                ON pvj.id = vj.id_puesto
 
-        WHERE LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
+        -- Solo Gestion de Personal conserva visible a quien esta en tramite.
+        WHERE {$filtroEstatusPersona}
         {$sqlExP}
         {$filtroPuestosSesion}
 
@@ -8694,7 +8698,7 @@ class CapHum extends Model
             INNER JOIN asigna_puesto ap ON ap.id_persona = p.id AND ap.activo = 1
             INNER JOIN puesto pp ON pp.id = ap.id_puesto
             WHERE ap.id_puesto IN ($placeholdersStr)
-              AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
+              AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja')
               AND {$predOrg}
             ORDER BY
                 pp.nivel DESC,
@@ -8797,6 +8801,7 @@ class CapHum extends Model
                 JOIN ($subqueryJefeActual) aj ON p.id = aj.id_persona
                 WHERE {$exJP}
                   AND aj.id_jefe = $id_persona
+                  AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja')
                   $filtroDepto
 
                 UNION ALL
@@ -8819,6 +8824,7 @@ class CapHum extends Model
                 JOIN Jerarquia j ON aj2.id_jefe = j.id
                 WHERE {$exJP2}
                   AND j.nivel < 4
+                  AND LOWER(TRIM(COALESCE(p2.estatus, ''))) NOT IN ('baja')
                   $filtroDepto2
             )
 
@@ -10490,13 +10496,14 @@ class CapHum extends Model
     {
         try {
             $db = new Database();
+            self::asegurarSeguimientoTransitoBaja($db);
 
             // 🔹 Escapamos valores
-            $id_persona  = addslashes($data['id_gestor']);
-            $motivo      = addslashes($data['motivo']);
-            $descripcion = addslashes($data['descripcion']);
-            $fecha_baja  = addslashes($data['fecha_baja']);
-            $usuario_baja  = addslashes($data['usuario_baja']);
+            $id_persona  = addslashes((string)($data['id_gestor'] ?? ''));
+            $motivo      = addslashes((string)($data['motivo'] ?? ''));
+            $descripcion = addslashes((string)($data['descripcion'] ?? ''));
+            $fecha_baja  = addslashes((string)($data['fecha_baja'] ?? ''));
+            $usuario_baja  = addslashes((string)($data['usuario_baja'] ?? ''));
             $archivos    = $data['archivos'] ?? [];
             $modoReasignacion = $data['modo_reasignacion'] ?? '';
             $tipoDocumentoFinal = strtolower(trim((string)($data['tipo_documento_final'] ?? '')));
@@ -10675,20 +10682,42 @@ class CapHum extends Model
             $db->beginTransaction();
 
             // 1️⃣ Insertar la baja en baja_persona
-            $db->queryOne("
-            INSERT INTO estado_cuenta.baja_persona
-            (id_persona, motivo, fecha_baja, descripcion, usuario_baja)
-            VALUES
-            ('$id_persona', '$motivo', '$fecha_baja', '$descripcion', '$usuario_baja')
-        ");
-
-            // Obtener el ID de la baja recién creada
-            $result = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
-            $id_baja = isset($result['id']) ? intval($result['id']) : null;
-
-            if (!$id_baja) {
-                return self::resultado(false, 'No se pudo obtener el ID de la baja.');
+            // Se finaliza el mismo trámite iniciado antes; no se duplica el historial de baja.
+            $tramite = $db->queryOne("
+                SELECT id
+                FROM estado_cuenta.baja_persona
+                WHERE id_persona = :id_persona
+                  AND estatus_tramite = 'Transito'
+                ORDER BY id DESC
+                LIMIT 1
+                FOR UPDATE
+            ", ['id_persona' => (int)$id_persona]);
+            $id_baja = (int)($tramite['id'] ?? 0);
+            if ($id_baja < 1) {
+                throw new \RuntimeException('No se encontró el trámite de baja pendiente para finalizar.');
             }
+
+            $db->CRUD("
+                UPDATE estado_cuenta.baja_persona
+                SET motivo = CASE WHEN :motivo = '' THEN motivo ELSE :motivo END,
+                    fecha_baja = :fecha_baja,
+                    descripcion = CASE WHEN :descripcion = '' THEN descripcion ELSE :descripcion END,
+                    usuario_baja = :usuario_baja,
+                    estatus_tramite = 'Finalizada',
+                    fecha_finalizacion = :fecha_finalizacion,
+                    usuario_finalizacion = :usuario_finalizacion,
+                    tipo_documento_final = :tipo_documento_final
+                WHERE id = :id_baja
+            ", [
+                'motivo' => stripslashes($motivo),
+                'fecha_baja' => stripslashes($fecha_baja),
+                'descripcion' => stripslashes($descripcion),
+                'usuario_baja' => (int)$usuario_baja,
+                'fecha_finalizacion' => stripslashes($fecha_baja),
+                'usuario_finalizacion' => (int)$usuario_baja,
+                'tipo_documento_final' => $tipoDocumentoFinal,
+                'id_baja' => $id_baja,
+            ]);
 
             // 2️⃣ Insertar cada archivo en carga_documento_persona
             foreach ($archivos as $archivo) {
@@ -10702,7 +10731,7 @@ class CapHum extends Model
                 INSERT INTO estado_cuenta.carga_documento_persona
                 (id_persona, id_documento, archivo, fecha_carga)
                 VALUES
-                ('$id_persona', '$id_documento', '$archivoEsc', NOW())
+                ('$id_persona', '$id_documento', '$archivoEsc', '$fecha_baja')
             ");
             }
 

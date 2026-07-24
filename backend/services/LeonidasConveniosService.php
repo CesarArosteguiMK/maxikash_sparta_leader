@@ -296,8 +296,11 @@ class LeonidasConveniosService
         return $this->contiene($mensaje, [
             'convenio',
             'oferta de convenio',
+            'acuerdo de pago',
+            'plan de pago',
             'pendiente de conciliar',
             'pendiente conciliar',
+            'conciliacion de pago',
         ]);
     }
 

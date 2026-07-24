@@ -16,9 +16,15 @@ class LeonidasSemanticQueryService
     private const MAX_LIST_ROWS = 50;
 
     /** @return array<string, mixed>|null */
-    public function resolver(string $mensaje, int $actorId): ?array
+    public function resolver(string $mensaje, int $actorId, array $permissions = []): ?array
     {
         try {
+            $domain = (new LeonidasCapabilityRegistry())->detectar($mensaje);
+            $access = (new LeonidasDomainAccessService())->verificar($domain, $permissions);
+            if (!$access['autorizado']) {
+                return $access['respuesta'] ?? null;
+            }
+
             $normalized = $this->normalize($mensaje);
             if ($this->esConsultaFuentes($normalized)) {
                 return $this->consultarFuentes();
@@ -34,17 +40,23 @@ class LeonidasSemanticQueryService
 
             $plan = $this->planificar($mensaje);
             if (!is_array($plan) || ($plan['accion'] ?? '') !== 'consultar_datos') {
-                return (new LeonidasUniversalQueryService())->resolver($mensaje, $actorId);
+                return (new LeonidasUniversalQueryService())->resolver($mensaje, $actorId, $permissions);
             }
             return $this->ejecutar($plan, $actorId);
         } catch (\InvalidArgumentException $error) {
             error_log('[Leonidas] Rejected semantic plan: ' . $error->getMessage());
-            return null;
+            return [
+                'mensaje' => 'La consulta fue entendida, pero el plan de lectura fue rechazado: '
+                    . $error->getMessage() . ' No se realizo ningun cambio.',
+                'tipo' => 'consulta_semantica_error',
+                'motivo' => 'plan_rechazado',
+            ];
         } catch (\Throwable $error) {
             error_log('[Leonidas] Semantic query failed: ' . $error->getMessage());
             return [
                 'mensaje' => 'Entendi la consulta, pero la fuente de datos no respondio correctamente. No se realizo ningun cambio.',
                 'tipo' => 'consulta_semantica_error',
+                'motivo' => 'fuente_no_disponible',
             ];
         }
     }

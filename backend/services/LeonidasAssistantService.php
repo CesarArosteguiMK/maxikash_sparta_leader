@@ -15,6 +15,7 @@ class LeonidasAssistantService
     private const VACATION_DRAFT_KEY = 'leonidas_vacation_draft';
     private const MAX_PENDING = 12;
     private ?array $modulosAutorizados = null;
+    private ?array $catalogoModulosAutorizados = null;
 
     public function conversar(string $mensaje, ?string $archivoToken = null): array
     {
@@ -54,7 +55,7 @@ class LeonidasAssistantService
                 'mensaje' => 'Puedo responder preguntas sobre Sparta, consultar datos operativos autorizados, localizar colaboradores, explicar módulos, abrir menús y preparar reportes. También puedo llevar un mensaje a otra persona: primero verifico al destinatario, te muestro el texto y solo lo envío cuando confirmas.',
                 'tipo' => 'capacidades',
             ];
-            $respuesta['mensaje'] = 'Puedo consultar en tiempo real S2, créditos, pagos, Segundómetro, gastos de cobranza, plantilla, candidatos y las fuentes conectadas a Sparta. También genero reportes, gráficas, imágenes y videos, y puedo crear música cuando Vertex AI está configurado. Localizo colaboradores, explico módulos, abro menús permitidos, preparo solicitudes de vacaciones y llevo mensajes entre usuarios. Consultar y abrir se hace de inmediato; solo modificar datos o enviar comunicaciones requiere confirmación final.';
+            $respuesta['mensaje'] = (new LeonidasDomainService())->capacidadesGenerales();
             if (!empty($contexto['permisos_agente']['servicios_locales'])) {
                 $respuesta['mensaje'] .= ' Tambien puedo consultar el estado y, con tu confirmacion, iniciar, detener o reiniciar los agentes de Segundometro, correos de primeros pagos y gastos de cobranza.';
             }
@@ -72,6 +73,8 @@ class LeonidasAssistantService
             $respuesta = $flujoMensaje;
         } elseif ($consultaConvenios = (new LeonidasConveniosService())->resolver($mensaje, $normalizado)) {
             $respuesta = $consultaConvenios;
+        } elseif ($consultaEstadoCuenta = (new LeonidasEstadoCuentaService())->resolver($mensaje, $contexto, $normalizado)) {
+            $respuesta = $consultaEstadoCuenta;
         } elseif ($flujoAgente = (new LeonidasAgentService())->resolver($mensaje, $normalizado, $contexto)) {
             $respuesta = $flujoAgente;
             if (is_array($respuesta['propuesta_especificacion'] ?? null)) {
@@ -106,7 +109,14 @@ class LeonidasAssistantService
         } elseif ($consultaAnalitica = (new LeonidasAnaliticaService())->resolver($mensaje, $normalizado, $contexto)) {
             $respuesta = $consultaAnalitica;
         } elseif ($this->esConsultaS2($normalizado)) {
-            $respuesta = (new LeonidasSemanticQueryService())->resolver($mensaje, $contexto['actor_id']);
+            $respuesta = $this->normalizarErrorConsultaDominio(
+                $mensaje,
+                (new LeonidasSemanticQueryService())->resolver(
+                    $mensaje,
+                    $contexto['actor_id'],
+                    $contexto['permisos_agente']
+                )
+            );
         } elseif ($segmentoCampo = $this->resolverReporteGestoresCampo($normalizado)) {
             $respuesta = $this->consultarGestoresCampo($segmentoCampo);
         } elseif ($this->esConsultaDeActivos($normalizado)) {
@@ -119,18 +129,28 @@ class LeonidasAssistantService
             $respuesta = $this->consultarConteoCandidatos('plantilla_mes');
         } elseif ($consulta = $this->extraerConsultaPersona($mensaje)) {
             $respuesta = $this->buscarPersonas($consulta);
-        } elseif ($explicacion = $this->resolverExplicacionSparta($normalizado)) {
+        } elseif ($this->esSolicitudExplicacionSparta($normalizado)
+            && ($explicacion = $this->resolverExplicacionSparta($normalizado))) {
             $respuesta = $explicacion;
         } elseif ($fueraDeSparta = $this->resolverConsultaFueraDeSparta($normalizado)) {
             $respuesta = $fueraDeSparta;
-        } elseif ($consultaSemantica = (new LeonidasSemanticQueryService())->resolver($mensaje, $contexto['actor_id'])) {
-            $respuesta = $consultaSemantica;
+        } elseif ($consultaSemantica = (new LeonidasSemanticQueryService())->resolver(
+            $mensaje,
+            $contexto['actor_id'],
+            $contexto['permisos_agente']
+        )) {
+            $respuesta = $this->normalizarErrorConsultaDominio($mensaje, $consultaSemantica);
+        } elseif ($explicacion = $this->resolverExplicacionSparta($normalizado)) {
+            $respuesta = $explicacion;
+        } elseif ($orientacionDominio = (new LeonidasDomainService())->orientar($mensaje)) {
+            $respuesta = $orientacionDominio;
         } elseif ($this->esSolicitudSensible($normalizado)) {
             $respuesta = $this->proponerAccion($mensaje, $contexto);
         } else {
             $respuesta = [
-                'mensaje' => 'Puedo buscar personas, abrir modulos autorizados y preparar solicitudes de reportes, permisos o mensajes. Las acciones sensibles siempre requieren tu confirmacion.',
-                'tipo' => 'ayuda',
+                'mensaje' => (new LeonidasDomainService())->capacidadesGenerales()
+                    . ' Dime el modulo, registro, credito, persona, periodo o indicador que necesitas y usare la fuente correspondiente.',
+                'tipo' => 'dominio_ayuda',
             ];
         }
 
@@ -351,7 +371,15 @@ class LeonidasAssistantService
                 'segundometro' => $this->tieneAlgunoDeLosModulos([16, 60, 61, 77, 81]),
                 'primeros_pagos' => $this->tieneAlgunoDeLosModulos([49, 65, 66, 67, 68]),
                 'gastos_cobranza' => $this->tieneAccesoModulo(40),
+                'estado_cuenta' => $this->tieneAccesoModulo(1),
+                'aclaraciones_credito' => $this->tieneAccesoModulo(30),
                 'servicios_locales' => LeonidasAccessService::esAccesoPermanente($actorId),
+                'direcciones' => $this->tieneAccesoModuloPorNombre(['direcciones']),
+                'legacy' => $this->tieneAccesoModuloPorNombre(['legacy']),
+                'atlas' => $this->tieneAccesoModuloPorNombre(['atlas']),
+                'tickets' => $this->tieneAccesoModuloPorNombre(['ticket']),
+                'organizacion' => $this->tieneAccesoModuloPorNombre(['organizacion', 'estructura']),
+                'servicios' => $this->tieneAccesoModuloPorNombre(['servicios']),
             ],
             'salario_totp_vigente' => (int) ($_SESSION['rrhh_salario_sensible_totp_until'] ?? 0) >= time(),
         ];
@@ -524,6 +552,57 @@ class LeonidasAssistantService
         return in_array($moduloId, $this->modulosAutorizados, true);
     }
 
+    /**
+     * @param list<string> $needles
+     */
+    private function tieneAccesoModuloPorNombre(array $needles): bool
+    {
+        // Populate the cache from session and database before resolving names.
+        $this->tieneAccesoModulo(PHP_INT_MIN);
+        $authorized = $this->modulosAutorizados ?? [];
+        if ($authorized === []) {
+            return false;
+        }
+
+        if ($this->catalogoModulosAutorizados === null) {
+            try {
+                $db = new Database();
+                $rows = $db->queryAll(
+                    'SELECT id, nombre, pestana, descripcion '
+                        . 'FROM modulos_web WHERE activo = 1'
+                );
+                $this->catalogoModulosAutorizados = array_values(array_filter(
+                    $rows,
+                    static fn(array $row): bool => in_array(
+                        (int) ($row['id'] ?? 0),
+                        $authorized,
+                        true
+                    )
+                ));
+            } catch (\Throwable $error) {
+                $this->catalogoModulosAutorizados = [];
+                error_log('[Leonidas] No se pudo resolver el catalogo de permisos: ' . $error->getMessage());
+            }
+        }
+
+        foreach ($this->catalogoModulosAutorizados as $row) {
+            $haystack = $this->normalizar(
+                implode(' ', [
+                    (string) ($row['nombre'] ?? ''),
+                    (string) ($row['pestana'] ?? ''),
+                    (string) ($row['descripcion'] ?? ''),
+                ])
+            );
+            foreach ($needles as $needle) {
+                if (str_contains($haystack, $this->normalizar($needle))) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private function esConsultaDeActivos(string $mensaje): bool
     {
         $mencionaActivo = preg_match('/\b(activos?|activas?)\b/u', $mensaje) === 1;
@@ -579,6 +658,7 @@ class LeonidasAssistantService
             || str_starts_with($tipo, 'agente_')
             || str_starts_with($tipo, 'analitica_')
             || str_starts_with($tipo, 'media_')
+            || str_starts_with($tipo, 'dominio_')
             || in_array($tipo, [
             'conversacion',
             'metrica_personal',
@@ -614,44 +694,33 @@ class LeonidasAssistantService
 
     private function resolverExplicacionSparta(string $mensaje): ?array
     {
-        if (preg_match('/\b(como funciona|que hace|para que sirve|explica|explicame|como se usa|que es)\b/u', $mensaje) !== 1) {
+        return (new LeonidasDomainService())->explicar($mensaje);
+    }
+
+    private function esSolicitudExplicacionSparta(string $mensaje): bool
+    {
+        return preg_match(
+            '/\b(que es|que hace|como funciona|como se usa|explica|explicame|para que sirve|que significa|duda sobre)\b/u',
+            $mensaje
+        ) === 1;
+    }
+
+    /**
+     * @param array<string, mixed>|null $respuesta
+     * @return array<string, mixed>|null
+     */
+    private function normalizarErrorConsultaDominio(string $mensaje, ?array $respuesta): ?array
+    {
+        if ($respuesta === null) {
             return null;
         }
 
-        $modulos = (new LeonidasKnowledgeService())->catalogoModulos();
-        $terminos = array_values(array_filter(
-            preg_split('/[^a-z0-9]+/', $mensaje) ?: [],
-            static fn(string $termino): bool => strlen($termino) >= 4
-                && !in_array($termino, ['como', 'funciona', 'hace', 'para', 'sirve', 'explica', 'explicame', 'modulo', 'sistema'], true)
-        ));
-        $mejor = null;
-        $mejorPuntaje = 0;
-        foreach ($modulos as $modulo) {
-            $nombre = $this->normalizar((string) ($modulo['modulo'] ?? ''));
-            $funcion = $this->normalizar((string) ($modulo['funcion'] ?? ''));
-            $puntaje = 0;
-            foreach ($terminos as $termino) {
-                if (str_contains($nombre, $termino)) {
-                    $puntaje += 4;
-                } elseif (str_contains($funcion, $termino)) {
-                    $puntaje++;
-                }
-            }
-            if ($puntaje > $mejorPuntaje) {
-                $mejor = $modulo;
-                $mejorPuntaje = $puntaje;
-            }
+        $tipo = (string) ($respuesta['tipo'] ?? '');
+        if (!in_array($tipo, ['consulta_semantica_error', 'consulta_s2_error'], true)) {
+            return $respuesta;
         }
 
-        if (!is_array($mejor) || $mejorPuntaje <= 0) {
-            return null;
-        }
-
-        return [
-            'mensaje' => (string) $mejor['modulo'] . ': ' . (string) $mejor['funcion'],
-            'tipo' => 'explicacion_sparta',
-            'fuente' => 'catalogo_funcional_sparta',
-        ];
+        return (new LeonidasDomainService())->errorConsulta($mensaje, $respuesta) ?? $respuesta;
     }
 
     private function resolverConsultaFueraDeSparta(string $mensaje): ?array
@@ -1449,8 +1518,15 @@ class LeonidasAssistantService
                 'Enviar mensajes internos confirmados, mostrarlos al destinatario y regresar con su respuesta o reaccion.',
                 'Consultar el estado y, con confirmacion explicita, iniciar, detener o reiniciar los agentes locales de Segundometro, correos de primeros pagos y gastos de cobranza.',
             ],
+            'reglas_de_respuesta_por_dominio' => [
+                'Usa dominios_operativos_relevantes y cobertura_operativa_sparta para identificar el modulo, sus submodulos, fuentes, consultas y acciones.',
+                'Nunca reemplaces una consulta de un modulo por un resumen generico de capacidades.',
+                'Si falta informacion, solicita exactamente el credito, persona, ticket, servicio, periodo o filtro que falta.',
+                'No digas que una capacidad no existe cuando el registro incluye una fuente o ejecutor; utiliza primero el resultado validado por el servidor.',
+                'Distingue consultar, explicar y ejecutar. No inventes un resultado ni afirmes que un cambio se realizo sin comprobante del ejecutor.',
+                'Indica la fuente y el corte cuando respondas con datos operativos.',
+            ],
             'capacidades_en_preparacion' => [
-                'Consultas especializadas de modulos que requieren reglas de negocio adicionales a la pasarela universal.',
                 'Consultas de salarios bajo el permiso especial y segundo paso vigente.',
                 'Otorgamiento de permisos despues de una confirmacion explicita.',
             ],

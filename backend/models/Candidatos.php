@@ -2580,6 +2580,134 @@ class Candidatos extends Model
         }
     }
 
+    /**
+     * Busca procesos terminales de la misma persona antes de crear un candidato nuevo.
+     * No bloquea por sí sola el alta: la capa de aplicación debe solicitar una
+     * confirmación explícita al usuario que está capturando.
+     */
+    public static function buscarCoincidenciasHistoricasParaAlta(array $data): array
+    {
+        $nombre = self::normalizarIdentidadCandidato(implode(' ', array_filter([
+            $data['nombres'] ?? '',
+            $data['segundo_nombre'] ?? '',
+            $data['apellidop'] ?? '',
+            $data['apellidom'] ?? '',
+        ], static function ($valor) {
+            return trim((string) $valor) !== '';
+        })));
+        $email = self::normalizarEmailCandidato($data['email'] ?? '');
+        $telefono = self::normalizarTelefonoCandidato($data['telefono'] ?? '');
+
+        // Un nombre incompleto por sí solo no es una identificación suficiente.
+        if ($email === '' && $telefono === '' && count(preg_split('/\s+/', $nombre, -1, PREG_SPLIT_NO_EMPTY)) < 3) {
+            return self::resultado(true, 'Sin datos suficientes para buscar historial.', []);
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
+            self::ensureTablaHistoricoCandidato();
+            $terminales = "'Contratado', 'Proceso cerrado', 'Eliminado'";
+            $historicos = $db->queryAll(
+                "SELECT
+                    id_candidato_original AS id_candidato,
+                    nombre_completo, email, telefono, puesto, departamento,
+                    estatus_final AS estatus, motivo AS motivo_cierre,
+                    descripcion AS descripcion_cierre, fecha_accion AS fecha_accion,
+                    'histórico' AS fuente
+                 FROM candidato_historico
+                 WHERE estatus_final IN ({$terminales})"
+            );
+            // Los cierres antiguos que no alcanzaron a crear snapshot siguen en candidatos.
+            $actuales = $db->queryAll(
+                "SELECT
+                    c.id AS id_candidato,
+                    TRIM(CONCAT_WS(' ', c.nombres, c.segundo_nombre, c.apellidop, c.apellidom)) AS nombre_completo,
+                    c.email, c.telefono, p.nombre AS puesto, d.nombre AS departamento,
+                    COALESCE(c.estatus, '') AS estatus, c.motivo_cierre,
+                    c.descripcion_cierre, COALESCE(c.fecha_cierre, c.fecha_actualizacion, c.fecha_registro) AS fecha_accion,
+                    'actual' AS fuente
+                 FROM candidatos c
+                 LEFT JOIN puesto p ON p.id = c.id_puesto
+                 LEFT JOIN departamento d ON d.id = c.id_departamento
+                 WHERE COALESCE(c.estatus, '') IN ({$terminales})"
+            );
+
+            $coincidencias = [];
+            $vistos = [];
+            foreach (array_merge($historicos, $actuales) as $fila) {
+                $motivos = [];
+                $emailFila = self::normalizarEmailCandidato($fila['email'] ?? '');
+                $telefonoFila = self::normalizarTelefonoCandidato($fila['telefono'] ?? '');
+                $nombreFila = self::normalizarIdentidadCandidato($fila['nombre_completo'] ?? '');
+                if ($email !== '' && $emailFila !== '' && $email === $emailFila) {
+                    $motivos[] = 'correo';
+                }
+                if ($telefono !== '' && $telefonoFila !== '' && $telefono === $telefonoFila) {
+                    $motivos[] = 'teléfono';
+                }
+                if ($nombre !== '' && $nombre === $nombreFila && count(preg_split('/\s+/', $nombre, -1, PREG_SPLIT_NO_EMPTY)) >= 3) {
+                    $motivos[] = 'nombre completo';
+                }
+                if (empty($motivos)) {
+                    continue;
+                }
+                $clave = (int) ($fila['id_candidato'] ?? 0) . '|' . mb_strtolower(trim((string) ($fila['estatus'] ?? '')), 'UTF-8');
+                if (isset($vistos[$clave])) {
+                    continue;
+                }
+                $vistos[$clave] = true;
+                $coincidencias[] = [
+                    'id_candidato' => (int) ($fila['id_candidato'] ?? 0),
+                    'nombre_completo' => trim((string) ($fila['nombre_completo'] ?? '')),
+                    'estatus' => trim((string) ($fila['estatus'] ?? '')),
+                    'motivo_cierre' => trim((string) ($fila['motivo_cierre'] ?? '')),
+                    'descripcion_cierre' => trim((string) ($fila['descripcion_cierre'] ?? '')),
+                    'puesto' => trim((string) ($fila['puesto'] ?? '')),
+                    'departamento' => trim((string) ($fila['departamento'] ?? '')),
+                    'fecha_accion' => $fila['fecha_accion'] ?? null,
+                    'fuente' => $fila['fuente'] ?? 'histórico',
+                    'motivos_coincidencia' => $motivos,
+                ];
+            }
+            usort($coincidencias, static function (array $a, array $b): int {
+                return (strtotime((string) ($b['fecha_accion'] ?? '')) ?: 0) <=> (strtotime((string) ($a['fecha_accion'] ?? '')) ?: 0);
+            });
+            return self::resultado(true, empty($coincidencias) ? 'No se encontraron procesos anteriores.' : 'Se encontraron procesos anteriores.', $coincidencias);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'No se pudo consultar el historial del candidato.', [], $e->getMessage());
+        }
+    }
+
+    private static function normalizarIdentidadCandidato($valor): string
+    {
+        $valor = trim((string) $valor);
+        if ($valor === '') {
+            return '';
+        }
+        $sinAcentos = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $valor);
+        if ($sinAcentos !== false) {
+            $valor = $sinAcentos;
+        }
+        $valor = strtoupper($valor);
+        $valor = preg_replace('/[^A-Z0-9]+/', ' ', $valor);
+        return trim((string) preg_replace('/\s+/', ' ', (string) $valor));
+    }
+
+    private static function normalizarEmailCandidato($valor): string
+    {
+        return mb_strtolower(trim((string) $valor), 'UTF-8');
+    }
+
+    private static function normalizarTelefonoCandidato($valor): string
+    {
+        $digitos = preg_replace('/\D+/', '', (string) $valor);
+        if (strlen((string) $digitos) < 10) {
+            return '';
+        }
+        return substr((string) $digitos, -10);
+    }
+
     public static function getBitacoraCandidato($id_candidato): array
     {
         $id_candidato = (int) $id_candidato;
