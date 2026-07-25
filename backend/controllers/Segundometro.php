@@ -1448,7 +1448,12 @@ class Segundometro extends Controller
             $cerr = curl_error($ch);
             curl_close($ch);
             if ($bin === false || $status < 200 || $status >= 300) {
-                throw new \Exception($cerr !== '' ? $cerr : ('HTTP ' . $status . ' al descargar desde agente'));
+                $detalleAgente = is_string($bin) ? trim(substr($bin, 0, 600)) : '';
+                $mensaje = $cerr !== '' ? $cerr : ('HTTP ' . $status . ' al descargar desde agente');
+                if ($detalleAgente !== '') {
+                    $mensaje .= ': ' . $detalleAgente;
+                }
+                throw new \Exception($mensaje);
             }
             header('Content-Type: ' . ($ctype !== '' ? $ctype : 'application/zip'));
             header('Content-Disposition: attachment; filename="' . $nombreArchivo . '"');

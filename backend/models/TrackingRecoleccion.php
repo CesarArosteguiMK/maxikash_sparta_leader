@@ -1043,7 +1043,11 @@ class TrackingRecoleccion extends Model
         $params = [];
 
         // Excluir estatus terminales
-        $where[] = "ao.estatus NOT IN ('cancelado','Cancelado','Cartera','concluida','RevisiÃ³n Recuperaciones')";
+        $where[] = "ao.estatus NOT IN ('cancelado','Cancelado','Cartera','concluida')";
+        // Los registros antiguos pueden traer el acento codificado distinto.
+        // Filtramos por la parte estable del estatus para que los rechazados no
+        // aparezcan como pendientes de recoleccion.
+        $where[] = "UPPER(COALESCE(ao.estatus, '')) NOT LIKE '%RECUPERACIONES%'";
 
         // RN-04: excluir créditos ya en una ruta activa (borrador / enviada / en_proceso)
         $where[] = "ao.id_credito NOT IN (
@@ -1100,6 +1104,57 @@ class TrackingRecoleccion extends Model
     // =========================================================================
     // CATÁLOGOS DE FILTROS
     // =========================================================================
+
+    /**
+     * Operaciones rechazadas desde Planeacion de rutas que aun esperan una
+     * correccion. Al corregirse, el flujo existente las devuelve a Recibido o
+     * en_transito y por lo tanto regresan solas a Pendientes de recoleccion.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function obtenerCreditosRechazadosTracking(): array
+    {
+        $sql = "SELECT
+                    ao.id             AS id_operacion,
+                    ao.id_credito,
+                    ao.nombre_cliente,
+                    ao.estatus        AS estatus_proceso,
+                    ao.moto_marca,
+                    ao.moto_modelo,
+                    ao.moto_no_serie  AS bin,
+                    ao.log_estado     AS estado,
+                    ao.log_ciudad     AS municipio,
+                    ao.log_direccion  AS direccion,
+                    ao.datos_moto_at,
+                    TRIM(CONCAT_WS(' ', per.nombres, per.apellidop)) AS gestor_nombre,
+                    (
+                        SELECT b.accion
+                        FROM adj_bitacora b
+                        WHERE b.id_operacion = ao.id
+                          AND b.accion LIKE '%RECHAZADO POR TRACKING%'
+                        ORDER BY b.id DESC
+                        LIMIT 1
+                    ) AS motivo_tracking
+                FROM adj_operacion ao
+                LEFT JOIN asigna_creditos_adjudicacion aca
+                       ON aca.id_credito = ao.id_credito AND aca.estatus = '1'
+                LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+                LEFT JOIN persona per ON per.id = pa.id_persona
+                WHERE UPPER(COALESCE(ao.estatus, '')) LIKE '%RECUPERACIONES%'
+                  AND EXISTS (
+                      SELECT 1
+                      FROM adj_bitacora b
+                      WHERE b.id_operacion = ao.id
+                        AND b.accion LIKE '%RECHAZADO POR TRACKING%'
+                  )
+                ORDER BY ao.fecha_actualizacion DESC, ao.id DESC";
+
+        try {
+            return $this->db->queryAll($sql) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
 
     /**
      * Listado de estados (nivel 1, id_pais=1) desde divisiones_administrativas.

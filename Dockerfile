@@ -4,7 +4,10 @@ FROM php:8.2-apache
 RUN a2enmod rewrite
 
 # Extensiones necesarias
-RUN docker-php-ext-install pdo pdo_mysql mysqli
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libcurl4-openssl-dev \
+    && docker-php-ext-install pdo pdo_mysql mysqli curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # DocumentRoot -> /public
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
