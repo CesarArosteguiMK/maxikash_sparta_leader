@@ -1468,6 +1468,70 @@ class Segundometro extends Controller
     }
 
     /**
+     * Descarga un corte histórico sin conocer sus segundos exactos.
+     * Ejemplo: /segundometro/descargarCorteHistorico?fecha=2026-07-16&hora=09:30
+     */
+    public function descargarCorteHistorico()
+    {
+        $fecha = trim((string) ($_GET['fecha'] ?? ''));
+        $hora = trim((string) ($_GET['hora'] ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || !preg_match('/^\d{2}:\d{2}$/', $hora)) {
+            header('HTTP/1.0 400 Bad Request');
+            echo 'Use fecha=YYYY-MM-DD y hora=HH:MM.';
+            exit;
+        }
+        if (!$this->usarAgente()) {
+            header('HTTP/1.0 503 Service Unavailable');
+            echo 'Flujo de agente no disponible.';
+            exit;
+        }
+
+        try {
+            [$anio, $mes, $dia] = array_map('intval', explode('-', $fecha));
+            $agent = $this->agenteRequest(
+                'GET',
+                '/files?anio=' . rawurlencode((string) $anio) . '&mes=' . rawurlencode(sprintf('%02d', $mes)),
+                null,
+                90
+            );
+            if (!$agent['success'] || !is_array($agent['json']) || empty($agent['json']['success'])) {
+                throw new \Exception('No se pudo consultar el histórico de reportes en el agente.');
+            }
+
+            $target = (int) substr($hora, 0, 2) * 3600 + (int) substr($hora, 3, 2) * 60;
+            $fechaCompacta = sprintf('%04d%02d%02d', $anio, $mes, $dia);
+            $candidatos = [];
+            foreach (($agent['json']['datos'] ?? []) as $item) {
+                $nombre = is_array($item) ? (string) ($item['nombre'] ?? '') : (string) $item;
+                if (!preg_match('/^mega_rpt_' . $fechaCompacta . '_(\d{2})_(\d{2})_(\d{2})\.csv\.zip$/', $nombre, $m)) {
+                    continue;
+                }
+                $segundos = (int) $m[1] * 3600 + (int) $m[2] * 60 + (int) $m[3];
+                $candidatos[] = ['nombre' => $nombre, 'diferencia' => abs($segundos - $target)];
+            }
+            if ($candidatos === []) {
+                throw new \Exception('No hay reportes del ' . $fecha . ' en el histórico remoto.');
+            }
+            usort($candidatos, static fn(array $a, array $b): int => $a['diferencia'] <=> $b['diferencia']);
+            $seleccionado = $candidatos[0];
+            if ($seleccionado['diferencia'] > 15 * 60) {
+                throw new \Exception('No existe un corte dentro de 15 minutos de ' . $fecha . ' ' . $hora . '.');
+            }
+
+            $descarga = $this->descargarArchivoAgenteBinario($seleccionado['nombre'], 600);
+            header('Content-Type: ' . $descarga['content_type']);
+            header('Content-Disposition: attachment; filename="' . $seleccionado['nombre'] . '"');
+            header('Content-Length: ' . strlen($descarga['bin']));
+            echo $descarga['bin'];
+            exit;
+        } catch (\Throwable $e) {
+            header('HTTP/1.0 500 Internal Server Error');
+            echo 'Error al descargar corte histórico: ' . $e->getMessage();
+            exit;
+        }
+    }
+
+    /**
      * Eliminar archivo en el servidor remoto (solo si owner es root)
      */
     public function descargarMegaReporteMes()
