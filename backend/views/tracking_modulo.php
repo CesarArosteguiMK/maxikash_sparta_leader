@@ -4755,6 +4755,9 @@ $trackingIsPlaneacion = $trackingShowMainTabs
 <?php if (!in_array('borradores', $trackingVisibleSections, true)): ?>
 #tabBorradorBtn, #tabBorradores { display: none !important; }
 <?php endif; ?>
+<?php if (!in_array('rechazadas', $trackingVisibleSections, true)): ?>
+#tabRechazadasBtn, #tabRechazadas { display: none !important; }
+<?php endif; ?>
 <?php if (!in_array('rutas', $trackingVisibleSections, true)): ?>
 #tabRutasBtn, #tabRutas { display: none !important; }
 <?php endif; ?>
@@ -4859,6 +4862,12 @@ $trackingIsPlaneacion = $trackingShowMainTabs
             </button>
         </li>
         <li class="nav-item">
+            <button class="nav-link<?= $trackingInitialSection === 'rechazadas' ? ' active' : ''; ?>" id="tabRechazadasBtn" data-bs-toggle="tab" data-bs-target="#tabRechazadas">
+                <i class="fa-solid fa-circle-exclamation me-1"></i>Rechazadas
+                <span id="badgeRechazadas" class="badge rounded-pill ms-1 bg-danger" style="font-size:.7rem;">0</span>
+            </button>
+        </li>
+        <li class="nav-item">
             <button class="nav-link<?= $trackingInitialSection === 'rutas' ? ' active' : ''; ?>" id="tabRutasBtn" data-bs-toggle="tab" data-bs-target="#tabRutas">
                 <i class="fa-solid fa-map-marked-alt me-1"></i>Rutas registradas
                 <span id="badgeRutas" class="badge rounded-pill ms-1"
@@ -4921,6 +4930,24 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- == Tab: Rechazadas desde Tracking == -->
+        <div class="tab-pane fade<?= $trackingInitialSection === 'rechazadas' ? ' show active' : ''; ?>" id="tabRechazadas">
+            <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                <div class="small text-muted">Evidencias rechazadas desde Tracking. Se quitan de esta lista y vuelven a Pendientes de recoleccion al corregirse.</div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnActualizarRechazadas"><i class="fa-solid fa-rotate me-1"></i>Actualizar</button>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table id="tablaRechazadasTracking" class="table table-hover mb-0 w-100 trk-operacion-table" style="font-size:.82rem;">
+                            <thead><tr><th>Operacion</th><th>Ubicacion</th><th>Unidad</th><th>Motivo</th><th>Acciones</th></tr></thead>
                             <tbody></tbody>
                         </table>
                     </div>
@@ -6321,6 +6348,7 @@ const _trk = {
     borradoresData:       [],
     borradoresFiltroEstado: '',
     borradoresFiltroMunicipio: '',
+    rechazadasData:       [],
     quickAddCredito:      null,
     quickAddEstado:       '',
     oportunidadesRuta:    null,
@@ -6349,6 +6377,7 @@ const _trk = {
     cargadoCatalogos:     false,
     cargadoOperacion:     false,
     cargadoBorradores:    false,
+    cargadoRechazadas:    false,
     cargadoRutas:         false,
     syncStarted:          false,
     syncTimers:           [],
@@ -6379,6 +6408,7 @@ const _trk = {
     tablaCreditosDT:      null,
     tablaRutasDT:         null,
     tablaRutasBorradorDT: null,
+    tablaRechazadasDT:    null,
     tablaAgenciasDT:      null,
     tablaTransportistasDT:null,
     sortableInstance:     null,
@@ -6628,7 +6658,7 @@ function _trkSeccionesSincronizables() {
         ? window._trackingVisibleSections.filter(Boolean)
         : [];
     if (visibles.length) return [...new Set(visibles)];
-    return ['creditos', 'borradores', 'rutas', 'catalogos', 'operacion'];
+    return ['creditos', 'rechazadas', 'borradores', 'rutas', 'catalogos', 'operacion'];
 }
 
 function _trkPuedeSincronizarAhora() {
@@ -6649,6 +6679,10 @@ function _trkCargarSeccion(key, opts = {}) {
         task = force
             ? _trkCargarBorradores(silent)
             : _trkCargarBorradoresSiHaceFalta(silent);
+    } else if (key === 'rechazadas') {
+        task = force
+            ? _trkCargarRechazadasTracking(silent)
+            : _trkCargarRechazadasTrackingSiHaceFalta(silent);
     } else if (key === 'rutas') {
         task = force
             ? _trkCargarRutas(silent)
@@ -6732,6 +6766,7 @@ document.addEventListener('DOMContentLoaded', function () {
     _trkInicializarFiltros();
     _trkInicializarSelectsBuscables();
     _trkInicializarTablaCreditosDT();
+    _trkInicializarTablaRechazadasDT();
     _trkInicializarTablaRutasDT();
     _trkInicializarTablaBorradorDT();
     _trkInicializarTablasCatalogosDT();
@@ -6760,6 +6795,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('tabRutasBtn').addEventListener('click', () => _trkCargarSeccion('rutas'));
     document.getElementById('tabBorradorBtn').addEventListener('click', () => _trkCargarSeccion('borradores'));
+    document.getElementById('tabRechazadasBtn')?.addEventListener('click', () => _trkCargarSeccion('rechazadas'));
+    document.getElementById('btnActualizarRechazadas')?.addEventListener('click', () => _trkCargarSeccion('rechazadas', { force: true }));
     document.getElementById('tabCatalogosBtn').addEventListener('click', () => _trkCargarSeccion('catalogos'));
     document.getElementById('tabOperacionBtn')?.addEventListener('click', () => _trkCargarSeccion('operacion'));
     document.getElementById('trkOpBuscar')?.addEventListener('input', e => {
@@ -6812,6 +6849,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('btnNuevaRuta')?.addEventListener('click', () => _trkAbrirModalNuevo());
     const initialMap = {
         creditos: ['#tabCreditos', 'creditos'],
+        rechazadas: ['#tabRechazadas', 'rechazadas'],
         borradores: ['#tabBorradores', 'borradores'],
         rutas: ['#tabRutas', 'rutas'],
         catalogos: ['#tabCatalogosTracking', 'catalogos'],
@@ -7148,6 +7186,13 @@ function _trkInicializarTablaCreditosDT() {
     $('#modalEvidenciasTracking').on('click', '.btn-vista-evidencia-tracking', function () {
         _trkAbrirVistaEvidenciaTracking(Number($(this).data('indice')));
     });
+    $('#modalEvidenciasTracking').on('click', '.btn-rechazar-evidencia-tracking', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        const actual = _trkVistaEvidenciasTracking.items[Number($(this).data('indice'))];
+        if (!actual || !actual.puedeRechazar) return;
+        _trkConfirmarRechazoEvidenciaTracking(actual.idOperacion, actual.idEvidencia, actual.etiqueta);
+    });
     $('#modalVistaEvidenciaTracking').on('click', '.btn-vista-evidencia-tracking-nav', function () {
         _trkCambiarVistaEvidenciaTracking(Number($(this).data('direccion')));
     });
@@ -7203,6 +7248,39 @@ function _trkEtiquetaEvidenciaTracking(evidencia) {
     return etiquetas[slot] || slot.replace(/^fis_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+function _trkInicializarTablaRechazadasDT() {
+    const tabla = $('#tablaRechazadasTracking');
+    if (!tabla.length) return;
+    _trk.tablaRechazadasDT = tabla.DataTable({
+        language: {
+            emptyTable: 'No hay evidencias rechazadas desde Tracking',
+            info: 'Mostrando de _START_ a _END_ de _TOTAL_ registros',
+            infoEmpty: 'Sin registros para mostrar',
+            zeroRecords: 'No se encontraron registros',
+            lengthMenu: 'Mostrar _MENU_ registros',
+            search: 'Buscar:',
+        },
+        pageLength: 25,
+        deferRender: true,
+        responsive: false,
+        autoWidth: false,
+        order: [[0, 'desc']],
+        columns: [
+            { data: null, width: '23%', render: (d, t, r) => _trkRenderCreditoOperacion(r, t) },
+            { data: null, width: '19%', render: (d, t, r) => _trkRenderCreditoUbicacion(r, t) },
+            { data: null, width: '23%', render: (d, t, r) => _trkRenderCreditoUnidad(r, t) },
+            { data: null, width: '25%', render: (d, t, r) => `<div class="small text-danger"><i class="fa-solid fa-circle-exclamation me-1"></i>${_trkChatEscapeHtml(r?.motivo_tracking || 'Rechazada desde Tracking')}</div>` },
+            {
+                data: null, width: '10%', orderable: false, searchable: false, className: 'text-center align-middle',
+                render: r => `<button class="btn btn-icon btn-sm rounded-pill btn-label-primary trk-action-btn btn-ver-evidencias-rechazadas" data-id="${r.id_credito}" title="Ver evidencia y correccion"><i class="fa-solid fa-eye"></i></button>`,
+            },
+        ],
+    });
+    tabla.on('click', '.btn-ver-evidencias-rechazadas', function () {
+        _trkAbrirEvidenciasTracking(Number($(this).data('id')));
+    });
+}
+
 const _trkVistaEvidenciasTracking = { items: [], indice: 0, reabrirModalPrincipal: false, solicitud: 0 };
 
 function _trkEvidenciaEsVideo(evidencia, url = '') {
@@ -7256,7 +7334,10 @@ async function _trkResolverUrlEvidenciaTracking(url) {
 }
 
 function _trkActivarFallbackEvidenciasTracking(contenedor) {
-    (contenedor || document).querySelectorAll?.('[data-url-principal]').forEach(media => {
+    const medios = Array.from((contenedor || document).querySelectorAll?.('[data-url-principal]') || []);
+    const cargar = media => {
+        if (!media || media.dataset.trkCargada === '1') return;
+        media.dataset.trkCargada = '1';
         media.addEventListener('error', function () {
             const alternativas = String(this.dataset.urlAlternas || '').split('||').filter(Boolean);
             const indice = Number(this.dataset.fallbackIndice || 0);
@@ -7266,11 +7347,21 @@ function _trkActivarFallbackEvidenciasTracking(contenedor) {
             }
             this.dataset.fallbackIndice = String(indice + 1);
             this.src = alternativas[indice];
+        }, { once: false });
+        media.src = String(media.dataset.urlPrincipal || '');
+    };
+    if (!('IntersectionObserver' in window)) {
+        medios.forEach(cargar);
+        return;
+    }
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            cargar(entry.target);
+            observer.unobserve(entry.target);
         });
-        if (!media.getAttribute('src')) {
-            media.src = String(media.dataset.urlPrincipal || '');
-        }
-    });
+    }, { root: null, rootMargin: '180px 0px' });
+    medios.forEach(media => observer.observe(media));
 }
 
 function _trkVistaPreviaEvidenciaTracking(evidencia, etiqueta, url, indice) {
@@ -7286,7 +7377,9 @@ function _trkVistaPreviaEvidenciaTracking(evidencia, etiqueta, url, indice) {
         return `<button type="button" class="btn-vista-evidencia-tracking border-0 rounded w-100 bg-light text-danger" ${attrs} style="height:150px;"><i class="fa-solid fa-file-pdf fa-3x d-block mb-2"></i><span class="small">Vista previa del PDF</span></button>`;
     }
     if (_trkEvidenciaEsVideo(evidencia, url)) {
-        return `<button type="button" class="btn-vista-evidencia-tracking border-0 rounded w-100 position-relative overflow-hidden bg-dark" ${attrs} style="height:150px;"><video${fuentes} muted preload="metadata" class="w-100 h-100" style="object-fit:cover;pointer-events:none;"></video><span class="position-absolute top-50 start-50 translate-middle rounded-circle bg-dark bg-opacity-75 text-white d-inline-flex align-items-center justify-content-center" style="width:42px;height:42px;"><i class="fa-solid fa-play"></i></span></button>`;
+        // No se precarga ningun video en la lista: 14 conexiones simultaneas
+        // congelaban el modal en equipos lentos. El archivo se abre al hacer clic.
+        return `<button type="button" class="btn-vista-evidencia-tracking border-0 rounded w-100 position-relative overflow-hidden bg-dark text-white" ${attrs} style="height:150px;"><i class="fa-solid fa-film fa-2x"></i><span class="position-absolute top-50 start-50 translate-middle rounded-circle bg-dark bg-opacity-75 text-white d-inline-flex align-items-center justify-content-center" style="width:42px;height:42px;"><i class="fa-solid fa-play"></i></span></button>`;
     }
     return `<button type="button" class="btn-vista-evidencia-tracking border-0 rounded w-100 overflow-hidden p-0 bg-light" ${attrs} title="Clic para ampliar" style="height:150px;"><img${fuentes} alt="${etiquetaEsc}" class="w-100 h-100" style="object-fit:cover;"></button>`;
 }
@@ -7331,7 +7424,11 @@ function _trkRenderEvidenciasTracking(detalle) {
             const indice = _trkVistaEvidenciasTracking.items.findIndex(item => item.idEvidencia === Number(ev?.id || 0));
             const previsualizacion = _trkVistaPreviaEvidenciaTracking(ev, etiqueta, url, indice);
             const comentario = ev?.comentario_atn ? `<div class="small text-danger mt-2">${esc(ev.comentario_atn)}</div>` : '';
-            return `<div class="col-12 col-sm-6 col-lg-3"><div class="border rounded p-3 h-100 d-flex flex-column gap-2"><div class="d-flex align-items-start justify-content-between gap-2"><strong class="small">${esc(etiqueta)}</strong>${_trkEstadoEvidenciaTracking(ev)}</div>${previsualizacion}${comentario}</div></div>`;
+            const puedeRechazar = indice >= 0 && String(ev?.slot || '') !== 'doc_repuve' && Number(ev?.val_atn || 0) !== 2;
+            const botonRechazar = puedeRechazar
+                ? `<button type="button" class="btn btn-sm btn-outline-danger align-self-start btn-rechazar-evidencia-tracking" data-indice="${indice}"><i class="fa-solid fa-xmark me-1"></i>Rechazar</button>`
+                : '';
+            return `<div class="col-12 col-sm-6 col-lg-3"><div class="border rounded p-3 h-100 d-flex flex-column gap-2"><div class="d-flex align-items-start justify-content-between gap-2"><strong class="small">${esc(etiqueta)}</strong>${_trkEstadoEvidenciaTracking(ev)}</div>${previsualizacion}${botonRechazar}${comentario}</div></div>`;
         }).join('')
         : '<div class="col-12"><div class="alert alert-warning mb-0">Esta moto no tiene evidencias cargadas.</div></div>';
     return `${resumen}<div class="d-flex align-items-center justify-content-between mb-2"><h6 class="mb-0"><i class="fa-solid fa-images me-1"></i>Evidencias</h6><span class="badge bg-label-primary">${evidencias.length}</span></div><div class="row g-3">${tarjetas}</div>`;
@@ -7350,7 +7447,9 @@ async function _trkAbrirVistaEvidenciaTracking(indice) {
     const solicitud = ++_trkVistaEvidenciasTracking.solicitud;
     if (titulo) titulo.textContent = etiqueta || 'Evidencia';
     body.innerHTML = '<div class="h-100 d-flex align-items-center justify-content-center text-white"><span class="spinner-border spinner-border-sm me-2"></span>Cargando evidencia...</div>';
-    const urlVisual = await _trkResolverUrlEvidenciaTracking(url);
+    // La API devuelve una URL estable por id de evidencia; no hacemos HEAD ni
+    // intentos por cada archivo, porque eso bloqueaba la apertura del visor.
+    const urlVisual = url;
     if (solicitud !== _trkVistaEvidenciasTracking.solicitud || _trkVistaEvidenciasTracking.indice !== indice) return;
     const urlsAlternas = _trkUrlsAlternasEvidenciaTracking(urlVisual);
     const fuentes = ` data-url-principal="${esc(urlVisual)}"${urlsAlternas.length ? ` data-url-alternas="${esc(urlsAlternas.join('||'))}" data-fallback-indice="0"` : ''}`;
@@ -7431,7 +7530,7 @@ async function _trkConfirmarRechazoEvidenciaTracking(idOperacion, idEvidencia, e
         });
         if (!respuesta?.success) throw new Error(respuesta?.message || respuesta?.mensaje || 'No se pudo rechazar la evidencia.');
         await Swal.fire({ icon: 'success', title: 'Evidencia rechazada', text: 'La operación fue enviada a Correcciones con la etiqueta Rechazado por Tracking.' });
-        await _trkCargarCreditosPaso2(true);
+        await Promise.allSettled([_trkCargarCreditosPaso2(true), _trkCargarRechazadasTracking(true)]);
         const credito = _trk.creditosFiltroBase.find(c => Number(c.id_operacion) === idOperacion);
         if (credito) _trkAbrirEvidenciasTracking(Number(credito.id_credito));
         else bootstrap.Modal.getInstance(document.getElementById('modalEvidenciasTracking'))?.hide();
@@ -7463,6 +7562,30 @@ function _trkCargarCreditosPaso2(silent = false) {
                 Swal.fire({ icon: 'error', title: 'Error', text: 'Error al cargar créditos.', confirmButtonText: 'Aceptar' });
             }
         });
+}
+
+function _trkCargarRechazadasTracking(silent = false) {
+    return trkFetch('/TrackingRecoleccion/obtenerCreditosRechazadosTracking')
+        .then(r => {
+            _trk.rechazadasData = (r.datos || []).map(c => ({
+                ...c,
+                estado_raw: c.estado || '',
+                estado: _trkEstadoMayus(c.estado, c.municipio),
+                municipio: _trkMunicipioMayus(c.municipio, c.estado),
+            }));
+            if (_trk.tablaRechazadasDT) {
+                _trk.tablaRechazadasDT.clear().rows.add(_trk.rechazadasData).draw(false);
+            }
+            _trkSetBadge('badgeRechazadas', _trk.rechazadasData.length);
+            _trk.cargadoRechazadas = true;
+        })
+        .catch(() => {
+            if (!silent) Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudieron cargar los rechazos de Tracking.' });
+        });
+}
+
+function _trkCargarRechazadasTrackingSiHaceFalta(silent = false) {
+    return _trk.cargadoRechazadas ? Promise.resolve() : _trkCargarRechazadasTracking(silent);
 }
 
 // --- Filtro: solo creditos con estatus "Cierre Documentados" -------------

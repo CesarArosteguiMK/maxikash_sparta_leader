@@ -2760,6 +2760,71 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         '</aside>';
     }
 
+    function aevRechazosOriginadosEnTracking(det) {
+        return (det && Array.isArray(det.evidencias) ? det.evidencias : []).filter(function (ev) {
+            return Number(ev && ev.val_atn) === 2
+                && /RECHAZADO POR TRACKING/i.test(String((ev && ev.comentario_atn) || ''))
+                && ev && ev.id && ev.slot && ev.slot !== 'doc_repuve';
+        });
+    }
+
+    function aevAccionesRechazoTracking(det) {
+        const rechazadas = aevRechazosOriginadosEnTracking(det);
+        if (!rechazadas.length || _aevStore.soloLectura) return '';
+        const primera = rechazadas[0];
+        return '<div class="alert alert-danger py-2 px-3 mb-3 d-flex align-items-center justify-content-between gap-2 flex-wrap">'
+            + '<div class="small"><strong><i class="fa-solid fa-route me-1"></i>Rechazado por Tracking.</strong> El archivo original permanece resguardado. Puedes sustituirlo manualmente o avisar al gestor para que lo cargue desde la app.</div>'
+            + '<div class="d-flex gap-2 flex-wrap">'
+            + '<button type="button" class="btn btn-sm btn-outline-danger" data-aev-reemplazo-tracking="' + aeEsc(primera.slot) + '" data-aev-reemplazo-tracking-lbl="' + aeEsc(String(primera.slot).replace(/^fis_/, '').replace(/_/g, ' ')) + '"><i class="fa-solid fa-upload me-1"></i>Reemplazar manualmente</button>'
+            + '<button type="button" class="btn btn-sm btn-danger" data-aev-reenviar-gestor-tracking="1"><i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor</button>'
+            + '</div></div>';
+    }
+
+    function aevReenviarRechazosTrackingAlGestor() {
+        const det = _aevStore.det;
+        const opId = parseInt(det && det.id, 10) || 0;
+        const rechazadas = aevRechazosOriginadosEnTracking(det);
+        if (opId <= 0 || !rechazadas.length) return;
+        const enviar = function () {
+            const boton = document.querySelector('[data-aev-reenviar-gestor-tracking]');
+            if (boton) boton.disabled = true;
+            fetch('/MotosAdjudicadas/enviarRechazosEvidenciasBulkLegacy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                    id_operacion: opId,
+                    motivo_general: 'Evidencia rechazada desde Tracking. Favor de sustituirla.',
+                    evidencias: rechazadas.map(function (ev) {
+                        return {
+                            id_evidencia: ev.id,
+                            motivo_rechazo: String(ev.comentario_atn || 'Evidencia rechazada desde Tracking.'),
+                            url_vieja_rechazada: String(ev.url || '')
+                        };
+                    })
+                }),
+                credentials: 'same-origin'
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data || !data.success) throw new Error((data && data.message) || 'No se pudo enviar el aviso al gestor.');
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'success', title: 'Gestor notificado', text: data.push_notificado === false ? 'El rechazo quedó en la app; el gestor no tiene push activo.' : 'El gestor recibió el aviso para sustituir la evidencia.' });
+                    }
+                })
+                .catch(function (err) {
+                    if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo enviar', text: err.message || 'Intenta nuevamente.' });
+                })
+                .finally(function () { if (boton) boton.disabled = false; });
+        };
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'question', title: 'Enviar rechazo al gestor',
+                text: 'El gestor recibirá la solicitud para volver a cargar la evidencia rechazada.',
+                showCancelButton: true, confirmButtonText: 'Enviar al gestor', cancelButtonText: 'Cancelar'
+            }).then(function (r) { if (r && r.isConfirmed) enviar(); });
+        } else if (window.confirm('Enviar el rechazo al gestor?')) enviar();
+    }
+
     function aevRenderCuerpoModalValidar(det) {
         const evl = det.evidencias || [];
         const m   = aevMapaPorSlot(evl);
@@ -2771,6 +2836,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
 
         let html = '<div class="aev-modal-grid"><div class="aev-modal-main">';
         html += aevRenderContextoAtencion(det);
+        html += aevAccionesRechazoTracking(det);
         html += aeRenderFormularioOperacion(det);
 
         html += '<div class="aev-ev-progress-wrap">';
@@ -4064,6 +4130,25 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const aevBody = document.getElementById('aev-body');
         if (aevBody) {
             aevBody.addEventListener('click', function (ev) {
+                const reemplazoTracking = ev.target.closest('[data-aev-reemplazo-tracking]');
+                if (reemplazoTracking) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    if (_aevStore.soloLectura) return;
+                    aevAbrirReemplazoGestor(
+                        reemplazoTracking.getAttribute('data-aev-reemplazo-tracking'),
+                        reemplazoTracking.getAttribute('data-aev-reemplazo-tracking-lbl') || ''
+                    );
+                    return;
+                }
+                const reenviarTracking = ev.target.closest('[data-aev-reenviar-gestor-tracking]');
+                if (reenviarTracking) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    if (_aevStore.soloLectura) return;
+                    aevReenviarRechazosTrackingAlGestor();
+                    return;
+                }
                 const replGestor = ev.target.closest('[data-aev-reemplazar-gestor]');
                 if (replGestor) {
                     ev.preventDefault();

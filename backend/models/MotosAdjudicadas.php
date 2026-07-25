@@ -8064,16 +8064,41 @@ EOSQL;
             return ['success' => false, 'message' => 'Indica el motivo del rechazo.'];
         }
 
-        $resultado = $this->guardarVeredictoEvidenciaAtn(
-            $idOperacion,
-            $idEvidencia,
-            2,
-            'RECHAZADO POR TRACKING: ' . $motivo,
+        // Antes de cambiar el estado, dejamos una version inmutable de la
+        // evidencia rechazada. Asi una correccion o una nueva carga nunca
+        // sustituye ni borra el archivo que Tracking reviso.
+        $evidencia = $this->db->queryOne(
+            'SELECT id, slot, url, val_atn, comentario_atn
+             FROM adj_evidencia
+             WHERE id = :evidencia AND id_operacion = :operacion
+             LIMIT 1',
+            ['evidencia' => $idEvidencia, 'operacion' => $idOperacion]
+        );
+        if (!$evidencia) {
+            return ['success' => false, 'message' => 'Evidencia no encontrada.'];
+        }
+        $slot = trim((string) ($evidencia['slot'] ?? ''));
+        if ($slot === '' || $slot === self::SLOT_REPVE_ATENCION) {
+            return ['success' => false, 'message' => 'Esta evidencia no se puede rechazar desde Tracking.'];
+        }
+
+        $comentario = 'RECHAZADO POR TRACKING: ' . $motivo;
+        $registro = $this->registrarRechazosEvidenciasBulkLocal(
+            [
+                'id_operacion' => $idOperacion,
+                'evidencias' => [[
+                    'id_evidencia' => $idEvidencia,
+                    'slot' => $slot,
+                    'url_vieja_rechazada' => (string) ($evidencia['url'] ?? ''),
+                    'motivo_rechazo' => $comentario,
+                ]],
+            ],
             $idUsuario,
+            $comentario,
             $nombreUsuario
         );
-        if (empty($resultado['success'])) {
-            return $resultado;
+        if (empty($registro['success'])) {
+            return $registro;
         }
 
         $operacion = $this->db->queryOne(
@@ -8088,12 +8113,59 @@ EOSQL;
         if (!$this->esEstatusRevisionRecuperaciones((string) ($operacion['estatus'] ?? ''))) {
             $cambio = $this->cambiarEstatus(
                 $idOperacion,
-                'RevisiÃ³n Recuperaciones',
+                'Revisión Recuperaciones',
                 $idUsuario,
                 $nombreUsuario,
                 'TRACKING RECOLECCION'
             );
             if (empty($cambio['success'])) {
+                // registrarRechazosEvidenciasBulkLocal confirma su propia
+                // transaccion. Si el cambio de etapa fallara despues, se
+                // compensa el rechazo para no dejar una evidencia marcada sin
+                // que la operacion haya llegado realmente a Correcciones.
+                try {
+                    $this->db->beginTransaction();
+                    $this->db->CRUD(
+                        'UPDATE adj_evidencia
+                         SET val_atn = :val_atn,
+                             comentario_atn = :comentario_atn
+                         WHERE id = :evidencia AND id_operacion = :operacion',
+                        [
+                            'val_atn' => $evidencia['val_atn'],
+                            'comentario_atn' => $evidencia['comentario_atn'],
+                            'evidencia' => $idEvidencia,
+                            'operacion' => $idOperacion,
+                        ]
+                    );
+                    foreach ((array) ($registro['rechazos'] ?? []) as $rechazo) {
+                        $idRechazo = (int) ($rechazo['rechazo_historial_id'] ?? 0);
+                        if ($idRechazo > 0) {
+                            $this->db->CRUD(
+                                'DELETE FROM adj_evidencia_rechazo_historial WHERE id = :id AND url_nueva IS NULL',
+                                ['id' => $idRechazo]
+                            );
+                        }
+                    }
+                    $bitacora = $this->db->queryOne(
+                        'SELECT id FROM adj_bitacora
+                         WHERE id_operacion = :operacion
+                           AND id_usuario = :usuario
+                           AND accion = :accion
+                         ORDER BY id DESC
+                         LIMIT 1',
+                        [
+                            'operacion' => $idOperacion,
+                            'usuario' => $idUsuario,
+                            'accion' => 'REGISTRO RECHAZOS EVIDENCIAS APP (' . count((array) ($registro['rechazos'] ?? [])) . ')',
+                        ]
+                    );
+                    if ($bitacora) {
+                        $this->db->CRUD('DELETE FROM adj_bitacora WHERE id = :id', ['id' => (int) $bitacora['id']]);
+                    }
+                    $this->db->commit();
+                } catch (\Throwable $rollbackError) {
+                    $this->db->rollback();
+                }
                 return $cambio;
             }
             $enviado = true;
@@ -8101,7 +8173,7 @@ EOSQL;
 
         $this->registrarBitacora(
             $idOperacion,
-            'RECHAZADO POR TRACKING - EVIDENCIA ' . $idEvidencia,
+            'RECHAZADO POR TRACKING - EVIDENCIA ' . $idEvidencia . ' - ' . $slot,
             $idUsuario,
             $nombreUsuario
         );

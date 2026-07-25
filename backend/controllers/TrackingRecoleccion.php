@@ -690,6 +690,19 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * GET /TrackingRecoleccion/obtenerCreditosRechazadosTracking
+     */
+    public function obtenerCreditosRechazadosTracking()
+    {
+        try {
+            $creditos = (new TrackingModel())->obtenerCreditosRechazadosTracking();
+            self::respuestaJSON(self::respuesta(true, null, $creditos));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al obtener rechazos de Tracking.', null, $e->getMessage()));
+        }
+    }
+
+    /**
      * POST /TrackingRecoleccion/rechazarEvidenciaTracking
      * Rechaza una evidencia desde la planeacion y la envia a Correcciones.
      */

@@ -63,6 +63,11 @@ $rutasPublicasSinLogin = [
     'estadocuenta' => [
         'consultaapi',
     ],
+    // Webhook de Meta. La autenticacion no depende de una sesion web: el
+    // controlador valida el token de verificacion y la firma HMAC de Meta.
+    'leonidaswhatsapp' => [
+        'webhook',
+    ],
 ];
 $rutaPublicaSinLogin = isset($rutasPublicasSinLogin[$controladorRuta])
     && in_array($metodoRuta, $rutasPublicasSinLogin[$controladorRuta], true);
