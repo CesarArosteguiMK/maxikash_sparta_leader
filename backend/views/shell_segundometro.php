@@ -105,6 +105,26 @@
     </div>
 
     <!-- 📁 LISTA DE ARCHIVOS -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body py-3 d-flex flex-wrap align-items-end gap-2">
+                    <div>
+                        <label for="sgFechaConsultaReportes" class="form-label small fw-semibold mb-1">Consultar reportes por día</label>
+                        <input type="date" id="sgFechaConsultaReportes" class="form-control">
+                    </div>
+                    <button type="button" id="sgBuscarFechaReportes" class="btn btn-primary">
+                        <i class="fa fa-search me-1"></i> Consultar
+                    </button>
+                    <button type="button" id="sgHoyFechaReportes" class="btn btn-outline-secondary">
+                        <i class="fa fa-calendar-day me-1"></i> Hoy
+                    </button>
+                    <span class="small text-muted ms-md-2">Muestra los ZIP disponibles en S2 para la fecha seleccionada.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-12">
             <div id="archivos-container">
