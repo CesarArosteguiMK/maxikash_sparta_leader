@@ -60,6 +60,11 @@ $rutasPublicasSinLogin = [
         'estadoreportesagente',
         'truncarautomaticoagente',
     ],
+    // Cloud Scheduler llama este endpoint; el controlador valida IAM (Cloud Run)
+    // y opcionalmente X-Cron-Secret antes de ejecutar trabajo alguno.
+    'primerospagoss2' => [
+        'ejecutar',
+    ],
     'estadocuenta' => [
         'consultaapi',
     ],
