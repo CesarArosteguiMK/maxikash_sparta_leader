@@ -108,8 +108,8 @@ def _consistent_documents(curp_document_without_curp=False):
             "infonavit_fonacot",
             nombre=CANDIDATE,
         ),
-        "__SPARTA_SECRET_REDACTED__": _summary(
-            "__SPARTA_SECRET_REDACTED__",
+        "estado_cuenta": _summary(
+            "estado_cuenta",
             "__SPARTA_SECRET_REDACTED__",
             nombre=CANDIDATE,
             banco_detectado="BBVA",
@@ -571,6 +571,27 @@ def test_modal_reevaluation_preserves_useful_document_readings():
 
     assert "$tiposSubidos = range(1, 10)" not in reevaluation_flow
     assert "solo se revisarán nuevamente los documentos pendientes o dudosos" in reevaluation_flow
+    assert "|| $motor === 'gemini'" in source
+    assert "'nombre_titular'" in source
+    assert "'domicilio', 'direccion'" in source
+    assert "['key' => 'comprobante_domicilio', 'campo' => 'comprobante_domicilio'" in source
+    assert "['key' => 'estado_cuenta', 'campo' => 'estado_cuenta'" in source
+
+
+def test_canonical_estado_cuenta_is_included_in_crosscheck():
+    documents = _consistent_documents()
+
+    raw = routes._resultado_v2_reglas_expediente(documents, CANDIDATE)
+    result = routes._respuesta_alibaba_expediente(raw, CANDIDATE)
+
+    assert len(result["documentos_analizados_v2"]) == 10
+    assert result["documentos_analizados_v2"]["estado_cuenta"]["estado"] == "coincide"
+    assert any(
+        comparison.get("documento_a") == "estado_cuenta"
+        and comparison.get("etiqueta") == "Banco fisico aceptado"
+        and comparison.get("coincide") is True
+        for comparison in result["comparaciones_v2"]
+    )
 
 
 def test_internal_application_type_only_reading_is_rescued_again():
