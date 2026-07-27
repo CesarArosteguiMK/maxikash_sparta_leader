@@ -15,24 +15,26 @@
   "lastRunBySlot": {
     "truncar_auto_07_00": "2026-07-21",
     "08:03": "2026-07-07",
-    "fallback_09:40": "2026-07-24",
-    "fallback_11:40": "2026-07-24",
-    "fallback_13:40": "2026-07-24",
-    "fallback_14:40": "2026-07-24",
-    "fallback_16:40": "2026-07-23",
-    "fallback_18:40": "2026-07-23",
-    "fallback_20:40": "2026-07-23",
-    "fallback_00:05": "2026-07-24",
-    "fallback_07:40": "2026-07-24",
-    "fallback_23:52": "2026-07-23"
+    "fallback_09:40": "2026-07-27",
+    "fallback_11:40": "2026-07-27",
+    "fallback_13:40": "2026-07-26",
+    "fallback_14:40": "2026-07-26",
+    "fallback_16:40": "2026-07-26",
+    "fallback_18:40": "2026-07-26",
+    "fallback_20:40": "2026-07-26",
+    "fallback_00:05": "2026-07-27",
+    "fallback_07:40": "2026-07-27",
+    "fallback_23:52": "2026-07-26",
+    "13:42": "2026-07-25"
   },
   "lastRunResult": {
     "success": true,
-    "mensaje": "Tabla tbl_segundometro_semana sin registros; no hay copia ni truncate que aplicar (operación idempotente).",
-    "tipo": "truncar_auto",
-    "fecha": "2026-07-21",
-    "hora": "07:00",
-    "registros_copiados": 0
+    "mensaje": "Archivo copiado automáticamente",
+    "origen": "mega_rpt_20260725_13_30_46.csv.zip",
+    "destino": "mega_rpt_20260725_13_30_47.csv.zip",
+    "fecha": "2026-07-25",
+    "hora": "13:42",
+    "esPrueba": false
   },
   "pruebaEjecutarEn": null,
   "pruebaNoAntesDe": null
