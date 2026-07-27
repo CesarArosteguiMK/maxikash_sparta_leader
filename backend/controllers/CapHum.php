@@ -22603,6 +22603,16 @@ class CapHum extends Controller
                 return !$this->lecturaIaTieneValor($validacion, ['rfc', 'curp', 'curp_extraido']);
             case 'acta_nacimiento':
                 return !$this->lecturaIaTieneValor($validacion, ['nombre', 'nombre_completo']);
+            case 'comprobante_domicilio':
+                return !$this->lecturaIaTieneValor($validacion, ['domicilio', 'direccion'])
+                    || !$this->lecturaIaTieneValor($validacion, ['fecha_emision', 'fecha_expedicion', 'fecha_documento']);
+            case 'estado_cuenta':
+                $tieneBanco = $this->lecturaIaTieneValor($validacion, ['banco', 'banco_detectado']);
+                $tieneCuentaOTitular = $this->lecturaIaTieneValor($validacion, [
+                    'clabe', 'numero_cuenta', 'cuenta',
+                    'nombre', 'nombre_completo', 'nombre_propietario', 'nombre_titular', 'titular_cuenta',
+                ]);
+                return !$tieneBanco || !$tieneCuentaOTitular;
             case 'identificacion_oficial':
                 $textoIdentificacion = strtolower(trim(implode(' ', [
                     (string) ($validacion['mensaje'] ?? ''),
@@ -22632,6 +22642,8 @@ class CapHum extends Controller
     private function agregarArchivosRescatePayloadLigero(array &$payload, array $rutas, array $lecturasDecoded): void
     {
         $prioridad = [
+            ['key' => 'comprobante_domicilio', 'campo' => 'comprobante_domicilio', 'ruta' => 'comprobante_domicilio'],
+            ['key' => 'estado_cuenta', 'campo' => 'estado_cuenta', 'ruta' => 'estado_cuenta'],
             ['key' => 'identificacion_oficial', 'campo' => 'identificacion_pdf', 'ruta' => 'identificacion_pdf'],
             ['key' => 'solicitud_interna', 'campo' => 'solicitud_interna', 'ruta' => 'solicitud_interna'],
             ['key' => 'curp', 'campo' => 'documento_curp', 'ruta' => 'curp'],
@@ -22639,7 +22651,7 @@ class CapHum extends Controller
             ['key' => 'constancia_fiscal', 'campo' => 'constancia_fiscal', 'ruta' => 'constancia_fiscal'],
             ['key' => 'acta_nacimiento', 'campo' => 'acta_nacimiento', 'ruta' => 'acta_nacimiento'],
         ];
-        $maxArchivos = 4;
+        $maxArchivos = count($prioridad);
         $maxBytesArchivo = 3 * 1024 * 1024;
         $maxBytesTotal = 8 * 1024 * 1024;
         $agregados = 0;
@@ -23003,16 +23015,19 @@ class CapHum extends Controller
         $fuente = strtolower(trim((string) ($validacion['fuente_lectura'] ?? '')));
         $tieneMarcaMotor = $motor === 'alibaba'
             || $motor === 'motor_v1'
+            || $motor === 'gemini'
             || strpos($modelo, 'qwen') !== false
+            || strpos($modelo, 'gemini') !== false
             || strpos($modelo, 'motor v2') !== false
             || strpos($modelo, 'pdf_text') !== false
             || strpos($fuente, 'motor_v1') !== false
             || strpos($fuente, 'motor_v2') !== false;
         foreach ([
-            'nombre', 'nombre_completo', 'nombre_propietario', 'titular_cuenta',
+            'nombre', 'nombre_completo', 'nombre_propietario', 'nombre_titular', 'titular_cuenta',
             'curp', 'curp_extraido', 'curp_lectura_ia',
             'rfc', 'nss', 'nss_extraido', 'nss_lectura_ia',
-            'fecha_nacimiento', 'fecha_emision', 'fecha_expedicion',
+            'fecha_nacimiento', 'fecha_emision', 'fecha_expedicion', 'fecha_documento',
+            'domicilio', 'direccion',
             'banco', 'banco_detectado', 'clabe', 'numero_cuenta',
             'firma_detectada', 'nombre_y_firma_lleno',
         ] as $key) {

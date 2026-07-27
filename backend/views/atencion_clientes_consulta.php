@@ -739,7 +739,7 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
                 </div>
                 <div class="ae-list-action">
                     <a class="btn btn-sm btn-outline-primary mb-2"
-                       href="/SolicitudAdjudicacion/atc?id_credito=${encodeURIComponent(item.id_credito)}">
+                       href="/AtencionClientes/atc?tab=solicitud&id_credito=${encodeURIComponent(item.id_credito)}">
                         <i class="fa-solid fa-motorcycle me-1"></i>Solicitar adjudicación
                     </a>
                     <button type="button" class="ac-btn-dictaminar"
@@ -870,7 +870,7 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
                 </div>
                 <div class="ae-list-action">
                     <a class="btn btn-sm btn-outline-primary mb-2"
-                       href="/SolicitudAdjudicacion/atc?id_credito=${encodeURIComponent(item.id_credito)}">
+                       href="/AtencionClientes/atc?tab=solicitud&id_credito=${encodeURIComponent(item.id_credito)}">
                         <i class="fa-solid fa-motorcycle me-1"></i>Solicitar adjudicación
                     </a>
                     <button type="button" class="ac-btn-dictaminar"

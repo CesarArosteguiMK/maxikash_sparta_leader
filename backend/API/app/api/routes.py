@@ -1040,7 +1040,7 @@ def _v2_downgrade_solicitud_consensus(
         "constancia_fiscal",
         "nss",
         "hoja_retencion",
-        "__SPARTA_SECRET_REDACTED__",
+        "estado_cuenta",
     }
     matching_name_docs = 0
     readable_name_docs = 0
@@ -1407,7 +1407,7 @@ def _v2_label_documento_usuario(doc_key: str) -> str:
         "constancia_fiscal": "constancia fiscal",
         "nss": "documento de NSS",
         "hoja_retencion": "hoja de retención FONACOT/INFONAVIT",
-        "__SPARTA_SECRET_REDACTED__": "estado de cuenta",
+        "estado_cuenta": "estado de cuenta",
     }
     return labels.get(str(doc_key or "").strip(), user_document_name(str(doc_key or "").strip()) or "documento")
 
@@ -1767,7 +1767,7 @@ def _v2_doc_digits(doc: Dict[str, Any], keys: List[str]) -> str:
     return re.sub(r"\D+", "", " ".join(values))
 
 
-def _v2___SPARTA_SECRET_REDACTED___tiene_soporte_bancario(doc: Dict[str, Any]) -> bool:
+def _v2_estado_cuenta_tiene_soporte_bancario(doc: Dict[str, Any]) -> bool:
     bank = str(doc.get("banco") or "").strip()
     account_digits = _v2_doc_digits(doc, ["clabe", "numero_cuenta"])
     if not bank or is_digital_bank(bank):
@@ -1801,7 +1801,7 @@ def _v2_document_contribution(
             else "Comprobante de domicilio requiere revision: no se pudo leer domicilio ni fecha visible."
         )
 
-    if key == "__SPARTA_SECRET_REDACTED__":
+    if key == "estado_cuenta":
         has_account = _v2_doc_has_any_value(out, ["clabe", "numero_cuenta"])
         has_bank = _v2_doc_has_any_value(out, ["banco"])
         has_owner = _v2_doc_has_any_value(out, ["nombre"])
@@ -2305,16 +2305,16 @@ def _resultado_v2_reglas_expediente(
         rechazado = _v2_bool(previo.get("rechazado"))
         valido = _v2_bool(previo.get("valido"))
         revision_manual = _v2_bool(previo.get("revision_manual"))
-        if key == "__SPARTA_SECRET_REDACTED__" and _v2___SPARTA_SECRET_REDACTED___tiene_soporte_bancario(out):
+        if key == "estado_cuenta" and _v2_estado_cuenta_tiene_soporte_bancario(out):
             tipo_leido = str(out.get("tipo_detectado") or "").strip()
-            if tipo_leido and tipo_leido not in {"__SPARTA_SECRET_REDACTED__", "desconocido"}:
+            if tipo_leido and tipo_leido not in {"estado_cuenta", "__SPARTA_SECRET_REDACTED__", "desconocido"}:
                 msg_banco = (
                     f"{label} ({filename}): formato bancario con cuenta o CLABE detectado; "
                     "se acepta para validacion bancaria."
                 )
                 out["mensaje"] = msg_banco
                 out.setdefault("observaciones", []).append(msg_banco)
-            out["tipo_detectado"] = "__SPARTA_SECRET_REDACTED__"
+            out["tipo_detectado"] = "estado_cuenta"
             rechazado = False
             if valido is False:
                 valido = True
@@ -2370,7 +2370,7 @@ def _resultado_v2_reglas_expediente(
             "constancia_fiscal": {"constancia_fiscal"},
             "nss": {"nss"},
             "hoja_retencion": {"infonavit_fonacot", "carta_no_adeudo"},
-            "__SPARTA_SECRET_REDACTED__": {"__SPARTA_SECRET_REDACTED__"},
+            "estado_cuenta": {"estado_cuenta", "__SPARTA_SECRET_REDACTED__"},
         }
         detected_type = str(out.get("tipo_detectado") or "").strip()
         allowed_types = expected_types_by_key.get(key)
@@ -2513,10 +2513,10 @@ def _resultado_v2_reglas_expediente(
     if regimen_ok is not None:
         add_comp("Regla documental", "Regimen de sueldos y salarios", "constancia_fiscal", fiscal_prev.get("regimen_fiscal") or fiscal_prev.get("regimenes_fiscales"), "Regla", "Sueldos y salarios", regimen_ok, "ok" if regimen_ok else "critico", "La constancia fiscal confirma regimen de sueldos y salarios." if regimen_ok else "La constancia fiscal no confirma el regimen de sueldos y salarios.")
 
-    banco = (docs_out.get("__SPARTA_SECRET_REDACTED__") or {}).get("banco")
+    banco = (docs_out.get("estado_cuenta") or {}).get("banco")
     if banco:
         ok = not is_digital_bank(str(banco))
-        add_comp("Banco", "Banco fisico aceptado", "__SPARTA_SECRET_REDACTED__", banco, "Regla", "Banco fisico", ok, "ok" if ok else "critico", "El estado de cuenta corresponde a banco fisico." if ok else f"El banco detectado no es aceptado para carga: {banco}.")
+        add_comp("Banco", "Banco fisico aceptado", "estado_cuenta", banco, "Regla", "Banco fisico", ok, "ok" if ok else "critico", "El estado de cuenta corresponde a banco fisico." if ok else f"El banco detectado no es aceptado para carga: {banco}.")
 
     for field, label in (("curp", "CURP"), ("rfc", "RFC"), ("nss", "NSS")):
         if field == "curp":
@@ -5827,7 +5827,7 @@ async def validar_expediente(
     acta_pdf_bytes = await _leer_pdf(acta_nacimiento)
     domicilio_pdf_bytes = await _leer_pdf(comprobante_domicilio)
     retencion_pdf_bytes = await _leer_pdf(hoja_retencion)
-    __SPARTA_SECRET_REDACTED___pdf_bytes = await _leer_pdf(estado_cuenta)
+    estado_cuenta_pdf_bytes = await _leer_pdf(estado_cuenta)
 
     lecturas_previas: Dict[str, Any] = {}
     lecturas_payload = lecturas_json
@@ -5859,7 +5859,10 @@ async def validar_expediente(
                 if isinstance(parsed, str):
                     parsed = json.loads(parsed, strict=False)
                 if isinstance(parsed, dict):
-                    lecturas_previas = parsed
+                    lecturas_previas = {
+                        ("estado_cuenta" if str(key).strip() == "__SPARTA_SECRET_REDACTED__" else str(key).strip()): value
+                        for key, value in parsed.items()
+                    }
                     break
             except Exception as exc:
                 parse_errors.append(str(exc))
@@ -5886,6 +5889,9 @@ async def validar_expediente(
             if not isinstance(item, dict):
                 continue
             key = str(item.get("key") or "").strip()
+            if key == "__SPARTA_SECRET_REDACTED__":
+                key = "estado_cuenta"
+                item = {**item, "key": key}
             if key:
                 documentos_esperados_map[key] = item
     logger.info(
@@ -5911,7 +5917,7 @@ async def validar_expediente(
                 {"key": "constancia_fiscal", "label": "Constancia de situacion fiscal", "bytes": fiscal_pdf_bytes, "filename": getattr(constancia_fiscal, "filename", None) or "constancia_fiscal.pdf"},
                 {"key": "nss", "label": "Numero de seguridad social", "bytes": nss_pdf_bytes, "filename": getattr(documento_nss, "filename", None) or "nss.pdf"},
                 {"key": "hoja_retencion", "label": "Hoja de retencion FONACOT o INFONAVIT", "bytes": retencion_pdf_bytes, "filename": getattr(hoja_retencion, "filename", None) or "hoja_retencion.pdf"},
-                {"key": "__SPARTA_SECRET_REDACTED__", "label": "Estado de cuenta", "bytes": __SPARTA_SECRET_REDACTED___pdf_bytes, "filename": getattr(estado_cuenta, "filename", None) or "__SPARTA_SECRET_REDACTED__.pdf"},
+                {"key": "estado_cuenta", "label": "Estado de cuenta", "bytes": estado_cuenta_pdf_bytes, "filename": getattr(estado_cuenta, "filename", None) or "estado_cuenta.pdf"},
             ]
             for doc in docs_v2:
                 key = str(doc.get("key") or "")
@@ -5942,7 +5948,16 @@ async def validar_expediente(
                 ]
 
             pdf_text_prefill_count = 0
-            rescue_keys = {"solicitud_interna", "curp", "identificacion_oficial", "nss", "constancia_fiscal", "acta_nacimiento"}
+            rescue_keys = {
+                "solicitud_interna",
+                "curp",
+                "identificacion_oficial",
+                "nss",
+                "constancia_fiscal",
+                "acta_nacimiento",
+                "comprobante_domicilio",
+                "estado_cuenta",
+            }
             for doc in docs_v2:
                 key_doc = str(doc.get("key") or "")
                 if key_doc not in rescue_keys:
@@ -5972,7 +5987,7 @@ async def validar_expediente(
                 "constancia_fiscal": "constancia_fiscal",
                 "nss": "nss",
                 "hoja_retencion": "infonavit_fonacot",
-                "__SPARTA_SECRET_REDACTED__": "__SPARTA_SECRET_REDACTED__",
+                "estado_cuenta": "__SPARTA_SECRET_REDACTED__",
             }
             # En el flujo real la carga rapida ya deja una lectura V2 guardada
             # por documento. La validacion cruzada compara esas lecturas y solo
@@ -6331,7 +6346,7 @@ async def validar_expediente_json(
         acta_nacimiento=_payload_upload_from_b64(payload, "acta_nacimiento", "acta_nacimiento.pdf"),
         comprobante_domicilio=_payload_upload_from_b64(payload, "comprobante_domicilio", "comprobante_domicilio.pdf"),
         hoja_retencion=_payload_upload_from_b64(payload, "hoja_retencion", "hoja_retencion.pdf"),
-        estado_cuenta=_payload_upload_from_b64(payload, "__SPARTA_SECRET_REDACTED__", "__SPARTA_SECRET_REDACTED__.pdf"),
+        estado_cuenta=_payload_upload_from_b64(payload, "estado_cuenta", "estado_cuenta.pdf"),
         nombre_candidato_registro=payload.get("nombre_candidato_registro"),
         lecturas_json=None,
         lecturas_json_b64=payload.get("lecturas_json_b64"),
