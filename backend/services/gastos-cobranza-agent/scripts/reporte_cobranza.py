@@ -16,7 +16,11 @@ Flujo:
      (inicio_semana = martes del periodo, s2_exitoso = 1).
   4. Los que quedan van a S2 → cálculo → Excel.
   5. El Excel se genera siempre (aunque queden 0 registros después de los filtros).
-  6. Reglas de salida del .xlsx (pipeline final):
+  6. Regla de cuota objetivo para pagos de fin de semana:
+     - Pago viernes, sábado o domingo → primero debe quedar cubierta la cuota del lunes siguiente.
+     - Pago lunes a jueves → se conserva el lunes de la misma semana calendario.
+     Solo el saldo posterior a cubrir por completo esa cuota puede considerarse para GC.
+  7. Reglas de salida del .xlsx (pipeline final):
      - No exportar filas con STATUS CREDITO = ERROR.
      - Conjunto NO (MAXI APP — ¿SE CONECTÓ? = NO): conservar solo SALDO APLICABLE A GC entre 200 y 300 (incluyente).
      - Reintegrar todas las filas SI + las NO válidas.
@@ -52,7 +56,8 @@ Pruebas / Excel sin tocar el reporte oficial del día:
   REPORTE_COBRANZA_MODO_PRUEBA_EXCEL=1 — guarda reporte_cobranza_DD-MM-AAAA_PRUEBA.xlsx (no comprueba ni pisa el .xlsx oficial).
   REPORTE_COBRANZA_REGENERAR=1 — omite la salida temprana si ya existe el .xlsx del día (p. ej. tras renombrar copia desde el agente).
 
-SALDO A FAVOR: lunes de la semana calendario (lun–dom) de la fecha de negocio.
+SALDO A FAVOR: cuota objetivo según fecha del pago:
+  viernes–domingo → lunes siguiente; lunes–jueves → lunes de esa semana calendario.
 
 Fecha de negocio: siempre **ayer** respecto al calendario **America/Mexico_City** (hora CDMX real),
 para alinear con ejecución programada el día previo al día operativo a las 08:00 CDMX.
@@ -305,16 +310,13 @@ SIN_DESCARGO = str(os.environ.get("REPORTE_COBRANZA_SIN_DESCARGO", "")).strip() 
 # Pruebas: 1 = nombre ..._PRUEBA.xlsx; no bloquea si ya existe el Excel oficial del día.
 MODO_PRUEBA_EXCEL = str(os.environ.get("REPORTE_COBRANZA_MODO_PRUEBA_EXCEL", "")).strip() == "1"
 REGENERAR_REPORTE = str(os.environ.get("REPORTE_COBRANZA_REGENERAR", "")).strip().lower() in ("1", "true", "yes", "si", "sí")
-# Textos de negocio en COMENTARIOS (día laboral vs fin de semana / lunes).
+# Textos de negocio en COMENTARIOS.
 # Color en Excel: CUOTA_CUBIERTA → fila rojiza; APLICAR → fila verde (ver relleno_fila_por_reglas).
 # Importante: CUOTA_CUBIERTA contiene "NO APLICAR"; hay que evaluarla ANTES que "APLICAR in com"
 # o toda esa fila se pintaría mal en verde.
 COMENTARIO_CUOTA_CUBIERTA = "CUOTA SIGUIENTE CUBIERTA - NO APLICAR"
 COMENTARIO_APLICAR        = "APLICAR"
 COMENTARIO_SIN_REGLA      = "Sin Regla"
-
-# Días en que se usa APLICAR: martes(1) a viernes(4). Sábado(5)-domingo(6)-lunes(0) → CUOTA CUBIERTA.
-_DIAS_APLICAR = {1, 2, 3, 4}
 
 # Textos en columna COMENTARIOS (fácil de editar)
 ETIQUETA_REGLA_GRIS = "Regla aplicable GC < 200 (gris)"
@@ -724,6 +726,22 @@ WHERE `inicio_semana` = %s
 def inicio_semana_operativa_martes(d: date) -> date:
     """Martes que abre el periodo operativo mar–dom."""
     return d - timedelta(days=(d.weekday() - 1) % 7)
+
+
+def lunes_cuota_objetivo_para_pago(fecha_pago: date) -> date:
+    """
+    Cuota semanal que debe quedar cubierta antes de aplicar un sobrante a GC.
+
+    · Viernes, sábado o domingo: protege el lunes siguiente.
+    · Lunes a jueves: protege el lunes de la misma semana calendario.
+
+    La función usa la fecha efectiva del pago (fecha de negocio), no el día en
+    que se ejecuta el agente.
+    """
+    wd = fecha_pago.weekday()  # lunes=0 … domingo=6
+    if wd >= 4:
+        return fecha_pago + timedelta(days=7 - wd)
+    return fecha_pago - timedelta(days=wd)
 
 
 # Python weekday(): mismo orden que MySQL WEEKDAY (lunes=0 … domingo=6)
@@ -1545,13 +1563,12 @@ def procesar_registro(row, fecha_corte_str, lunes: date, hoy: date, fecha_coment
         return None
 
     saldo_aplicable = round(min(sf, deuda_gc), 2)
-    # sf > 0 garantizado (filtramos arriba). Etiqueta según día calendario REAL CDMX de ejecución:
-    # Martes–Viernes → APLICAR (verde); Sábado–Lunes → CUOTA SIGUIENTE CUBIERTA (rojo).
-    comentario = (
-        COMENTARIO_APLICAR
-        if fecha_comentario_cdmx.weekday() in _DIAS_APLICAR
-        else COMENTARIO_CUOTA_CUBIERTA
-    )
+    # calcular_saldo_a_favor solo devuelve un valor positivo cuando la cuota
+    # objetivo indicada por `lunes` quedó completamente cubierta. Por eso un
+    # reporte ejecutado sábado, domingo o lunes ya puede marcar el excedente
+    # como APLICAR; el día de ejecución no debe descartarlo.
+    _ = fecha_comentario_cdmx  # firma conservada para compatibilidad.
+    comentario = COMENTARIO_APLICAR
 
     base.update({
         "DEUDA_GC": deuda_gc,
@@ -1616,7 +1633,7 @@ def _float_reg(reg: dict, key: str) -> float:
 
 
 def _fila_excel_excluida_cuota_siguiente_cubierta(reg: dict) -> bool:
-    """True = no incluir en .xlsx: comentario base «CUOTA SIGUIENTE CUBIERTA - NO APLICAR» (sáb–lun)."""
+    """True = no incluir una fila legacy/manual marcada explícitamente como NO APLICAR."""
     return COMENTARIO_CUOTA_CUBIERTA in str(reg.get("COMENTARIOS") or "")
 
 
@@ -1663,7 +1680,9 @@ def aplicar_pipeline_final_excel_gc(registros: list[dict], fecha_permitida: date
       5) Validación interna ABS(ultimo_abono_efectivo) >= saldo aplicable.
       6) Si no alcanza, saldo aplicable = ABS(ultimo_abono_efectivo).
       7) Filtro final saldo aplicable > 200 (sin tope superior).
-      8) Excluir filas con COMENTARIOS que contengan «CUOTA SIGUIENTE CUBIERTA - NO APLICAR».
+      8) Excluir filas legacy/manuales que ya vengan marcadas explícitamente como
+         «CUOTA SIGUIENTE CUBIERTA - NO APLICAR». Las filas automáticas nuevas
+         solo reciben APLICAR después de validar la cuota objetivo.
     """
     # Paso 1: fecha de último abono estricta al día de negocio (ayer CDMX).
     con_fecha_permitida = [
@@ -1711,7 +1730,7 @@ def aplicar_pipeline_final_excel_gc(registros: list[dict], fecha_permitida: date
     filtrado_final = [r for r in restaurado if _float_reg(r, "SALDO_APLICABLE_GC") > 200.0]
     excl_saldo_final = len(restaurado) - len(filtrado_final)
 
-    # Paso 8: fuera del Excel las filas «CUOTA SIGUIENTE CUBIERTA - NO APLICAR» (sáb–lun).
+    # Paso 8: conservar la protección para filas legacy/manuales marcadas NO APLICAR.
     sin_cuota_cubierta = [r for r in filtrado_final if not _fila_excel_excluida_cuota_siguiente_cubierta(r)]
     excl_cuota_siguiente_cubierta = len(filtrado_final) - len(sin_cuota_cubierta)
 
@@ -1771,8 +1790,8 @@ def armar_comentarios_fila(comentario_cuota: str, reg: dict) -> str:
 def relleno_fila_por_reglas(reg: dict) -> PatternFill | None:
     """
     Primera regla que cumpla gana (no se combinan).
-    0) CUOTA SIGUIENTE CUBIERTA (sáb–lun)  → rojo (antes que APLICAR: "NO APLICAR" contiene "APLICAR")
-    1) APLICAR (mar–vie)                    → verde
+    0) CUOTA SIGUIENTE CUBIERTA legacy/manual → rojo (antes que APLICAR: "NO APLICAR" contiene "APLICAR")
+    1) APLICAR después de validar cuota objetivo → verde
     2) SALDO_APLICABLE_GC < 200            → gris
     3) Regla de Homero: deuda y SF en [200,300] → azul
     4) Regla porcentaje: SF/cuota en [0,25]%    → morado
@@ -1836,7 +1855,7 @@ def generar_excel(
         f"ISO {iy}-W{iw:02d}  |  "
         f"Filtro DATE(último pago efectivo) = {fecha_filtro_ultimo_pago}  |  "
         f"Semana operativa inicio (martes): {inicio_semana_operativa}  |  "
-        f"Lunes cal. fecha negocio: {lunes}  |  GC desde: {FECHA_CORTE_GASTOS}  |  "
+        f"Cuota lunes objetivo: {lunes}  |  GC desde: {FECHA_CORTE_GASTOS}  |  "
         f"Total registros: {len(registros):,}"
     )
     ws["A1"].font      = Font(name="Arial", size=9, italic=True, color="595959")
@@ -1897,7 +1916,7 @@ def main() -> None:
     t0 = time.time()
     hoy, ahora_cdmx = fecha_negocio_y_reloj_cdmx()
     fecha_calendario_cdmx = ahora_cdmx.date()
-    lunes = hoy - timedelta(days=hoy.weekday())
+    lunes = lunes_cuota_objetivo_para_pago(hoy)
     # Lista negra por semana operativa vigente del calendario REAL CDMX (no "ayer").
     inicio_semana = inicio_semana_operativa_martes(fecha_calendario_cdmx)
     fecha_corte = str(hoy)
@@ -1945,7 +1964,7 @@ def main() -> None:
         fecha_calendario_cdmx,
         _NOMBRE_DIA_SEMANA_ES[fecha_calendario_cdmx.weekday()],
     )
-    log.info(f"  Lunes semana negocio : {lunes}")
+    log.info(f"  Cuota lunes objetivo : {lunes}")
     log.info(f"  Inicio semana negra : {inicio_semana}  (martes del periodo)")
     log.info(f"  fechaCorte -> S2    : {fecha_corte}")
     log.info(f"  Filtro ultimo pago  : DATE(...) = {hoy}")

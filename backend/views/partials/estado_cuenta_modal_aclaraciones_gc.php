@@ -196,6 +196,11 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
         var ventanaOk = !!(meta && meta.ventana_ok);
         var tipo = ecAclaracionesTipoSeleccionado();
         var bloqueadoFaltaVentana = (tipo === 'falta_aplicar' && !ventanaOk);
+        var infoFaltaFinSemana = (
+            tipo === 'falta_aplicar'
+            && ventanaOk
+            && !!(meta && meta.ventana_falta_lunes_fin_semana)
+        );
 
         var rowUltimo = document.getElementById('ecAclaracionesRowUltimoDetalle');
         var banner = document.getElementById('ecAclaracionesBannerVentana');
@@ -214,7 +219,7 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
         var bannerEtq = document.getElementById('ecAclaracionesBannerVentanaEtiqueta');
         var clsDangerInner = 'rounded-3 border border-danger bg-label-danger p-2';
         var clsOkInner = 'rounded-3 border border-success bg-label-success p-2';
-        if (bloqueadoFaltaVentana) {
+        if (bloqueadoFaltaVentana || infoFaltaFinSemana) {
             if (rowUltimo) rowUltimo.classList.add('d-none');
             if (banner) banner.classList.remove('d-none');
             var esFinSem = !!(meta && meta.ventana_falta_lunes_fin_semana);
@@ -223,7 +228,7 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
                 bannerEtq.className = esFinSem
                     ? 'fw-semibold text-success text-nowrap align-self-center'
                     : 'fw-semibold text-danger text-nowrap align-self-center';
-                bannerEtq.textContent = esFinSem ? 'Información' : 'No se puede guardar';
+                bannerEtq.textContent = esFinSem ? 'Excepción para el descargo' : 'No se puede guardar';
             }
             if (bannerMsg) {
                 bannerMsg.className = esFinSem ? 'small text-success mb-0 mt-2' : 'small text-danger mb-0 mt-2';
