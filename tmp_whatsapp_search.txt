@@ -1,0 +1,160 @@
+﻿.\docs\leonidas-whatsapp.md:11:2. Meta entrega el mensaje firmado al webhook de Sparta.
+.\docs\leonidas-whatsapp.md:26:   `https://TU_DOMINIO/LeonidasWhatsApp/webhook`
+.\docs\leonidas-whatsapp.md:28:5. Usar en Meta el mismo valor configurado en `WHATSAPP_VERIFY_TOKEN`.
+.\docs\leonidas-whatsapp.md:31:7. Activar `WHATSAPP_CLOUD_ENABLED=1`.
+.\docs\leonidas-whatsapp.md:47:1. Mantener `WHATSAPP_CLOUD_ENABLED=0` mientras se verifica el webhook.
+.\public\index.php:66:    // Webhook de Meta. La autenticacion no depende de una sesion web: el
+.\public\index.php:69:        'webhook',
+.\backend\API\README.md:295:8. **Webhook**: notificar resultado a URL externa cuando `resultado = RECHAZADO`
+.\backend\cronjobs\insertar_moras_martes.php:10: *   - Sin enviar a webhook: php insertar_moras_martes.php --no-webhook
+.\backend\cronjobs\insertar_moras_martes.php:15: * CONFIGURACIÓN WEBHOOK GOOGLE CHAT:
+.\backend\cronjobs\insertar_moras_martes.php:17: *   Para obtener la URL del webhook:
+.\backend\cronjobs\insertar_moras_martes.php:19: *   2. Click en el nombre del espacio → Administrar webhooks
+.\backend\cronjobs\insertar_moras_martes.php:20: *   3. Click en "+ Agregar webhook"
+.\backend\cronjobs\insertar_moras_martes.php:70:// � CARGAR WEBHOOK DE FORMA SEGURA DESDE CONFIG.INI
+.\backend\cronjobs\insertar_moras_martes.php:77:$GOOGLE_CHAT_WEBHOOK = $config['webhook']['GOOGLE_CHAT'] ?? '';
+.\backend\cronjobs\insertar_moras_martes.php:80:$args = getopt('', ['dry-run', 'force', 'verbose', 'no-webhook']);
+.\backend\cronjobs\insertar_moras_martes.php:84:$noWebhook = isset($args['no-webhook']);
+.\backend\cronjobs\insertar_moras_martes.php:87:// 3. CLASE LOGGER CON GOOGLE CHAT WEBHOOK
+.\backend\cronjobs\insertar_moras_martes.php:92:    private $webhookUrl;
+.\backend\cronjobs\insertar_moras_martes.php:96:    private $webhookEnabled;
+.\backend\cronjobs\insertar_moras_martes.php:99:    public function __construct($webhookUrl, $verbose = false, $noWebhook = false)
+.\backend\cronjobs\insertar_moras_martes.php:101:        $this->webhookUrl = $webhookUrl;
+.\backend\cronjobs\insertar_moras_martes.php:104:        $this->webhookEnabled = !$noWebhook && !empty($webhookUrl);
+.\backend\cronjobs\insertar_moras_martes.php:128:        // Acumular para webhook (solo mensajes importantes)
+.\backend\cronjobs\insertar_moras_martes.php:129:        if ($this->webhookEnabled && in_array($nivel, ['SUCCESS', 'WARNING', 'ERROR'])) {
+.\backend\cronjobs\insertar_moras_martes.php:178:    public function enviarWebhookInmediato($titulo, $mensaje, $tipo = 'INFO')
+.\backend\cronjobs\insertar_moras_martes.php:180:        if (!$this->webhookEnabled) {
+.\backend\cronjobs\insertar_moras_martes.php:203:        $this->enviarWebhook($payload);
+.\backend\cronjobs\insertar_moras_martes.php:211:        if (!$this->webhookEnabled) {
+.\backend\cronjobs\insertar_moras_martes.php:222:        $this->enviarWebhook($payload);
+.\backend\cronjobs\insertar_moras_martes.php:230:        if (!$this->webhookEnabled) {
+.\backend\cronjobs\insertar_moras_martes.php:274:        $this->enviarWebhook($payload);
+.\backend\cronjobs\insertar_moras_martes.php:278:    private function enviarWebhook($payload)
+.\backend\cronjobs\insertar_moras_martes.php:281:            $ch = curl_init($this->webhookUrl);
+.\backend\cronjobs\insertar_moras_martes.php:294:                echo "[WARNING] Error al enviar webhook: HTTP $httpCode\n";
+.\backend\cronjobs\insertar_moras_martes.php:297:            echo "[WARNING] Excepción al enviar webhook: " . $e->getMessage() . "\n";
+.\backend\cronjobs\insertar_moras_martes.php:365:            $this->logger->enviarWebhookInmediato(
+.\backend\cronjobs\insertar_moras_martes.php:424:            $this->logger->enviarWebhookInmediato(
+.\backend\cronjobs\insertar_moras_martes.php:769:                // Enviar al webhook solo al cruzar el 50% (una sola vez)
+.\backend\cronjobs\insertar_moras_martes.php:850:    // Inicializar logger con webhook
+.\backend\cronjobs\insertar_moras_martes.php:851:    $logger = new CronLogger($GOOGLE_CHAT_WEBHOOK, $verbose, $noWebhook);
+.\backend\cronjobs\insertar_moras_martes.php:865:    if ($noWebhook || empty($GOOGLE_CHAT_WEBHOOK)) {
+.\backend\cronjobs\insertar_moras_martes.php:866:        $logger->warning("WEBHOOK DESACTIVADO - No se enviarán notificaciones a Google Chat");
+.\backend\cronjobs\insertar_moras_martes.php:868:        $logger->success("WEBHOOK ACTIVADO - Se enviarán notificaciones a Google Chat");
+.\backend\cronjobs\insertar_moras_martes.php:885:        $logger->enviarWebhookInmediato(
+.\backend\cronjobs\eliminar_gastos_despachos.php:14: *   - Sin enviar a webhook:            php eliminar_gastos_despachos.php --no-webhook
+.\backend\cronjobs\eliminar_gastos_despachos.php:53:$GOOGLE_CHAT_WEBHOOK = $config['webhook']['GOOGLE_CHAT'] ?? '';
+.\backend\cronjobs\eliminar_gastos_despachos.php:55:$args      = getopt('', ['dry-run', 'force', 'verbose', 'no-webhook']);
+.\backend\cronjobs\eliminar_gastos_despachos.php:59:$noWebhook = isset($args['no-webhook']);
+.\backend\cronjobs\eliminar_gastos_despachos.php:62:// 3. CLASE LOGGER CON GOOGLE CHAT WEBHOOK
+.\backend\cronjobs\eliminar_gastos_despachos.php:67:    private $webhookUrl;
+.\backend\cronjobs\eliminar_gastos_despachos.php:71:    private $webhookEnabled;
+.\backend\cronjobs\eliminar_gastos_despachos.php:74:    public function __construct($webhookUrl, $verbose = false, $noWebhook = false)
+.\backend\cronjobs\eliminar_gastos_despachos.php:76:        $this->webhookUrl     = $webhookUrl;
+.\backend\cronjobs\eliminar_gastos_despachos.php:79:        $this->webhookEnabled = !$noWebhook && !empty($webhookUrl);
+.\backend\cronjobs\eliminar_gastos_despachos.php:101:        if ($this->webhookEnabled && in_array($nivel, ['SUCCESS', 'WARNING', 'ERROR'])) {
+.\backend\cronjobs\eliminar_gastos_despachos.php:132:    public function enviarWebhookInmediato($titulo, $mensaje, $tipo = 'INFO')
+.\backend\cronjobs\eliminar_gastos_despachos.php:134:        if (!$this->webhookEnabled) {
+.\backend\cronjobs\eliminar_gastos_despachos.php:157:        $this->enviarWebhook($payload);
+.\backend\cronjobs\eliminar_gastos_despachos.php:162:        if (!$this->webhookEnabled) {
+.\backend\cronjobs\eliminar_gastos_despachos.php:173:        $this->enviarWebhook($payload);
+.\backend\cronjobs\eliminar_gastos_despachos.php:178:        if (!$this->webhookEnabled) {
+.\backend\cronjobs\eliminar_gastos_despachos.php:213:        $this->enviarWebhook($payload);
+.\backend\cronjobs\eliminar_gastos_despachos.php:217:    private function enviarWebhook($payload)
+.\backend\cronjobs\eliminar_gastos_despachos.php:220:            $ch = curl_init($this->webhookUrl);
+.\backend\cronjobs\eliminar_gastos_despachos.php:232:                echo "[WARNING] Error al enviar webhook: HTTP $httpCode\n";
+.\backend\cronjobs\eliminar_gastos_despachos.php:235:            echo "[WARNING] Excepción al enviar webhook: " . $e->getMessage() . "\n";
+.\backend\cronjobs\eliminar_gastos_despachos.php:300:            $this->logger->enviarWebhookInmediato(
+.\backend\cronjobs\eliminar_gastos_despachos.php:360:            $this->logger->enviarWebhookInmediato(
+.\backend\cronjobs\eliminar_gastos_despachos.php:703:    $logger = new CronLogger($GOOGLE_CHAT_WEBHOOK, $verbose, $noWebhook);
+.\backend\cronjobs\eliminar_gastos_despachos.php:717:    if ($noWebhook || empty($GOOGLE_CHAT_WEBHOOK)) {
+.\backend\cronjobs\eliminar_gastos_despachos.php:718:        $logger->warning("WEBHOOK DESACTIVADO — No se enviarán notificaciones a Google Chat");
+.\backend\cronjobs\eliminar_gastos_despachos.php:720:        $logger->success("WEBHOOK ACTIVADO — Se enviarán notificaciones a Google Chat");
+.\backend\cronjobs\eliminar_gastos_despachos.php:735:        $logger->enviarWebhookInmediato(
+.\backend\cronjobs\detectar_gdc_liquidados.php:34: * ── Sin enviar a webhook ────────────────────────────────────
+.\backend\cronjobs\detectar_gdc_liquidados.php:35: *   ... -- --no-webhook
+.\backend\cronjobs\detectar_gdc_liquidados.php:38: *   c:\xampp\php\php.exe -f C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\cronjobs\detectar_gdc_liquidados.php -- --dry-run --no-webhook
+.\backend\cronjobs\detectar_gdc_liquidados.php:59:$args       = getopt('', ['solo-conteo', 'verbose', 'no-webhook', 'dry-run']);
+.\backend\cronjobs\detectar_gdc_liquidados.php:62:$noWebhook  = isset($args['no-webhook']);
+.\backend\cronjobs\detectar_gdc_liquidados.php:66:// WEBHOOK (opcional)
+.\backend\cronjobs\detectar_gdc_liquidados.php:70:$WEBHOOK_URL = '';
+.\backend\cronjobs\detectar_gdc_liquidados.php:73:    $WEBHOOK_URL = $config['webhook']['GOOGLE_CHAT'] ?? '';
+.\backend\cronjobs\detectar_gdc_liquidados.php:76:function enviarWebhook(string $url, string $mensaje): void
+.\backend\cronjobs\detectar_gdc_liquidados.php:355:// ── Notificación webhook (solo si configurado) ────────────────
+.\backend\cronjobs\detectar_gdc_liquidados.php:356:if (!$noWebhook && !empty($WEBHOOK_URL)) {
+.\backend\cronjobs\detectar_gdc_liquidados.php:365:    enviarWebhook($WEBHOOK_URL, $msg);
+.\backend\views\shell_gastos_cobranza.php:1560:        var re = /\[ec-webhook-worker\] Avance:\s*(\d+)\/(\d+)\s*\((\d+)%\)/g;
+.\backend\views\shell_gastos_cobranza.php:2841:                        '. Revisa el log; se envió un aviso al webhook.' +
+.\backend\controllers\Segundometro.php:1633:     * Truncar Segundómetro: copiar semana → historial, notificar webhook, truncar semana.
+.\backend\controllers\Sabueso.php:4275:     * Cabecera: X-API-Key: <TICKET_WHATSAPP_API_KEY> o body: { "api_key": "...", ... }
+.\backend\controllers\Sabueso.php:4283:        $claveEsperada = defined('TICKET_WHATSAPP_API_KEY') ? TICKET_WHATSAPP_API_KEY : '';
+.\backend\controllers\Gastoscobranza.php:296:     * Nombre legible para webhook del worker EC (Conciliar pagos): sesión al iniciar la petición.
+.\backend\controllers\Gastoscobranza.php:1244:                self::respuestaJSON(['success' => false, 'mensaje' => 'En este equipo no está el worker EC en gastos-cobranza-agent/tools/ec-webhook-worker (worker.php).']);
+.\backend\controllers\LeonidasWhatsApp.php:11:    public function webhook(): void
+.\backend\controllers\LeonidasWhatsApp.php:19:                trim((string) getenv('WHATSAPP_VERIFY_TOKEN'))
+.\backend\controllers\LeonidasWhatsApp.php:42:            trim((string) getenv('WHATSAPP_APP_SECRET'))
+.\backend\controllers\LeonidasWhatsApp.php:58:            error_log('[Leonidas WhatsApp] Webhook fallido: ' . $error->getMessage());
+.\backend\config\config.php:17:if (!defined('TICKET_WHATSAPP_API_KEY')) {
+.\backend\config\config.php:18:    $k = getenv('TICKET_WHATSAPP_API_KEY');
+.\backend\config\config.php:19:    define('TICKET_WHATSAPP_API_KEY', ($k !== false && $k !== '') ? $k : 'cambiar_clave_secreta_whatsapp_' . md5('sparta_ledger'));
+.\backend\services\LeonidasWhatsAppService.php:101:            $token = (string) ($_SESSION['leonidas_whatsapp_pending_token'] ?? '');
+.\backend\services\LeonidasWhatsAppService.php:106:            unset($_SESSION['leonidas_whatsapp_pending_token']);
+.\backend\services\LeonidasWhatsAppService.php:111:            $token = (string) ($_SESSION['leonidas_whatsapp_pending_token'] ?? '');
+.\backend\services\LeonidasWhatsAppService.php:116:            unset($_SESSION['leonidas_whatsapp_pending_token']);
+.\backend\services\LeonidasWhatsAppService.php:124:            $_SESSION['leonidas_whatsapp_pending_token'] = $token;
+.\backend\services\LeonidasWhatsAppService.php:136:        $secret = trim((string) getenv('WHATSAPP_SESSION_SECRET'));
+.\backend\services\LeonidasWhatsAppService.php:138:            throw new \RuntimeException('Falta configurar WHATSAPP_SESSION_SECRET.');
+.\backend\services\LeonidasWhatsAppService.php:162:        $_SESSION['leonidas_whatsapp_phone'] = $phone;
+.\backend\services\LeonidasWhatsAppService.php:167:        $responses = (array) ($_SESSION['leonidas_whatsapp_responses'] ?? []);
+.\backend\services\LeonidasWhatsAppService.php:176:        $responses = (array) ($_SESSION['leonidas_whatsapp_responses'] ?? []);
+.\backend\services\LeonidasWhatsAppService.php:179:        $_SESSION['leonidas_whatsapp_responses'] = array_slice($responses, -100, null, true);
+.\backend\services\LeonidasWhatsAppProtocol.php:34:            throw new \InvalidArgumentException('El webhook de WhatsApp no contiene JSON valido.');
+.\backend\services\LeonidasWhatsAppClient.php:12:        $enabled = filter_var(getenv('WHATSAPP_CLOUD_ENABLED') ?: '0', FILTER_VALIDATE_BOOL);
+.\backend\services\LeonidasWhatsAppClient.php:13:        $token = trim((string) getenv('WHATSAPP_ACCESS_TOKEN'));
+.\backend\services\LeonidasWhatsAppClient.php:14:        $phoneNumberId = trim((string) getenv('WHATSAPP_PHONE_NUMBER_ID'));
+.\backend\services\LeonidasWhatsAppClient.php:15:        $version = trim((string) (getenv('WHATSAPP_GRAPH_VERSION') ?: 'v23.0'));
+.\backend\services\LeonidasWhatsAppClient.php:25:            'https://graph.facebook.com/%s/%s/messages',
+.\backend\services\gastos-cobranza-agent\tools\gdc_parcialidad_worker.php:28:loadEnvFile($baseDir . DIRECTORY_SEPARATOR . 'ec-webhook-worker' . DIRECTORY_SEPARATOR . 'config.local.env');
+.\backend\services\gastos-cobranza-agent\server.js:14: * EC Launcher: POST /ec-launcher/run ejecuta tools/ec-webhook-worker/worker.php o
+.\backend\services\gastos-cobranza-agent\server.js:161:const EC_WORKER_DIR = path.join(__dirname, 'tools', 'ec-webhook-worker');
+.\backend\services\gastos-cobranza-agent\server.js:1188:/** Tras /run exitoso: correo (PHP + PHPMailer) + aviso en Google Chat webhook (texto; el .xlsx va en el correo). */
+.\backend\services\gastos-cobranza-agent\server.js:1197:function reporteChatWebhookUrl() {
+.\backend\services\gastos-cobranza-agent\server.js:1198:  return String(process.env.GASTOS_GC_REPORTE_CHAT_WEBHOOK_URL || '').trim();
+.\backend\services\gastos-cobranza-agent\server.js:1207: * Webhook para worker EC/lista negra. Por defecto comparte el canal del
+.\backend\services\gastos-cobranza-agent\server.js:1210:function ecWorkflowWebhookUrl() {
+.\backend\services\gastos-cobranza-agent\server.js:1212:    process.env.GASTOS_GC_REPORTE_CHAT_WEBHOOK_URL ||
+.\backend\services\gastos-cobranza-agent\server.js:1213:      process.env.GASTOS_GC_EC_CHAT_WEBHOOK_URL ||
+.\backend\services\gastos-cobranza-agent\server.js:1214:      process.env.GOOGLE_CHAT_WEBHOOK_URL ||
+.\backend\services\gastos-cobranza-agent\server.js:1219:function ecWorkflowWebhookEnabled() {
+.\backend\services\gastos-cobranza-agent\server.js:1228:function notifyEcWorkflowWebhook(evento, traceId, detalleLineas) {
+.\backend\services\gastos-cobranza-agent\server.js:1229:  if (!ecWorkflowWebhookEnabled()) return Promise.resolve(false);
+.\backend\services\gastos-cobranza-agent\server.js:1230:  const hook = ecWorkflowWebhookUrl();
+.\backend\services\gastos-cobranza-agent\server.js:1232:    appendLog('[ec-webhook] No hay webhook de reporte ni de EC configurado; aviso EC no enviado a Chat.');
+.\backend\services\gastos-cobranza-agent\server.js:1242:  appendLog(`[ec-webhook] enviando evento=${evento}${tr ? ` trace=${tr}` : ''}`);
+.\backend\services\gastos-cobranza-agent\server.js:1243:  return postGoogleChatWebhook(hook, text);
+.\backend\services\gastos-cobranza-agent\server.js:1246:/** Webhook de procesos manuales del shell (cronjobs PHP de gastos cobranza). */
+.\backend\services\gastos-cobranza-agent\server.js:1247:function cronjobsGcWebhookUrl() {
+.\backend\services\gastos-cobranza-agent\server.js:1248:  const own = String(process.env.GASTOS_GC_CRONJOBS_CHAT_WEBHOOK_URL || '').trim();
+.\backend\services\gastos-cobranza-agent\server.js:1250:  // Fallback a webhook EC para no requerir nueva variable al activar la funcionalidad.
+.\backend\services\gastos-cobranza-agent\server.js:1251:  return ecWorkflowWebhookUrl();
+.\backend\services\gastos-cobranza-agent\server.js:1254:function cronjobsGcWebhookEnabled() {
+.\backend\services\gastos-cobranza-agent\server.js:1258:function notifyCronjobGcWebhook(procesoKey, titulo, ok, codigoSalida, durMs, detalleLineas) {
+.\backend\services\gastos-cobranza-agent\server.js:1259:  if (!cronjobsGcWebhookEnabled()) return Promise.resolve(false);
+.\backend\services\gastos-cobranza-agent\server.js:1260:  const hook = cronjobsGcWebhookUrl();
+.\backend\services\gastos-cobranza-agent\server.js:1262:    appendLog('[cronjobs-gc webhook] URL vacía; aviso no enviado.');
+.\backend\services\gastos-cobranza-agent\server.js:1275:  appendLog(`[cronjobs-gc webhook] enviando resultado proceso=${procesoKey} ok=${ok ? '1' : '0'}`);
+.\backend\services\gastos-cobranza-agent\server.js:1276:  return postGoogleChatWebhook(hook, text);
+.\backend\services\gastos-cobranza-agent\server.js:1279:/** Última línea `[ec-webhook-lista-negra] {...}` emitida por el script Python. */
+.\backend\services\gastos-cobranza-agent\server.js:1281:  const pref = '[ec-webhook-lista-negra] ';
+.\backend\services\gastos-cobranza-agent\server.js:1296:function notifyListaNegraFinResumenWebhook(traceId, archivo, code, dryRunReq, resumen) {
+.\backend\services\gastos-cobranza-agent\server.js:1297:  if (!ecWorkflowWebhookEnabled()) return Promise.resolve(false);
+.\backend\services\gastos-cobranza-agent\server.js:1298:  const hook = ecWorkflowWebhookUrl();
+.\backend\services\gastos-cobranza-agent\server.js:1300:    appendLog('[ec-webhook] No hay webhook de reporte ni de EC configurado; resumen lista negra no enviado a Chat.');
+.\backend\services\gastos-cobranza-agent\server.js:1347:  appendLog(`[ec-webhook] lista negra fin resumen${tr ? ` trace=${tr}` : ''}`);
+.\backend\services\gastos-cobranza-agent\server.js:1348:  return postGoogleChatWebhook(hook, text);
+.\backend\services\gastos-cobranza-agent\server.js:1426:function postGoogleChatWebhook(urlStr, text) {
+.\backend\services\gastos-cobranza-agent\server.js:1432:      appendLog('[post-reporte] URL webhook inválida.');
+.\backend\services\gastos-cobranza-agent\server.js:1437:      appendLog('[post-reporte] Solo se admite webhook HTTPS.');
+.\backend\services\gastos-cobranza-agent\server.js:1654:    const hook = reporteChatWebhookUrl();
+.\backend\services\gastos-cobranza-agent\server.js:1666:      chatOk = await postGoogleChatWebhook(hook, text);
