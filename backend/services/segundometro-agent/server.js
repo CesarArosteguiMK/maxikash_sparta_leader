@@ -1790,8 +1790,18 @@ app.get('/files/:nombre/download', async (req, res) => {
     if (!MEGA_RPT_FULL.test(nombre)) {
       return res.status(400).send('Formato de archivo inválido.');
     }
+    const existsCheck = await remoteZipExists(nombre);
+    if (!existsCheck.ok) {
+      return res.status(503).send('No se pudo verificar el archivo remoto: ' + (existsCheck.error || 'Error SSH'));
+    }
+    if (!existsCheck.exists) {
+      return res.status(404).send('El corte solicitado no existe en el servidor remoto: ' + nombre);
+    }
     const remotePath = REMOTE_DIR + '/' + nombre;
-    const buffer = await downloadFile(remotePath);
+    const buffer = await downloadFile(remotePath, {
+      // Los ZIP historicos pueden tardar mas que una consulta normal en abrir SFTP.
+      readyTimeoutMs: Math.max(45000, parseInt(process.env.SSH_DOWNLOAD_READY_TIMEOUT_MS || '120000', 10) || 120000),
+    });
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', 'attachment; filename="' + nombre + '"');
     res.setHeader('Content-Length', buffer.length);

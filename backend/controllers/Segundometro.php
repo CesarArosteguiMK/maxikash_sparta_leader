@@ -125,6 +125,7 @@ class Segundometro extends Controller
             var relojCdmxTickInterval = null;
             var relojCdmxOffsetMs = null;
             var guardandoAutoCopy = false;
+            var fechaConsultaReportes = '';
 
             // 🎨 RENDERIZAR ARCHIVOS EN LA INTERFAZ (SOLO ARCHIVOS REALES DEL SERVIDOR)
             const renderArchivos = (archivos, estados) => {
@@ -132,7 +133,8 @@ class Segundometro extends Controller
                 const container = document.getElementById('archivos-container');
 
                 if (!archivos || archivos.length === 0) {
-                    container.innerHTML = '';
+                    const etiqueta = fechaConsultaReportes ? (' para ' + fechaConsultaReportes) : '';
+                    container.innerHTML = '<div class="alert alert-info text-center mb-0"><i class="fa fa-calendar-times me-2"></i>No hay reportes disponibles' + etiqueta + '.</div>';
                     return;
                 }
 
@@ -373,7 +375,8 @@ class Segundometro extends Controller
             const listarArchivos = async (silent = false) => {
                 const container = document.getElementById('archivos-container');
                 try {
-                    const response = await fetch('/segundometro/listarArchivos', {
+                    const query = fechaConsultaReportes ? ('?fecha=' + encodeURIComponent(fechaConsultaReportes)) : '';
+                    const response = await fetch('/segundometro/listarArchivos' + query, {
                         method: 'GET',
                         headers: {
                             'Front-Request': 'true'
@@ -1087,6 +1090,25 @@ class Segundometro extends Controller
                 if (btnEjecutarAhora) btnEjecutarAhora.addEventListener('click', ejecutarAhora);
                 var btnMegaReporteMes = document.getElementById('sgDescargarMegaReporteMes');
                 if (btnMegaReporteMes) btnMegaReporteMes.addEventListener('click', descargarMegaReporteMensual);
+                var fechaReportes = document.getElementById('sgFechaConsultaReportes');
+                var btnBuscarFecha = document.getElementById('sgBuscarFechaReportes');
+                var btnHoyFecha = document.getElementById('sgHoyFechaReportes');
+                var hoyCdmx = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
+                if (fechaReportes && !fechaReportes.value) fechaReportes.value = hoyCdmx;
+                fechaConsultaReportes = fechaReportes ? fechaReportes.value : hoyCdmx;
+                if (btnBuscarFecha && fechaReportes) btnBuscarFecha.addEventListener('click', function() {
+                    if (!fechaReportes.value) return;
+                    fechaConsultaReportes = fechaReportes.value;
+                    listarArchivos(false);
+                });
+                if (btnHoyFecha && fechaReportes) btnHoyFecha.addEventListener('click', function() {
+                    fechaReportes.value = hoyCdmx;
+                    fechaConsultaReportes = hoyCdmx;
+                    listarArchivos(false);
+                });
+                if (fechaReportes) fechaReportes.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') { e.preventDefault(); btnBuscarFecha && btnBuscarFecha.click(); }
+                });
                 var chkAutoCopy = document.getElementById('sgAutoCopyEnabled');
                 if (chkAutoCopy) chkAutoCopy.addEventListener('change', guardarEstadoAutoCopy);
                 var linkPrueba = document.getElementById('linkTruncarModoPrueba');
@@ -1269,7 +1291,17 @@ class Segundometro extends Controller
     {
         try {
             if (!$this->validarModoSoloAgente('listar archivos')) return;
-            $agent = $this->agenteRequest('GET', '/files', null, 35);
+            $fecha = trim((string) ($_GET['fecha'] ?? ''));
+            $path = '/files';
+            if ($fecha !== '') {
+                $fechaObj = \DateTimeImmutable::createFromFormat('!Y-m-d', $fecha);
+                if (!$fechaObj || $fechaObj->format('Y-m-d') !== $fecha) {
+                    self::respuestaJSON(['success' => false, 'mensaje' => 'Fecha inválida. Use YYYY-MM-DD.']);
+                    return;
+                }
+                $path .= '?anio=' . $fechaObj->format('Y') . '&mes=' . $fechaObj->format('m');
+            }
+            $agent = $this->agenteRequest('GET', $path, null, $fecha !== '' ? 90 : 35);
             if (!$agent['success'] || !is_array($agent['json']) || empty($agent['json']['success'])) {
                 $msg = 'No se pudieron listar archivos vía agente.';
                 if (is_array($agent['json']) && !empty($agent['json']['mensaje'])) $msg .= ' ' . $agent['json']['mensaje'];
@@ -1280,9 +1312,19 @@ class Segundometro extends Controller
                 ]);
                 return;
             }
+            $datos = $agent['json']['datos'] ?? [];
+            if ($fecha !== '') {
+                $compacta = str_replace('-', '', $fecha);
+                $datos = array_values(array_filter($datos, static function ($item) use ($fecha, $compacta) {
+                    if (!is_array($item)) return false;
+                    if (($item['fecha'] ?? '') === $fecha) return true;
+                    return str_starts_with((string) ($item['nombre'] ?? ''), 'mega_rpt_' . $compacta . '_');
+                }));
+            }
             self::respuestaJSON([
                 'success' => true,
-                'datos' => $agent['json']['datos'] ?? []
+                'fecha_consultada' => $fecha !== '' ? $fecha : null,
+                'datos' => $datos
             ]);
         } catch (\Exception $e) {
             self::respuestaJSON([
@@ -1448,7 +1490,12 @@ class Segundometro extends Controller
             $cerr = curl_error($ch);
             curl_close($ch);
             if ($bin === false || $status < 200 || $status >= 300) {
-                throw new \Exception($cerr !== '' ? $cerr : ('HTTP ' . $status . ' al descargar desde agente'));
+                $detalleAgente = is_string($bin) ? trim(substr($bin, 0, 600)) : '';
+                $mensaje = $cerr !== '' ? $cerr : ('HTTP ' . $status . ' al descargar desde agente');
+                if ($detalleAgente !== '') {
+                    $mensaje .= ': ' . $detalleAgente;
+                }
+                throw new \Exception($mensaje);
             }
             header('Content-Type: ' . ($ctype !== '' ? $ctype : 'application/zip'));
             header('Content-Disposition: attachment; filename="' . $nombreArchivo . '"');
@@ -1458,6 +1505,70 @@ class Segundometro extends Controller
         } catch (\Exception $e) {
             header('HTTP/1.0 500');
             echo 'Error al descargar desde agente: ' . $e->getMessage();
+            exit;
+        }
+    }
+
+    /**
+     * Descarga un corte histórico sin conocer sus segundos exactos.
+     * Ejemplo: /segundometro/descargarCorteHistorico?fecha=2026-07-16&hora=09:30
+     */
+    public function descargarCorteHistorico()
+    {
+        $fecha = trim((string) ($_GET['fecha'] ?? ''));
+        $hora = trim((string) ($_GET['hora'] ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || !preg_match('/^\d{2}:\d{2}$/', $hora)) {
+            header('HTTP/1.0 400 Bad Request');
+            echo 'Use fecha=YYYY-MM-DD y hora=HH:MM.';
+            exit;
+        }
+        if (!$this->usarAgente()) {
+            header('HTTP/1.0 503 Service Unavailable');
+            echo 'Flujo de agente no disponible.';
+            exit;
+        }
+
+        try {
+            [$anio, $mes, $dia] = array_map('intval', explode('-', $fecha));
+            $agent = $this->agenteRequest(
+                'GET',
+                '/files?anio=' . rawurlencode((string) $anio) . '&mes=' . rawurlencode(sprintf('%02d', $mes)),
+                null,
+                90
+            );
+            if (!$agent['success'] || !is_array($agent['json']) || empty($agent['json']['success'])) {
+                throw new \Exception('No se pudo consultar el histórico de reportes en el agente.');
+            }
+
+            $target = (int) substr($hora, 0, 2) * 3600 + (int) substr($hora, 3, 2) * 60;
+            $fechaCompacta = sprintf('%04d%02d%02d', $anio, $mes, $dia);
+            $candidatos = [];
+            foreach (($agent['json']['datos'] ?? []) as $item) {
+                $nombre = is_array($item) ? (string) ($item['nombre'] ?? '') : (string) $item;
+                if (!preg_match('/^mega_rpt_' . $fechaCompacta . '_(\d{2})_(\d{2})_(\d{2})\.csv\.zip$/', $nombre, $m)) {
+                    continue;
+                }
+                $segundos = (int) $m[1] * 3600 + (int) $m[2] * 60 + (int) $m[3];
+                $candidatos[] = ['nombre' => $nombre, 'diferencia' => abs($segundos - $target)];
+            }
+            if ($candidatos === []) {
+                throw new \Exception('No hay reportes del ' . $fecha . ' en el histórico remoto.');
+            }
+            usort($candidatos, static fn(array $a, array $b): int => $a['diferencia'] <=> $b['diferencia']);
+            $seleccionado = $candidatos[0];
+            if ($seleccionado['diferencia'] > 15 * 60) {
+                throw new \Exception('No existe un corte dentro de 15 minutos de ' . $fecha . ' ' . $hora . '.');
+            }
+
+            $descarga = $this->descargarArchivoAgenteBinario($seleccionado['nombre'], 600);
+            header('Content-Type: ' . $descarga['content_type']);
+            header('Content-Disposition: attachment; filename="' . $seleccionado['nombre'] . '"');
+            header('Content-Length: ' . strlen($descarga['bin']));
+            echo $descarga['bin'];
+            exit;
+        } catch (\Throwable $e) {
+            header('HTTP/1.0 500 Internal Server Error');
+            echo 'Error al descargar corte histórico: ' . $e->getMessage();
             exit;
         }
     }
