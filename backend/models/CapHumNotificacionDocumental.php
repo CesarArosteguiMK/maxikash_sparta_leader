@@ -569,7 +569,12 @@ class CapHumNotificacionDocumental extends Model
                     c.url_descarga,
                     c.codigo_pais,
                     c.obligatoria,
-                    DATE_FORMAT(c.fecha_limite, '%Y-%m-%d') AS fecha_limite
+                    DATE_FORMAT(c.fecha_limite, '%Y-%m-%d') AS fecha_limite,
+                    CASE
+                        WHEN c.fecha_limite IS NULL THEN 1
+                        WHEN CURDATE() >= DATE(c.fecha_limite) THEN 1
+                        ELSE 0
+                    END AS bloqueo_obligatorio
                 FROM estado_cuenta.rrhh_notificacion_documental_campania c
                 LEFT JOIN estado_cuenta.rrhh_notificacion_documental_entrega e
                     ON e.id_campania = c.id AND e.id_persona = :persona

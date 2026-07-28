@@ -116,6 +116,17 @@
         text-align: center;
         padding: 1rem;
     }
+    .madj-flow-filter-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .5rem;
+        width: 100%;
+    }
+    .madj-flow-filter-actions .btn {
+        min-width: 0;
+        min-height: 38px;
+        white-space: nowrap;
+    }
     html.dark-mode .madj-flow-card,
     body.dark-mode .madj-flow-card,
     html.dark-mode .madj-flow-item,
@@ -385,6 +396,7 @@
             grid-template-columns: 1fr;
         }
         .madj-flow-list-row { grid-template-columns: 1fr; gap: .45rem; }
+        .madj-flow-filter-actions { grid-template-columns: 1fr; }
     }
 </style>
 
@@ -400,29 +412,32 @@
 
     <div class="madj-flow-card p-3 mb-3">
         <div class="row g-3 align-items-end">
-            <div class="col-md-2">
+            <div class="col-12 col-md-6 col-xl-2">
                 <label class="form-label fw-semibold" for="madjFlowDesde">Desde</label>
                 <input type="date" class="form-control" id="madjFlowDesde">
             </div>
-            <div class="col-md-2">
+            <div class="col-12 col-md-6 col-xl-2">
                 <label class="form-label fw-semibold" for="madjFlowHasta">Hasta</label>
                 <input type="date" class="form-control" id="madjFlowHasta">
             </div>
-            <div class="col-md-2">
+            <div class="col-12 col-md-6 col-xl-2">
                 <label class="form-label fw-semibold" for="madjFlowEstado">Estado de resguardo</label>
                 <select class="form-select" id="madjFlowEstado"><option value="">Todos</option></select>
             </div>
-            <div class="col-md-4">
+            <div class="col-12 col-md-6 col-xl-3">
                 <label class="form-label fw-semibold" for="madjFlowQ">Buscar</label>
                 <input type="search" class="form-control" id="madjFlowQ" placeholder="Credito, cliente, VIN, folio...">
             </div>
-            <div class="col-md-2 d-flex gap-2">
-                <button type="button" class="btn btn-primary flex-fill" id="madjFlowBuscar">
-                    <i class="fa-solid fa-magnifying-glass me-1"></i>Buscar
-                </button>
-                <button type="button" class="btn btn-outline-secondary flex-fill" id="madjFlowLimpiar">
-                    <i class="fa-solid fa-eraser me-1"></i>Limpiar
-                </button>
+            <div class="col-12 col-xl-3">
+                <label class="form-label fw-semibold invisible d-block" aria-hidden="true">Acciones</label>
+                <div class="madj-flow-filter-actions">
+                    <button type="button" class="btn btn-primary" id="madjFlowBuscar">
+                        <i class="fa-solid fa-magnifying-glass me-1"></i>Buscar
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="madjFlowLimpiar">
+                        <i class="fa-solid fa-eraser me-1"></i>Limpiar
+                    </button>
+                </div>
             </div>
         </div>
     </div>
