@@ -227,7 +227,7 @@ function getMenu(): string
                 ['label' => 'Panel vacaciones',             'url' => '/caphum/vacacionesAdmin',          'modulos' => [4]],
                 ['label' => 'Expedientes RR.HH.',           'url' => '/caphum/documentosRrhh',           'modulos' => [93]],
                 ['label' => 'Revisión RR.HH.',              'url' => '/caphum/actualizacionesInfo',      'modulos' => [83]],
-                ['label' => 'Notificación',                  'url' => '/caphum/notificacion',             'modulos' => [4]],
+                ['label' => 'Notificación RR.HH.',           'url' => '/caphum/notificacion',             'modulos' => [198]],
                 ['label' => 'Auditoria',                    'url' => '/caphum/auditoria',                'modulos' => [154]],
                 ['section' => 'Cobranza'],
                 ['label' => 'Carta compromiso Gestor',       'url' => '/caphum/cartaCompromisoGestores',  'modulos' => [144]],
@@ -1097,87 +1097,6 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
         }
         if (!badgeEl || !bodyEl) return;
 
-        var invitacionParejaMostrada = false;
-        function mostrarInvitacionPareja(notificacion) {
-            if (invitacionParejaMostrada || !notificacion) return;
-            invitacionParejaMostrada = true;
-
-            var capa = document.createElement('div');
-            capa.style.cssText = 'position:fixed;inset:0;z-index:20000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.58);';
-            capa.innerHTML = ''
-                + '<div style="position:relative;width:min(430px,100%);padding:34px 30px 28px;text-align:center;background:#fff;border-radius:12px;box-shadow:0 24px 70px rgba(15,23,42,.35);">'
-                + '<button type="button" data-love-close style="position:absolute;top:10px;right:14px;border:0;background:transparent;color:#94a3b8;font-size:26px;line-height:1;cursor:pointer;" aria-label="Cerrar">&times;</button>'
-                + '<div style="width:64px;height:64px;margin:0 auto 16px;display:grid;place-items:center;border-radius:50%;background:#fff0f5;color:#d9467a;font-size:28px;"><i class="fa-solid fa-heart"></i></div>'
-                + '<h5 style="margin:0 0 10px;color:#25324a;font-size:24px;font-weight:800;">Sandra, quieres ser mi novia?</h5>'
-                + '<p style="margin:0;color:#64748b;font-size:15px;">Lazaro Raudel tiene una pregunta especial para ti.</p>'
-                + '<div data-love-actions style="display:flex;justify-content:center;gap:14px;margin-top:28px;min-height:44px;">'
-                + '<button type="button" data-love-yes style="min-width:132px;height:42px;border:0;border-radius:8px;background:#d9467a;color:#fff;font-weight:700;cursor:pointer;">Si</button>'
-                + '<button type="button" data-love-no style="min-width:132px;height:42px;border:0;border-radius:8px;background:#f1f5f9;color:#475569;font-weight:700;cursor:pointer;">No</button>'
-                + '</div>'
-                + '<div data-love-success style="display:none;margin-top:22px;color:#15803d;font-weight:700;">Te amo. Tu respuesta fue enviada.</div>'
-                + '</div>';
-            document.body.appendChild(capa);
-
-            var botonNo = capa.querySelector('[data-love-no]');
-            var botonSi = capa.querySelector('[data-love-yes]');
-            var acciones = capa.querySelector('[data-love-actions]');
-            var exito = capa.querySelector('[data-love-success]');
-            var respondida = false;
-            var cerrar = function(){
-                if (botonNo) botonNo.remove();
-                capa.remove();
-                if (!respondida) {
-                    fetch(notifUrl('/perfil/cerrarInvitacionPareja'), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id_invitacion: Number(notificacion.id) || 0 }),
-                        credentials: 'same-origin'
-                    }).catch(function(){});
-                }
-            };
-            var moverNo = function(){
-                if (!botonNo || !document.body.contains(botonNo)) return;
-                var margen = 20;
-                var maxX = Math.max(margen, window.innerWidth - botonNo.offsetWidth - margen);
-                var maxY = Math.max(margen, window.innerHeight - botonNo.offsetHeight - margen);
-                botonNo.style.position = 'fixed';
-                botonNo.style.zIndex = '20001';
-                botonNo.style.left = (margen + Math.random() * (maxX - margen)) + 'px';
-                botonNo.style.top = (margen + Math.random() * (maxY - margen)) + 'px';
-            };
-            if (botonNo) { botonNo.addEventListener('pointerenter', moverNo); botonNo.addEventListener('focus', moverNo); }
-            capa.querySelectorAll('[data-love-close]').forEach(function(boton){ boton.addEventListener('click', cerrar); });
-            capa.addEventListener('click', function(event){ if (event.target === capa) cerrar(); });
-            document.addEventListener('keydown', function(event){ if (event.key === 'Escape' && document.body.contains(capa)) cerrar(); }, { once: true });
-            if (botonSi) botonSi.addEventListener('click', function(){
-                botonSi.disabled = true;
-                fetch(notifUrl('/perfil/responderInvitacionPareja'), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_invitacion: Number(notificacion.id) || 0 }),
-                    credentials: 'same-origin'
-                })
-                    .then(function(res){ return res.json(); })
-                    .then(function(res){
-                        if (!res || !res.success) throw new Error();
-                        respondida = true;
-                        if (botonNo) botonNo.remove();
-                        acciones.style.display = 'none';
-                        exito.style.display = 'block';
-                    })
-                    .catch(function(){ botonSi.disabled = false; });
-            });
-        }
-
-        function mostrarInvitacionPendiente(list) {
-            return;
-            if (invitacionParejaMostrada || !Array.isArray(list)) return;
-            var invitacion = list.find(function(n){
-                return n && n.tipo === 'invitacion_pareja' && (n.leida | 0) === 0;
-            });
-            if (invitacion) mostrarInvitacionPareja(invitacion);
-        }
-
         function setNotifBody(html) {
             try { if (bodyEl) bodyEl.innerHTML = html; } catch (e) {}
         }
@@ -1301,7 +1220,6 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                 .then(function(r){ return r.ok ? r.json() : null; })
                 .then(function(res){
                     if (res && res.total_no_leidas !== undefined) {
-                        mostrarInvitacionPendiente(res.datos || []);
                         var total = res.total_no_leidas | 0;
                         if (total > 0) {
                             badgeEl.textContent = total > 99 ? '99+' : total;

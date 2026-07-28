@@ -42,6 +42,15 @@ class RrhhDocumentImportService
     private const BATCH_TTL_SECONDS = 3600;
     private const MAX_BATCH_CACHE_BYTES = 209715200;
     private const DOCUMENTO_SENSIBLE_MAGIC = "SPARTA_RRHH_DOC_V1\n";
+    /** @var array<string, array> */
+    private array $coincidenciasPersonaCache = [];
+    /** @var array<string, array<int, int>> */
+    private array $indicePersonasPorToken = [];
+    /** @var array<string, array<int, int>> */
+    private array $indicePersonasPorTokenKey = [];
+    /** @var array<string, array<int, int>> */
+    private array $indicePersonasPorNumeroEmpleado = [];
+    private bool $indicePersonasActivo = false;
 
     private function puedeUsarTipoDocumentoRrhh(int $idDocumento): bool
     {
@@ -214,29 +223,43 @@ class RrhhDocumentImportService
 
     public function fuentesDesdeLoteTemporal(string $batchId): array
     {
-        $batchId = trim($batchId);
-        if (!preg_match('/^[a-f0-9]{32}$/', $batchId)) {
+        $manifest = $this->leerManifiestoLoteTemporal($batchId);
+        if ($manifest === null) {
             return [];
         }
-
-        $manifestPath = $this->directorioLote($batchId) . DIRECTORY_SEPARATOR . 'manifest.json';
-        if (!is_file($manifestPath)) {
-            return [];
-        }
-
-        $manifest = json_decode((string) file_get_contents($manifestPath), true);
-        if (!is_array($manifest)) {
-            return [];
-        }
-
-        $createdAt = (int) ($manifest['created_at'] ?? 0);
-        if ($createdAt > 0 && (time() - $createdAt) > self::BATCH_TTL_SECONDS) {
-            $this->eliminarLoteTemporal($batchId);
-            return [];
-        }
-
         $fuentes = $manifest['fuentes'] ?? [];
         return is_array($fuentes) ? array_values($fuentes) : [];
+    }
+
+    public function guardarAnalisisLoteTemporal(string $batchId, array $analisis, array $documentosManual, array $contexto): bool
+    {
+        $manifest = $this->leerManifiestoLoteTemporal($batchId);
+        if ($manifest === null) {
+            return false;
+        }
+
+        $manifest['analisis'] = $analisis;
+        $manifest['documentos_manual'] = $this->normalizarDocumentosManual($documentosManual);
+        $manifest['contexto_analisis'] = $contexto;
+
+        return file_put_contents(
+            $this->directorioLote(trim($batchId)) . DIRECTORY_SEPARATOR . 'manifest.json',
+            json_encode($manifest, JSON_UNESCAPED_UNICODE),
+            LOCK_EX
+        ) !== false;
+    }
+
+    public function obtenerAnalisisLoteTemporal(string $batchId, array $documentosManual, array $contexto): ?array
+    {
+        $manifest = $this->leerManifiestoLoteTemporal($batchId);
+        if ($manifest === null
+            || ($manifest['contexto_analisis'] ?? null) !== $contexto
+            || $this->normalizarDocumentosManual((array) ($manifest['documentos_manual'] ?? [])) !== $this->normalizarDocumentosManual($documentosManual)) {
+            return null;
+        }
+
+        $analisis = $manifest['analisis'] ?? null;
+        return is_array($analisis) && is_array($analisis['items'] ?? null) ? $analisis : null;
     }
 
     public function eliminarLoteTemporal(string $batchId): void
@@ -260,6 +283,7 @@ class RrhhDocumentImportService
         }
 
         $personas = $this->prepararPersonas($resPersonas['datos'] ?? []);
+        $this->prepararBusquedaPersonas($personas);
         $resCatalogo = CapHumDAO::getCatalogoDocumentosImportacion();
         $catalogo = $this->prepararCatalogo($resCatalogo['datos'] ?? []);
 
@@ -337,12 +361,35 @@ class RrhhDocumentImportService
     public function importar(array $fuentes, array $documentosManual = []): array
     {
         $analisis = $this->analizar($fuentes, $documentosManual);
+        return $this->importarAnalisis($fuentes, $analisis, false);
+    }
+
+    public function importarDesdeAnalisis(array $fuentes, array $analisis): array
+    {
+        if (!is_array($analisis['items'] ?? null)) {
+            throw new \RuntimeException('El analisis temporal de documentos no es valido.');
+        }
+
+        // La clasificacion ya fue aprobada en la misma carga. Solo se actualizan
+        // permisos y duplicados para no repetir la busqueda completa de personas.
+        $analisis['items'] = $this->marcarExistentesYDuplicados($analisis['items']);
+        return $this->importarAnalisis($fuentes, $analisis, true);
+    }
+
+    private function importarAnalisis(array $fuentes, array $analisis, bool $analisisReutilizado): array
+    {
         $items = $analisis['items'] ?? [];
         $importados = 0;
         $errores = 0;
 
         foreach ($items as &$item) {
             if (($item['estado'] ?? '') !== 'listo') {
+                continue;
+            }
+
+            if (!$this->puedeUsarTipoDocumentoRrhh((int) ($item['id_documento'] ?? 0))) {
+                $item['estado'] = 'documento_sin_permiso';
+                $item['razon'] = 'No tienes permiso para importar este tipo de documento.';
                 continue;
             }
 
@@ -377,6 +424,7 @@ class RrhhDocumentImportService
         $analisis['resumen'] = $this->resumen($items);
         $analisis['importados'] = $importados;
         $analisis['errores_importacion'] = $errores;
+        $analisis['analisis_reutilizado'] = $analisisReutilizado;
 
         return $analisis;
     }
@@ -387,6 +435,7 @@ class RrhhDocumentImportService
         if (empty($persona['id'])) {
             throw new \RuntimeException('No se pudo identificar al colaborador del perfil.');
         }
+        $this->prepararBusquedaPersonas([$persona]);
 
         $resCatalogo = CapHumDAO::getCatalogoDocumentosImportacion();
         $catalogo = $this->prepararCatalogo($resCatalogo['datos'] ?? []);
@@ -478,48 +527,7 @@ class RrhhDocumentImportService
     public function importarParaPersona(array $fuentes, array $personaPerfil, array $documentosManual = []): array
     {
         $analisis = $this->analizarParaPersona($fuentes, $personaPerfil, $documentosManual);
-        $items = $analisis['items'] ?? [];
-        $importados = 0;
-        $errores = 0;
-
-        foreach ($items as &$item) {
-            if (($item['estado'] ?? '') !== 'listo') {
-                continue;
-            }
-
-            $sourceIndex = (int) ($item['source_index'] ?? -1);
-            if (!isset($fuentes[$sourceIndex])) {
-                $item['estado'] = 'error';
-                $item['razon'] = 'No se encontro el archivo fuente en la peticion.';
-                $errores++;
-                continue;
-            }
-
-            $guardado = $this->guardarFuente(
-                $fuentes[$sourceIndex],
-                (int) ($item['id_persona'] ?? 0),
-                (int) ($item['id_documento'] ?? 0)
-            );
-
-            if (!empty($guardado['success'])) {
-                $item['estado'] = 'importado';
-                $item['razon'] = 'Documento importado correctamente.';
-                $item['archivo_guardado'] = $guardado['archivo'] ?? '';
-                $importados++;
-            } else {
-                $item['estado'] = 'error';
-                $item['razon'] = $guardado['mensaje'] ?? 'No se pudo importar el documento.';
-                $errores++;
-            }
-        }
-        unset($item);
-
-        $analisis['items'] = $items;
-        $analisis['resumen'] = $this->resumen($items);
-        $analisis['importados'] = $importados;
-        $analisis['errores_importacion'] = $errores;
-
-        return $analisis;
+        return $this->importarAnalisis($fuentes, $analisis, false);
     }
 
     public function obtenerPdfTemporal(array $fuentes, int $sourceIndex): array
@@ -660,6 +668,65 @@ class RrhhDocumentImportService
         }
 
         return $out;
+    }
+
+    private function prepararBusquedaPersonas(array $personas): void
+    {
+        $this->coincidenciasPersonaCache = [];
+        $this->indicePersonasPorToken = [];
+        $this->indicePersonasPorTokenKey = [];
+        $this->indicePersonasPorNumeroEmpleado = [];
+
+        foreach ($personas as $indice => $persona) {
+            $tokenKey = (string) ($persona['token_key'] ?? '');
+            if ($tokenKey !== '') {
+                $this->indicePersonasPorTokenKey[$tokenKey][] = $indice;
+            }
+            foreach ((array) ($persona['tokens'] ?? []) as $token) {
+                if (strlen((string) $token) >= 2) {
+                    $this->indicePersonasPorToken[(string) $token][] = $indice;
+                }
+            }
+            $numeroEmpleado = preg_replace('/\D+/', '', (string) ($persona['numero_empleado'] ?? ''));
+            if ($numeroEmpleado !== '') {
+                $this->indicePersonasPorNumeroEmpleado[$numeroEmpleado][] = $indice;
+            }
+        }
+
+        $this->indicePersonasActivo = true;
+    }
+
+    private function candidatosIndexados(array $personas, array $targetTokens, string $targetKey): array
+    {
+        if (!$this->indicePersonasActivo) {
+            return $personas;
+        }
+
+        $indices = [];
+        if ($targetKey !== '' && !empty($this->indicePersonasPorTokenKey[$targetKey])) {
+            $indices = $this->indicePersonasPorTokenKey[$targetKey];
+        } else {
+            foreach ($targetTokens as $token) {
+                if (isset($this->indicePersonasPorNumeroEmpleado[$token])) {
+                    $indices = array_merge($indices, $this->indicePersonasPorNumeroEmpleado[$token]);
+                }
+                if (isset($this->indicePersonasPorToken[$token])) {
+                    $indices = array_merge($indices, $this->indicePersonasPorToken[$token]);
+                }
+            }
+        }
+
+        if (empty($indices)) {
+            return $personas;
+        }
+
+        $out = [];
+        foreach (array_unique($indices) as $indice) {
+            if (isset($personas[$indice])) {
+                $out[] = $personas[$indice];
+            }
+        }
+        return $out ?: $personas;
     }
 
     private function prepararPersonaPerfil(array $persona): array
@@ -878,8 +945,12 @@ class RrhhDocumentImportService
             return ['encontrada' => false, 'segura' => false, 'mejor' => null, 'alternativas' => []];
         }
 
+        if (array_key_exists($targetNorm, $this->coincidenciasPersonaCache)) {
+            return $this->coincidenciasPersonaCache[$targetNorm];
+        }
+
         $candidatos = [];
-        foreach ($personas as $persona) {
+        foreach ($this->candidatosIndexados($personas, $targetTokens, $targetKey) as $persona) {
             $scoreSimilar = 0.0;
             similar_text($targetNorm, (string) ($persona['norm'] ?? ''), $scoreSimilar);
             $tokensPersona = $persona['tokens'] ?? [];
@@ -917,12 +988,15 @@ class RrhhDocumentImportService
             $segura = $score >= 96 || ($score >= 92 && $delta >= 8);
         }
 
-        return [
+        $resultado = [
             'encontrada' => $mejor !== null,
             'segura' => $segura,
             'mejor' => $mejor,
             'alternativas' => array_slice($candidatos, 0, 3),
         ];
+        $this->coincidenciasPersonaCache[$targetNorm] = $resultado;
+
+        return $resultado;
     }
 
     private function clasificarDocumento(string $contexto, array $catalogo): ?array
@@ -1461,6 +1535,46 @@ class RrhhDocumentImportService
         }
 
         return $total;
+    }
+
+    private function normalizarDocumentosManual(array $documentosManual): array
+    {
+        $out = [];
+        foreach ($documentosManual as $sourceIndex => $idDocumento) {
+            $sourceIndex = (int) $sourceIndex;
+            $idDocumento = (int) $idDocumento;
+            if ($sourceIndex >= 0 && $idDocumento > 0) {
+                $out[$sourceIndex] = $idDocumento;
+            }
+        }
+        ksort($out, SORT_NUMERIC);
+        return $out;
+    }
+
+    private function leerManifiestoLoteTemporal(string $batchId): ?array
+    {
+        $batchId = trim($batchId);
+        if (!preg_match('/^[a-f0-9]{32}$/', $batchId)) {
+            return null;
+        }
+
+        $manifestPath = $this->directorioLote($batchId) . DIRECTORY_SEPARATOR . 'manifest.json';
+        if (!is_file($manifestPath)) {
+            return null;
+        }
+
+        $manifest = json_decode((string) file_get_contents($manifestPath), true);
+        if (!is_array($manifest)) {
+            return null;
+        }
+
+        $createdAt = (int) ($manifest['created_at'] ?? 0);
+        if ($createdAt <= 0 || (time() - $createdAt) > self::BATCH_TTL_SECONDS) {
+            $this->eliminarLoteTemporal($batchId);
+            return null;
+        }
+
+        return $manifest;
     }
 
     private function directorioLote(string $batchId): string
