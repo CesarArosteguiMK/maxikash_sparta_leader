@@ -635,7 +635,16 @@ class CapHumNotificacionDocumental extends Model
             self::asegurarTablas();
             $db = new Database();
             $campania = $db->queryOne("
-                SELECT id, tipo, anio, semestre, codigo_pais, activa, obligatoria, fecha_inicio
+                SELECT
+                    id,
+                    tipo,
+                    anio,
+                    semestre,
+                    codigo_pais,
+                    activa,
+                    obligatoria,
+                    fecha_inicio,
+                    (fecha_inicio <= NOW()) AS iniciada
                 FROM estado_cuenta.rrhh_notificacion_documental_campania
                 WHERE id = :id
                 LIMIT 1
@@ -643,7 +652,7 @@ class CapHumNotificacionDocumental extends Model
             if (!$campania || (int)$campania['activa'] !== 1 || (int)$campania['obligatoria'] !== 1) {
                 return self::resultado(false, 'La solicitud ya no está activa.');
             }
-            if (strtotime((string)$campania['fecha_inicio']) > time()) {
+            if ((int)($campania['iniciada'] ?? 0) !== 1) {
                 return self::resultado(false, 'La solicitud todavía no ha iniciado.');
             }
             $catalogo = self::catalogoPorClave((string)$campania['tipo']);
