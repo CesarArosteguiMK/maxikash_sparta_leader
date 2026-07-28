@@ -139,6 +139,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'icono' => 'fa-solid fa-map-location-dot',
                 'subItems' => [
                     ['label' => 'Rutas y seguimiento', 'url' => '/Atlas/rutasGestores', 'modulos' => [132]],
+                    ['label' => 'Asistencias', 'url' => '/Atlas/asistencias', 'modulos' => [132]],
                     ['label' => 'Presupuestos', 'url' => '/Atlas/presupuestos', 'modulos' => [135]],
                     ['label' => 'Sucursales', 'url' => '/Atlas/sucursales', 'modulos' => [133]],
                     ['label' => 'Distribuidores', 'url' => '/Atlas/distribuidores', 'modulos' => [133]],
