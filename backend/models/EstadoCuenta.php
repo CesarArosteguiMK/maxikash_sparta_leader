@@ -1460,7 +1460,8 @@ public static function obtenerUltimoPagoEfectivoSegundometroParaCredito(int $idC
 /**
  * Ventana «falta aplicar» (calendario Ciudad de México).
  * Martes a domingo: último pago debe ser ayer u hoy.
- * Lunes: solo si el último pago efectivo es del mismo lunes; sábado o domingo no aplican (cartera el martes).
+ * Lunes: se acepta el mismo lunes y, como excepción para el siguiente descargo,
+ * el último pago efectivo del sábado o domingo inmediato anterior.
  *
  * @return array{ok: bool, mensaje: string, lunes_fin_semana?: bool}
  */
@@ -1495,10 +1496,16 @@ public static function validarUltimoPagoEfectivoVentanaAclaracionGc(?string $fec
 
         if ($dowHoy === 1) {
             $dowFp = (int) $fp->format('N');
-            if ($dowFp === 6 || $dowFp === 7) {
+            $sabadoInmediato = $hoy->modify('-2 days');
+            $esFinSemanaInmediato = (
+                ($dowFp === 6 || $dowFp === 7)
+                && $fp >= $sabadoInmediato
+                && $fp < $hoy
+            );
+            if ($esFinSemanaInmediato) {
                 return [
-                    'ok' => false,
-                    'mensaje' => 'El último pago efectivo corresponde al fin de semana. No es necesario registrar «falta aplicar»: la aplicación en cartera se reflejará el martes.',
+                    'ok' => true,
+                    'mensaje' => 'El último pago efectivo corresponde al fin de semana. Puede registrar «falta aplicar» para incluirlo como excepción en el descargo del próximo reporte.',
                     'lunes_fin_semana' => true,
                 ];
             }
@@ -1536,7 +1543,9 @@ public static function validarUltimoPagoEfectivoVentanaAclaracionGc(?string $fec
  * s2_exitoso / incluido_reporte: siempre 1 en flujo Aclaraciones (modal estado de cuenta).
  * id_usuario_reporte: usuario Ledger en sesión que envía la aclaración (columna en BD).
  * monto_aplicar: positivo si falta_aplicar; negativo si error (monto a corregir).
- * inicio_semana: martes que inicia la semana operativa (mar–lun); si hoy es lunes, es el martes anterior.
+ * inicio_semana: martes que inicia la semana operativa (mar–lun). Para la excepción
+ * registrada el lunes por un pago del fin de semana inmediato, se usa el martes
+ * siguiente para que el descargo del día siguiente pueda consumirla.
  * anio_iso / semana_iso: semana ISO del calendario asociada a ese martes.
  * ultimo_pago_efectivo: se obtiene en servidor desde tbl_segundometro_semana (usuario no interviene).
  * Ventana CDMX para falta_aplicar (lunes distinto a mar–dom): solo aplica a tipo_reporte falta_aplicar. Con tipo error puede guardarse aunque la fecha sea anterior.
@@ -1613,6 +1622,15 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         $valUp = self::validarUltimoPagoEfectivoVentanaAclaracionGc($ymdUltimo);
         if (!$valUp['ok']) {
             return self::resultado(false, $valUp['mensaje'], [], 'ultimo_pago_efectivo');
+        }
+        if (!empty($valUp['lunes_fin_semana'])) {
+            // Hoy es lunes y el pago es del sábado/domingo inmediato. La excepción
+            // pertenece al ciclo que abre mañana, de modo que el descargo del
+            // reporte del martes la encuentre por el mismo inicio_semana.
+            $martesInicio = $now->modify('+1 day');
+            $inicioSemana = $martesInicio->format('Y-m-d');
+            $anioIso = (int) $martesInicio->format('o');
+            $semanaIso = (int) $martesInicio->format('W');
         }
     }
     $ultimoPagoEfectivo = $ultimoInfo['datetime_sql'] ?? null;

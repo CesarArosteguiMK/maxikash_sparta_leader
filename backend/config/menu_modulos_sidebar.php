@@ -33,6 +33,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Panel vacaciones', 'url' => '/caphum/vacacionesAdmin', 'modulos' => [4]],
                     ['label' => 'Expedientes RR.HH.', 'url' => '/caphum/documentosRrhh', 'modulos' => [93]],
                     ['label' => 'Revisión RR.HH.', 'url' => '/caphum/actualizacionesInfo', 'modulos' => [83]],
+                    ['label' => 'Notificación RR.HH.', 'url' => '/caphum/notificacion', 'modulos' => [198]],
                     ['label' => 'Auditoria', 'url' => '/caphum/auditoria', 'modulos' => [154]],
                     ['label' => 'Organigrama', 'url' => '/caphum/organigrama', 'modulos' => [5]],
                     ['label' => 'Organización', 'url' => '/caphum/estructuraOrganizacional', 'modulos' => [86]],
@@ -107,8 +108,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'OTP DE EMERGENCIA', 'url' => '/MotosAdjudicadas/otpEmergenciaLegacy', 'modulos' => [150]],
                     ['section' => 'Solicitudes de adjudicación'],
                     ['label' => 'Bandeja de solicitudes', 'url' => '/SolicitudAdjudicacion/bandeja', 'modulos' => [62, 63, 80]],
-                    ['label' => 'ATC - Retenciones', 'url' => '/AtencionClientes/consulta', 'modulos' => [69]],
-                    ['label' => 'ATC - Nueva solicitud', 'url' => '/SolicitudAdjudicacion/atc', 'modulos' => [69]],
+                    ['label' => 'ATC - Atencion a Clientes', 'url' => '/AtencionClientes/atc', 'modulos' => [69]],
                     ['label' => 'Despachos - Solicitud', 'url' => '/SolicitudAdjudicacion/despachos', 'modulos' => [20, 45]],
                     ['section' => 'Flujo operativo'],
                     ['label' => '1.- Evidencias', 'url' => '/AtencionClientes/evidencias', 'modulos' => [70]],
@@ -426,7 +426,21 @@ if (!function_exists('enriquecerPerfilesModulosConMenuSidebar')) {
 
             // Permisos especiales: resolver primero por id/nombre (p. ej. «Convenio» → Cierre de crédito), no por mapa genérico de módulo
             $meta = null;
-            if ($mid === 60) {
+            if (in_array($mid, [193, 196, 197], true)) {
+                $meta = mapMetaDesdeAnclaModuloMenu(
+                    4,
+                    $nombreRaw !== '' ? $nombreRaw : 'Capital Humano',
+                    $mid,
+                    false
+                );
+            } elseif ($mid === 192) {
+                $meta = mapMetaDesdeAnclaModuloMenu(
+                    63,
+                    $nombreRaw !== '' ? $nombreRaw : 'Posicionamiento de estatus (Override)',
+                    $mid,
+                    false
+                );
+            } elseif ($mid === 60) {
                 $meta = mapMetaDesdeAnclaModuloMenu(60, $nombreRaw !== '' ? $nombreRaw : 'Avance semanal vs semanas pasadas', 600, false);
             } elseif ($mid === 81) {
                 $meta = mapMetaDesdeAnclaModuloMenu(60, $nombreRaw !== '' ? $nombreRaw : 'Semana actual vs semana pasada', 610, false);

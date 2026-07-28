@@ -39,7 +39,9 @@ class EstadoCuenta extends Controller
         $tzEc = new \DateTimeZone('America/Mexico_City');
         $hoyEc = new \DateTimeImmutable('today', $tzEc);
         $dowEc = (int) $hoyEc->format('N');
-        $minGuardarEc = ($dowEc === 1) ? $hoyEc : $hoyEc->modify('-1 day');
+        // Los lunes se admiten sábado y domingo como excepción para el descargo
+        // del siguiente reporte; el servidor vuelve a validar antes de insertar.
+        $minGuardarEc = ($dowEc === 1) ? $hoyEc->modify('-2 days') : $hoyEc->modify('-1 day');
         $tieneUltimoPago = false;
         $ventanaOk = false;
         $ventanaFaltaMensaje = '';
@@ -48,7 +50,7 @@ class EstadoCuenta extends Controller
             $tieneUltimoPago = true;
             $v = EstadoCuentaDAO::validarUltimoPagoEfectivoVentanaAclaracionGc($metaRow['ymd']);
             $ventanaOk = !empty($v['ok']);
-            if (!$ventanaOk && !empty($v['mensaje'])) {
+            if (!empty($v['mensaje'])) {
                 $ventanaFaltaMensaje = (string) $v['mensaje'];
                 $ventanaFaltaLunesFinSemana = !empty($v['lunes_fin_semana']);
             }

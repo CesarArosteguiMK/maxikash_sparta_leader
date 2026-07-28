@@ -23,9 +23,13 @@ class SolicitudAdjudicacion extends Controller
         if (!$this->autorizarCanal('ATC', false)) {
             return;
         }
-        self::set('titulo', 'ATC - Solicitud de Adjudicacion');
-        self::set('solicitudes_tablas_disponibles', $this->model->tablasDisponibles());
-        self::render('solicitud_adjudicacion_atc');
+        $idCredito = (int) ($_GET['id_credito'] ?? 0);
+        $url = '/AtencionClientes/atc?tab=solicitud';
+        if ($idCredito > 0) {
+            $url .= '&id_credito=' . $idCredito;
+        }
+        header('Location: ' . $url, true, 302);
+        exit;
     }
 
     public function despachos(): void

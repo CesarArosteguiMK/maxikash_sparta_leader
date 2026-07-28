@@ -2006,16 +2006,7 @@
         renderTabla();
     }
 
-    function abrirDetalle(idPersona) {
-        const col = colaboradores.find(item => Number(item.id_persona || 0) === Number(idPersona));
-        if (!col) return;
-
-        els.modalSubtitulo.textContent = `No. empleado: ${String(col.codigo_contpac || '').trim() || 'Sin id'} - ${col.nombre_completo || 'Colaborador'} | External id: ${String(col.numero_empleado || '').trim() || 'Sin id'}`;
-        els.modalReq.textContent = Number(col.total_requeridos || 0);
-        els.modalCar.textContent = Number(col.total_cargados || 0);
-        els.modalFal.textContent = Number(col.total_faltantes || 0);
-        els.modalPor.textContent = `${Number(col.porcentaje_local || 0)}%`;
-        const docs = Array.isArray(col.documentos) ? col.documentos : [];
+    function renderDetalleDocumentos(docs) {
         els.modalBody.innerHTML = docs.map(doc => {
             const cargado = !!doc.cargado;
             const cubierto = String(doc.estatus || '').toLowerCase() === 'cubierto';
@@ -2039,11 +2030,38 @@
                 </tr>
             `;
         }).join('') || '<tr><td colspan="4" class="text-center text-muted py-4">Sin documentos para mostrar.</td></tr>';
+    }
+
+    async function abrirDetalle(idPersona) {
+        const col = colaboradores.find(item => Number(item.id_persona || 0) === Number(idPersona));
+        if (!col) return;
+
+        els.modalSubtitulo.textContent = `No. empleado: ${String(col.codigo_contpac || '').trim() || 'Sin id'} - ${col.nombre_completo || 'Colaborador'} | External id: ${String(col.numero_empleado || '').trim() || 'Sin id'}`;
+        els.modalReq.textContent = Number(col.total_requeridos || 0);
+        els.modalCar.textContent = Number(col.total_cargados || 0);
+        els.modalFal.textContent = Number(col.total_faltantes || 0);
+        els.modalPor.textContent = `${Number(col.porcentaje_local || 0)}%`;
+        els.modalBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Cargando detalle documental...</td></tr>';
 
         if (window.bootstrap && bootstrap.Modal) {
             bootstrap.Modal.getOrCreateInstance(els.modal).show();
         } else if (window.jQuery) {
             window.jQuery(els.modal).modal('show');
+        }
+
+        try {
+            const res = await fetch(`/caphum/getDetalleDocumentosRrhh?id_persona=${encodeURIComponent(Number(idPersona || 0))}`, { cache: 'no-store' });
+            const json = await res.json();
+            if (!json.success) throw new Error(json.mensaje || 'No se pudo obtener el detalle documental.');
+            const data = json.datos || {};
+            const metricas = data.metricas || {};
+            els.modalReq.textContent = Number(metricas.total_requeridos || col.total_requeridos || 0);
+            els.modalCar.textContent = Number(metricas.total_cargados || 0);
+            els.modalFal.textContent = Number(metricas.total_faltantes || 0);
+            els.modalPor.textContent = `${Number(metricas.porcentaje || 0)}%`;
+            renderDetalleDocumentos(Array.isArray(data.documentos) ? data.documentos : []);
+        } catch (err) {
+            els.modalBody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-4">${escapeHtml(err.message || 'No se pudo cargar el detalle documental.')}</td></tr>`;
         }
     }
 

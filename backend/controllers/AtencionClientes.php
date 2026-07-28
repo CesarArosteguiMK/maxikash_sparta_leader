@@ -3,6 +3,7 @@ namespace Controllers;
 
 use Core\Controller;
 use Models\AtencionClientes as AtencionClientesModel;
+use Models\SolicitudAdjudicacion as SolicitudAdjudicacionModel;
 
 class AtencionClientes extends Controller
 {
@@ -212,7 +213,24 @@ class AtencionClientes extends Controller
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
         $this->set('titulo', 'ATC · Retenciones ' . $emp);
-        $this->render('atencion_clientes_consulta');
+        header('Location: /AtencionClientes/atc?tab=retenciones', true, 302);
+        exit;
+    }
+
+    /** Centro unificado de Atencion a Clientes. */
+    public function atc(): void
+    {
+        $tab = strtolower(trim((string) ($_GET['tab'] ?? 'retenciones')));
+        if (!in_array($tab, ['retenciones', 'solicitud'], true)) {
+            $tab = 'retenciones';
+        }
+
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        $solicitudes = new SolicitudAdjudicacionModel();
+        $this->set('titulo', 'ATC - Atencion a Clientes ' . $emp);
+        $this->set('atc_pestana_inicial', $tab);
+        $this->set('solicitudes_tablas_disponibles', $solicitudes->tablasDisponibles());
+        $this->render('atencion_clientes_atc');
     }
 
     /**

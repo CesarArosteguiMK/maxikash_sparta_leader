@@ -12,6 +12,7 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/EstadoCuenta/documentacion', 'label' => 'Documentación', 'icon' => 'fa-solid fa-sack-dollar', 'bg' => 'bg-yellow', 'modulos' => [2]],
             ['url' => '/gestiones/seguimiento', 'label' => 'Histórico Gestiones', 'icon' => 'fa-solid fa-screwdriver-wrench', 'bg' => 'bg-green', 'modulos' => [3]],
             ['url' => '/caphum/gestion', 'label' => 'Capital Humano - Gestión', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [4]],
+            ['url' => '/caphum/notificacion', 'label' => 'Notificación RR.HH.', 'icon' => 'fa-solid fa-bell', 'bg' => 'bg-purple', 'modulos' => [198]],
             ['url' => '/caphum/accesosCapitalHumano', 'label' => 'Accesos', 'icon' => 'fa-solid fa-user-shield', 'bg' => 'bg-purple', 'modulos' => [140]],
             ['url' => '/caphum/documentosColaborador', 'label' => 'Mis documentos', 'icon' => 'fa-solid fa-folder-open', 'bg' => 'bg-purple', 'modulos' => [141]],
             ['url' => '/caphum/vacaciones', 'label' => 'Vacaciones', 'icon' => 'fa-solid fa-umbrella-beach', 'bg' => 'bg-purple', 'modulos' => [147]],

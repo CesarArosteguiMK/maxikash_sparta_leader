@@ -1030,10 +1030,7 @@ public static function getConvenioActivo($id_credito)
                 $resultS2c   = self::_getPagosS2Movil((int) $id_credito);
                 $rawS2c      = $resultS2c['raw'];
                 $porIdPagoC  = $resultS2c['porIdPago'];
-                $fechaAcC    = $convenio['fecha_acuerdo'] ?? null;
-                $fechaFiltroC = $fechaAcC
-                    ? (new \DateTime($fechaAcC))->format('Y-m-d')
-                    : null;
+                $fechaFiltroC = self::_fechaFiltroPagosConvenio($convenio['fecha_acuerdo'] ?? null);
                 if ($fechaFiltroC) {
                     $rawS2c = array_values(array_filter($rawS2c, function ($p) use ($fechaFiltroC) {
                         $fechaPago = self::_fechaPagoS2Corta($p);
@@ -1168,10 +1165,10 @@ public static function getConvenioActivo($id_credito)
                 $s2Verif      = self::_getPagosS2Movil((int) $id_credito);
                 $rawVerif     = $s2Verif['raw'];
                 $s2YaSaldado  = self::_estadoCuentaS2EstaSaldado($s2Verif['estadoCuenta'] ?? null);
-                $fechaAcuerdo = $convenio['fecha_acuerdo'] ?? null;
-                if ($fechaAcuerdo) {
-                    // Los pagos del convenio se consideran desde fecha_acuerdo.
-                    $fechaFiltroVerif = (new \DateTime($fechaAcuerdo))->format('Y-m-d');
+                $fechaFiltroVerif = self::_fechaFiltroPagosConvenio($convenio['fecha_acuerdo'] ?? null);
+                if ($fechaFiltroVerif) {
+                    // Mantener la tolerancia previa al acuerdo para no cancelar
+                    // un convenio cuyo pago bancario se registró antes de capturarlo.
                     $rawVerif = array_values(array_filter($rawVerif, function ($p) use ($fechaFiltroVerif) {
                         $fechaPago = self::_fechaPagoS2Corta($p);
                         return !empty($fechaPago) && $fechaPago >= $fechaFiltroVerif;
@@ -1272,10 +1269,7 @@ public static function getConvenioActivo($id_credito)
                  // FIX #4: se usa (fecha_acuerdo - 7 días) como límite inferior para
                  // tolerar pagos que el cliente realizó en S2 unos días antes de que
                  // el convenio fuera formalmente capturado en el sistema.
-         $fechaAcuerdo = $convenio['fecha_acuerdo'] ?? null;
-         $fechaFiltroConv = $fechaAcuerdo
-             ? (new \DateTime($fechaAcuerdo))->format('Y-m-d')
-             : null;
+         $fechaFiltroConv = self::_fechaFiltroPagosConvenio($convenio['fecha_acuerdo'] ?? null);
          $pagosS2Raw   = array_filter($pagosS2Raw, function($p) use ($fechaFiltroConv) {
              $fechaPago = self::_fechaPagoS2Corta($p);
              if (!$fechaFiltroConv) return true;
@@ -1810,6 +1804,25 @@ private static function _mapearCuotasS2AConvenio(array $rawPagos, array $amortiz
     }
 
     return ['mapa' => $mapa, 'montos' => $mapaMontos, 'secundarios' => $mapaSecundarios];
+}
+
+/**
+ * Fecha mínima para vincular pagos S2 a un convenio.
+ * S2 puede registrar el movimiento bancario antes de que el gestor capture
+ * el acuerdo; se admite una ventana acotada de siete días previos.
+ */
+private static function _fechaFiltroPagosConvenio(?string $fechaAcuerdo): ?string
+{
+    $fechaAcuerdo = trim((string) $fechaAcuerdo);
+    if ($fechaAcuerdo === '') {
+        return null;
+    }
+
+    try {
+        return (new \DateTime($fechaAcuerdo))->modify('-7 days')->format('Y-m-d');
+    } catch (\Exception $e) {
+        return null;
+    }
 }
 
 private static function _fechaPagoS2Corta(array $pago): ?string

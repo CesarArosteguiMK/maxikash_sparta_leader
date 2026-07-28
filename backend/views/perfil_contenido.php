@@ -14,8 +14,6 @@ $correoVal = $datos['correo'] ?? '';
 $telefonoVal = $datos['telefono'] ?? '';
 $direccionVal = $datos['direccion'] ?? '';
 $usernameVal = $datos['username'] ?? '';
-$puedeEnviarInvitacionPareja = !empty($puedeEnviarInvitacionPareja);
-$mostrarInvitacionPareja = !empty($mostrarInvitacionPareja);
 ?>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
 <style>
@@ -33,8 +31,6 @@ $mostrarInvitacionPareja = !empty($mostrarInvitacionPareja);
 .pf-mkx .pf-field label{font-size:12px;font-weight:600;color:var(--bs-secondary-color);margin-bottom:6px;}
 .pf-mkx .pf-btn{background:#1A52A8;color:#fff;border:none;border-radius:9px;padding:10px 20px;font-size:13.5px;font-weight:600;cursor:pointer;}
 .pf-mkx .pf-btn:hover{background:#2563C4;color:#fff;}
-.pf-mkx .pf-invitation-btn{background:#d9467a;}
-.pf-mkx .pf-invitation-btn:hover{background:#be345f;}
 .pf-mkx .pf-flash{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:12px 16px;border-radius:9px;margin-bottom:20px;font-size:13px;}
 body.dark-mode .pf-mkx .pf-flash{background:#14532d;border-color:#166534;color:#86efac;}
 body.dark-mode .pf-mkx .pf-upload-btn{background:#818cf8;}
@@ -59,18 +55,6 @@ body.dark-mode .pf-mkx .pf-file-hint{color:#94a3b8;}
 .pf-mkx .pf-readonly.form-control{background:transparent !important;border:none !important;border-bottom:1px solid var(--bs-border-color-translucent,rgba(0,0,0,.12)) !important;border-radius:0 !important;padding-left:0 !important;cursor:default !important;pointer-events:none !important;box-shadow:none !important;}
 .pf-mkx .pf-readonly.form-control:focus{outline:none !important;box-shadow:none !important;}
 body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,255,255,.2) !important;}
-.pf-love-modal{position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.58);}
-.pf-love-dialog{position:relative;width:min(430px,100%);padding:34px 30px 28px;text-align:center;background:#fff;border-radius:12px;box-shadow:0 24px 70px rgba(15,23,42,.35);}
-.pf-love-icon{width:64px;height:64px;margin:0 auto 16px;display:grid;place-items:center;border-radius:50%;background:#fff0f5;color:#d9467a;font-size:28px;}
-.pf-love-dialog h5{margin:0 0 10px;color:#25324a;font-size:24px;font-weight:800;}
-.pf-love-dialog p{margin:0;color:#64748b;font-size:15px;}
-.pf-love-actions{display:flex;justify-content:center;gap:14px;margin-top:28px;min-height:44px;}
-.pf-love-yes,.pf-love-no,.pf-love-close{min-width:132px;height:42px;border-radius:8px;border:0;font-weight:700;cursor:pointer;}
-.pf-love-yes{background:#d9467a;color:#fff;}.pf-love-yes:hover{background:#be345f;}
-.pf-love-no{background:#f1f5f9;color:#475569;}.pf-love-no:hover{background:#e2e8f0;}
-.pf-love-close{min-width:auto;height:auto;margin-top:20px;background:transparent;color:#64748b;text-decoration:underline;font-weight:600;}
-.pf-love-x{position:absolute;top:10px;right:14px;border:0;background:transparent;color:#94a3b8;font-size:26px;line-height:1;cursor:pointer;}
-.pf-love-success{display:none;margin-top:22px;color:#15803d;font-weight:700;}
 </style>
 <div class="pf-mkx">
   <h4 class="fw-bold mb-4"><i class="fa-solid fa-gear me-2"></i>Ajustes</h4>
@@ -155,29 +139,10 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
           </div>
         </div>
         <button type="submit" class="pf-btn btn">Guardar cambios</button>
-        <?php if ($puedeEnviarInvitacionPareja): ?>
-          <button type="button" class="pf-btn pf-invitation-btn btn ms-2" id="btnEnviarInvitacionPareja"><i class="fa-solid fa-heart me-1"></i>Enviar invitacion</button>
-        <?php endif; ?>
       </form>
     </div>
   </div>
 </div>
-
-<?php if ($mostrarInvitacionPareja): ?>
-<div class="pf-love-modal" id="modalInvitacionPareja" role="dialog" aria-modal="true" aria-labelledby="invitacionParejaTitulo">
-  <div class="pf-love-dialog">
-    <button type="button" class="pf-love-x" id="invitacionParejaX" aria-label="Cerrar">&times;</button>
-    <div class="pf-love-icon"><i class="fa-solid fa-heart"></i></div>
-    <h5 id="invitacionParejaTitulo">Sandra, quieres ser mi novia?</h5>
-    <p>Lazaro Raudel tiene una pregunta especial para ti.</p>
-    <div class="pf-love-actions" id="invitacionParejaAcciones">
-      <button type="button" class="pf-love-yes" id="invitacionParejaSi">Si</button>
-      <button type="button" class="pf-love-no" id="invitacionParejaNo">No</button>
-    </div>
-    <div class="pf-love-success" id="invitacionParejaExito">Te amo. Tu respuesta fue enviada.</div>
-  </div>
-</div>
-<?php endif; ?>
 
 <div class="pf-crop-modal" id="cropModal" style="display:none;" aria-hidden="true">
   <div class="pf-crop-box">
@@ -214,64 +179,6 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
   var formPerfil = document.getElementById('formPerfil');
   var cropper = null;
   var originalFoto = previewFoto ? previewFoto.src : '';
-
-  var enviarInvitacion = document.getElementById('btnEnviarInvitacionPareja');
-  if (enviarInvitacion) {
-    enviarInvitacion.addEventListener('click', function(){
-      enviarInvitacion.disabled = true;
-      fetch('/perfil/enviarInvitacionPareja', { method: 'POST', credentials: 'same-origin' })
-        .then(function(res){ return res.json(); })
-        .then(function(res){ alert(res && res.mensaje ? res.mensaje : 'No se pudo enviar la invitacion.'); })
-        .catch(function(){ alert('No se pudo enviar la invitacion.'); })
-        .finally(function(){ enviarInvitacion.disabled = false; });
-    });
-  }
-
-  var modalInvitacion = document.getElementById('modalInvitacionPareja');
-  if (modalInvitacion) {
-    var botonNo = document.getElementById('invitacionParejaNo');
-    var botonSi = document.getElementById('invitacionParejaSi');
-    var botonX = document.getElementById('invitacionParejaX');
-    var acciones = document.getElementById('invitacionParejaAcciones');
-    var exito = document.getElementById('invitacionParejaExito');
-    var cerrado = false;
-    var avisarCierre = function(){
-      if (cerrado) return;
-      cerrado = true;
-      fetch('/perfil/cerrarInvitacionPareja', { method: 'POST', credentials: 'same-origin' }).catch(function(){});
-    };
-    var cerrar = function(){
-      if (botonNo) { botonNo.style.position = ''; botonNo.style.left = ''; botonNo.style.top = ''; }
-      avisarCierre();
-      modalInvitacion.remove();
-    };
-    var moverNo = function(){
-      if (!botonNo) return;
-      var margen = 20;
-      var maxX = Math.max(margen, window.innerWidth - botonNo.offsetWidth - margen);
-      var maxY = Math.max(margen, window.innerHeight - botonNo.offsetHeight - margen);
-      botonNo.style.position = 'fixed';
-      botonNo.style.zIndex = '12001';
-      botonNo.style.left = (margen + Math.random() * (maxX - margen)) + 'px';
-      botonNo.style.top = (margen + Math.random() * (maxY - margen)) + 'px';
-    };
-    if (botonNo) { botonNo.addEventListener('pointerenter', moverNo); botonNo.addEventListener('focus', moverNo); }
-    if (botonX) botonX.addEventListener('click', cerrar);
-    modalInvitacion.addEventListener('click', function(event){ if (event.target === modalInvitacion) cerrar(); });
-    document.addEventListener('keydown', function(event){ if (event.key === 'Escape') cerrar(); }, { once: true });
-    if (botonSi) botonSi.addEventListener('click', function(){
-      botonSi.disabled = true;
-      fetch('/perfil/responderInvitacionPareja', { method: 'POST', credentials: 'same-origin' })
-        .then(function(res){ return res.json(); })
-        .then(function(res){
-          if (!res || !res.success) throw new Error();
-          cerrado = true;
-          acciones.style.display = 'none';
-          exito.style.display = 'block';
-        })
-        .catch(function(){ botonSi.disabled = false; alert('No se pudo enviar la respuesta.'); });
-    });
-  }
 
   if (inputFoto && previewFoto && cropModal && cropImage) {
     if (btnSelectFoto) {
