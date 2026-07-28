@@ -747,6 +747,41 @@ class Atlas extends Controller
         ));
     }
 
+    public function verEvidenciaAsistencia()
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        $evidenciaId = (int)($_GET['id'] ?? 0);
+        if ($evidenciaId <= 0) {
+            http_response_code(400);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'Identificador de evidencia invalido.';
+            exit;
+        }
+
+        $response = $this->atlasAdminApiBinaryRequest(
+            '/api/atlas/admin/reportes/asistencias/evidencias/' . $evidenciaId . '/contenido'
+        );
+        if (empty($response['success'])) {
+            http_response_code((int)($response['status'] ?? 502));
+            header('Content-Type: text/plain; charset=utf-8');
+            header('Cache-Control: no-store');
+            echo (string)($response['mensaje'] ?? 'No se pudo cargar la evidencia.');
+            exit;
+        }
+
+        $content = (string)($response['contenido'] ?? '');
+        header('Content-Type: ' . (string)($response['content_type'] ?? 'application/octet-stream'));
+        header('Content-Disposition: inline; filename="evidencia-' . $evidenciaId . '"');
+        header('Content-Length: ' . strlen($content));
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Content-Type-Options: nosniff');
+        echo $content;
+        exit;
+    }
+
     public function descargarReporteAsistencias()
     {
         while (ob_get_level()) {
@@ -791,6 +826,8 @@ class Atlas extends Controller
                 ['Latitud', 'latitud'],
                 ['Longitud', 'longitud'],
                 ['Evidencia', 'evidencia'],
+                ['No. de evidencias', 'total_evidencias'],
+                ['Detalle de evidencias', 'evidencias'],
                 ['En caso de incumplimiento / Observaciones', 'observaciones_incumplimiento'],
                 ['No. de gestiones realizadas', 'gestiones_realizadas'],
                 ['Detalle de gestiones', 'gestiones_detalle'],
@@ -817,7 +854,20 @@ class Atlas extends Controller
                         }
                         $value = implode(' | ', $detalleGestiones);
                     }
-                    if (in_array($key, ['distancia_metros', 'latitud', 'longitud', 'gestiones_realizadas', 'pendientes_por_gestionar'], true)
+                    if ($key === 'evidencias' && is_array($value)) {
+                        $detalleEvidencias = [];
+                        foreach ($value as $evidencia) {
+                            if (!is_array($evidencia)) {
+                                continue;
+                            }
+                            $nombre = trim((string)($evidencia['nombre'] ?? 'Evidencia'));
+                            $tipo = trim((string)($evidencia['tipo'] ?? 'archivo'));
+                            $disponible = !empty($evidencia['disponible']) ? 'disponible' : 'no disponible';
+                            $detalleEvidencias[] = $nombre . ' (' . $tipo . ', ' . $disponible . ')';
+                        }
+                        $value = implode(' | ', $detalleEvidencias);
+                    }
+                    if (in_array($key, ['distancia_metros', 'latitud', 'longitud', 'total_evidencias', 'gestiones_realizadas', 'pendientes_por_gestionar'], true)
                         && $value !== null
                         && $value !== '') {
                         $sheet->setCellValue($this->excelCell($index + 1, $rowNumber), (float)$value);
@@ -843,12 +893,13 @@ class Atlas extends Controller
                 ->getBorders()->getAllBorders()
                 ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
                 ->getColor()->setRGB('D9E2EC');
-            $sheet->getStyle('S2:T' . $lastRow)->getAlignment()->setWrapText(true);
-            $sheet->getStyle('V2:V' . $lastRow)->getAlignment()->setWrapText(true);
+            $sheet->getStyle('S2:V' . $lastRow)->getAlignment()->setWrapText(true);
+            $sheet->getStyle('X2:X' . $lastRow)->getAlignment()->setWrapText(true);
             $sheet->getStyle('O2:O' . $lastRow)->getNumberFormat()->setFormatCode('0');
             $sheet->getStyle('Q2:R' . $lastRow)->getNumberFormat()->setFormatCode('0.0000000');
-            $sheet->getStyle('U2:U' . $lastRow)->getNumberFormat()->setFormatCode('0');
+            $sheet->getStyle('T2:T' . $lastRow)->getNumberFormat()->setFormatCode('0');
             $sheet->getStyle('W2:W' . $lastRow)->getNumberFormat()->setFormatCode('0');
+            $sheet->getStyle('Y2:Y' . $lastRow)->getNumberFormat()->setFormatCode('0');
             $sheet->freezePane('A2');
             $sheet->setAutoFilter('A1:' . $lastCell);
 
@@ -856,7 +907,8 @@ class Atlas extends Controller
                 'A' => 12, 'B' => 16, 'C' => 15, 'D' => 25, 'E' => 14, 'F' => 24,
                 'G' => 28, 'H' => 22, 'I' => 18, 'J' => 22, 'K' => 32, 'L' => 30,
                 'M' => 22, 'N' => 20, 'O' => 21, 'P' => 22, 'Q' => 15, 'R' => 15,
-                'S' => 42, 'T' => 46, 'U' => 24, 'V' => 44, 'W' => 28,
+                'S' => 34, 'T' => 18, 'U' => 46, 'V' => 46, 'W' => 24, 'X' => 44,
+                'Y' => 28,
             ];
             foreach ($widths as $column => $width) {
                 $sheet->getColumnDimension($column)->setWidth($width);
@@ -1557,6 +1609,66 @@ class Atlas extends Controller
             'status' => $httpCode,
             'mensaje' => $mensaje,
             'datos' => is_array($decoded) ? ($decoded['data'] ?? $decoded['datos'] ?? null) : null,
+        ];
+    }
+
+    private function atlasAdminApiBinaryRequest(string $path): array
+    {
+        $adminApiKey = $this->atlasAdminApiKey();
+        if ($adminApiKey === '') {
+            return [
+                'success' => false,
+                'status' => 500,
+                'mensaje' => 'ATLAS_ADMIN_API_KEYS no esta configurada en servidor.',
+            ];
+        }
+
+        $base = getenv('ATLAS_APP_API_BASE');
+        if ($base === false || trim($base) === '') {
+            $base = 'https://api-comercial-601258367060.us-central1.run.app';
+        }
+
+        $ch = curl_init(rtrim($base, '/') . $path);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Accept: image/*,video/*,audio/*,application/octet-stream',
+                'X-API-Key: ' . $adminApiKey,
+            ],
+            CURLOPT_TIMEOUT => 60,
+            CURLOPT_CONNECTTIMEOUT => 10,
+        ]);
+
+        $content = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $contentType = trim((string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($content === false || $error !== '') {
+            return [
+                'success' => false,
+                'status' => 502,
+                'mensaje' => 'No se pudo conectar con API-COMERCIAL.',
+            ];
+        }
+
+        if ($httpCode < 200 || $httpCode >= 300) {
+            $decoded = json_decode((string)$content, true);
+            return [
+                'success' => false,
+                'status' => $httpCode > 0 ? $httpCode : 502,
+                'mensaje' => is_array($decoded)
+                    ? (string)($decoded['detail'] ?? $decoded['message'] ?? 'No se pudo cargar la evidencia.')
+                    : 'No se pudo cargar la evidencia.',
+            ];
+        }
+
+        return [
+            'success' => true,
+            'status' => $httpCode,
+            'content_type' => $contentType !== '' ? $contentType : 'application/octet-stream',
+            'contenido' => (string)$content,
         ];
     }
 

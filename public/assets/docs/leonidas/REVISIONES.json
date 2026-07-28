@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "actualizado": "2026-07-28",
+  "politica": {
+    "validacion_codigo": "La ficha coincide con el registro de capacidades, servicios y ejecutores automatizados.",
+    "validacion_negocio": "Un responsable funcional debe confirmar reglas, excepciones y vocabulario del area.",
+    "vigencia_dias": 120
+  },
+  "dominios": {
+    "creditos": {
+      "documento": "CREDITOS.md",
+      "area_responsable": "Credito y Cartera",
+      "validacion_codigo": "verificada",
+      "validacion_negocio": "pendiente"
+    },
+    "capital_humano": {
+      "documento": "CAPITAL_HUMANO.md",
+      "area_responsable": "Capital Humano",
+      "validacion_codigo": "verificada",
+      "validacion_negocio": "pendiente"
+    },
+    "convenios": {
+      "documento": "CONVENIOS.md",
+      "area_responsable": "Convenios",
+      "validacion_codigo": "verificada",
+      "validacion_negocio": "pendiente"
+    },
+    "motos_adjudicadas": {
+      "documento": "MOTOS_ADJUDICADAS.md",
+      "area_responsable": "Motos Adjudicadas",
+      "validacion_codigo": "verificada",
+      "validacion_negocio": "pendiente"
+    },
+    "direcciones": {
+      "documento": "DIRECCIONES.md",
+      "area_responsable": "Operacion de Direcciones",
+      "validacion_codigo": "verificada",
+      "validacion_negocio": "pendiente"
+    },
+    "legacy": {
+      "documento": "LEGACY.md",
+      "area_responsable": "Operacion Legacy",
+      "validacion_codigo": "verificada",
+      "validacion_negocio": "pendiente"
+    },
+    "atlas": {
+      "documento": "ATLAS.md",
+      "area_responsable": "Atlas",
+      "validacion_codigo": "verificada",
+      "validacion_negocio": "pendiente"
+    },
+    "tickets": {
+      "documento": "TICKETS.md",
+      "area_responsable": "Sabueso y Tickets",
+      "validacion_codigo": "verificada",
+      "validacion_negocio": "pendiente"
+    },
+    "analitica": {
+      "documento": "ANALITICA.md",
+      "area_responsable": "Analitica",
+      "validacion_codigo": "verificada",
+      "validacion_negocio": "pendiente"
+    },
+    "gastos_cobranza": {
+      "documento": "GASTOS_COBRANZA.md",
+      "area_responsable": "Gastos de Cobranza",
+      "validacion_codigo": "verificada",
+      "validacion_negocio": "pendiente"
+    },
+    "organizacion": {
+      "documento": "ORGANIZACION.md",
+      "area_responsable": "Capital Humano y Organizacion",
+      "validacion_codigo": "verificada",
+      "validacion_negocio": "pendiente"
+    },
+    "servicios": {
+      "documento": "SERVICIOS.md",
+      "area_responsable": "Tecnologia y Operaciones",
+      "validacion_codigo": "verificada",
+      "validacion_negocio": "pendiente"
+    }
+  }
+}

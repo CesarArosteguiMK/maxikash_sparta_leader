@@ -93,6 +93,18 @@
         font-weight: 800;
         font-size: .7rem;
     }
+    .madj-flow-import-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        margin-top: .35rem;
+        border-radius: 999px;
+        padding: .2rem .5rem;
+        background: rgba(14, 165, 233, .1);
+        color: #0369a1;
+        font-size: .68rem;
+        font-weight: 800;
+    }
     .madj-flow-title {
         color: var(--madj-navy);
         font-weight: 900;
@@ -256,6 +268,7 @@
     .madj-tl-badge.ok { background: #dcfce7; color: #166534; }
     .madj-tl-badge.run { background: #dbeafe; color: #1d4ed8; }
     .madj-tl-badge.wait { background: #f1f5f9; color: #475569; }
+    .madj-tl-badge.na { background: #e0f2fe; color: #0369a1; }
     .madj-tl-event-list {
         position: relative;
         padding-left: 1.2rem;
@@ -470,7 +483,7 @@
 </div>
 
 <div class="modal fade madj-flow-timeline-modal" id="madjFlowTimelineModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-fullscreen">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <div>
@@ -505,7 +518,7 @@
                             <div class="madj-tl-detail-grid" id="madjFlowTlFichaMoto"></div>
                         </div>
 
-                        <div class="madj-tl-panel p-3 mb-3">
+                        <div class="madj-tl-panel p-3 mb-3" id="madjFlowTlFlujoPanel">
                             <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
                                 <div>
                                     <h5 class="fw-bold mb-0"><i class="fa-solid fa-diagram-project me-1 text-primary"></i>Flujo operativo</h5>
@@ -514,6 +527,10 @@
                                 <span class="badge bg-label-primary" id="madjFlowTlEtapasCount">0 etapas</span>
                             </div>
                             <div class="madj-tl-stage-grid" id="madjFlowTlEtapas"></div>
+                        </div>
+
+                        <div class="madj-tl-panel p-3 mb-3 d-none" id="madjFlowTlCargaMasivaPanel">
+                            <span class="madj-flow-import-tag mt-0"><i class="fa-solid fa-file-import"></i>Carga masiva historica</span>
                         </div>
 
                         <div class="madj-tl-panel p-3">
@@ -554,6 +571,8 @@
     const tlEventos = document.getElementById('madjFlowTlEventos');
     const tlEtapasCount = document.getElementById('madjFlowTlEtapasCount');
     const tlEventosCount = document.getElementById('madjFlowTlEventosCount');
+    const tlFlujoPanel = document.getElementById('madjFlowTlFlujoPanel');
+    const tlCargaMasivaPanel = document.getElementById('madjFlowTlCargaMasivaPanel');
     let timelineRequestSeq = 0;
 
     function esc(value) {
@@ -682,12 +701,14 @@
     function badgeClass(estado) {
         if (estado === 'completado') return 'ok';
         if (estado === 'en_proceso') return 'run';
+        if (estado === 'no_aplica') return 'na';
         return 'wait';
     }
 
     function badgeText(estado) {
         if (estado === 'completado') return 'Completado';
         if (estado === 'en_proceso') return 'En proceso';
+        if (estado === 'no_aplica') return 'Carga masiva';
         return 'Pendiente';
     }
 
@@ -724,7 +745,7 @@
                 <div class="madj-tl-metric">
                     <div class="label">Credito / Operacion</div>
                     <div class="value">#${esc(c.id_credito || '')}</div>
-                    <div class="text-muted small">${esc(c.folio || 'Sin folio')}</div>
+                    <div class="text-muted small">${c.es_carga_masiva ? 'Registro de carga masiva historica' : esc(c.folio || 'Sin folio')}</div>
                 </div>
             </div>
             <div class="col-12 col-md-6 col-xl-3">
@@ -766,6 +787,7 @@
             detailItem('VIN / Serie', u.vin),
             detailItem('Motor', u.motor),
             detailItem('Placas', u.placas),
+            detailItem('Kilometraje', u.kilometraje),
             detailItem('Factura marca', u.factura_marca),
             detailItem('Factura modelo', u.factura_modelo),
             detailItem('Factura serie', u.factura_serie),
@@ -779,6 +801,10 @@
             detailItem('Dias mora', f.dias_mora),
             detailItem('Saldo capital', f.saldo_capital !== null && f.saldo_capital !== undefined && f.saldo_capital !== '' ? money.format(Number(f.saldo_capital || 0)) : ''),
             detailItem('Adeudo total', f.adeudo_total !== null && f.adeudo_total !== undefined && f.adeudo_total !== '' ? money.format(Number(f.adeudo_total || 0)) : ''),
+            ...(c.es_carga_masiva ? [
+                detailItem('Origen', 'Carga masiva historica'),
+                detailItem('Observaciones de carga', c.observaciones_recepcion),
+            ] : []),
         ].join('');
     }
 
@@ -833,20 +859,27 @@
     function renderTimeline(data) {
         renderTimelineResumen(data);
         renderTimelineFichaMoto(data);
-        renderTimelineEtapas(data.etapas || []);
+        const esCargaMasiva = Boolean(data.credito?.es_carga_masiva);
+        tlFlujoPanel?.classList.toggle('d-none', esCargaMasiva);
+        tlCargaMasivaPanel?.classList.toggle('d-none', !esCargaMasiva);
+        if (!esCargaMasiva) renderTimelineEtapas(data.etapas || []);
         renderTimelineEventos(data.eventos || []);
         tlError.classList.add('d-none');
         tlContent.classList.remove('d-none');
     }
 
-    async function abrirTimelineCredito(idCredito) {
+    async function abrirTimelineCredito(idCredito, idOperacion) {
         const id = Number(String(idCredito || '').replace(/\D+/g, ''));
-        if (!id) return;
+        const op = Number(String(idOperacion || '').replace(/\D+/g, ''));
+        if (!id && !op) return;
         mostrarTimelineModal();
         const seq = ++timelineRequestSeq;
         showTimelineLoading(true);
         try {
-            const resp = await fetch('/MotosAdjudicadas/timelineCreditoDatos?id_credito=' + encodeURIComponent(id), {
+            const query = new URLSearchParams();
+            if (id) query.set('id_credito', String(id));
+            if (op) query.set('id_operacion', String(op));
+            const resp = await fetch('/MotosAdjudicadas/timelineCreditoDatos?' + query.toString(), {
                 headers: { 'Accept': 'application/json' },
             });
             const data = await resp.json();
@@ -878,11 +911,12 @@
                 <div class="madj-flow-list-row">
                     <div>
                         <div class="d-flex align-items-center gap-2 mb-1">
-                            <span class="madj-flow-folio">${esc(row.folio || ('ADJ-' + row.id_operacion))}</span>
+                            <span class="madj-flow-folio">${row.origen_carga === 'Carga masiva historico' ? '#' + fmt.format(Number(String(row.folio || '').match(/(\d{1,6})$/)?.[1] || row.id_operacion)) : esc(row.folio || ('ADJ-' + row.id_operacion))}</span>
                             <span class="badge ${row.tipo_cierre === 'Recepción confirmada' ? 'bg-label-success' : 'bg-label-secondary'}">${esc(row.tipo_cierre || 'Cerrado')}</span>
                         </div>
                         <div class="madj-flow-title">#${esc(row.id_credito)} - ${esc(row.nombre_cliente)}</div>
                         <div class="madj-flow-muted mt-1"><i class="fa-solid fa-motorcycle me-1"></i>${esc(row.unidad || 'Sin unidad')}</div>
+                        ${row.origen_carga === 'Carga masiva historico' ? '<div class="madj-flow-import-tag"><i class="fa-solid fa-file-import"></i>Carga masiva historica</div>' : ''}
                     </div>
                     <div>
                         <div class="madj-flow-list-label">NIV / VIN</div>
@@ -897,7 +931,7 @@
                         <div class="madj-flow-list-value">${esc(row.fecha_cierre_fmt || 'Sin fecha')}</div>
                         <div class="madj-flow-muted mt-1"><i class="fa-solid fa-location-dot me-1"></i>${esc(row.estado || 'SIN ESTADO')}</div>
                     </div>
-                    <button type="button" class="btn btn-sm btn-outline-primary madj-flow-timeline-btn" data-id-credito="${esc(row.id_credito)}" title="Ver detalle del ticket">
+                    <button type="button" class="btn btn-sm btn-outline-primary madj-flow-timeline-btn" data-id-credito="${esc(row.id_credito)}" data-id-operacion="${esc(row.id_operacion)}" title="Ver detalle del ticket">
                         <i class="fa-solid fa-timeline me-1"></i>Ver detalle
                     </button>
                 </div>
@@ -950,7 +984,7 @@
     document.getElementById('madjFlowBoard').addEventListener('click', ev => {
         const btn = ev.target.closest('.madj-flow-timeline-btn');
         if (!btn) return;
-        abrirTimelineCredito(btn.dataset.idCredito || '');
+        abrirTimelineCredito(btn.dataset.idCredito || '', btn.dataset.idOperacion || '');
     });
     timelineModalEl?.querySelectorAll('[data-bs-dismiss="modal"], [data-dismiss="modal"]').forEach(btn => {
         btn.addEventListener('click', cerrarTimelineModalManual);

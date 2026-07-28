@@ -29,9 +29,31 @@ class LeonidasAssistantService
 
         $contexto = $this->contextoSeguro();
         $normalizado = $this->normalizar($mensaje);
+        $contexto['archivo_token'] = $archivoToken;
 
         if ($archivoToken !== null && $archivoToken !== '') {
-            $respuesta = (new LeonidasSpreadsheetService())->analizar($archivoToken, $mensaje, $contexto);
+            $adjuntos = new LeonidasAttachmentService();
+            if ($adjuntos->existe($archivoToken, (int) $contexto['actor_id'])) {
+                $flujoOperativo = (new LeonidasAgentService())->resolver($mensaje, $normalizado, $contexto);
+                if ($flujoOperativo !== null) {
+                    $respuesta = $flujoOperativo;
+                } else {
+                    $meta = $adjuntos->metadata($archivoToken, (int) $contexto['actor_id']);
+                    if (!in_array((string) ($meta['extension'] ?? ''), ['xlsx', 'xls'], true)) {
+                        $respuesta = [
+                            'mensaje' => 'El archivo quedó validado. Indica la acción y el módulo donde debo usarlo, por ejemplo: "adjuntar evidencia al ticket 123".',
+                            'tipo' => 'agente_adjunto_sin_accion',
+                        ];
+                    } else {
+                        $excel = new LeonidasSpreadsheetService();
+                        $excel->adoptarCargaOperativa($archivoToken, $meta, (int) $contexto['actor_id']);
+                        $respuesta = $excel->analizar($archivoToken, $mensaje, $contexto);
+                    }
+                }
+            } else {
+                // Compatibilidad con cargas iniciadas antes de habilitar adjuntos generales.
+                $respuesta = (new LeonidasSpreadsheetService())->analizar($archivoToken, $mensaje, $contexto);
+            }
             if (is_array($respuesta['propuesta_especificacion'] ?? null)) {
                 $respuesta['propuesta'] = $this->registrarPropuesta(
                     $respuesta['propuesta_especificacion'],
@@ -132,6 +154,8 @@ class LeonidasAssistantService
         } elseif ($this->esSolicitudExplicacionSparta($normalizado)
             && ($explicacion = $this->resolverExplicacionSparta($normalizado))) {
             $respuesta = $explicacion;
+        } elseif ($moduloCodigo = (new LeonidasCodeKnowledgeService())->resolver($mensaje, $normalizado)) {
+            $respuesta = $moduloCodigo;
         } elseif ($fueraDeSparta = $this->resolverConsultaFueraDeSparta($normalizado)) {
             $respuesta = $fueraDeSparta;
         } elseif ($consultaSemantica = (new LeonidasSemanticQueryService())->resolver(
@@ -166,6 +190,8 @@ class LeonidasAssistantService
         if (!$this->esRespuestaOperativa($respuesta)) {
             $respuesta = $this->enriquecerConGemini($mensaje, $contexto, $respuesta);
         }
+
+        (new LeonidasKnowledgeGapService())->registrar($mensaje, $respuesta);
 
         $this->auditar($contexto, 'consulta', [
             'tipo' => $respuesta['tipo'] ?? 'conversacion',
@@ -378,6 +404,28 @@ class LeonidasAssistantService
                 'legacy' => $this->tieneAccesoModuloPorNombre(['legacy']),
                 'atlas' => $this->tieneAccesoModuloPorNombre(['atlas']),
                 'tickets' => $this->tieneAccesoModuloPorNombre(['ticket']),
+                'despachos' => $this->tieneAlgunoDeLosModulos([57, 58])
+                    || $this->tieneAccesoModuloPorNombre(['despacho']),
+                'despachos_celula' => $this->resolverCelulaConvenio(),
+                'almacen' => $this->tieneAccesoModulo(139)
+                    || $this->tieneAccesoModuloPorNombre(['almacen virtual']),
+                'tracking' => $this->tieneAlgunoDeLosModulos([62, 80])
+                    || $this->tieneAccesoModuloPorNombre(['tracking recoleccion', 'tracking']),
+                'tracking_cancelar' => $this->tieneAccesoModulo(102)
+                    || $this->tieneAccesoModuloPorNombre(['cancelar rutas tracking']),
+                'viaticos' => $this->tieneAccesoModuloPorNombre(['viatico', 'ticket']),
+                'viaticos_autorizar' => $this->tieneAccesoModuloPorNombre(['autorizar viatico', 'administrar viatico'])
+                    || LeonidasAccessService::esAccesoPermanente($actorId),
+                'viaticos_pagar' => $this->tieneAccesoModuloPorNombre(['pagar viatico', 'pagos de viatico', 'registrar pagos', 'tesoreria'])
+                    || LeonidasAccessService::esAccesoPermanente($actorId),
+                'condonaciones' => $this->tieneAccesoModuloPorNombre(['condonacion']),
+                'condonaciones_autorizar' => $this->tieneAccesoModuloPorNombre(['autorizar condonacion'])
+                    || LeonidasAccessService::esAccesoPermanente($actorId),
+                'cierre_validar' => $this->tieneAccesoModulo(53),
+                'cierre_proceso' => $this->tieneAccesoModulo(54),
+                'cierre_autorizar' => $this->tieneAccesoModulo(54),
+                'cierre_cartera' => $this->tieneAccesoModulo(59),
+                'cierre_consultar' => $this->tieneAlgunoDeLosModulos([52, 53, 54, 55, 59]),
                 'organizacion' => $this->tieneAccesoModuloPorNombre(['organizacion', 'estructura']),
                 'servicios' => $this->tieneAccesoModuloPorNombre(['servicios']),
             ],
@@ -652,13 +700,18 @@ class LeonidasAssistantService
     private function esRespuestaOperativa(array $respuesta): bool
     {
         $tipo = (string) ($respuesta['tipo'] ?? '');
+        $dominioEnriquecible = in_array($tipo, [
+            'dominio_sparta',
+            'dominio_ayuda',
+            'dominio_requiere_criterio',
+        ], true);
         return str_starts_with($tipo, 'mensaje_')
             || str_starts_with($tipo, 'consulta_')
             || str_starts_with($tipo, 'vacaciones_')
             || str_starts_with($tipo, 'agente_')
             || str_starts_with($tipo, 'analitica_')
             || str_starts_with($tipo, 'media_')
-            || str_starts_with($tipo, 'dominio_')
+            || (str_starts_with($tipo, 'dominio_') && !$dominioEnriquecible)
             || in_array($tipo, [
             'conversacion',
             'metrica_personal',
@@ -700,7 +753,9 @@ class LeonidasAssistantService
     private function esSolicitudExplicacionSparta(string $mensaje): bool
     {
         return preg_match(
-            '/\b(que es|que hace|como funciona|como se usa|explica|explicame|para que sirve|que significa|duda sobre)\b/u',
+            '/\b(que es|que hace|como funciona|como se usa|explica|explicame|para que sirve|'
+                . 'que significa|duda sobre|cuentame|platica|platicame|hablame|'
+                . 'quiero saber|necesito entender)\b/u',
             $mensaje
         ) === 1;
     }
@@ -1402,7 +1457,7 @@ class LeonidasAssistantService
         $accion = trim((string) ($especificacion['accion'] ?? ''));
         $resumen = trim((string) ($especificacion['resumen'] ?? ''));
         $payload = is_array($especificacion['payload'] ?? null) ? $especificacion['payload'] : [];
-        if (!LeonidasAgentService::puedeEjecutar($accion) || $resumen === '' || !$payload) {
+        if (!LeonidasAgentService::puedeEjecutar($accion) || $resumen === '') {
             throw new \RuntimeException('La propuesta operativa está incompleta y no puede confirmarse.');
         }
 
@@ -1512,6 +1567,8 @@ class LeonidasAssistantService
                 'Consultar mediante pasarelas de solo lectura las bases configuradas de Sparta, Legacy, Geografia, Segundometro, Maxi produccion, Maxi Guatemala y AWS operativa.',
                 'Consultar estados de cuenta, pagos, saldos, mora y cuotas mediante la API S2 usando el identificador del credito.',
                 'Consultar indicadores de Sabueso, Segundometro y Gastos de Cobranza con atribucion de fuente.',
+                'Reconocer los controladores, modelos y servicios actuales de Sparta mediante un inventario seguro de clases y metodos publicos, sin exponer codigo, SQL ni secretos.',
+                'Consultar una biblioteca documental por dominio y submodulo, con reglas, fuentes, permisos, preguntas reales, ejecutores y limites.',
                 'Generar imagenes y videos con Gemini y entregarlos de forma privada dentro del chat; generar musica cuando Vertex AI y Lyria estan configurados.',
                 'Abrir menus permitidos de Capital Humano desde una instruccion.',
                 'Preparar solicitudes de permisos, mensajes, descargas o cambios para confirmacion; no las ejecuta sin confirmar.',
@@ -1520,6 +1577,9 @@ class LeonidasAssistantService
             ],
             'reglas_de_respuesta_por_dominio' => [
                 'Usa dominios_operativos_relevantes y cobertura_operativa_sparta para identificar el modulo, sus submodulos, fuentes, consultas y acciones.',
+                'Usa mapa_seguro_del_codigo para reconocer componentes y capacidades publicas que aun no tengan una ficha documental completa.',
+                'Los nombres de metodos del mapa de codigo prueban que una capacidad existe, pero no prueban que Leonidas pueda ejecutarla ni sustituyen sus permisos.',
+                'Cuando la respuesta sea de conocimiento, combina el mensaje verificado, la documentacion relevante y el mapa seguro del codigo; identifica como inferencia cualquier conclusion basada solo en nombres de componentes.',
                 'Nunca reemplaces una consulta de un modulo por un resumen generico de capacidades.',
                 'Si falta informacion, solicita exactamente el credito, persona, ticket, servicio, periodo o filtro que falta.',
                 'No digas que una capacidad no existe cuando el registro incluye una fuente o ejecutor; utiliza primero el resultado validado por el servidor.',

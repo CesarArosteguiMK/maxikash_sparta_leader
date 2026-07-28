@@ -1834,16 +1834,17 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
-     * GET /MotosAdjudicadas/timelineCreditoDatos?id_credito=N
+     * GET /MotosAdjudicadas/timelineCreditoDatos?id_credito=N&id_operacion=N
      */
     public function timelineCreditoDatos()
     {
         header('Content-Type: application/json; charset=utf-8');
         $idCredito = (int) ($_GET['id_credito'] ?? $_POST['id_credito'] ?? 0);
+        $idOperacion = (int) ($_GET['id_operacion'] ?? $_POST['id_operacion'] ?? 0);
 
         try {
             echo json_encode(
-                $this->model->obtenerTimelineCreditoMotosAdjudicadas($idCredito),
+                $this->model->obtenerTimelineCreditoMotosAdjudicadas($idCredito, $idOperacion),
                 JSON_UNESCAPED_UNICODE
             );
         } catch (\Throwable $e) {

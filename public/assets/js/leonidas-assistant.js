@@ -1010,8 +1010,8 @@
 
         var label = document.createElement('span');
         var remove = document.createElement('button');
-        label.innerHTML = '<i class="fa-solid fa-file-excel" aria-hidden="true"></i> ';
-        label.appendChild(document.createTextNode(currentAttachment.nombre || 'Excel adjunto'));
+        label.innerHTML = '<i class="fa-solid fa-paperclip" aria-hidden="true"></i> ';
+        label.appendChild(document.createTextNode(currentAttachment.nombre || 'Archivo adjunto'));
         remove.type = 'button';
         remove.setAttribute('aria-label', 'Quitar archivo adjunto');
         remove.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
@@ -1024,7 +1024,7 @@
         attachmentBox.appendChild(remove);
     }
 
-    function uploadExcel(file) {
+    function uploadAttachment(file) {
         var data = new FormData();
         data.append('archivo', file);
         if (attachButton) attachButton.classList.add('is-uploading');
@@ -1041,7 +1041,7 @@
             });
         }).then(function (payload) {
             if (!payload || payload.success !== true || !payload.respuesta || !payload.respuesta.token) {
-                throw new Error((payload && payload.error) || 'No se pudo adjuntar el Excel.');
+                throw new Error((payload && payload.error) || 'No se pudo adjuntar el archivo.');
             }
             currentAttachment = payload.respuesta;
             renderAttachment();
@@ -1384,10 +1384,10 @@
             fileInput.addEventListener('change', function () {
                 var file = fileInput.files && fileInput.files[0];
                 if (!file) return;
-                uploadExcel(file).catch(function (error) {
+                uploadAttachment(file).catch(function (error) {
                     currentAttachment = null;
                     renderAttachment();
-                    addMessage(error.message || 'No se pudo adjuntar el Excel.', 'assistant');
+                    addMessage(error.message || 'No se pudo adjuntar el archivo.', 'assistant');
                     fileInput.value = '';
                 });
             });
@@ -1415,7 +1415,8 @@
                 .then(function (response) {
                     thinkingIndicator.remove();
                     renderResponse(response);
-                    if (requestAttachment && currentAttachment && currentAttachment.token === requestAttachment.token) {
+                    var keepAttachment = response && response.tipo === 'agente_adjunto_sin_accion';
+                    if (!keepAttachment && requestAttachment && currentAttachment && currentAttachment.token === requestAttachment.token) {
                         currentAttachment = null;
                         if (fileInput) fileInput.value = '';
                         renderAttachment();

@@ -5,6 +5,7 @@ namespace Controllers;
 use Core\Controller;
 use Services\LeonidasAccessService;
 use Services\LeonidasAgentService;
+use Services\LeonidasAttachmentService;
 use Services\LeonidasAssistantService;
 use Services\LeonidasMediaService;
 use Services\LeonidasMessagingService;
@@ -48,7 +49,7 @@ class Leonidas extends Controller
                 throw new \InvalidArgumentException('Este endpoint requiere una solicitud POST.');
             }
             $archivo = is_array($_FILES['archivo'] ?? null) ? $_FILES['archivo'] : [];
-            $carga = (new LeonidasSpreadsheetService())->guardarCarga($archivo, (int) $actor['actor_id']);
+            $carga = (new LeonidasAttachmentService())->guardarCarga($archivo, (int) $actor['actor_id']);
             self::respuestaJSON(['success' => true, 'respuesta' => $carga]);
         } catch (\InvalidArgumentException $error) {
             http_response_code(422);
@@ -57,9 +58,9 @@ class Leonidas extends Controller
             http_response_code(401);
             self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
         } catch (\Throwable $error) {
-            error_log('[Leonidas] Carga de Excel fallida: ' . $error->getMessage());
+            error_log('[Leonidas] Carga de adjunto fallida: ' . $error->getMessage());
             http_response_code(500);
-            self::respuestaJSON(['success' => false, 'error' => 'No se pudo adjuntar el Excel. No se realizo ningun cambio.']);
+            self::respuestaJSON(['success' => false, 'error' => 'No se pudo adjuntar el archivo. No se realizo ningun cambio.']);
         }
     }
 

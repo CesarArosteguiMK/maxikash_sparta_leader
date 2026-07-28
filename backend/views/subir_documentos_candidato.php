@@ -719,17 +719,6 @@ if ($requiere_carta_compromiso_gestor) {
                         <?php elseif ($esCartaAdeudo): ?>
                         <div class="descarga-doc mb-2">
                             <a href="<?= htmlspecialchars($urlBaseDescarga) ?>/carta_no_adeudo" class="btn-descarga" target="_blank" rel="noopener"><i class="fa fa-download me-1"></i> Descargar carta de no adeudo</a>
-                            <p class="small-text mt-2 mb-1">Si no tienes hoja de retención FONACOT o INFONAVIT, descarga la carta de no adeudo, llénala, fírmala y súbela aquí.</p>
-                            <details class="carta-parrafo-mano mt-2" style="border:1px solid #dee2e6;border-radius:8px;background:#fafafa;">
-                                <summary style="padding:0.5rem 0.75rem;cursor:pointer;font-size:0.9rem;list-style:none;display:flex;align-items:center;gap:0.35rem;">
-                                    <i class="fa fa-chevron-right" style="transition:transform 0.2s;"></i>
-                                    <span><strong>Ver texto que debes copiar a mano en la carta</strong></span>
-                                </summary>
-                                <div class="px-3 pb-3 pt-1" style="font-size:0.88rem;line-height:1.5;">
-                                    <p class="mb-2">Yo ___________ declaro tener activo el crédito (INFONAVIT o FONACOT) con número _________________ en el cual tengo una cuota fija de $__________________ y será ajustado en mi salario acorde a la normativa vigente, inclusive si hay un acumulado pendiente.</p>
-                                    <p class="text-muted small mb-0">Primer espacio: nombre completo. Segundo: número de crédito. Tercero: monto de la cuota. <strong>Debe estar escrito a mano por usted.</strong></p>
-                                </div>
-                            </details>
                         </div>
                         <?php endif; ?>
                         <?php if ($esCartaCompromisoGestor): ?>

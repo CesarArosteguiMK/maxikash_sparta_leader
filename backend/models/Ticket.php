@@ -2230,6 +2230,61 @@ class Ticket extends Model
     }
 
     /**
+     * Reabre únicamente tickets cuyo último movimiento histórico fue "cerrado".
+     * Un ticket eliminado deliberadamente no puede restaurarse por este método.
+     */
+    public static function reabrir($idTicket, $idPersonaReabre = null)
+    {
+        $id = (int) $idTicket;
+        if ($id < 1) {
+            return self::resultado(false, 'ID de ticket inválido.', null);
+        }
+
+        try {
+            $db = new Database();
+            $ticket = $db->queryOne(
+                "SELECT id_ticket, activo, fecha_eliminacion
+                 FROM ticket
+                 WHERE id_ticket = :id
+                 LIMIT 1",
+                ['id' => $id]
+            );
+            if (!$ticket) {
+                return self::resultado(false, 'El ticket no existe.', null);
+            }
+            if ((int) ($ticket['activo'] ?? 0) === 1 && empty($ticket['fecha_eliminacion'])) {
+                return self::resultado(true, 'El ticket ya se encuentra abierto.', ['id_ticket' => $id, 'ya_abierto' => true]);
+            }
+
+            $ultimo = $db->queryOne(
+                "SELECT tipo_accion
+                 FROM ticket_historico
+                 WHERE id_ticket = :id
+                 ORDER BY fecha_eliminacion DESC
+                 LIMIT 1",
+                ['id' => $id]
+            );
+            if (!$ultimo || (string) ($ultimo['tipo_accion'] ?? '') !== 'cerrado') {
+                return self::resultado(
+                    false,
+                    'No se puede reabrir: el último movimiento no corresponde a un cierre.',
+                    null
+                );
+            }
+
+            $db->CRUD(
+                "UPDATE ticket
+                 SET activo = 1, fecha_eliminacion = NULL, id_persona_elimino = NULL
+                 WHERE id_ticket = :id",
+                ['id' => $id]
+            );
+            return self::resultado(true, 'Ticket reabierto correctamente.', ['id_ticket' => $id]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al reabrir el ticket.', null, $e->getMessage());
+        }
+    }
+
+    /**
      * Lista de tickets cerrados/eliminados desde ticket_historico (con tipo_accion: cerrado | eliminado).
      */
     public static function getListaTicketsCerradosEliminados()
@@ -2282,6 +2337,43 @@ class Ticket extends Model
             );
             return $row ?: null;
         } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    public static function obtenerEstadoOperativo(int $idTicket): ?array
+    {
+        if ($idTicket <= 0) {
+            return null;
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT t.id_ticket, t.folio, t.id_credito, t.descripcion_inicial,
+                        t.activo, t.fecha_eliminacion, t.id_persona_elimino,
+                        et.nombre AS estado, pt.nombre AS prioridad
+                 FROM ticket t
+                 LEFT JOIN estado_ticket et ON et.id_estado_ticket = t.id_estado_ticket
+                 LEFT JOIN prioridad_ticket pt ON pt.id_prioridad = t.id_prioridad
+                 WHERE t.id_ticket = :id
+                 LIMIT 1",
+                ['id' => $idTicket]
+            );
+            if (!$row) {
+                return null;
+            }
+            $row['id_persona_asignada'] = self::getIdPersonaAsignadaActivaPorTicket($idTicket);
+            $ultimo = $db->queryOne(
+                "SELECT tipo_accion, fecha_eliminacion
+                 FROM ticket_historico
+                 WHERE id_ticket = :id
+                 ORDER BY fecha_eliminacion DESC
+                 LIMIT 1",
+                ['id' => $idTicket]
+            );
+            $row['ultimo_movimiento_historico'] = $ultimo ?: null;
+            return $row;
+        } catch (\Throwable $e) {
             return null;
         }
     }
