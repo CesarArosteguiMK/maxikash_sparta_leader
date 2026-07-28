@@ -1,5 +1,4 @@
-<div class="modal fade" id="rrhhDocumentoObligatorioModal" tabindex="-1"
-     data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+<div class="modal fade" id="rrhhDocumentoObligatorioModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header border-0 bg-primary text-white p-4">
@@ -11,12 +10,13 @@
                         <h5 class="modal-title mb-0" data-rrhh-titulo>Documento obligatorio</h5>
                     </div>
                 </div>
+                <button type="button" class="btn-close btn-close-white ms-auto" aria-label="Cerrar"
+                        data-rrhh-cerrar></button>
             </div>
             <div class="modal-body p-4">
-                <div class="alert alert-warning d-flex gap-2">
-                    <i class="fa-solid fa-lock mt-1"></i>
-                    <div><strong>Debes completar esta entrega para continuar usando Sparta.</strong>
-                        El aviso se cerrará automáticamente cuando el PDF quede guardado.</div>
+                <div class="alert d-flex gap-2" data-rrhh-aviso>
+                    <i class="fa-solid mt-1" data-rrhh-aviso-icono></i>
+                    <div data-rrhh-aviso-texto></div>
                 </div>
                 <p class="mb-3" data-rrhh-mensaje></p>
                 <div class="card bg-body-tertiary border-0 mb-3">
@@ -33,9 +33,14 @@
                            name="archivo" accept=".pdf,application/pdf" required>
                     <div class="form-text">Tamaño máximo: 15 MB. Se guardará como <strong data-rrhh-nombre></strong>.</div>
                     <div class="alert alert-danger mt-3 mb-0 d-none" data-rrhh-error></div>
-                    <button class="btn btn-primary btn-lg w-100 mt-4" type="submit" data-rrhh-enviar>
-                        <i class="fa-solid fa-cloud-arrow-up me-2"></i>Entregar documento
-                    </button>
+                    <div class="d-grid gap-2 mt-4">
+                        <button class="btn btn-primary btn-lg w-100" type="submit" data-rrhh-enviar>
+                            <i class="fa-solid fa-cloud-arrow-up me-2"></i>Entregar documento
+                        </button>
+                        <button class="btn btn-outline-secondary" type="button" data-rrhh-cerrar>
+                            Recordarme después
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -47,14 +52,24 @@
     'use strict';
     const modalElement = document.getElementById('rrhhDocumentoObligatorioModal');
     if (!modalElement || !window.bootstrap || !window.fetch) return;
-    const modal = bootstrap.Modal.getOrCreateInstance(modalElement, {backdrop: 'static', keyboard: false});
+    const modal = bootstrap.Modal.getOrCreateInstance(modalElement, {backdrop: true, keyboard: true});
     const form = modalElement.querySelector('[data-rrhh-form]');
     const errorBox = modalElement.querySelector('[data-rrhh-error]');
     const submit = modalElement.querySelector('[data-rrhh-enviar]');
+    const botonesCerrar = Array.from(modalElement.querySelectorAll('[data-rrhh-cerrar]'));
+    const aviso = modalElement.querySelector('[data-rrhh-aviso]');
+    const avisoIcono = modalElement.querySelector('[data-rrhh-aviso-icono]');
+    const avisoTexto = modalElement.querySelector('[data-rrhh-aviso-texto]');
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
     })[char]);
     let permitidoCerrar = false;
+    let bloqueoObligatorio = true;
+
+    const formatearFecha = value => {
+        const partes = String(value || '').split('-');
+        return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : String(value || '');
+    };
 
     const mostrarError = (message) => {
         errorBox.textContent = message;
@@ -65,6 +80,22 @@
         errorBox.classList.add('d-none');
     };
     const aplicar = (campania) => {
+        bloqueoObligatorio = Number(campania.bloqueo_obligatorio || 0) === 1;
+        permitidoCerrar = !bloqueoObligatorio;
+        botonesCerrar.forEach(boton => boton.classList.toggle('d-none', bloqueoObligatorio));
+        aviso.classList.toggle('alert-danger', bloqueoObligatorio);
+        aviso.classList.toggle('alert-warning', !bloqueoObligatorio);
+        avisoIcono.className = `fa-solid mt-1 ${bloqueoObligatorio ? 'fa-lock' : 'fa-clock'}`;
+        if (bloqueoObligatorio) {
+            avisoTexto.innerHTML = '<strong>La entrega ya es obligatoria.</strong> '
+                + 'No podrás cerrar este aviso hasta que el PDF quede guardado correctamente.';
+        } else {
+            const fechaLimite = formatearFecha(campania.fecha_limite);
+            avisoTexto.innerHTML = '<strong>Puedes cerrar este aviso por ahora.</strong> '
+                + (fechaLimite
+                    ? `A partir del ${escapeHtml(fechaLimite)} deberás entregar el PDF para continuar usando Sparta.`
+                    : 'Cuando venza el plazo deberás entregar el PDF para continuar usando Sparta.');
+        }
         modalElement.querySelector('[data-rrhh-titulo]').textContent = campania.titulo || 'Documento obligatorio';
         modalElement.querySelector('[data-rrhh-mensaje]').textContent = campania.mensaje || '';
         const instrucciones = Array.isArray(campania.instrucciones) ? campania.instrucciones : [];
@@ -82,7 +113,6 @@
         form.reset();
         modalElement.querySelector('[data-rrhh-campania]').value = campania.id;
         ocultarError();
-        permitidoCerrar = false;
         modal.show();
     };
     const consultar = async () => {
@@ -105,6 +135,9 @@
     modalElement.addEventListener('hide.bs.modal', event => {
         if (!permitidoCerrar) event.preventDefault();
     });
+    botonesCerrar.forEach(boton => boton.addEventListener('click', () => {
+        if (permitidoCerrar) modal.hide();
+    }));
     form.addEventListener('submit', async event => {
         event.preventDefault();
         ocultarError();
@@ -131,7 +164,7 @@
             }
             await consultar();
         } catch (error) {
-            permitidoCerrar = false;
+            permitidoCerrar = !bloqueoObligatorio;
             mostrarError(error.message || 'No se pudo completar la entrega.');
         } finally {
             submit.disabled = false;

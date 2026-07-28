@@ -793,6 +793,7 @@ class Atlas extends Controller
                 ['Evidencia', 'evidencia'],
                 ['En caso de incumplimiento / Observaciones', 'observaciones_incumplimiento'],
                 ['No. de gestiones realizadas', 'gestiones_realizadas'],
+                ['Detalle de gestiones', 'gestiones_detalle'],
                 ['No. de pendientes por gestionar', 'pendientes_por_gestionar'],
             ];
             foreach ($columns as $index => $column) {
@@ -804,6 +805,18 @@ class Atlas extends Controller
                 foreach ($columns as $index => $column) {
                     $key = $column[1];
                     $value = $fila[$key] ?? '';
+                    if ($key === 'gestiones_detalle' && is_array($value)) {
+                        $detalleGestiones = [];
+                        foreach ($value as $gestionDetalle) {
+                            if (!is_array($gestionDetalle)) {
+                                continue;
+                            }
+                            $cliente = trim((string)($gestionDetalle['cliente'] ?? 'Cliente sin nombre'));
+                            $oferta = trim((string)($gestionDetalle['oferta'] ?? ''));
+                            $detalleGestiones[] = $cliente . ($oferta !== '' ? ' · Oferta #' . $oferta : '');
+                        }
+                        $value = implode(' | ', $detalleGestiones);
+                    }
                     if (in_array($key, ['distancia_metros', 'latitud', 'longitud', 'gestiones_realizadas', 'pendientes_por_gestionar'], true)
                         && $value !== null
                         && $value !== '') {
@@ -831,9 +844,11 @@ class Atlas extends Controller
                 ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
                 ->getColor()->setRGB('D9E2EC');
             $sheet->getStyle('S2:T' . $lastRow)->getAlignment()->setWrapText(true);
+            $sheet->getStyle('V2:V' . $lastRow)->getAlignment()->setWrapText(true);
             $sheet->getStyle('O2:O' . $lastRow)->getNumberFormat()->setFormatCode('0');
             $sheet->getStyle('Q2:R' . $lastRow)->getNumberFormat()->setFormatCode('0.0000000');
-            $sheet->getStyle('U2:V' . $lastRow)->getNumberFormat()->setFormatCode('0');
+            $sheet->getStyle('U2:U' . $lastRow)->getNumberFormat()->setFormatCode('0');
+            $sheet->getStyle('W2:W' . $lastRow)->getNumberFormat()->setFormatCode('0');
             $sheet->freezePane('A2');
             $sheet->setAutoFilter('A1:' . $lastCell);
 
@@ -841,7 +856,7 @@ class Atlas extends Controller
                 'A' => 12, 'B' => 16, 'C' => 15, 'D' => 25, 'E' => 14, 'F' => 24,
                 'G' => 28, 'H' => 22, 'I' => 18, 'J' => 22, 'K' => 32, 'L' => 30,
                 'M' => 22, 'N' => 20, 'O' => 21, 'P' => 22, 'Q' => 15, 'R' => 15,
-                'S' => 42, 'T' => 46, 'U' => 24, 'V' => 28,
+                'S' => 42, 'T' => 46, 'U' => 24, 'V' => 44, 'W' => 28,
             ];
             foreach ($widths as $column => $width) {
                 $sheet->getColumnDimension($column)->setWidth($width);

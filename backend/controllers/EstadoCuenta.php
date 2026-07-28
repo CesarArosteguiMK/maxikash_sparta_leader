@@ -15,6 +15,8 @@ class EstadoCuenta extends Controller
     private const EC_PERMISO_DICTAMINAR_LLAMADA = 35;
     private const EC_PERMISO_CONDONAR_GASTOS_COBRANZA = 36;
     private const EC_PERMISO_NOTAS_CLIENTE = 37;
+    /** Punto de acceso vigente para documentos almacenados (INE, FAD y facturas). */
+    private const DOCUMENTOS_S3_LAMBDA_URL = 'https://gv23a4ht7564jqphca5czszrdy0bfsjw.lambda-url.us-east-1.on.aws/';
 
     // ---------------- SAFE FLOAT ----------------
     private function safe_float($value, $default = 0.0) {
@@ -138,7 +140,9 @@ class EstadoCuenta extends Controller
             return $bases;
         }
 
-        $raw = [];
+        // La Lambda es la fuente oficial. Las URLs configurables se mantienen
+        // como respaldo para instalaciones que requieran un proxy interno.
+        $raw = [self::DOCUMENTOS_S3_LAMBDA_URL];
         $envBase = getenv('SPARTA_DOCUMENTOS_S3_PROXY_URL');
         if (is_string($envBase) && trim($envBase) !== '') {
             $raw[] = trim($envBase);
@@ -154,9 +158,6 @@ class EstadoCuenta extends Controller
                 }
             }
         }
-
-        $raw[] = 'http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File';
-        $raw[] = 'http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File';
 
         $bases = [];
         foreach ($raw as $base) {
@@ -4609,7 +4610,7 @@ JS;
                                     // NO reconstruir la URL si ya es una URL relativa del proxy local
                                     // El backend ya devuelve la URL correcta del proxy: /estadocuenta/verDocumento?fileName=...
                                     // Solo reconstruir si es una URL absoluta del S3 y no incluye el proxy
-                                    if (pdfUrl.includes('http') && pdfUrl.includes('98.90.194.116') && pdfUrl.includes('downloadS3File')) {
+                                    if (pdfUrl.includes('http') && pdfUrl.includes('fileName=')) {
                                         // Si es URL directa del S3, convertirla a proxy local para evitar descarga
                                         try {
                                             const urlParams = new URL(pdfUrl);
@@ -5974,8 +5975,8 @@ public function descargar()
             $responderINEOferta($id);
 
             // URLs directas para frente y reverso del INE (2da forma)
-            $urlFrente = "http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_frente.jpeg";
-            $urlReverso = "http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_reverso.jpeg";
+            $urlFrente = $this->documentosS3Url(self::DOCUMENTOS_S3_LAMBDA_URL, "INE/{$idCliente}_frente.jpeg");
+            $urlReverso = $this->documentosS3Url(self::DOCUMENTOS_S3_LAMBDA_URL, "INE/{$idCliente}_reverso.jpeg");
 
             // Comprobar que las imágenes INE existan en S3
             $chF = curl_init($urlFrente);
@@ -6291,17 +6292,9 @@ public function descargar()
             if (!empty($res['success']) && !empty($res['datos']['nombre_archivo'])) {
                 $archivo = basename(str_replace(['doc_cliente/', 'doc_cliente\\'], '', $res['datos']['nombre_archivo']));
                 $fileName = 'FAD/' . $archivo;
-                $s3Url = "http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
-                $ch = curl_init($s3Url);
-                curl_setopt_array($ch, [
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_FOLLOWLOCATION => true,
-                    CURLOPT_TIMEOUT => 45,
-                ]);
-                $data = curl_exec($ch);
-                $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                curl_close($ch);
-                if ($code === 200 && $data !== false && strlen($data) > 0) {
+                $s3 = $this->documentosS3Descargar($fileName, 45);
+                $data = $s3['data'];
+                if (!empty($s3['ok']) && is_string($data) && strlen($data) > 0) {
                     $tmpDir = __DIR__ . '/../storage/tmp_media';
                     if (!is_dir($tmpDir)) @mkdir($tmpDir, 0755, true);
                     $tmpFile = $tmpDir . '/pdf_' . $id . '_' . uniqid() . '.pdf';
@@ -6341,33 +6334,14 @@ public function descargar()
             }
         }
 
-        $existeEnS3 = static function ($fileName) {
-            $s3Url = 'http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=' . urlencode($fileName);
-            $ch = curl_init($s3Url);
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_NOBODY => true,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_TIMEOUT => 8,
-            ]);
-            curl_exec($ch);
-            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-            return $code === 200;
+        $existeEnS3 = function ($fileName) {
+            return $this->documentosS3Existe((string) $fileName);
         };
 
         $pullS3 = function ($fileName) use ($id) {
-            $s3Url = 'http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=' . urlencode($fileName);
-            $ch = curl_init($s3Url);
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_TIMEOUT => 45,
-            ]);
-            $data = curl_exec($ch);
-            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-            if ($code !== 200 || $data === false || strlen($data) === 0) {
+            $s3 = $this->documentosS3Descargar((string) $fileName, 45);
+            $data = $s3['data'];
+            if (empty($s3['ok']) || !is_string($data) || strlen($data) === 0) {
                 return null;
             }
             $tmpDir = __DIR__ . '/../storage/tmp_media';
@@ -7699,61 +7673,6 @@ public function descargar()
         echo $data;
         exit;
 
-        $s3Url = "http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
-
-        // Determinar Content-Type basado en extensión
-        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-        $contentType = 'application/octet-stream';
-
-        switch ($ext) {
-            case 'pdf': $contentType = 'application/pdf'; break;
-            case 'jpg':
-            case 'jpeg': $contentType = 'image/jpeg'; break;
-            case 'png': $contentType = 'image/png'; break;
-            case 'gif': $contentType = 'image/gif'; break;
-        }
-
-        // Obtener el archivo desde S3
-        $ch = curl_init($s3Url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_SSL_VERIFYHOST => 0,
-            CURLOPT_SSL_VERIFYPEER => 0,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_HEADER => false, // No incluir headers en la respuesta
-        ]);
-
-        $data = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
-
-        if ($httpCode !== 200 || $data === false) {
-            http_response_code(404);
-            echo "No se pudo recuperar el documento (Code: $httpCode" . ($error ? ", Error: $error" : "") . ")";
-            exit;
-        }
-
-        // Limpiar cualquier output previo
-        if (ob_get_length()) {
-            ob_clean();
-        }
-
-        // Servir el archivo forzando inline para visualización
-        // IMPORTANTE: Estos headers sobrescriben cualquier header del servidor S3
-        header("Content-Type: $contentType");
-        header("Content-Disposition: inline; filename=\"" . basename($fileName) . "\"");
-        header("Content-Length: " . strlen($data));
-        header("Cache-Control: public, max-age=3600");
-        header("Pragma: public");
-
-        // Headers CORS si es necesario
-        header("Access-Control-Allow-Origin: *");
-        header("Access-Control-Allow-Methods: GET");
-
-        echo $data;
-        exit;
     }
 
 

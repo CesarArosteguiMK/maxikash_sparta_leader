@@ -3,7 +3,7 @@
 // Título: PRUEBAS - Descarga por URL externa
 
 function tryDownloadFromExternalUrl($fileName) {
-    $baseUrl = 'http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=';
+    $baseUrl = 'https://gv23a4ht7564jqphca5czszrdy0bfsjw.lambda-url.us-east-1.on.aws/?fileName=';
     $externalUrl = $baseUrl . urlencode($fileName);
     $headers = @get_headers($externalUrl);
     if ($headers && strpos($headers[0], '200') !== false) {

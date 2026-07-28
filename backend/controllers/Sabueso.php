@@ -4927,10 +4927,9 @@ class Sabueso extends Controller
         $configPath = dirname(__DIR__) . '/config/config.ini';
         $config = is_file($configPath) ? (parse_ini_file($configPath, true) ?: []) : [];
         $bases = array_filter([
+            'https://gv23a4ht7564jqphca5czszrdy0bfsjw.lambda-url.us-east-1.on.aws/',
             trim((string) getenv('SPARTA_DOCUMENTOS_S3_PROXY_URL')),
             trim((string) ($config['documentos_s3']['proxy_url'] ?? '')),
-            'http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File',
-            'http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File',
         ]);
         $bases = array_values(array_unique($bases));
 
