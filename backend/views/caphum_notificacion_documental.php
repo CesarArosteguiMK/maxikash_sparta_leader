@@ -160,6 +160,7 @@ $tipoInicial = $tipos[0] ?? [
                             <th>Usuario</th>
                             <th>Estado</th>
                             <th>Entrega</th>
+                            <th class="text-end">Acciones</th>
                         </tr>
                         </thead>
                         <tbody id="avanceCuerpo"></tbody>
@@ -292,7 +293,7 @@ $tipoInicial = $tipos[0] ?? [
     const cargarAvance = async () => {
         if (!campaniaAvance) return;
         const cuerpo = $('#avanceCuerpo');
-        cuerpo.innerHTML = '<tr><td colspan="4" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span>Cargando...</td></tr>';
+        cuerpo.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span>Cargando...</td></tr>';
         try {
             const params = new URLSearchParams({
                 id: campaniaAvance.id,
@@ -308,12 +309,191 @@ $tipoInicial = $tipos[0] ?? [
                     <td>${escapeHtml(row.user_name || '')}</td>
                     <td><span class="badge ${entregado ? 'text-bg-success' : 'text-bg-warning'}">${escapeHtml(row.estado_entrega)}</span></td>
                     <td>${entregado ? `${escapeHtml(row.nombre_logico || '')}<br><small class="text-muted">${escapeHtml(row.cargado_en || '')}</small>` : '—'}</td>
+                    <td class="text-end">${entregado ? `
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Acciones del documento">
+                            <button class="btn btn-outline-primary" type="button" title="Ver PDF" aria-label="Ver PDF"
+                                    data-ver-entrega="${Number(row.id_documento_carga || 0)}" data-nombre-entrega="${escapeHtml(row.nombre_logico || 'Documento')}">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                            <button class="btn btn-outline-danger" type="button" title="Eliminar y solicitar de nuevo" aria-label="Eliminar y solicitar de nuevo"
+                                    data-eliminar-entrega="${Number(row.id_documento_carga || 0)}" data-nombre-entrega="${escapeHtml(row.nombre_logico || 'Documento')}">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>` : '-'}</td>
                 </tr>`;
-            }).join('') : '<tr><td colspan="4" class="text-center text-muted py-4">No hay resultados.</td></tr>';
+            }).join('') : '<tr><td colspan="5" class="text-center text-muted py-4">No hay resultados.</td></tr>';
         } catch (error) {
-            cuerpo.innerHTML = `<tr><td colspan="4"><div class="alert alert-danger mb-0">${escapeHtml(error.message)}</div></td></tr>`;
+            cuerpo.innerHTML = `<tr><td colspan="5"><div class="alert alert-danger mb-0">${escapeHtml(error.message)}</div></td></tr>`;
         }
     };
+
+    const cargarLibreriaQr = () => {
+        if (window.QRCode && typeof window.QRCode.toCanvas === 'function') return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            const existente = document.querySelector('script[data-rrhh-qrcode="1"]');
+            if (existente) {
+                existente.addEventListener('load', resolve, {once: true});
+                existente.addEventListener('error', () => reject(new Error('No se pudo cargar el QR.')), {once: true});
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = '/assets/vendor/libs/qrcode/qrcode.js';
+            script.dataset.rrhhQrcode = '1';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('No se pudo cargar el QR.'));
+            document.head.appendChild(script);
+        });
+    };
+
+    const renderQr = async (otpauthUrl) => {
+        if (!otpauthUrl) return;
+        try {
+            await cargarLibreriaQr();
+            const canvas = document.getElementById('rrhh-notif-totp-qr');
+            if (canvas && window.QRCode && typeof window.QRCode.toCanvas === 'function') {
+                await window.QRCode.toCanvas(canvas, otpauthUrl, {width: 190, margin: 2, errorCorrectionLevel: 'M'});
+            }
+        } catch (_error) {
+            const aviso = document.getElementById('rrhh-notif-totp-qr-error');
+            if (aviso) aviso.classList.remove('d-none');
+        }
+    };
+
+    const pedirAutorizacionDocumento = async (idDocumentoCarga, accion) => {
+        const solicitar = async (codigo = '') => {
+            const formData = new FormData();
+            formData.append('id', String(idDocumentoCarga));
+            formData.append('accion', accion);
+            if (codigo) formData.append('totp_code', codigo);
+            return json('/caphum/crearTokenDocumentoPersonaSensible', {
+                method: 'POST',
+                body: formData,
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            });
+        };
+
+        let respuesta = await solicitar();
+        if (!respuesta.datos?.requiere_totp) return respuesta.datos || {};
+        if (!window.Swal) throw new Error('Google Authenticator es requerido para este documento.');
+
+        const datosTotp = respuesta.datos || {};
+        const esSetup = !!datosTotp.setup;
+        const htmlTotp = esSetup
+            ? `<div class="text-start"><p class="mb-2">Escanea este QR desde Google Authenticator.</p>
+                <div class="text-center border rounded p-2 mb-2"><canvas id="rrhh-notif-totp-qr" width="190" height="190"></canvas>
+                <div id="rrhh-notif-totp-qr-error" class="small text-danger d-none">No se pudo mostrar el QR.</div></div>
+                <p class="small text-muted mb-0">Despues captura el codigo de 6 digitos generado por la aplicacion.</p></div>`
+            : '<p class="mb-0">Escribe el codigo de 6 digitos de Google Authenticator para continuar.</p>';
+        const confirmacion = await Swal.fire({
+            title: esSetup ? 'Configurar segundo paso' : 'Segundo paso requerido',
+            html: htmlTotp,
+            input: 'text',
+            inputPlaceholder: 'Codigo de 6 digitos',
+            inputAttributes: {maxlength: 6, inputmode: 'numeric', autocomplete: 'one-time-code'},
+            showCancelButton: true,
+            confirmButtonText: esSetup ? 'Activar y continuar' : 'Confirmar',
+            cancelButtonText: 'Cancelar',
+            didOpen: () => renderQr(String(datosTotp.otpauth_url || '')),
+            preConfirm: value => {
+                const codigo = String(value || '').replace(/\D+/g, '');
+                if (codigo.length !== 6) {
+                    Swal.showValidationMessage('Captura los 6 digitos.');
+                    return false;
+                }
+                return codigo;
+            }
+        });
+        if (!confirmacion.isConfirmed) return null;
+        respuesta = await solicitar(confirmacion.value);
+        return respuesta.datos || {};
+    };
+
+    const abrirDocumento = (url, nombre) => {
+        let modal = document.getElementById('modalVisorEntregaDocumental');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.id = 'modalVisorEntregaDocumental';
+            modal.tabIndex = -1;
+            modal.setAttribute('aria-hidden', 'true');
+            modal.innerHTML = `
+                <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width:92vw">
+                    <div class="modal-content border-0 shadow-lg" style="height:min(88vh,900px)">
+                        <div class="modal-header py-2">
+                            <h5 class="modal-title text-truncate"><i class="fa-solid fa-file-pdf text-danger me-2"></i><span></span></h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body p-0"><iframe title="Vista previa del documento" style="display:block;width:100%;height:100%;border:0;background:#fff"></iframe></div>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+            modal.addEventListener('hidden.bs.modal', () => {
+                const frame = modal.querySelector('iframe');
+                if (frame) frame.src = 'about:blank';
+            });
+        }
+        if (!window.bootstrap?.Modal) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+            return;
+        }
+        modal.querySelector('.modal-title span').textContent = nombre;
+        modal.querySelector('iframe').src = url;
+        bootstrap.Modal.getOrCreateInstance(modal, {backdrop: false}).show();
+    };
+
+    $('#avanceCuerpo').addEventListener('click', async event => {
+        const botonVer = event.target.closest('[data-ver-entrega]');
+        const botonEliminar = event.target.closest('[data-eliminar-entrega]');
+        const boton = botonVer || botonEliminar;
+        if (!boton) return;
+
+        const idDocumento = Number(boton.dataset.verEntrega || boton.dataset.eliminarEntrega || 0);
+        if (!idDocumento) return;
+        const nombre = boton.dataset.nombreEntrega || 'Documento';
+
+        try {
+            if (botonVer) {
+                boton.disabled = true;
+                const autorizado = await pedirAutorizacionDocumento(idDocumento, 'ver');
+                if (autorizado?.url) abrirDocumento(autorizado.url, nombre);
+                return;
+            }
+
+            const confirmar = window.Swal
+                ? await Swal.fire({
+                    icon: 'warning',
+                    title: 'Eliminar documento',
+                    text: `Se eliminara "${nombre}" y el colaborador volvera a tener la solicitud pendiente.`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Si, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#dc3545'
+                })
+                : {isConfirmed: window.confirm(`Eliminar ${nombre}?`)};
+            if (!confirmar.isConfirmed) return;
+
+            boton.disabled = true;
+            const autorizado = await pedirAutorizacionDocumento(idDocumento, 'eliminar');
+            if (!autorizado?.token) return;
+            const formData = new FormData();
+            formData.append('id_documento', String(idDocumento));
+            formData.append('token', autorizado.token);
+            const resultado = await json('/caphum/eliminarDocumentoPersona', {
+                method: 'POST',
+                body: formData,
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            });
+            if (window.Swal) {
+                await Swal.fire({icon: 'success', title: 'Documento eliminado', text: resultado.mensaje});
+            }
+            await Promise.all([cargarAvance(), cargarCampanias()]);
+        } catch (error) {
+            if (window.Swal) Swal.fire({icon: 'error', title: 'No se pudo completar', text: error.message});
+            else alert(error.message);
+        } finally {
+            boton.disabled = false;
+        }
+    });
 
     form.addEventListener('submit', async event => {
         event.preventDefault();

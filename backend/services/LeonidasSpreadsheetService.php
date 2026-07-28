@@ -75,6 +75,35 @@ final class LeonidasSpreadsheetService
         return ['token' => $token, 'nombre' => $nombre, 'expira_en' => $cargas[$token]['expira_en']];
     }
 
+    /**
+     * Registra para análisis un Excel ya validado por LeonidasAttachmentService.
+     * No mueve ni duplica el archivo; conserva el mismo token y hash.
+     */
+    public function adoptarCargaOperativa(string $token, array $meta, int $actorId): void
+    {
+        $extension = strtolower((string) ($meta['extension'] ?? ''));
+        $ruta = (string) ($meta['ruta'] ?? '');
+        if (!in_array($extension, ['xlsx', 'xls'], true) || !is_file($ruta)) {
+            throw new \InvalidArgumentException('El adjunto no es un Excel compatible.');
+        }
+        if ((int) ($meta['actor_id'] ?? 0) !== $actorId) {
+            throw new \RuntimeException('El Excel pertenece a otra sesión.');
+        }
+        $hash = (string) ($meta['hash'] ?? '');
+        if ($hash === '' || !hash_equals($hash, (string) hash_file('sha256', $ruta))) {
+            throw new \RuntimeException('El Excel cambió después de su validación.');
+        }
+        $cargas = $this->cargasVigentes($actorId);
+        $cargas[$token] = [
+            'actor_id' => $actorId,
+            'nombre' => (string) ($meta['nombre'] ?? basename($ruta)),
+            'ruta' => $ruta,
+            'hash' => $hash,
+            'expira_en' => min((int) ($meta['expira_en'] ?? time() + self::TTL), time() + self::TTL),
+        ];
+        $_SESSION[self::SESSION_KEY] = $cargas;
+    }
+
     public function analizar(string $token, string $mensaje, array $contexto): array
     {
         $meta = $this->carga($token, (int) ($contexto['actor_id'] ?? 0));

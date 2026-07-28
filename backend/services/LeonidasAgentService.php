@@ -6,6 +6,11 @@ require_once __DIR__ . '/LeonidasCapitalHumanoService.php';
 require_once __DIR__ . '/LeonidasSpreadsheetService.php';
 require_once __DIR__ . '/LeonidasLocalAgentService.php';
 require_once __DIR__ . '/LeonidasMotosAdjudicadasService.php';
+require_once __DIR__ . '/LeonidasAttachmentService.php';
+require_once __DIR__ . '/LeonidasOperationStore.php';
+require_once __DIR__ . '/LeonidasFinancialWorkflowService.php';
+require_once __DIR__ . '/LeonidasTrackingEvidenceService.php';
+require_once __DIR__ . '/LeonidasOperationalService.php';
 require_once __DIR__ . '/../core/DatabaseLegacy.php';
 
 /**
@@ -22,13 +27,20 @@ class LeonidasAgentService
     private LeonidasCapitalHumanoService $capitalHumano;
     private LeonidasLocalAgentService $agentesLocales;
     private LeonidasMotosAdjudicadasService $motosAdjudicadas;
+    private LeonidasOperationalService $operaciones;
 
     public function __construct(array $adapters = [])
     {
         $capitalHumano = $adapters['capital_humano_service'] ?? null;
         $agentesLocales = $adapters['local_agent_service'] ?? null;
         $motosAdjudicadas = $adapters['motos_adjudicadas_service'] ?? null;
-        unset($adapters['capital_humano_service'], $adapters['local_agent_service'], $adapters['motos_adjudicadas_service']);
+        $operaciones = $adapters['operational_service'] ?? null;
+        unset(
+            $adapters['capital_humano_service'],
+            $adapters['local_agent_service'],
+            $adapters['motos_adjudicadas_service'],
+            $adapters['operational_service']
+        );
         $this->capitalHumano = $capitalHumano instanceof LeonidasCapitalHumanoService
             ? $capitalHumano
             : new LeonidasCapitalHumanoService();
@@ -38,6 +50,9 @@ class LeonidasAgentService
         $this->motosAdjudicadas = $motosAdjudicadas instanceof LeonidasMotosAdjudicadasService
             ? $motosAdjudicadas
             : new LeonidasMotosAdjudicadasService();
+        $this->operaciones = $operaciones instanceof LeonidasOperationalService
+            ? $operaciones
+            : new LeonidasOperationalService();
         $this->adapters = $adapters + [
             'convenio_ofertas' => static fn(int $idCredito): array => \Models\Convenios::getOfertasElegibles($idCredito),
             'convenio_guardar' => static fn(array $datos): array => \Models\Convenios::guardarConvenio($datos),
@@ -104,7 +119,8 @@ class LeonidasAgentService
             ['convenio_crear', 'moto_asignar', 'excel_aplicar', 'cartera_reactivar_tarea_movil'],
             LeonidasCapitalHumanoService::accionesEjecutables(),
             LeonidasLocalAgentService::accionesEjecutables(),
-            LeonidasMotosAdjudicadasService::accionesEjecutables()
+            LeonidasMotosAdjudicadasService::accionesEjecutables(),
+            LeonidasOperationalService::accionesEjecutables()
         );
     }
 
@@ -138,6 +154,11 @@ class LeonidasAgentService
         $motosAdjudicadas = $this->motosAdjudicadas->resolver($mensaje, $normalizado, $contexto);
         if ($motosAdjudicadas !== null) {
             return $motosAdjudicadas;
+        }
+
+        $operacion = $this->operaciones->resolver($mensaje, $normalizado, $contexto);
+        if ($operacion !== null) {
+            return $operacion;
         }
 
         if ($this->solicitaDiagnosticoTareaMovil($normalizado)) {
@@ -414,6 +435,9 @@ class LeonidasAgentService
         if (LeonidasCapitalHumanoService::puedeEjecutar($accion)) {
             return $this->capitalHumano->ejecutar($accion, $payload, $contexto);
         }
+        if (LeonidasOperationalService::puedeEjecutar($accion)) {
+            return $this->operaciones->ejecutar($accion, $payload, $contexto);
+        }
 
         throw new \RuntimeException('Leónidas no reconoce el ejecutor solicitado.');
     }
@@ -422,6 +446,7 @@ class LeonidasAgentService
     {
         unset($_SESSION[self::TASK_KEY]);
         $this->capitalHumano->limpiarTarea();
+        $this->operaciones->limpiarTarea();
     }
 
     public function entradaSeguraPendiente(int $actorId): ?string
