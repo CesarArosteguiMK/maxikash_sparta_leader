@@ -40,6 +40,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .atlas-attendance-status-no-realizada { background:#fee2e2; color:#b91c1c; }
         .atlas-attendance-status-fuera { background:#ffedd5; color:#c2410c; }
         .atlas-attendance-status-en-visita { background:#dbeafe; color:#1d4ed8; }
+        .atlas-attendance-status-gestion-sin-visita { background:#fef3c7; color:#92400e; }
         .atlas-attendance-status-programada { background:#f1f5f9; color:#475569; }
         .atlas-attendance-empty { padding:2.5rem 1rem !important; text-align:center; color:#64748b !important; }
         .atlas-attendance-note { color:#64748b; font-size:.73rem; font-weight:700; margin-top:.55rem; }
@@ -158,7 +159,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
 
     <section class="atlas-attendance-table-panel">
         <div class="atlas-attendance-table-head">
-            <h2 class="atlas-attendance-table-title">Detalle de visitas</h2>
+            <h2 class="atlas-attendance-table-title">Detalle de visitas y gestiones</h2>
             <span class="atlas-attendance-table-meta" id="atlasAttendanceGenerated">Sin consultar</span>
         </div>
         <div class="atlas-attendance-scroll">
@@ -237,12 +238,13 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         if (normalized === 'no realizada') return 'atlas-attendance-status-no-realizada';
         if (normalized === 'fuera de ubicacion') return 'atlas-attendance-status-fuera';
         if (normalized === 'en visita') return 'atlas-attendance-status-en-visita';
+        if (normalized === 'gestion sin visita') return 'atlas-attendance-status-gestion-sin-visita';
         return 'atlas-attendance-status-programada';
     };
 
     const renderRows = (rows) => {
         if (!rows.length) {
-            body.innerHTML = '<tr><td class="atlas-attendance-empty" colspan="11">No hay visitas para los filtros seleccionados.</td></tr>';
+            body.innerHTML = '<tr><td class="atlas-attendance-empty" colspan="11">No hay visitas ni gestiones para los filtros seleccionados.</td></tr>';
             return;
         }
         body.innerHTML = rows.map((row) => {
@@ -250,10 +252,15 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 ? 'Sin distancia'
                 : `${number(row.distancia_metros)} m`;
             const observations = row.observaciones_incumplimiento || row.observaciones || row.evidencia || '';
+            const managementDetails = (row.gestiones_detalle || []).map((item) => {
+                const client = item.cliente || 'Cliente sin nombre';
+                const offer = item.oferta ? `Oferta #${item.oferta}` : '';
+                return [client, offer].filter(Boolean).join(' · ');
+            }).join(' | ');
             return `<tr>
                 <td>
                     <div class="atlas-attendance-main">${escapeHtml(row.fecha || '')}</div>
-                    <div class="atlas-attendance-sub">${escapeHtml(row.dia_visita || '')}</div>
+                    <div class="atlas-attendance-sub">${escapeHtml(row.dia_visita || '')}${row.hora_gestion ? ` · Gestión ${escapeHtml(row.hora_gestion)}` : ''}</div>
                 </td>
                 <td>
                     <div class="atlas-attendance-main">${escapeHtml(row.colaborador || 'Sin asignar')}</div>
@@ -277,7 +284,10 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                     <div class="atlas-attendance-sub">Fin ${escapeHtml(row.hora_termino_visita || '--:--')}</div>
                 </td>
                 <td>${escapeHtml(row.tiempo_permanencia || 'Sin dato')}</td>
-                <td class="text-end"><strong>${number(row.gestiones_realizadas)}</strong></td>
+                <td class="text-end" style="max-width:18rem; white-space:normal;">
+                    <strong>${number(row.gestiones_realizadas)}</strong>
+                    ${managementDetails ? `<div class="atlas-attendance-sub">${escapeHtml(managementDetails)}</div>` : ''}
+                </td>
                 <td class="text-end"><strong>${row.pendientes_por_gestionar === null ? '-' : number(row.pendientes_por_gestionar)}</strong></td>
                 <td style="max-width:22rem; white-space:normal;">${escapeHtml(observations || 'Sin observaciones')}</td>
             </tr>`;
