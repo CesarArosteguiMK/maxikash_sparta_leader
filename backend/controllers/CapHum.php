@@ -6,6 +6,7 @@ use Core\Controller;
 use Core\SecureUpload;
 use Core\OcrIdentidad;
 use Models\CapHum as CapHumDAO;
+use Models\CapHumNotificacionDocumental;
 use Models\CapHumRrhh;
 use Models\Candidatos as CandidatosDAO;
 use Models\LegacyUserSync;
@@ -9986,6 +9987,174 @@ class CapHum extends Controller
     private static function puedeUsarMisDocumentos(): bool
     {
         return self::tieneModuloWeb(self::MODULO_MIS_DOCUMENTOS) || self::tieneModuloWeb(4);
+    }
+
+    private static function puedeAdministrarNotificacionesDocumentales(): bool
+    {
+        return self::usuarioSesionId() === 1 || self::tieneModuloWeb(4);
+    }
+
+    public function notificacion()
+    {
+        if (!self::puedeAdministrarNotificacionesDocumentales()) {
+            http_response_code(403);
+            self::set('titulo', 'Acceso restringido');
+            self::set('mensaje', 'No tienes permiso para administrar notificaciones de Capital Humano.');
+            self::render('error');
+            return;
+        }
+        CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
+        CapHumNotificacionDocumental::asegurarTablas();
+        self::set('titulo', 'Notificación - Capital Humano');
+        self::set('tiposNotificacionDocumental', CapHumNotificacionDocumental::catalogoTipos());
+        self::render('caphum_notificacion_documental');
+    }
+
+    public function getCampaniasNotificacionDocumental()
+    {
+        if (!self::puedeAdministrarNotificacionesDocumentales()) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar campañas.']);
+            return;
+        }
+        self::respuestaJSON(CapHumNotificacionDocumental::listarCampanias());
+    }
+
+    public function guardarCampaniaNotificacionDocumental()
+    {
+        if (!self::puedeAdministrarNotificacionesDocumentales()) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para activar campañas.']);
+            return;
+        }
+        $input = json_decode((string)file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = $_POST;
+        }
+        self::respuestaJSON(CapHumNotificacionDocumental::guardarCampania(
+            $input,
+            self::usuarioSesionId()
+        ));
+    }
+
+    public function cambiarEstadoCampaniaNotificacionDocumental()
+    {
+        if (!self::puedeAdministrarNotificacionesDocumentales()) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para modificar campañas.']);
+            return;
+        }
+        $input = json_decode((string)file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = $_POST;
+        }
+        self::respuestaJSON(CapHumNotificacionDocumental::cambiarEstadoCampania(
+            (int)($input['id'] ?? 0),
+            !empty($input['activa']),
+            self::usuarioSesionId()
+        ));
+    }
+
+    public function getPersonasCampaniaNotificacionDocumental()
+    {
+        if (!self::puedeAdministrarNotificacionesDocumentales()) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar el avance.']);
+            return;
+        }
+        self::respuestaJSON(CapHumNotificacionDocumental::personasCampania(
+            (int)($_GET['id'] ?? 0),
+            (string)($_GET['estado'] ?? 'todos'),
+            (string)($_GET['buscar'] ?? '')
+        ));
+    }
+
+    /**
+     * Consulta global usada por el layout. No requiere módulo de Capital Humano:
+     * cualquier colaborador autenticado puede tener una obligación pendiente.
+     */
+    public function getNotificacionDocumentalObligatoriaPendiente()
+    {
+        self::respuestaJSON(CapHumNotificacionDocumental::obtenerPendientePersona(
+            self::usuarioSesionId()
+        ));
+    }
+
+    public function subirNotificacionDocumentalObligatoria()
+    {
+        $rutaFinal = '';
+        try {
+            $idPersona = self::usuarioSesionId();
+            $idCampania = (int)($_POST['id_campania'] ?? 0);
+            if ($idPersona <= 0 || $idCampania <= 0) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo identificar la solicitud documental.']);
+                return;
+            }
+            CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
+            $pendiente = CapHumNotificacionDocumental::obtenerPendientePersona($idPersona);
+            if (empty($pendiente['success'])
+                || (int)($pendiente['datos']['id'] ?? 0) !== $idCampania) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'La solicitud cambió o ya fue atendida. Actualiza la pantalla.',
+                ]);
+                return;
+            }
+
+            $archivo = $_FILES['archivo'] ?? null;
+            if (!$archivo || (int)($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona la constancia en formato PDF.']);
+                return;
+            }
+            $tmp = (string)($archivo['tmp_name'] ?? '');
+            $nombreOriginal = trim((string)($archivo['name'] ?? 'constancia.pdf'));
+            $tamanio = (int)($archivo['size'] ?? 0);
+            if ($tamanio <= 0 || $tamanio > 15 * 1024 * 1024) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El PDF debe pesar como máximo 15 MB.']);
+                return;
+            }
+            if (strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION)) !== 'pdf'
+                || !SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El archivo no es un PDF válido.']);
+                return;
+            }
+
+            $directorio = sparta_uploads_join('documentos') . DIRECTORY_SEPARATOR;
+            SecureUpload::ensureDir($directorio);
+            $nombreFinal = SecureUpload::generateSafeFilename('pdf');
+            $rutaFinal = $directorio . $nombreFinal;
+            if (!move_uploaded_file($tmp, $rutaFinal)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo guardar el PDF en el servidor.']);
+                return;
+            }
+            $sha256 = hash_file('sha256', $rutaFinal);
+            if (!is_string($sha256) || strlen($sha256) !== 64) {
+                @unlink($rutaFinal);
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo verificar la integridad del PDF.']);
+                return;
+            }
+
+            $resultado = CapHumNotificacionDocumental::registrarEntrega(
+                $idCampania,
+                $idPersona,
+                $nombreFinal,
+                $nombreOriginal,
+                $tamanio,
+                $sha256
+            );
+            if (empty($resultado['success']) || !empty($resultado['datos']['ya_entregado'])) {
+                @unlink($rutaFinal);
+            }
+            self::respuestaJSON($resultado);
+        } catch (\Throwable $e) {
+            if ($rutaFinal !== '' && is_file($rutaFinal)) {
+                @unlink($rutaFinal);
+            }
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No se pudo recibir la constancia: ' . $e->getMessage(),
+            ]);
+        }
     }
 
     public function analizarMisDocumentos()
