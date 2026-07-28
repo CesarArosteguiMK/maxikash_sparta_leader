@@ -43,6 +43,25 @@ $tipoInicial = $tipos[0] ?? [
                                 <?php endforeach; ?>
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="notifAlcance">Destinatarios</label>
+                            <select class="form-select" id="notifAlcance" name="alcance">
+                                <option value="todos">Todos los colaboradores aplicables</option>
+                                <option value="seleccionados">Solo usuarios seleccionados</option>
+                            </select>
+                        </div>
+                        <div class="border rounded-3 p-3 mb-3 d-none" id="selectorDestinatarios">
+                            <label class="form-label fw-semibold" for="buscarDestinatario">Seleccionar colaboradores</label>
+                            <input class="form-control" id="buscarDestinatario"
+                                   placeholder="Buscar por nombre, usuario, correo o número de empleado">
+                            <div class="form-text mb-2">Puedes seleccionar 1, 5, 20 o cualquier cantidad necesaria.</div>
+                            <div class="list-group mb-2" id="resultadosDestinatarios" style="max-height:220px;overflow:auto"></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <strong><span id="totalDestinatarios">0</span> seleccionados</strong>
+                                <button class="btn btn-link btn-sm text-danger p-0" id="limpiarDestinatarios" type="button">Limpiar selección</button>
+                            </div>
+                            <div class="d-flex flex-wrap gap-1 mt-2" id="destinatariosSeleccionados"></div>
+                        </div>
                         <div class="row g-3 mb-3">
                             <div class="col-6">
                                 <label class="form-label fw-semibold" for="notifAnio">Año</label>
@@ -67,9 +86,10 @@ $tipoInicial = $tipos[0] ?? [
                             <textarea class="form-control" id="notifMensaje" name="mensaje" rows="4" maxlength="5000"></textarea>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-semibold" for="notifUrl">Portal oficial</label>
-                            <input class="form-control" id="notifUrl" name="url_descarga" type="url"
-                                   value="<?= htmlspecialchars((string)$tipoInicial['url_descarga']) ?>" required>
+                            <label class="form-label fw-semibold" for="notifUrl">Enlace de descarga o consulta</label>
+                            <input class="form-control" id="notifUrl" name="url_descarga" type="text"
+                                   value="<?= htmlspecialchars((string)$tipoInicial['url_descarga']) ?>">
+                            <div class="form-text">Se deja vacío cuando el documento lo proporciona el colaborador.</div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold" for="notifLimite">Fecha límite <span class="text-muted fw-normal">(opcional)</span></label>
@@ -159,9 +179,12 @@ $tipoInicial = $tipos[0] ?? [
     })[char]);
     const form = $('#formCampania');
     const lista = $('#listaCampanias');
+    const catalogo = <?= json_encode($tipos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     let campanias = [];
     let campaniaAvance = null;
     let timerBusqueda = null;
+    let timerDestinatarios = null;
+    const destinatarios = new Map();
 
     const json = async (url, options = {}) => {
         const response = await fetch(url, {credentials: 'same-origin', cache: 'no-store', ...options});
@@ -173,9 +196,52 @@ $tipoInicial = $tipos[0] ?? [
     const actualizarTexto = () => {
         const anio = Number($('#notifAnio').value);
         const semestre = Number($('#notifSemestre').value);
-        const nombre = `Semanas cotizadas ${anio} - ${semestre} semestre`;
+        const tipo = catalogo.find(item => item.clave === $('#notifTipo').value) || catalogo[0] || {};
+        const nombre = `${tipo.nombre || 'Documento'} ${anio} - ${semestre} semestre`;
         $('#notifTitulo').value = nombre;
-        $('#notifMensaje').value = `Capital Humano solicita tu constancia detallada de semanas cotizadas del IMSS correspondiente a ${anio}, ${semestre} semestre. Este documento es obligatorio para mantener actualizado tu expediente laboral. Descárgalo desde el portal oficial del IMSS y súbelo en formato PDF.`;
+        $('#notifMensaje').value = `Capital Humano solicita el documento «${tipo.nombre || 'Documento'}» para ${anio}, ${semestre} semestre. ${tipo.mensaje_predeterminado || 'Carga el documento solicitado en formato PDF.'} Esta entrega es obligatoria para mantener actualizado tu expediente laboral.`;
+        $('#notifUrl').value = tipo.url_descarga || '';
+    };
+
+    const renderSeleccionados = () => {
+        $('#totalDestinatarios').textContent = destinatarios.size;
+        const personas = Array.from(destinatarios.values());
+        $('#destinatariosSeleccionados').innerHTML = personas.slice(0, 30).map(persona =>
+            `<span class="badge text-bg-primary d-inline-flex align-items-center gap-1">
+                ${escapeHtml(persona.nombre)}
+                <button class="btn-close btn-close-white" type="button" style="font-size:.5rem"
+                        data-quitar-destinatario="${Number(persona.id_persona)}" aria-label="Quitar"></button>
+            </span>`
+        ).join('') + (personas.length > 30 ? `<span class="badge text-bg-secondary">+${personas.length - 30} más</span>` : '');
+    };
+
+    const cargarDestinatarios = async () => {
+        const contenedor = $('#resultadosDestinatarios');
+        contenedor.innerHTML = '<div class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2"></span>Buscando...</div>';
+        try {
+            const params = new URLSearchParams({buscar: $('#buscarDestinatario').value.trim(), limite: 50});
+            const rows = (await json('/caphum/buscarPersonasNotificacionDocumental?' + params)).datos || [];
+            contenedor.innerHTML = rows.length ? rows.map(persona => {
+                const id = Number(persona.id_persona);
+                return `<label class="list-group-item list-group-item-action d-flex gap-2 align-items-start">
+                    <input class="form-check-input mt-1" type="checkbox" data-destinatario="${id}" ${destinatarios.has(id) ? 'checked' : ''}>
+                    <span><strong>${escapeHtml(persona.nombre)}</strong>
+                    <small class="d-block text-muted">${escapeHtml(persona.user_name || '')}${persona.numero_empleado ? ' · ' + escapeHtml(persona.numero_empleado) : ''}</small></span>
+                </label>`;
+            }).join('') : '<div class="text-center text-muted py-3">No se encontraron colaboradores.</div>';
+            rows.forEach(persona => {
+                const check = contenedor.querySelector(`[data-destinatario="${Number(persona.id_persona)}"]`);
+                if (check) check._persona = persona;
+            });
+        } catch (error) {
+            contenedor.innerHTML = `<div class="alert alert-danger mb-0">${escapeHtml(error.message)}</div>`;
+        }
+    };
+
+    const cambiarAlcance = () => {
+        const seleccionados = $('#notifAlcance').value === 'seleccionados';
+        $('#selectorDestinatarios').classList.toggle('d-none', !seleccionados);
+        if (seleccionados && !$('#resultadosDestinatarios').children.length) cargarDestinatarios();
     };
 
     const renderCampanias = () => {
@@ -192,7 +258,7 @@ $tipoInicial = $tipos[0] ?? [
                 <div class="d-flex justify-content-between gap-3">
                     <div>
                         <div class="fw-bold">${escapeHtml(c.titulo)}</div>
-                        <small class="text-muted">${escapeHtml(c.anio)} · ${escapeHtml(c.semestre)} semestre</small>
+                        <small class="text-muted">${escapeHtml(c.anio)} · ${escapeHtml(c.semestre)} semestre · ${c.alcance === 'seleccionados' ? 'Selección específica' : 'Todos'}</small>
                     </div>
                     <span class="badge ${activa ? 'text-bg-success' : 'text-bg-secondary'} align-self-start">${activa ? 'Activa' : 'Pausada'}</span>
                 </div>
@@ -256,6 +322,10 @@ $tipoInicial = $tipos[0] ?? [
         try {
             const payload = Object.fromEntries(new FormData(form).entries());
             payload.activa = $('#notifActiva').checked ? 1 : 0;
+            payload.persona_ids = Array.from(destinatarios.keys());
+            if (payload.alcance === 'seleccionados' && !payload.persona_ids.length) {
+                throw new Error('Selecciona al menos un colaborador.');
+            }
             const result = await json('/caphum/guardarCampaniaNotificacionDocumental', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -301,6 +371,34 @@ $tipoInicial = $tipos[0] ?? [
 
     $('#notifAnio').addEventListener('change', actualizarTexto);
     $('#notifSemestre').addEventListener('change', actualizarTexto);
+    $('#notifTipo').addEventListener('change', actualizarTexto);
+    $('#notifAlcance').addEventListener('change', cambiarAlcance);
+    $('#buscarDestinatario').addEventListener('input', () => {
+        clearTimeout(timerDestinatarios);
+        timerDestinatarios = setTimeout(cargarDestinatarios, 300);
+    });
+    $('#resultadosDestinatarios').addEventListener('change', event => {
+        const check = event.target.closest('[data-destinatario]');
+        if (!check) return;
+        const id = Number(check.dataset.destinatario);
+        if (check.checked && check._persona) destinatarios.set(id, check._persona);
+        else destinatarios.delete(id);
+        renderSeleccionados();
+    });
+    $('#destinatariosSeleccionados').addEventListener('click', event => {
+        const button = event.target.closest('[data-quitar-destinatario]');
+        if (!button) return;
+        const id = Number(button.dataset.quitarDestinatario);
+        destinatarios.delete(id);
+        const check = $('#resultadosDestinatarios').querySelector(`[data-destinatario="${id}"]`);
+        if (check) check.checked = false;
+        renderSeleccionados();
+    });
+    $('#limpiarDestinatarios').addEventListener('click', () => {
+        destinatarios.clear();
+        $('#resultadosDestinatarios').querySelectorAll('[data-destinatario]').forEach(check => { check.checked = false; });
+        renderSeleccionados();
+    });
     $('#btnRecargarCampanias').addEventListener('click', cargarCampanias);
     $('#avanceEstado').addEventListener('change', cargarAvance);
     $('#avanceBuscar').addEventListener('input', () => {
@@ -308,6 +406,7 @@ $tipoInicial = $tipos[0] ?? [
         timerBusqueda = setTimeout(cargarAvance, 350);
     });
     actualizarTexto();
+    cambiarAlcance();
     cargarCampanias();
 })();
 </script>

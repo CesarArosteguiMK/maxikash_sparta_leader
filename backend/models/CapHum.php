@@ -4258,7 +4258,14 @@ class CapHum extends Model
                         COUNT(*) AS total_archivos,
                         MAX(cdp.fecha_carga) AS ultima_fecha
                     FROM estado_cuenta.carga_documento_persona cdp
+                    INNER JOIN estado_cuenta.persona p
+                        ON p.id = cdp.id_persona
+                    INNER JOIN estado_cuenta.rrhh_plantilla_activa pla
+                        ON pla.id_persona = cdp.id_persona
+                       AND pla.activo = 1
                     WHERE cdp.id_documento IN (" . implode(',', $idsConsulta) . ")
+                      AND p.estatus = 'Activo'
+                      AND COALESCE(p.es_externo, 0) = 0
                     GROUP BY cdp.id_persona, cdp.id_documento
                 ");
             }
@@ -4297,7 +4304,6 @@ class CapHum extends Model
             foreach ($personas as $persona) {
                 $idPersona = (int) ($persona['id'] ?? 0);
                 $cargadosLocal = 0;
-                $documentos = [];
                 $faltantes = [];
 
                 foreach ($tipos as $tipo) {
@@ -4312,19 +4318,6 @@ class CapHum extends Model
                         $faltantes[] = $tipo['nombre'] ?? '';
                     }
 
-                    $documentos[] = [
-                        'id_documento' => $idDocumento,
-                        'nombre' => $tipo['nombre'] ?? '',
-                        'clave' => $tipo['clave'] ?? '',
-                        'obligatorio' => (int) ($tipo['obligatorio'] ?? 0) === 1,
-                        'estatus' => $estaCargado ? ($cubiertoPor !== '' ? 'Cubierto' : 'Cargado') : 'Faltante',
-                        'cargado' => $estaCargado,
-                        'cubierto_por' => $cubiertoPor,
-                        'total_archivos' => $estaCargado && $cubiertoPor === '' ? (int) ($info['total_archivos'] ?? 0) : 0,
-                        'ultima_fecha' => $estaCargado && $cubiertoPor === '' && !empty($info['ultima_fecha'])
-                            ? date('Y-m-d H:i', strtotime((string) $info['ultima_fecha']))
-                            : null,
-                    ];
                 }
 
                 $totalCargadosGlobal += $cargadosLocal;
@@ -4358,7 +4351,6 @@ class CapHum extends Model
                     'total_faltantes' => $faltantesLocal,
                     'porcentaje_local' => $porcentajeLocal,
                     'faltantes_resumen' => array_slice(array_values(array_filter($faltantes)), 0, 4),
-                    'documentos' => $documentos,
                 ];
             }
 

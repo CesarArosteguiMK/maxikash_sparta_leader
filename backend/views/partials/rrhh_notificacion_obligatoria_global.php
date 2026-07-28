@@ -21,18 +21,11 @@
                 <p class="mb-3" data-rrhh-mensaje></p>
                 <div class="card bg-body-tertiary border-0 mb-3">
                     <div class="card-body">
-                        <h6><i class="fa-solid fa-circle-check text-success me-2"></i>Antes de comenzar</h6>
-                        <p class="mb-2">Ten a la mano tu <strong>CURP, NSS y correo electrónico personal</strong>.</p>
-                        <a class="btn btn-outline-primary" data-rrhh-url target="_blank" rel="noopener noreferrer">
-                            <i class="fa-solid fa-arrow-up-right-from-square me-2"></i>Abrir portal oficial del IMSS
-                        </a>
+                        <h6><i class="fa-solid fa-circle-check text-success me-2"></i>Cómo preparar el documento</h6>
+                        <ul class="mb-3 ps-3" data-rrhh-instrucciones></ul>
+                        <div class="d-flex flex-wrap gap-2" data-rrhh-enlaces></div>
                     </div>
                 </div>
-                <ol class="ps-3 mb-4">
-                    <li class="mb-1">Llena el formulario del IMSS y selecciona <strong>Reporte detallado</strong>.</li>
-                    <li class="mb-1">Abre el correo que envía el IMSS y descarga la constancia.</li>
-                    <li>Regresa a esta ventana y carga el archivo en formato PDF.</li>
-                </ol>
                 <form data-rrhh-form>
                     <input type="hidden" name="id_campania" data-rrhh-campania>
                     <label class="form-label fw-semibold" for="rrhhDocumentoPdf">Constancia en PDF</label>
@@ -58,6 +51,9 @@
     const form = modalElement.querySelector('[data-rrhh-form]');
     const errorBox = modalElement.querySelector('[data-rrhh-error]');
     const submit = modalElement.querySelector('[data-rrhh-enviar]');
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    })[char]);
     let permitidoCerrar = false;
 
     const mostrarError = (message) => {
@@ -71,7 +67,16 @@
     const aplicar = (campania) => {
         modalElement.querySelector('[data-rrhh-titulo]').textContent = campania.titulo || 'Documento obligatorio';
         modalElement.querySelector('[data-rrhh-mensaje]').textContent = campania.mensaje || '';
-        modalElement.querySelector('[data-rrhh-url]').href = campania.url_descarga;
+        const instrucciones = Array.isArray(campania.instrucciones) ? campania.instrucciones : [];
+        modalElement.querySelector('[data-rrhh-instrucciones]').innerHTML = instrucciones.length
+            ? instrucciones.map(texto => `<li class="mb-1">${escapeHtml(texto)}</li>`).join('')
+            : '<li>Prepara el documento completo, vigente y legible en formato PDF.</li>';
+        const enlaces = Array.isArray(campania.enlaces) ? campania.enlaces : [];
+        modalElement.querySelector('[data-rrhh-enlaces]').innerHTML = enlaces.map(enlace =>
+            `<a class="btn btn-outline-primary" href="${escapeHtml(enlace.url)}" target="_blank" rel="noopener noreferrer">
+                <i class="fa-solid fa-arrow-up-right-from-square me-2"></i>${escapeHtml(enlace.label || 'Abrir enlace')}
+            </a>`
+        ).join('');
         modalElement.querySelector('[data-rrhh-campania]').value = campania.id;
         modalElement.querySelector('[data-rrhh-nombre]').textContent = campania.nombre_documento || campania.titulo;
         form.reset();

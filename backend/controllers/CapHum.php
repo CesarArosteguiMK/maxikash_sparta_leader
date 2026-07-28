@@ -42,6 +42,7 @@ class CapHum extends Controller
     private const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
     private const MODULO_AUDITORIA_RRHH = 154;
     private const MODULO_DESCARGAR_MUESTRA_EXPEDIENTES_RRHH = 197;
+    private const MODULO_NOTIFICACION_RRHH = 198;
     private const MODULO_GESTION_ACTUALIZAR_ESTRUCTURA = 191;
     private const MODULO_CONTROL_BAJAS = 13;
     private const MODULOS_DOCUMENTO_RRHH = [
@@ -5200,7 +5201,8 @@ class CapHum extends Controller
                 const idsPermisoEdicionCobranza = new Set(Array.from({ length: 21 }, (_, i) => 107 + i));
                 const idsPermisosAtlas = new Set([129, 130, 138]);
                 const idsPermisosConvenios = new Set([128, 145, 146]);
-                const idsPermisosMotosAdjudicadas = new Set([180, 181, 182, 183, 195]);
+                const idsPermisosMotosAdjudicadas = new Set([180, 181, 182, 183, 192, 195]);
+                const idsPermisosCapitalHumano = new Set([152, 153, 191, 193, 196, 197]);
                 const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).map(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
                     if (idsPermisosMotosAdjudicadas.has(idMod)) {
@@ -5219,15 +5221,7 @@ class CapHum extends Controller
                             menu_item_orden: idMod
                         });
                     }
-                    if (idMod === 191) {
-                        return Object.assign({}, mod, {
-                            menu_grupo: 'Capital Humano',
-                            menu_grupo_icono: 'fa-solid fa-users',
-                            menu_grupo_orden: 11,
-                            menu_item_orden: idMod
-                        });
-                    }
-                    if (idMod === 152 || idMod === 153) {
+                    if (idsPermisosCapitalHumano.has(idMod)) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Capital Humano',
                             menu_grupo_icono: 'fa-solid fa-users',
@@ -9991,7 +9985,7 @@ class CapHum extends Controller
 
     private static function puedeAdministrarNotificacionesDocumentales(): bool
     {
-        return self::usuarioSesionId() === 1 || self::tieneModuloWeb(4);
+        return self::tieneModuloWeb(self::MODULO_NOTIFICACION_RRHH);
     }
 
     public function notificacion()
@@ -10018,6 +10012,50 @@ class CapHum extends Controller
             return;
         }
         self::respuestaJSON(CapHumNotificacionDocumental::listarCampanias());
+    }
+
+    public function buscarPersonasNotificacionDocumental()
+    {
+        if (!self::puedeAdministrarNotificacionesDocumentales()) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para seleccionar destinatarios.']);
+            return;
+        }
+        self::respuestaJSON(CapHumNotificacionDocumental::buscarPersonasElegibles(
+            (string)($_GET['buscar'] ?? ''),
+            (int)($_GET['limite'] ?? 50)
+        ));
+    }
+
+    public function descargarPlantillaNotificacionDocumental($tipo = null)
+    {
+        $permitidas = [
+            'carta_no_adeudo' => [
+                'archivo' => 'carta_no_adeudo_infonavit_fonacot.pdf',
+                'descarga' => 'Carta_de_no_adeudo_FONACOT_o_INFONAVIT.pdf',
+            ],
+        ];
+        $tipo = strtolower(trim((string)$tipo));
+        if (!isset($permitidas[$tipo])) {
+            http_response_code(404);
+            echo 'Plantilla no encontrada.';
+            return;
+        }
+        $base = defined('RAIZ')
+            ? RAIZ . '/storage/plantillas_candidatos'
+            : __DIR__ . '/../storage/plantillas_candidatos';
+        $ruta = $base . DIRECTORY_SEPARATOR . $permitidas[$tipo]['archivo'];
+        if (!is_file($ruta) || !is_readable($ruta)) {
+            http_response_code(404);
+            echo 'La plantilla no está disponible.';
+            return;
+        }
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $permitidas[$tipo]['descarga'] . '"');
+        header('Content-Length: ' . filesize($ruta));
+        header('X-Content-Type-Options: nosniff');
+        readfile($ruta);
+        exit;
     }
 
     public function guardarCampaniaNotificacionDocumental()
@@ -10266,6 +10304,21 @@ class CapHum extends Controller
     public function getResumenDocumentosRrhh()
     {
         self::respuestaJSON(CapHumDAO::getResumenDocumentosRrhhGlobal());
+    }
+
+    public function getDetalleDocumentosRrhh()
+    {
+        $idPersona = (int) ($_GET['id_persona'] ?? 0);
+        if ($idPersona <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona un colaborador valido.']);
+            return;
+        }
+
+        $resultado = CapHumDAO::getResumenDocumentosColaborador($idPersona);
+        foreach ((array) ($resultado['datos']['documentos'] ?? []) as $indice => $documento) {
+            unset($resultado['datos']['documentos'][$indice]['archivos']);
+        }
+        self::respuestaJSON($resultado);
     }
 
     public function autorizarDescargaMuestraExpedientesRrhh()
@@ -16847,6 +16900,94 @@ class CapHum extends Controller
 
     /**
      * Llenar solicitud en línea: muestra el formulario HTML (solicitud___SPARTA_SECRET_REDACTED___v3) con datos del candidato prellenados.
+     * No requiere login. URL: /CapHum/llenarSolicitudEnLinea/{token}
+     */
+    /**
+     * Reutiliza el generador de Candidatos con los datos del colaborador
+     * autenticado que recibió la solicitud documental obligatoria.
+     */
+    public function llenarSolicitudInternaNotificacion()
+    {
+        $idPersona = self::usuarioSesionId();
+        if ($idPersona <= 0) {
+            http_response_code(401);
+            echo 'Inicia sesión para llenar la solicitud interna.';
+            return;
+        }
+        $pendiente = CapHumNotificacionDocumental::obtenerPendientePersona($idPersona);
+        if (empty($pendiente['success'])
+            || (string)($pendiente['datos']['tipo'] ?? '') !== 'solicitud_interna') {
+            http_response_code(403);
+            echo 'No tienes una solicitud interna pendiente.';
+            return;
+        }
+        $personaRes = CapHumDAO::getPersonaDetalle($idPersona);
+        $persona = !empty($personaRes['success']) && is_array($personaRes['datos'] ?? null)
+            ? $personaRes['datos']
+            : null;
+        if (!$persona) {
+            http_response_code(404);
+            echo 'No se encontró la información del colaborador.';
+            return;
+        }
+        $puestosRes = CapHumDAO::getPuestosActivosPersonaParaEdicion($idPersona);
+        $puesto = !empty($puestosRes['success']) && !empty($puestosRes['datos'][0])
+            ? $puestosRes['datos'][0]
+            : [];
+        $datosParaForm = [
+            'fecha' => self::ahoraMexicoCiudad()->format('Y-m-d'),
+            'puesto' => trim((string)($puesto['nombre_puesto'] ?? '')),
+            'ap_paterno' => trim((string)($persona['apellidop'] ?? '')),
+            'ap_materno' => trim((string)($persona['apellidom'] ?? '')),
+            'nombres' => trim(implode(' ', array_filter([
+                $persona['nombres'] ?? '',
+                $persona['segundo_nombre'] ?? '',
+            ], static fn ($valor): bool => trim((string)$valor) !== ''))),
+            'telefono' => trim((string)($persona['telefono'] ?? $persona['telefono_uno'] ?? '')),
+            'correo' => trim((string)($persona['correo'] ?? '')),
+            'departamento' => trim((string)($puesto['nombre_departamento'] ?? $persona['departamento'] ?? '')),
+        ];
+        $this->servirFormularioSolicitudInterna($datosParaForm, '/');
+    }
+
+    private function servirFormularioSolicitudInterna(array $datosParaForm, string $urlRegreso): void
+    {
+        $dirPlantillas = defined('RAIZ')
+            ? RAIZ . '/storage/plantillas_candidatos'
+            : __DIR__ . '/../storage/plantillas_candidatos';
+        $htmlPath = $dirPlantillas . '/solicitud_llenar.html';
+        if (!is_file($htmlPath) || !is_readable($htmlPath)) {
+            http_response_code(404);
+            echo 'Formulario no disponible. Contacta al área de Recursos Humanos.';
+            return;
+        }
+        $html = (string)file_get_contents($htmlPath);
+        $datosJson = json_encode(
+            $datosParaForm,
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE
+        ) ?: '{}';
+        $urlRegresoJson = json_encode(
+            $urlRegreso,
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE
+        ) ?: '""';
+        $script = '<script>window.__CANDIDATO__=' . $datosJson
+            . ';window.__URL_REGRESO_DOCUMENTOS__=' . $urlRegresoJson
+            . ';document.addEventListener("DOMContentLoaded",function(){var d=window.__CANDIDATO__||{};'
+            . '["fecha","puesto","ap_paterno","ap_materno","nombres","telefono","correo"].forEach(function(id){'
+            . 'var el=document.getElementById(id);if(el&&d[id]!==undefined)el.value=d[id]||"";});});</script>';
+        $cierreBody = strripos($html, '</body>');
+        $html = $cierreBody !== false
+            ? substr_replace($html, $script . "\n", $cierreBody, 0)
+            : $html . $script;
+        header('Content-Type: text/html; charset=UTF-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        echo $html;
+    }
+
+    /**
+     * Llenar solicitud en línea con datos del candidato prellenados.
      * No requiere login. URL: /CapHum/llenarSolicitudEnLinea/{token}
      */
     public function llenarSolicitudEnLinea($token = null)
@@ -31266,6 +31407,7 @@ public function getEstadosMunicipiosMexico()
     public function analizarImportacionDocumentosRrhh()
     {
         try {
+            $inicio = microtime(true);
             if (!self::puedeImportarDocumentosRrhh()) {
                 self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para importar documentos RR.HH.']);
                 return;
@@ -31296,7 +31438,11 @@ public function getEstadosMunicipiosMexico()
             }
 
             $resultado = $servicio->analizar($fuentes, $documentosManual);
+            if ($batchId !== '') {
+                $servicio->guardarAnalisisLoteTemporal($batchId, $resultado, $documentosManual, ['tipo' => 'global']);
+            }
             $resultado['batch_id'] = $batchId;
+            $resultado['duracion_ms'] = (int) round((microtime(true) - $inicio) * 1000);
             self::respuestaJSON([
                 'success' => true,
                 'mensaje' => 'Análisis completado.',
@@ -31310,6 +31456,7 @@ public function getEstadosMunicipiosMexico()
     public function importarDocumentosRrhh()
     {
         try {
+            $inicio = microtime(true);
             if (!self::puedeImportarDocumentosRrhh()) {
                 self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para importar documentos RR.HH.']);
                 return;
@@ -31328,11 +31475,17 @@ public function getEstadosMunicipiosMexico()
                 return;
             }
 
-            $resultado = $servicio->importar($fuentes, $documentosManual);
+            $analisisTemporal = $batchId !== ''
+                ? $servicio->obtenerAnalisisLoteTemporal($batchId, $documentosManual, ['tipo' => 'global'])
+                : null;
+            $resultado = $analisisTemporal !== null
+                ? $servicio->importarDesdeAnalisis($fuentes, $analisisTemporal)
+                : $servicio->importar($fuentes, $documentosManual);
             if ($batchId !== '') {
                 $servicio->eliminarLoteTemporal($batchId);
             }
             $resultado['batch_id'] = '';
+            $resultado['duracion_ms'] = (int) round((microtime(true) - $inicio) * 1000);
             self::respuestaJSON([
                 'success' => true,
                 'mensaje' => 'Importación finalizada. Documentos importados: ' . (int) ($resultado['importados'] ?? 0) . '.',
@@ -31364,6 +31517,7 @@ public function getEstadosMunicipiosMexico()
     public function analizarImportacionDocumentosPersonaRrhh()
     {
         try {
+            $inicio = microtime(true);
             if (!self::puedeImportarDocumentosRrhh()) {
                 self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para importar documentos RR.HH.']);
                 return;
@@ -31395,7 +31549,14 @@ public function getEstadosMunicipiosMexico()
             }
 
             $resultado = $servicio->analizarParaPersona($fuentes, $persona, $documentosManual);
+            if ($batchId !== '') {
+                $servicio->guardarAnalisisLoteTemporal($batchId, $resultado, $documentosManual, [
+                    'tipo' => 'persona',
+                    'id_persona' => (int) ($persona['id'] ?? 0),
+                ]);
+            }
             $resultado['batch_id'] = $batchId;
+            $resultado['duracion_ms'] = (int) round((microtime(true) - $inicio) * 1000);
             self::respuestaJSON([
                 'success' => true,
                 'mensaje' => 'Analisis completado.',
@@ -31409,6 +31570,7 @@ public function getEstadosMunicipiosMexico()
     public function importarDocumentosPersonaRrhh()
     {
         try {
+            $inicio = microtime(true);
             if (!self::puedeImportarDocumentosRrhh()) {
                 self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para importar documentos RR.HH.']);
                 return;
@@ -31428,11 +31590,21 @@ public function getEstadosMunicipiosMexico()
                 return;
             }
 
-            $resultado = $servicio->importarParaPersona($fuentes, $persona, $documentosManual);
+            $contextoAnalisis = [
+                'tipo' => 'persona',
+                'id_persona' => (int) ($persona['id'] ?? 0),
+            ];
+            $analisisTemporal = $batchId !== ''
+                ? $servicio->obtenerAnalisisLoteTemporal($batchId, $documentosManual, $contextoAnalisis)
+                : null;
+            $resultado = $analisisTemporal !== null
+                ? $servicio->importarDesdeAnalisis($fuentes, $analisisTemporal)
+                : $servicio->importarParaPersona($fuentes, $persona, $documentosManual);
             if ($batchId !== '') {
                 $servicio->eliminarLoteTemporal($batchId);
             }
             $resultado['batch_id'] = '';
+            $resultado['duracion_ms'] = (int) round((microtime(true) - $inicio) * 1000);
             self::respuestaJSON([
                 'success' => true,
                 'mensaje' => 'Importacion finalizada. Documentos importados: ' . (int) ($resultado['importados'] ?? 0) . '.',
