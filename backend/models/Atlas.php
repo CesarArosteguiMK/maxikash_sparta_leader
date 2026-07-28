@@ -4016,6 +4016,28 @@ class Atlas extends Model
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
 
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS atlas_presupuesto_sucursal_gestores (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                presupuesto_id BIGINT UNSIGNED NOT NULL,
+                sucursal_detalle_id BIGINT UNSIGNED NOT NULL,
+                fk_sucursal INT NOT NULL,
+                persona_id INT NOT NULL,
+                gestor_nombre VARCHAR(260) NOT NULL,
+                meta_creditos DECIMAL(14,2) NOT NULL DEFAULT 0,
+                meta_cash DECIMAL(16,2) NOT NULL DEFAULT 0,
+                activo TINYINT(1) NOT NULL DEFAULT 1,
+                created_by INT NULL,
+                updated_by INT NULL,
+                fecha_alta DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                UNIQUE KEY uk_atlas_pres_suc_gestor (presupuesto_id, sucursal_detalle_id, persona_id),
+                KEY idx_atlas_pres_suc_gestor_persona (presupuesto_id, persona_id, activo),
+                KEY idx_atlas_pres_suc_gestor_sucursal (fk_sucursal, activo)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
         self::asegurarColumna($db, 'atlas_presupuesto_bitacora', 'payload_json', 'JSON NULL');
         self::asegurarColumna($db, 'atlas_presupuesto_bitacora', 'meta_creditos_anterior', 'DECIMAL(14,2) NULL');
         self::asegurarColumna($db, 'atlas_presupuesto_bitacora', 'meta_creditos_nueva', 'DECIMAL(14,2) NULL');
@@ -4159,15 +4181,48 @@ class Atlas extends Model
                 ORDER BY d.sucursal ASC, d.fk_sucursal ASC
             ", ['id' => $id]);
 
+            $asignaciones = $db->queryAll("
+                SELECT
+                    id,
+                    sucursal_detalle_id,
+                    persona_id,
+                    gestor_nombre,
+                    meta_creditos,
+                    meta_cash
+                FROM atlas_presupuesto_sucursal_gestores
+                WHERE presupuesto_id = :id
+                  AND activo = 1
+                ORDER BY gestor_nombre ASC, persona_id ASC
+            ", ['id' => $id]);
+            $asignacionesPorDetalle = [];
+            foreach ($asignaciones as $asignacion) {
+                $detalleId = (int)($asignacion['sucursal_detalle_id'] ?? 0);
+                if ($detalleId <= 0) continue;
+                $asignacionesPorDetalle[$detalleId][] = $asignacion;
+            }
+
             foreach ($detalles as &$detalle) {
                 $detalle['clasificacion_presupuesto'] = '';
                 $detalle['clasificacion_id'] = (int)($detalle['clasificacion_catalogo_id'] ?? 0);
                 $detalle['clasificacion'] = trim((string)($detalle['clasificacion_catalogo'] ?? '')) !== ''
                     ? $detalle['clasificacion_catalogo']
                     : 'Sin clasificacion';
+                $detalleId = (int)($detalle['id'] ?? 0);
+                $detalle['asignaciones'] = $asignacionesPorDetalle[$detalleId] ?? [];
+                if (!$detalle['asignaciones'] && (int)($detalle['asesor_persona_id'] ?? 0) > 0) {
+                    $detalle['asignaciones'] = [[
+                        'persona_id' => (int)$detalle['asesor_persona_id'],
+                        'gestor_nombre' => $detalle['asesor'] ?? 'Sin responsable',
+                        'meta_creditos' => (float)($detalle['meta_creditos'] ?? 0),
+                        'meta_cash' => (float)($detalle['meta_cash'] ?? 0),
+                        'origen' => 'legado',
+                    ]];
+                }
+                $detalle['total_gestores'] = count($detalle['asignaciones']);
             }
             unset($detalle);
 
+            $sucursalesDisponibles = self::getSucursalesDisponiblesPresupuesto($db, $id);
             $presupuesto['puede_eliminar'] = self::presupuestoMesEsFuturo((int)$presupuesto['anio'], (int)$presupuesto['mes']) ? 1 : 0;
 
             return [
@@ -4176,11 +4231,45 @@ class Atlas extends Model
                 'datos' => [
                     'presupuesto' => $presupuesto,
                     'detalles' => $detalles,
+                    'sucursales_disponibles' => $sucursalesDisponibles,
                 ],
             ];
         } catch (\Throwable $e) {
             return ['success' => false, 'mensaje' => 'No se pudo cargar el detalle.', 'error' => $e->getMessage()];
         }
+    }
+
+    private static function getSucursalesDisponiblesPresupuesto(Database $db, int $presupuestoId): array
+    {
+        if ($presupuestoId <= 0) {
+            return [];
+        }
+
+        self::asegurarColumnasPasoSucursal($db);
+        self::asegurarResponsablesPersonaAtlas($db);
+
+        return $db->queryAll("
+            SELECT
+                s.fk_sucursal,
+                COALESCE(s.sucursal, '') AS sucursal,
+                COALESCE(d.nombre, '') AS distribuidor,
+                s.asesor_persona_id,
+                COALESCE(NULLIF(TRIM(CONCAT_WS(' ', pase.nombres, pase.segundo_nombre, pase.apellidop, pase.apellidom)), ''), ase.nombre, '') AS asesor,
+                s.clasificacion_id,
+                COALESCE(cls.nombre, '') AS clasificacion
+            FROM atlas_catalogo_sucursales s
+            LEFT JOIN atlas_catalogo_distribuidores d ON d.id = s.distribuidor_id
+            LEFT JOIN atlas_catalogo_asesores ase ON ase.id = s.asesor_id
+            LEFT JOIN persona pase ON pase.id = s.asesor_persona_id
+            LEFT JOIN atlas_catalogo_clasificaciones cls ON cls.id = s.clasificacion_id
+            LEFT JOIN atlas_presupuesto_sucursal_detalle det
+                   ON det.presupuesto_id = :presupuesto_id
+                  AND det.fk_sucursal = s.fk_sucursal
+                  AND det.activo = 1
+            WHERE s.activo = 1
+              AND det.id IS NULL
+            ORDER BY s.sucursal ASC, s.fk_sucursal ASC
+        ", ['presupuesto_id' => $presupuestoId]) ?: [];
     }
 
     public static function getPresupuestoRanking(int $id, string $periodo = 'mes', int $semana = 1, string $orden = 'cash'): array
@@ -6041,7 +6130,7 @@ class Atlas extends Model
     {
         $id = (int)($payload['id'] ?? 0);
         if ($id <= 0) {
-            return ['success' => false, 'mensaje' => 'Registro invalido.'];
+            return self::agregarPresupuestoSucursalManual($payload);
         }
 
         try {
@@ -6062,6 +6151,28 @@ class Atlas extends Model
 
             $metaCreditosNueva = self::decimalPresupuesto($payload['meta_creditos'] ?? 0);
             $metaCashNueva = self::decimalPresupuesto($payload['meta_cash'] ?? 0);
+            $tieneReparto = $db->queryOne("
+                SELECT COUNT(*) AS total
+                FROM atlas_presupuesto_sucursal_gestores
+                WHERE presupuesto_id = :presupuesto_id
+                  AND sucursal_detalle_id = :detalle_id
+                  AND activo = 1
+            ", [
+                'presupuesto_id' => (int)$row['presupuesto_id'],
+                'detalle_id' => $id,
+            ]);
+            if (
+                (int)($tieneReparto['total'] ?? 0) > 0
+                && (
+                    abs($metaCreditosNueva - self::decimalPresupuesto($row['meta_creditos'] ?? 0)) > 0.009
+                    || abs($metaCashNueva - self::decimalPresupuesto($row['meta_cash'] ?? 0)) > 0.009
+                )
+            ) {
+                return [
+                    'success' => false,
+                    'mensaje' => 'Esta sucursal tiene presupuesto repartido. Modifica el reparto desde Reasignar presupuesto para conservar las sumas.',
+                ];
+            }
             $validacionDistribuidor = self::validarPresupuestoSucursalDistribuidorOperativo(
                 $db,
                 (int)$row['fk_sucursal'],
@@ -6105,6 +6216,158 @@ class Atlas extends Model
             return ['success' => true, 'mensaje' => 'Meta actualizada.'];
         } catch (\Throwable $e) {
             return ['success' => false, 'mensaje' => 'No se pudo actualizar la meta.', 'error' => $e->getMessage()];
+        }
+    }
+
+    private static function agregarPresupuestoSucursalManual(array $payload): array
+    {
+        $presupuestoId = (int)($payload['presupuesto_id'] ?? 0);
+        $fkSucursal = (int)($payload['fk_sucursal'] ?? 0);
+        if ($presupuestoId <= 0 || $fkSucursal <= 0) {
+            return ['success' => false, 'mensaje' => 'Selecciona presupuesto y sucursal.'];
+        }
+
+        $db = new Database();
+        self::asegurarPresupuestosAtlas($db);
+        self::asegurarColumnasPasoSucursal($db);
+        self::asegurarResponsablesPersonaAtlas($db);
+
+        try {
+            $presupuesto = $db->queryOne("
+                SELECT id, anio, mes, nombre_mes
+                FROM atlas_presupuestos_mensuales
+                WHERE id = :id
+                  AND activo = 1
+                LIMIT 1
+            ", ['id' => $presupuestoId]);
+            if (!$presupuesto) {
+                return ['success' => false, 'mensaje' => 'No se encontro el presupuesto mensual.'];
+            }
+
+            $sucursal = $db->queryOne("
+                SELECT
+                    s.fk_sucursal,
+                    COALESCE(s.sucursal, '') AS sucursal,
+                    COALESCE(d.nombre, '') AS distribuidor,
+                    COALESCE(NULLIF(TRIM(CONCAT_WS(' ', pase.nombres, pase.segundo_nombre, pase.apellidop, pase.apellidom)), ''), ase.nombre, '') AS asesor,
+                    s.asesor_persona_id,
+                    s.clasificacion_id
+                FROM atlas_catalogo_sucursales s
+                LEFT JOIN atlas_catalogo_distribuidores d ON d.id = s.distribuidor_id
+                LEFT JOIN atlas_catalogo_asesores ase ON ase.id = s.asesor_id
+                LEFT JOIN persona pase ON pase.id = s.asesor_persona_id
+                WHERE s.fk_sucursal = :fk_sucursal
+                  AND s.activo = 1
+                LIMIT 1
+            ", ['fk_sucursal' => $fkSucursal]);
+            if (!$sucursal) {
+                return ['success' => false, 'mensaje' => 'La sucursal seleccionada no esta activa en el catalogo.'];
+            }
+
+            $existente = $db->queryOne("
+                SELECT id, activo
+                FROM atlas_presupuesto_sucursal_detalle
+                WHERE presupuesto_id = :presupuesto_id
+                  AND fk_sucursal = :fk_sucursal
+                LIMIT 1
+            ", ['presupuesto_id' => $presupuestoId, 'fk_sucursal' => $fkSucursal]);
+            if ($existente && (int)($existente['activo'] ?? 0) === 1) {
+                return ['success' => false, 'mensaje' => 'Esta sucursal ya esta asignada al presupuesto.'];
+            }
+
+            $metaCreditosNueva = self::decimalPresupuesto($payload['meta_creditos'] ?? 0);
+            $metaCashNueva = self::decimalPresupuesto($payload['meta_cash'] ?? 0);
+            $validacionDistribuidor = self::validarPresupuestoSucursalDistribuidorOperativo(
+                $db,
+                $fkSucursal,
+                $metaCreditosNueva,
+                $metaCashNueva
+            );
+            if (!($validacionDistribuidor['success'] ?? false)) {
+                return $validacionDistribuidor;
+            }
+
+            $usuarioId = (int)($payload['usuario_id'] ?? 0);
+            $datos = [
+                'presupuesto_id' => $presupuestoId,
+                'fk_sucursal' => $fkSucursal,
+                'sucursal' => self::strVal($sucursal['sucursal'] ?? ''),
+                'distribuidor' => self::strVal($sucursal['distribuidor'] ?? ''),
+                'asesor' => self::strVal($sucursal['asesor'] ?? ''),
+                'asesor_persona_id' => self::nullableInt($sucursal['asesor_persona_id'] ?? null),
+                'clasificacion_id' => self::nullableInt($sucursal['clasificacion_id'] ?? null),
+                'meta_creditos' => $metaCreditosNueva,
+                'meta_cash' => $metaCashNueva,
+                'comisiona_a_partir_de' => self::nullableDecimalPresupuesto($payload['comisiona_a_partir_de'] ?? null),
+                'usuario' => $usuarioId > 0 ? $usuarioId : null,
+            ];
+
+            $db->beginTransaction();
+            $db->CRUD("
+                INSERT INTO atlas_presupuesto_sucursal_detalle (
+                    presupuesto_id, fk_sucursal, sucursal, distribuidor, asesor, asesor_persona_id, clasificacion_id,
+                    meta_creditos, meta_cash, comisiona_a_partir_de, activo, updated_by
+                ) VALUES (
+                    :presupuesto_id, :fk_sucursal, :sucursal, :distribuidor, :asesor, :asesor_persona_id, :clasificacion_id,
+                    :meta_creditos, :meta_cash, :comisiona_a_partir_de, 1, :usuario
+                )
+                ON DUPLICATE KEY UPDATE
+                    sucursal = VALUES(sucursal),
+                    distribuidor = VALUES(distribuidor),
+                    asesor = VALUES(asesor),
+                    asesor_persona_id = VALUES(asesor_persona_id),
+                    clasificacion_id = VALUES(clasificacion_id),
+                    meta_creditos = VALUES(meta_creditos),
+                    meta_cash = VALUES(meta_cash),
+                    comisiona_a_partir_de = VALUES(comisiona_a_partir_de),
+                    activo = 1,
+                    updated_by = VALUES(updated_by)
+            ", $datos);
+
+            $detalle = $db->queryOne("
+                SELECT id
+                FROM atlas_presupuesto_sucursal_detalle
+                WHERE presupuesto_id = :presupuesto_id
+                  AND fk_sucursal = :fk_sucursal
+                LIMIT 1
+            ", ['presupuesto_id' => $presupuestoId, 'fk_sucursal' => $fkSucursal]) ?: [];
+
+            self::recalcularTotalesPresupuesto($db, $presupuestoId);
+            self::registrarBitacoraPresupuesto($db, [
+                'presupuesto_id' => $presupuestoId,
+                'anio' => (int)$presupuesto['anio'],
+                'mes' => (int)$presupuesto['mes'],
+                'evento' => 'alta_sucursal',
+                'descripcion' => 'Sucursal agregada manualmente al presupuesto.',
+                'sucursal_detalle_id' => (int)($detalle['id'] ?? 0) ?: null,
+                'fk_sucursal' => $fkSucursal,
+                'meta_creditos_anterior' => 0,
+                'meta_creditos_nueva' => $metaCreditosNueva,
+                'meta_cash_anterior' => 0,
+                'meta_cash_nueva' => $metaCashNueva,
+                'usuario_id' => $usuarioId > 0 ? $usuarioId : null,
+                'payload_json' => [
+                    'tipo' => $existente ? 'alta_manual_reactivada' : 'alta_manual',
+                    'sucursal' => $datos['sucursal'],
+                    'distribuidor' => $datos['distribuidor'],
+                    'asesor' => $datos['asesor'],
+                ],
+            ]);
+            $db->commit();
+
+            return [
+                'success' => true,
+                'mensaje' => 'Sucursal asignada al presupuesto.',
+                'datos' => [
+                    'detalle_id' => (int)($detalle['id'] ?? 0),
+                    'fk_sucursal' => $fkSucursal,
+                ],
+            ];
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollback();
+            }
+            return ['success' => false, 'mensaje' => 'No se pudo asignar la sucursal.', 'error' => $e->getMessage()];
         }
     }
 
@@ -7102,6 +7365,7 @@ class Atlas extends Model
                 origen VARCHAR(80) NOT NULL DEFAULT 'comercial_mexico',
                 rol_atlas VARCHAR(80) NOT NULL DEFAULT 'usuario',
                 acceso_movil TINYINT(1) NOT NULL DEFAULT 0,
+                acceso_asistencias_movil TINYINT(1) NOT NULL DEFAULT 0,
                 puede_ver TINYINT(1) NOT NULL DEFAULT 1,
                 puede_editar TINYINT(1) NOT NULL DEFAULT 0,
                 puede_administrar TINYINT(1) NOT NULL DEFAULT 0,
@@ -7117,6 +7381,7 @@ class Atlas extends Model
         ");
         self::asegurarColumna($db, 'atlas_acceso_usuarios', 'excluido_operativo', "TINYINT(1) NOT NULL DEFAULT 0");
         self::asegurarColumna($db, 'atlas_acceso_usuarios', 'acceso_movil', "TINYINT(1) NOT NULL DEFAULT 0");
+        self::asegurarColumna($db, 'atlas_acceso_usuarios', 'acceso_asistencias_movil', "TINYINT(1) NOT NULL DEFAULT 0");
         self::asegurarColumna($db, 'atlas_acceso_usuarios', 'telefono', "VARCHAR(40) NULL");
         self::asegurarColumna($db, 'atlas_acceso_usuarios', 'foto_perfil', "TEXT NULL");
         self::asegurarColumna($db, 'atlas_acceso_usuarios', 'jefe_nombre', "VARCHAR(260) NULL");
@@ -7637,6 +7902,7 @@ class Atlas extends Model
                     au.direccion,
                     au.excluido_operativo,
                     au.acceso_movil,
+                    au.acceso_asistencias_movil,
                     p.user_name,
                     p.password
                 FROM atlas_acceso_usuarios au
@@ -7722,14 +7988,23 @@ class Atlas extends Model
             }
             $personaId = (int)$usuario['persona_id'];
             $accesoMovil = (int)($input['acceso_movil'] ?? 0) === 1 ? 1 : 0;
+            $accesoAsistenciasMovil = $accesoMovil === 1
+                && (int)($input['acceso_asistencias_movil'] ?? 0) === 1
+                ? 1
+                : 0;
 
             $db->beginTransaction();
             $db->CRUD(
                 "UPDATE atlas_acceso_usuarios
-                 SET acceso_movil = :acceso_movil
+                 SET acceso_movil = :acceso_movil,
+                     acceso_asistencias_movil = :acceso_asistencias_movil
                  WHERE id = :id
                    AND origen = 'comercial_mexico'",
-                ['acceso_movil' => $accesoMovil, 'id' => $id]
+                [
+                    'acceso_movil' => $accesoMovil,
+                    'acceso_asistencias_movil' => $accesoAsistenciasMovil,
+                    'id' => $id,
+                ]
             );
             $db->CRUD(
                 "DELETE FROM asigna_modulo_web
@@ -7757,6 +8032,7 @@ class Atlas extends Model
                     'persona_id' => $personaId,
                     'modulos' => $modulos,
                     'acceso_movil' => $accesoMovil,
+                    'acceso_asistencias_movil' => $accesoAsistenciasMovil,
                 ],
             ];
         } catch (\Throwable $e) {

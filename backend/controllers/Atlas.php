@@ -88,6 +88,73 @@ class Atlas extends Controller
         $this->render('atlas_creditos_operacion');
     }
 
+    public function expedientes()
+    {
+        $this->validarAccesoExpedientes();
+        $this->set('titulo', 'Expedientes');
+        $this->set('atlas_admin_configurada', $this->atlasAdminApiKey() !== '');
+        $this->render('atlas_expedientes');
+    }
+
+    public function getExpedientes()
+    {
+        $this->validarAccesoExpedientes(true);
+        $query = [];
+        foreach (['fecha_inicio', 'fecha_fin', 'estatus', 'fk_sucursal', 'etapa', 'search', 'page', 'page_size'] as $key) {
+            if (isset($_GET[$key]) && trim((string)$_GET[$key]) !== '') {
+                $query[$key] = $_GET[$key];
+            }
+        }
+
+        $this->json($this->atlasAdminApiRequest(
+            'GET',
+            '/api/atlas/admin/expedientes',
+            null,
+            $query
+        ));
+    }
+
+    public function getExpedienteDetalle()
+    {
+        $this->validarAccesoExpedientes(true);
+        $creditoId = (int)($_GET['credito_id'] ?? 0);
+        if ($creditoId <= 0) {
+            $this->json(['success' => false, 'mensaje' => 'Credito invalido.']);
+        }
+
+        $this->json($this->atlasAdminApiRequest(
+            'GET',
+            '/api/atlas/admin/expedientes/' . $creditoId
+        ));
+    }
+
+    public function registrarMovimientoExpediente()
+    {
+        $this->validarAccesoExpedientes(true);
+        $payload = $this->payload();
+        $creditoId = (int)($payload['credito_id'] ?? 0);
+        if ($creditoId <= 0) {
+            $this->json(['success' => false, 'mensaje' => 'Credito invalido.']);
+        }
+        unset($payload['credito_id']);
+
+        $usuarioId = (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $usuarioNombre = trim((string)(
+            $_SESSION['usuario_nombre']
+            ?? $_SESSION['nombre']
+            ?? $_SESSION['usuario']
+            ?? 'Usuario Sparta'
+        ));
+        $payload['usuario_id'] = $usuarioId > 0 ? $usuarioId : null;
+        $payload['usuario_nombre'] = $usuarioNombre !== '' ? $usuarioNombre : 'Usuario Sparta';
+
+        $this->json($this->atlasAdminApiRequest(
+            'POST',
+            '/api/atlas/admin/expedientes/' . $creditoId . '/movimientos',
+            $payload
+        ));
+    }
+
     public function riesgosOperativos()
     {
         $this->set('titulo', 'Riesgos Operativos');
@@ -136,6 +203,24 @@ class Atlas extends Controller
         $this->json($this->atlasAdminApiRequest(
             'POST',
             '/api/atlas/admin/presupuestos/' . $presupuestoId . '/reasignar',
+            $payload
+        ));
+    }
+
+    public function eliminarPresupuestoSucursal()
+    {
+        $payload = $this->payload();
+        $presupuestoId = (int)($payload['presupuesto_id'] ?? 0);
+        $detalleId = (int)($payload['detalle_id'] ?? 0);
+        if ($presupuestoId <= 0 || $detalleId <= 0) {
+            $this->json(['success' => false, 'mensaje' => 'Presupuesto o sucursal invalida.']);
+        }
+        unset($payload['presupuesto_id'], $payload['detalle_id']);
+        $usuarioId = (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $payload['usuario_id'] = $usuarioId > 0 ? $usuarioId : null;
+        $this->json($this->atlasAdminApiRequest(
+            'POST',
+            '/api/atlas/admin/presupuestos/' . $presupuestoId . '/sucursales/' . $detalleId . '/reasignar-eliminar',
             $payload
         ));
     }
@@ -802,6 +887,17 @@ class Atlas extends Controller
 
             $datos = $response['datos'];
             $filas = is_array($datos['filas'] ?? null) ? $datos['filas'] : [];
+            $filtroEvidencias = trim((string)($_GET['evidencias'] ?? ''));
+            if (in_array($filtroEvidencias, ['con', 'sin', 'incompletas'], true)) {
+                $filas = $this->filtrarAsistenciasPorEvidencias($filas, $filtroEvidencias);
+                $datos['filas'] = $filas;
+                $datos['resumen'] = $this->resumenAsistenciasFiltradas(
+                    $filas,
+                    is_array($datos['resumen'] ?? null) ? $datos['resumen'] : []
+                );
+            } else {
+                $filtroEvidencias = '';
+            }
             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
             $sheet->setTitle('Asistencias');
@@ -923,6 +1019,7 @@ class Atlas extends Controller
                 ['Fecha inicio', $periodo['fecha_inicio'] ?? ''],
                 ['Fecha fin', $periodo['fecha_fin'] ?? ''],
                 ['Generado', $datos['generado_at'] ?? ''],
+                ['Filtro de evidencias', $this->etiquetaFiltroEvidencias($filtroEvidencias)],
                 ['Perímetro permitido (m)', $datos['perimetro_metros'] ?? ''],
                 ['Total de visitas', $resumen['total_visitas'] ?? 0],
                 ['Cumplidas', $resumen['cumplidas'] ?? 0],
@@ -972,6 +1069,96 @@ class Atlas extends Controller
             echo 'No se pudo generar el reporte de asistencias: ' . $e->getMessage();
             exit;
         }
+    }
+
+    private function filtrarAsistenciasPorEvidencias(array $filas, string $filtro): array
+    {
+        return array_values(array_filter(
+            $filas,
+            function ($fila) use ($filtro): bool {
+                return is_array($fila) && $this->estadoEvidenciasAsistencia($fila) === $filtro;
+            }
+        ));
+    }
+
+    private function estadoEvidenciasAsistencia(array $fila): string
+    {
+        $evidencias = is_array($fila['evidencias'] ?? null) ? $fila['evidencias'] : [];
+        $totalDeclarado = array_key_exists('total_evidencias', $fila)
+            && $fila['total_evidencias'] !== null
+            ? max(0, (int)$fila['total_evidencias'])
+            : count($evidencias);
+        $tieneEvidencias = $totalDeclarado > 0
+            || $evidencias !== []
+            || trim((string)($fila['evidencia'] ?? '')) !== '';
+        if (!$tieneEvidencias) {
+            return 'sin';
+        }
+
+        if ($totalDeclarado > count($evidencias)) {
+            return 'incompletas';
+        }
+        foreach ($evidencias as $evidencia) {
+            $disponible = is_array($evidencia)
+                && filter_var($evidencia['disponible'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            if (!$disponible || empty($evidencia['id'])) {
+                return 'incompletas';
+            }
+        }
+
+        return 'con';
+    }
+
+    private function resumenAsistenciasFiltradas(array $filas, array $resumenOriginal): array
+    {
+        $resumen = array_merge($resumenOriginal, [
+            'total_visitas' => 0,
+            'cumplidas' => 0,
+            'no_realizadas' => 0,
+            'fuera_ubicacion' => 0,
+            'en_visita' => 0,
+            'programadas' => 0,
+            'gestiones_realizadas' => 0,
+            'pendientes_por_gestionar' => 0,
+        ]);
+
+        foreach ($filas as $fila) {
+            if (!is_array($fila)) {
+                continue;
+            }
+            $esVisita = ($fila['es_visita'] ?? true) !== false;
+            $estatus = trim((string)($fila['estatus_visita'] ?? ''));
+            if ($esVisita) {
+                $resumen['total_visitas']++;
+                if ($estatus === 'Cumplida') {
+                    $resumen['cumplidas']++;
+                } elseif ($estatus === 'No realizada') {
+                    $resumen['no_realizadas']++;
+                } elseif ($estatus === 'En visita') {
+                    $resumen['en_visita']++;
+                } elseif ($estatus === 'Programada') {
+                    $resumen['programadas']++;
+                }
+                if (isset($fila['pendientes_por_gestionar'])) {
+                    $resumen['pendientes_por_gestionar'] += (int)$fila['pendientes_por_gestionar'];
+                }
+            }
+            if (strpos($estatus, 'Fuera de ubicaci') === 0) {
+                $resumen['fuera_ubicacion']++;
+            }
+            $resumen['gestiones_realizadas'] += (int)($fila['gestiones_realizadas'] ?? 0);
+        }
+
+        return $resumen;
+    }
+
+    private function etiquetaFiltroEvidencias(string $filtro): string
+    {
+        return [
+            'con' => 'Con evidencias',
+            'sin' => 'Sin evidencias',
+            'incompletas' => 'Incompletas',
+        ][$filtro] ?? 'Todas';
     }
 
     private function reporteAsistenciasQuery(): array
@@ -1699,6 +1886,23 @@ class Atlas extends Controller
             return $json;
         }
         return $_POST ?: [];
+    }
+
+    private function validarAccesoExpedientes(bool $json = false): void
+    {
+        $modulos = array_map('intval', (array)($_SESSION['modulos'] ?? []));
+        if (in_array(139, $modulos, true)) {
+            return;
+        }
+        if ($json) {
+            $this->json([
+                'success' => false,
+                'status' => 403,
+                'mensaje' => 'No tienes permiso para operar expedientes.',
+            ]);
+        }
+        header('Location: /Inicio', true, 302);
+        exit;
     }
 
     private function leerPresupuestoExcel(string $ruta): array

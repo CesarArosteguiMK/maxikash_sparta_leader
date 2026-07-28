@@ -48,7 +48,15 @@
         .atlas-access-module-list .modulo-icon-box i { color:#1a52a8; font-size:1rem; }
         .atlas-access-module-list .modal-perfil-modulo-item-cb { cursor:pointer; width:1.1em; height:1.1em; }
         .atlas-access-action-btn { width:2.1rem; height:2.1rem; display:inline-flex; align-items:center; justify-content:center; border-radius:999px; }
-        .atlas-access-mobile-card { display:flex; align-items:center; justify-content:space-between; gap:1rem; border:1px solid #dbeafe; border-radius:.65rem; background:#f8fbff; padding:.85rem .95rem; margin-top:.9rem; }
+        .atlas-access-mobile-card { border:1px solid #dbeafe; border-radius:.65rem; background:#f8fbff; margin-top:.9rem; overflow:hidden; }
+        .atlas-access-mobile-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.85rem .95rem; }
+        .atlas-access-mobile-expand { display:flex; align-items:center; justify-content:space-between; gap:.8rem; flex:1; min-width:0; padding:0; border:0; background:transparent; text-align:left; }
+        .atlas-access-mobile-expand i[data-atlas-access-mobile-chevron] { color:#64748b; transition:transform .18s ease; }
+        .atlas-access-mobile-expand[aria-expanded="true"] i[data-atlas-access-mobile-chevron] { transform:rotate(180deg); }
+        .atlas-access-mobile-options { border-top:1px solid #dbeafe; background:#fff; padding:.75rem .95rem .8rem 2.7rem; }
+        .atlas-access-mobile-options[hidden] { display:none !important; }
+        .atlas-access-mobile-option { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+        .atlas-access-mobile-option.is-disabled { opacity:.55; }
         .atlas-access-mobile-title { color:#22303e; font-weight:800; line-height:1.2; }
         .atlas-access-mobile-sub { color:#64748b; font-size:.76rem; font-weight:600; margin-top:.12rem; }
         .atlas-access-reset-card { border:1px solid #fde7bd; border-radius:.65rem; background:#fffaf0; padding:.85rem .95rem; margin-top:.9rem; }
@@ -243,12 +251,28 @@
                                     </div>
                                 </div>
                                 <div class="atlas-access-mobile-card">
-                                    <div>
-                                        <div class="atlas-access-mobile-title"><i class="fa-solid fa-mobile-screen-button me-2"></i>Acceso móvil</div>
-                                        <div class="atlas-access-mobile-sub">Permite que el usuario opere desde la app Atlas.</div>
+                                    <div class="atlas-access-mobile-row">
+                                        <button type="button" class="atlas-access-mobile-expand" data-atlas-access-mobile-expand aria-expanded="false" aria-controls="atlasAccessMovilOpciones">
+                                            <span>
+                                                <span class="atlas-access-mobile-title d-block"><i class="fa-solid fa-mobile-screen-button me-2"></i>Acceso móvil</span>
+                                                <span class="atlas-access-mobile-sub d-block">Permite que el usuario opere desde la app Atlas.</span>
+                                            </span>
+                                            <i class="fa-solid fa-chevron-down" data-atlas-access-mobile-chevron aria-hidden="true"></i>
+                                        </button>
+                                        <div class="form-check form-switch m-0">
+                                            <input class="form-check-input" type="checkbox" id="atlasAccessMovil">
+                                        </div>
                                     </div>
-                                    <div class="form-check form-switch m-0">
-                                        <input class="form-check-input" type="checkbox" id="atlasAccessMovil">
+                                    <div class="atlas-access-mobile-options" id="atlasAccessMovilOpciones" hidden>
+                                        <div class="atlas-access-mobile-option" data-atlas-access-mobile-option>
+                                            <div>
+                                                <div class="atlas-access-mobile-title"><i class="fa-solid fa-calendar-check me-2"></i>Asistencias</div>
+                                                <div class="atlas-access-mobile-sub">Muestra el módulo de asistencias dentro de la app móvil.</div>
+                                            </div>
+                                            <div class="form-check form-switch m-0">
+                                                <input class="form-check-input" type="checkbox" id="atlasAccessAsistenciasMovil">
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="atlas-access-reset-launch">
@@ -451,6 +475,8 @@
                     });
                 });
                 document.querySelector('[data-atlas-access-toggle-password]')?.addEventListener('click', () => this.togglePassword());
+                document.querySelector('[data-atlas-access-mobile-expand]')?.addEventListener('click', () => this.toggleOpcionesMoviles());
+                document.getElementById('atlasAccessMovil')?.addEventListener('change', () => this.sincronizarPermisosMoviles());
                 document.querySelector('[data-atlas-access-save-perms]')?.addEventListener('click', () => this.guardarPermisos());
                 document.querySelectorAll('[data-atlas-access-select-modules]').forEach((btn) => {
                     btn.addEventListener('click', () => this.seleccionarTodosModulos());
@@ -846,6 +872,10 @@
                 if (passwordNueva) passwordNueva.value = '';
                 const movilInput = document.getElementById('atlasAccessMovil');
                 if (movilInput) movilInput.checked = false;
+                const asistenciasMovilInput = document.getElementById('atlasAccessAsistenciasMovil');
+                if (asistenciasMovilInput) asistenciasMovilInput.checked = false;
+                this.setOpcionesMovilesExpandidas(false);
+                this.sincronizarPermisosMoviles();
                 this.setModulosLoading('Cargando permisos Atlas...');
                 const modalEl = document.getElementById('modalAtlasAccessPermisos');
                 let abrirModal = false;
@@ -871,6 +901,8 @@
                     document.getElementById('atlasAccessUsuario').value = usuario.user_name || 'Sin usuario';
                     document.getElementById('atlasAccessPassword').value = usuario.password || 'Sin contrasena registrada';
                     if (movilInput) movilInput.checked = Number(usuario.acceso_movil || 0) === 1;
+                    if (asistenciasMovilInput) asistenciasMovilInput.checked = Number(usuario.acceso_asistencias_movil || 0) === 1;
+                    this.sincronizarPermisosMoviles();
                     this.renderMotivosReset(this.detalleActual.motivos_reset_password || []);
                     this.renderModulos(this.detalleActual.modulos || []);
                     abrirModal = true;
@@ -1147,6 +1179,29 @@
                 this.actualizarMastersModulos();
             },
 
+            setOpcionesMovilesExpandidas(expanded) {
+                const trigger = document.querySelector('[data-atlas-access-mobile-expand]');
+                const options = document.getElementById('atlasAccessMovilOpciones');
+                if (trigger) trigger.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                if (options) options.hidden = !expanded;
+            },
+
+            toggleOpcionesMoviles() {
+                const trigger = document.querySelector('[data-atlas-access-mobile-expand]');
+                this.setOpcionesMovilesExpandidas(trigger?.getAttribute('aria-expanded') !== 'true');
+            },
+
+            sincronizarPermisosMoviles() {
+                const accesoMovil = Boolean(document.getElementById('atlasAccessMovil')?.checked);
+                const asistencia = document.getElementById('atlasAccessAsistenciasMovil');
+                const option = document.querySelector('[data-atlas-access-mobile-option]');
+                if (asistencia) {
+                    asistencia.disabled = !accesoMovil;
+                    if (!accesoMovil) asistencia.checked = false;
+                }
+                option?.classList.toggle('is-disabled', !accesoMovil);
+            },
+
             async guardarPermisos() {
                 const id = Number(document.getElementById('atlasAccessPermisosId')?.value || 0);
                 if (!id) return;
@@ -1154,8 +1209,14 @@
                     .map(cb => Number(cb.value || 0))
                     .filter(Boolean);
                 const accesoMovil = document.getElementById('atlasAccessMovil')?.checked ? 1 : 0;
+                const accesoAsistenciasMovil = accesoMovil && document.getElementById('atlasAccessAsistenciasMovil')?.checked ? 1 : 0;
                 try {
-                    const res = await this.postJson('/Atlas/guardarPermisosAccesoAtlas', { id, modulos, acceso_movil: accesoMovil });
+                    const res = await this.postJson('/Atlas/guardarPermisosAccesoAtlas', {
+                        id,
+                        modulos,
+                        acceso_movil: accesoMovil,
+                        acceso_asistencias_movil: accesoAsistenciasMovil
+                    });
                     this.toast(res.mensaje || 'Permisos guardados.', res.success ? 'success' : 'warning');
                     if (res.success) {
                         const modalEl = document.getElementById('modalAtlasAccessPermisos');
