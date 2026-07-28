@@ -111,6 +111,35 @@ class Atlas extends Controller
         $this->json(AtlasDAO::getPresupuestoDetalle((int)($_GET['id'] ?? 0)));
     }
 
+    public function getPresupuestoReasignacionCatalogos()
+    {
+        $presupuestoId = (int)($_GET['id'] ?? 0);
+        if ($presupuestoId <= 0) {
+            $this->json(['success' => false, 'mensaje' => 'Presupuesto invalido.']);
+        }
+        $this->json($this->atlasAdminApiRequest(
+            'GET',
+            '/api/atlas/admin/presupuestos/' . $presupuestoId . '/reasignacion'
+        ));
+    }
+
+    public function reasignarPresupuesto()
+    {
+        $payload = $this->payload();
+        $presupuestoId = (int)($payload['presupuesto_id'] ?? 0);
+        if ($presupuestoId <= 0) {
+            $this->json(['success' => false, 'mensaje' => 'Presupuesto invalido.']);
+        }
+        unset($payload['presupuesto_id']);
+        $usuarioId = (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $payload['usuario_id'] = $usuarioId > 0 ? $usuarioId : null;
+        $this->json($this->atlasAdminApiRequest(
+            'POST',
+            '/api/atlas/admin/presupuestos/' . $presupuestoId . '/reasignar',
+            $payload
+        ));
+    }
+
     public function getPresupuestoRanking()
     {
         $this->json(AtlasDAO::getPresupuestoRanking(
@@ -701,6 +730,201 @@ class Atlas extends Controller
         $this->render('atlas_rutas_gestores');
     }
 
+    public function asistencias()
+    {
+        $this->set('titulo', 'Asistencias Atlas');
+        $this->set('atlas_admin_configurada', $this->atlasAdminApiKey() !== '');
+        $this->render('atlas_asistencias');
+    }
+
+    public function getReporteAsistencias()
+    {
+        $this->json($this->atlasAdminApiRequest(
+            'GET',
+            '/api/atlas/admin/reportes/asistencias',
+            null,
+            $this->reporteAsistenciasQuery()
+        ));
+    }
+
+    public function descargarReporteAsistencias()
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        $tmp = null;
+        try {
+            $response = $this->atlasAdminApiRequest(
+                'GET',
+                '/api/atlas/admin/reportes/asistencias',
+                null,
+                $this->reporteAsistenciasQuery()
+            );
+            if (empty($response['success']) || !is_array($response['datos'] ?? null)) {
+                throw new \RuntimeException((string)($response['mensaje'] ?? 'No se pudo consultar el reporte.'));
+            }
+
+            $datos = $response['datos'];
+            $filas = is_array($datos['filas'] ?? null) ? $datos['filas'] : [];
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Asistencias');
+
+            $columns = [
+                ['Fecha', 'fecha'],
+                ['Día de la visita', 'dia_visita'],
+                ['Hora de llegada', 'hora_llegada'],
+                ['Hora en que confirmó su llegada', 'hora_confirmacion_llegada'],
+                ['Hora de salida', 'hora_salida'],
+                ['Hora en que terminó la visita', 'hora_termino_visita'],
+                ['Colaborador', 'colaborador'],
+                ['Puesto', 'puesto'],
+                ['Rol Atlas', 'rol'],
+                ['Divisional', 'divisional'],
+                ['Nombre de la agencia', 'agencia'],
+                ['Nombre del distribuidor', 'distribuidor'],
+                ['Estatus de la visita', 'estatus_visita'],
+                ['Dentro del perímetro', 'dentro_perimetro'],
+                ['Distancia al punto (m)', 'distancia_metros'],
+                ['Tiempo de permanencia', 'tiempo_permanencia'],
+                ['Latitud', 'latitud'],
+                ['Longitud', 'longitud'],
+                ['Evidencia', 'evidencia'],
+                ['En caso de incumplimiento / Observaciones', 'observaciones_incumplimiento'],
+                ['No. de gestiones realizadas', 'gestiones_realizadas'],
+                ['No. de pendientes por gestionar', 'pendientes_por_gestionar'],
+            ];
+            foreach ($columns as $index => $column) {
+                $sheet->setCellValue($this->excelCell($index + 1, 1), $column[0]);
+            }
+
+            $rowNumber = 2;
+            foreach ($filas as $fila) {
+                foreach ($columns as $index => $column) {
+                    $key = $column[1];
+                    $value = $fila[$key] ?? '';
+                    if (in_array($key, ['distancia_metros', 'latitud', 'longitud', 'gestiones_realizadas', 'pendientes_por_gestionar'], true)
+                        && $value !== null
+                        && $value !== '') {
+                        $sheet->setCellValue($this->excelCell($index + 1, $rowNumber), (float)$value);
+                    } else {
+                        $sheet->setCellValueExplicit(
+                            $this->excelCell($index + 1, $rowNumber),
+                            $value === null ? '' : (string)$value,
+                            \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING
+                        );
+                    }
+                }
+                $rowNumber++;
+            }
+
+            $lastRow = max(2, $rowNumber - 1);
+            $lastColumn = $this->excelCell(count($columns), 1);
+            $lastCell = $this->excelCell(count($columns), $lastRow);
+            $sheet->getStyle('A1:' . $lastColumn)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+            $sheet->getStyle('A1:' . $lastColumn)->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('173756');
+            $sheet->getStyle('A1:' . $lastCell)
+                ->getBorders()->getAllBorders()
+                ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
+                ->getColor()->setRGB('D9E2EC');
+            $sheet->getStyle('S2:T' . $lastRow)->getAlignment()->setWrapText(true);
+            $sheet->getStyle('O2:O' . $lastRow)->getNumberFormat()->setFormatCode('0');
+            $sheet->getStyle('Q2:R' . $lastRow)->getNumberFormat()->setFormatCode('0.0000000');
+            $sheet->getStyle('U2:V' . $lastRow)->getNumberFormat()->setFormatCode('0');
+            $sheet->freezePane('A2');
+            $sheet->setAutoFilter('A1:' . $lastCell);
+
+            $widths = [
+                'A' => 12, 'B' => 16, 'C' => 15, 'D' => 25, 'E' => 14, 'F' => 24,
+                'G' => 28, 'H' => 22, 'I' => 18, 'J' => 22, 'K' => 32, 'L' => 30,
+                'M' => 22, 'N' => 20, 'O' => 21, 'P' => 22, 'Q' => 15, 'R' => 15,
+                'S' => 42, 'T' => 46, 'U' => 24, 'V' => 28,
+            ];
+            foreach ($widths as $column => $width) {
+                $sheet->getColumnDimension($column)->setWidth($width);
+            }
+
+            $summarySheet = $spreadsheet->createSheet();
+            $summarySheet->setTitle('Resumen');
+            $periodo = is_array($datos['periodo'] ?? null) ? $datos['periodo'] : [];
+            $resumen = is_array($datos['resumen'] ?? null) ? $datos['resumen'] : [];
+            $summaryRows = [
+                ['Reporte', 'Asistencias Atlas'],
+                ['Fecha inicio', $periodo['fecha_inicio'] ?? ''],
+                ['Fecha fin', $periodo['fecha_fin'] ?? ''],
+                ['Generado', $datos['generado_at'] ?? ''],
+                ['Perímetro permitido (m)', $datos['perimetro_metros'] ?? ''],
+                ['Total de visitas', $resumen['total_visitas'] ?? 0],
+                ['Cumplidas', $resumen['cumplidas'] ?? 0],
+                ['No realizadas', $resumen['no_realizadas'] ?? 0],
+                ['Fuera de ubicación', $resumen['fuera_ubicacion'] ?? 0],
+                ['En visita', $resumen['en_visita'] ?? 0],
+                ['Programadas', $resumen['programadas'] ?? 0],
+                ['Gestiones realizadas', $resumen['gestiones_realizadas'] ?? 0],
+                ['Pendientes por gestionar', $resumen['pendientes_por_gestionar'] ?? 0],
+            ];
+            foreach ($summaryRows as $index => $summaryRow) {
+                $summarySheet->setCellValue('A' . ($index + 1), $summaryRow[0]);
+                $summarySheet->setCellValue('B' . ($index + 1), $summaryRow[1]);
+            }
+            $summarySheet->getStyle('A1:A' . count($summaryRows))->getFont()->setBold(true);
+            $summarySheet->getColumnDimension('A')->setWidth(30);
+            $summarySheet->getColumnDimension('B')->setWidth(28);
+            $spreadsheet->setActiveSheetIndex(0);
+
+            $start = preg_replace('/[^0-9-]/', '', (string)($periodo['fecha_inicio'] ?? date('Y-m-d')));
+            $end = preg_replace('/[^0-9-]/', '', (string)($periodo['fecha_fin'] ?? date('Y-m-d')));
+            $filename = 'asistencias_atlas_' . $start . '_a_' . $end . '.xlsx';
+            $tmp = tempnam(sys_get_temp_dir(), 'atlas_asistencias_');
+            if ($tmp === false) {
+                throw new \RuntimeException('No se pudo preparar el archivo temporal.');
+            }
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save($tmp);
+            $spreadsheet->disconnectWorksheets();
+
+            if (function_exists('session_write_close')) {
+                session_write_close();
+            }
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Content-Transfer-Encoding: binary');
+            header('Content-Length: ' . filesize($tmp));
+            header('Cache-Control: max-age=0');
+            readfile($tmp);
+            @unlink($tmp);
+            exit;
+        } catch (\Throwable $e) {
+            if (is_string($tmp) && is_file($tmp)) {
+                @unlink($tmp);
+            }
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'No se pudo generar el reporte de asistencias: ' . $e->getMessage();
+            exit;
+        }
+    }
+
+    private function reporteAsistenciasQuery(): array
+    {
+        $query = [];
+        foreach (['fecha_inicio', 'fecha_fin', 'estatus', 'divisional'] as $key) {
+            $value = trim((string)($_GET[$key] ?? ''));
+            if ($value !== '') {
+                $query[$key] = $value;
+            }
+        }
+        foreach (['gestor_persona_id', 'distribuidor_id'] as $key) {
+            $value = (int)($_GET[$key] ?? 0);
+            if ($value > 0) {
+                $query[$key] = $value;
+            }
+        }
+        return $query;
+    }
+
     public function sucursalesAsignadas()
     {
         $this->set('titulo', 'Seguimiento');
@@ -1238,6 +1462,87 @@ class Atlas extends Controller
 
         $keys = array_filter(array_map('trim', explode(',', (string)$raw)));
         return (string)($keys[0] ?? '');
+    }
+
+    private function atlasAdminApiRequest(string $method, string $path, ?array $body = null, array $query = []): array
+    {
+        $adminApiKey = $this->atlasAdminApiKey();
+        if ($adminApiKey === '') {
+            return ['success' => false, 'mensaje' => 'ATLAS_ADMIN_API_KEYS no esta configurada en servidor.'];
+        }
+
+        $base = getenv('ATLAS_APP_API_BASE');
+        if ($base === false || trim($base) === '') {
+            $base = 'https://api-comercial-601258367060.us-central1.run.app';
+        }
+        $url = rtrim($base, '/') . $path;
+        if ($query) {
+            $url .= (strpos($url, '?') === false ? '?' : '&') . http_build_query($query);
+        }
+
+        $method = strtoupper($method);
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'X-API-Key: ' . $adminApiKey,
+            ],
+            CURLOPT_TIMEOUT => 35,
+            CURLOPT_CONNECTTIMEOUT => 10,
+        ]);
+        if ($method !== 'GET') {
+            curl_setopt(
+                $ch,
+                CURLOPT_POSTFIELDS,
+                json_encode($body ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            );
+        }
+
+        $raw = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($raw === false || $error !== '') {
+            return [
+                'success' => false,
+                'mensaje' => 'No se pudo conectar con API-COMERCIAL.',
+                'error' => $error,
+            ];
+        }
+
+        $decoded = json_decode((string)$raw, true);
+        $success = $httpCode >= 200 && $httpCode < 300 && is_array($decoded) && ($decoded['success'] ?? true);
+        $mensaje = is_array($decoded)
+            ? (string)($decoded['message'] ?? $decoded['mensaje'] ?? '')
+            : '';
+        if (!$success && is_array($decoded)) {
+            $detail = $decoded['detail'] ?? $decoded['error'] ?? '';
+            if (is_array($detail)) {
+                $detail = implode(' | ', array_filter(array_map(
+                    static fn($item) => is_array($item)
+                        ? (string)($item['msg'] ?? json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))
+                        : (string)$item,
+                    $detail
+                )));
+            }
+            if (trim((string)$detail) !== '') {
+                $mensaje = (string)$detail;
+            }
+        }
+        if ($mensaje === '') {
+            $mensaje = $success ? 'Operacion completada.' : 'API-COMERCIAL devolvio un error.';
+        }
+
+        return [
+            'success' => $success,
+            'status' => $httpCode,
+            'mensaje' => $mensaje,
+            'datos' => is_array($decoded) ? ($decoded['data'] ?? $decoded['datos'] ?? null) : null,
+        ];
     }
 
     private function googleMapsApiKey(): string
