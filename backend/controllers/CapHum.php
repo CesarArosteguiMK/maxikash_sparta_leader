@@ -20230,7 +20230,8 @@ class CapHum extends Controller
                     [],
                     (($destinatarioJefe['tipo'] ?? '') === 'Jefe directo')
                         ? ['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx' => 'Erika Ortiz']
-                        : ((($destinatarioJefe['tipo'] ?? '') === 'Jefe divisional') ? $this->ccIngresoJefeDivisional() : [])
+                        : ((($destinatarioJefe['tipo'] ?? '') === 'Jefe divisional') ? $this->ccIngresoJefeDivisional() : []),
+                    true
                 );
                 if ($enviadoJefeActual) {
                     $correosJefesEnviados++;
@@ -25191,7 +25192,7 @@ class CapHum extends Controller
      * @param string|null $rutaLogoInline Ruta absoluta al logo para incrustar (cid:) — si existe se adjunta y se usa cid:logo__SPARTA_SECRET_REDACTED__ en el HTML
      * @return bool
      */
-    private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '', $rutaLogoInline = null, array $adjuntos = [], array $cc = [], bool $permitirFallbackLimiteDiario = false)
+    private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '', $rutaLogoInline = null, array $adjuntos = [], array $cc = [], bool $permitirFallbackSmtp = false)
     {
         $this->enviarCorreoUltimoCanal = '';
         $repoRoot = defined('RAIZ') ? dirname(RAIZ) : dirname(__DIR__, 2);
@@ -25242,6 +25243,16 @@ class CapHum extends Controller
         $fallbackSmtpSecure = strtolower(trim($get('MAIL_FALLBACK_SMTP_SECURE', 'fallback_smtp_secure', $smtpSecure)));
         $fallbackMailFrom = trim($get('MAIL_FALLBACK_FROM', 'fallback_mail_from', ''));
         $fallbackMailFromName = trim($get('MAIL_FALLBACK_FROM_NAME', 'fallback_mail_from_name', $fromName));
+        $smtpFromEmail = $mailFrom !== '' ? $mailFrom : $smtpUser;
+        $fallbackFromEmail = $fallbackMailFrom !== '' ? $fallbackMailFrom : $fallbackSmtpUser;
+        // Gmail firma el mensaje con la cuenta autenticada. Usar otra cuenta en
+        // From puede degradar la entrega o provocar que el remitente sea reescrito.
+        if (strcasecmp($smtpHost, 'smtp.gmail.com') === 0 && filter_var($smtpUser, FILTER_VALIDATE_EMAIL)) {
+            $smtpFromEmail = $smtpUser;
+        }
+        if (strcasecmp($fallbackSmtpHost, 'smtp.gmail.com') === 0 && filter_var($fallbackSmtpUser, FILTER_VALIDATE_EMAIL)) {
+            $fallbackFromEmail = $fallbackSmtpUser;
+        }
         $adjuntosValidos = $this->normalizarAdjuntosCorreo($adjuntos);
         $ccValidos = [];
         foreach ($cc as $correoCc => $nombreCc) {
@@ -25421,11 +25432,7 @@ class CapHum extends Controller
                 $mail->addCC($ccItem['email'], $ccItem['name']);
             }
 
-            if ($mailFrom !== '') {
-                $mail->setFrom($mailFrom, $mailFromName ?: 'Recursos Humanos');
-            } else {
-                $mail->setFrom($smtpUser, $mailFromName ?: 'Recursos Humanos');
-            }
+            $mail->setFrom($smtpFromEmail, $mailFromName ?: 'Recursos Humanos');
             if ($rutaLogoInline !== null && is_file($rutaLogoInline)) {
                 $mail->addEmbeddedImage($rutaLogoInline, 'logo__SPARTA_SECRET_REDACTED__', 'logo.png');
             }
@@ -25482,7 +25489,7 @@ class CapHum extends Controller
                     $msg .= "\n\nGmail rechazó usuario/contraseña. Compruebe: 1) Contraseña de aplicación (no la de la cuenta). 2) Verificación en 2 pasos activada. 3) Si es Google Workspace, el admin debe permitir contraseñas de aplicación. Se está usando puerto 465/SSL y AUTH LOGIN.";
                 }
             }
-            if ($permitirFallbackLimiteDiario && $limiteDiarioEnvio && $fallbackSmtpHost !== '' && $fallbackSmtpUser !== '' && $fallbackSmtpPass !== '') {
+            if ($permitirFallbackSmtp && $fallbackSmtpHost !== '' && $fallbackSmtpUser !== '' && $fallbackSmtpPass !== '') {
                 $fallbackDebugLog = '';
                 try {
                     $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
@@ -25502,7 +25509,7 @@ class CapHum extends Controller
                     }
 
                     $mail->setFrom(
-                        $fallbackMailFrom !== '' ? $fallbackMailFrom : $fallbackSmtpUser,
+                        $fallbackFromEmail,
                         $fallbackMailFromName !== '' ? $fallbackMailFromName : $fromName
                     );
                     if ($rutaLogoInline !== null && is_file($rutaLogoInline)) {
@@ -25541,7 +25548,7 @@ class CapHum extends Controller
                     $mail->send();
                     $this->enviarCorreoUltimoError = '';
                     $this->enviarCorreoUltimoCanal = 'secundario';
-                    error_log('CapHum::enviarCorreo: envio realizado con SMTP secundario por limite diario del principal. user=' . $fallbackSmtpUser);
+                    error_log('CapHum::enviarCorreo: envio realizado con SMTP secundario tras fallo del principal. user=' . $fallbackSmtpUser);
                     return true;
                 } catch (\Exception $fallbackException) {
                     if ($fallbackDebugLog !== '') {
