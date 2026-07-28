@@ -49,14 +49,17 @@
         .atlas-pres-rank-metric strong { color:#22303e; font-weight:900; }
         #modalAtlasPresupuestoImportar .modal-content,
         #modalAtlasPresupuestoEditar .modal-content,
+        #modalAtlasPresupuestoReasignar .modal-content,
         #modalAtlasPresupuestoRanking .modal-content,
         #modalAtlasPresupuestoBitacora .modal-content { border:0; border-radius:.875rem; box-shadow:var(--bs-box-shadow-lg); overflow:hidden; }
         #modalAtlasPresupuestoImportar .modal-header,
         #modalAtlasPresupuestoEditar .modal-header,
+        #modalAtlasPresupuestoReasignar .modal-header,
         #modalAtlasPresupuestoRanking .modal-header,
         #modalAtlasPresupuestoBitacora .modal-header { border-bottom:1px solid #e5e7eb; padding:1rem 1.25rem; }
         #modalAtlasPresupuestoImportar .modal-footer,
         #modalAtlasPresupuestoEditar .modal-footer,
+        #modalAtlasPresupuestoReasignar .modal-footer,
         #modalAtlasPresupuestoRanking .modal-footer,
         #modalAtlasPresupuestoBitacora .modal-footer { border-top:1px solid #e5e7eb; padding:1rem 1.25rem; gap:.75rem; }
         .atlas-pres-import-result { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:.65rem; text-align:left; margin:.4rem 0 .85rem; }
@@ -77,6 +80,14 @@
         .atlas-pres-timeline-main { color:#22303e; font-weight:900; line-height:1.18; }
         .atlas-pres-timeline-sub { color:#64748b; font-size:.75rem; font-weight:700; line-height:1.22; margin-top:.15rem; }
         .atlas-pres-timeline-date { color:#64748b; font-size:.75rem; font-weight:800; white-space:nowrap; text-align:right; }
+        .atlas-pres-reassign-picker { border:1px solid #dbe3ec; border-radius:.65rem; background:#fff; overflow:hidden; }
+        .atlas-pres-reassign-picker-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.75rem .85rem; border-bottom:1px solid #e5e7eb; background:#f8fafc; }
+        .atlas-pres-reassign-list { max-height:15rem; overflow:auto; }
+        .atlas-pres-reassign-item { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:.7rem; align-items:start; padding:.7rem .85rem; margin:0; cursor:pointer; border-bottom:1px solid #eef2f7; }
+        .atlas-pres-reassign-item:last-child { border-bottom:0; }
+        .atlas-pres-reassign-item:hover { background:#f8fafc; }
+        .atlas-pres-reassign-item .form-check-input { margin-top:.18rem; }
+        .atlas-pres-reassign-empty { color:#64748b; font-size:.82rem; font-weight:700; padding:1rem; text-align:center; }
         .atlas-pres-tabs { border-bottom:1px solid #e2e8f0; margin-bottom:1rem; gap:.35rem; flex-wrap:wrap; }
         .atlas-pres-tabs .nav-link { border:0; border-bottom:3px solid transparent; border-radius:0; background:transparent; color:#64748b; font-weight:800; padding:.65rem .9rem; display:inline-flex; align-items:center; gap:.42rem; }
         .atlas-pres-tabs .nav-link.active { color:#173756; border-bottom-color:#2563eb; background:transparent; box-shadow:none; }
@@ -173,9 +184,14 @@
                     <h5 class="fw-bold mb-1" id="atlasPresDetalleTitulo"><i class="fa-solid fa-store me-2"></i>Detalle mensual</h5>
                     <div class="text-muted small fw-semibold" id="atlasPresDetalleSub">Selecciona un mes.</div>
                 </div>
-                <button type="button" class="btn btn-label-secondary btn-action-size" data-atlas-pres-regresar>
-                    <i class="fa-solid fa-arrow-left icon-sm me-sm-1"></i><span>Regresar a Presupuestos</span>
-                </button>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="btn btn-primary btn-action-size" data-atlas-pres-reasignar>
+                        <i class="fa-solid fa-user-pen icon-sm me-sm-1"></i><span>Reasignar presupuesto</span>
+                    </button>
+                    <button type="button" class="btn btn-label-secondary btn-action-size" data-atlas-pres-regresar>
+                        <i class="fa-solid fa-arrow-left icon-sm me-sm-1"></i><span>Regresar a Presupuestos</span>
+                    </button>
+                </div>
             </div>
             <div class="atlas-pres-summary" id="atlasPresDetalleResumen"></div>
             <div class="card-datatable table-responsive">
@@ -183,6 +199,7 @@
                     <thead>
                         <tr>
                             <th>Sucursal</th>
+                            <th>Responsable</th>
                             <th>Clasificación</th>
                             <th>Meta créditos</th>
                             <th>Comisiona desde</th>
@@ -277,6 +294,74 @@
         </div>
     </div>
 
+    <div class="modal fade" id="modalAtlasPresupuestoReasignar" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <form id="atlasPresReasignarForm">
+                    <div class="modal-header">
+                        <div>
+                            <h5 class="modal-title fw-bold"><i class="fa-solid fa-user-pen me-2"></i>Reasignar presupuesto</h5>
+                            <div class="text-muted small fw-semibold" id="atlasPresReasignarSub">Transfiere las sucursales de un responsable activo en este mes.</div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info d-flex align-items-start gap-2" role="alert">
+                            <i class="fa-solid fa-circle-info mt-1"></i>
+                            <div>La reasignación actualiza el presupuesto y el catálogo de sucursales. Las rutas, visitas y check-ins existentes conservan su historial.</div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-bold" for="atlasPresReasignarOrigen">Responsable actual *</label>
+                                <select class="form-select" id="atlasPresReasignarOrigen" required></select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-bold" for="atlasPresReasignarDestino">Nuevo colaborador *</label>
+                                <select class="form-select" id="atlasPresReasignarDestino" required></select>
+                            </div>
+                            <div class="col-12">
+                                <div class="border rounded p-3 bg-light" id="atlasPresReasignarResumen">
+                                    Selecciona un responsable para revisar las sucursales que serán transferidas.
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="alert alert-warning py-2 mb-2" role="alert">
+                                    Selecciona únicamente las sucursales de esta operación. Las asignaciones anteriores del responsable no se incluyen automáticamente.
+                                </div>
+                                <div class="atlas-pres-reassign-picker">
+                                    <div class="atlas-pres-reassign-picker-head">
+                                        <strong>Sucursales a transferir *</strong>
+                                        <button type="button" class="btn btn-sm btn-label-primary" id="atlasPresReasignarTodas" disabled>
+                                            Seleccionar todas
+                                        </button>
+                                    </div>
+                                    <div class="atlas-pres-reassign-list" id="atlasPresReasignarSucursales">
+                                        <div class="atlas-pres-reassign-empty">Selecciona un responsable actual.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold" for="atlasPresReasignarMotivo">Motivo *</label>
+                                <textarea
+                                    class="form-control"
+                                    id="atlasPresReasignarMotivo"
+                                    rows="3"
+                                    minlength="5"
+                                    maxlength="500"
+                                    placeholder="Ej. Alta de nuevo colaborador o cambio de estructura"
+                                    required></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer justify-content-end">
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check me-1"></i>Confirmar reasignación</button>
+                        <button type="button" class="btn btn-label-danger" data-bs-dismiss="modal">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="modalAtlasPresupuestoRanking" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
@@ -358,14 +443,19 @@
             calendario: [],
             calendariosPorAnio: {},
             detalle: null,
+            reasignacionCatalogos: null,
+            reasignacionOrigenIndex: -1,
+            reasignacionDetalleIds: new Set(),
             modalImport: null,
             modalEdit: null,
+            modalReasignar: null,
             modalRanking: null,
             modalBitacora: null,
 
             init() {
                 this.modalImport = new bootstrap.Modal(document.getElementById('modalAtlasPresupuestoImportar'));
                 this.modalEdit = new bootstrap.Modal(document.getElementById('modalAtlasPresupuestoEditar'));
+                this.modalReasignar = new bootstrap.Modal(document.getElementById('modalAtlasPresupuestoReasignar'));
                 this.modalRanking = new bootstrap.Modal(document.getElementById('modalAtlasPresupuestoRanking'));
                 this.modalBitacora = new bootstrap.Modal(document.getElementById('modalAtlasPresupuestoBitacora'));
                 this.initYears();
@@ -440,9 +530,14 @@
                 });
                 document.querySelector('[data-atlas-pres-template]').addEventListener('click', () => this.descargarTemplate());
                 document.querySelector('[data-atlas-pres-regresar]').addEventListener('click', () => this.regresarListado());
+                document.querySelector('[data-atlas-pres-reasignar]').addEventListener('click', () => this.abrirReasignacion());
                 document.getElementById('atlasPresImportAnio').addEventListener('change', () => this.actualizarMesesImportacion());
                 document.getElementById('atlasPresImportForm').addEventListener('submit', (ev) => this.importar(ev));
                 document.getElementById('atlasPresEditForm').addEventListener('submit', (ev) => this.guardarDetalle(ev));
+                document.getElementById('atlasPresReasignarForm').addEventListener('submit', (ev) => this.reasignarPresupuesto(ev));
+                document.getElementById('atlasPresReasignarOrigen').addEventListener('change', () => this.cambiarOrigenReasignacion());
+                document.getElementById('atlasPresReasignarSucursales').addEventListener('change', (ev) => this.cambiarSucursalReasignacion(ev));
+                document.getElementById('atlasPresReasignarTodas').addEventListener('click', () => this.alternarTodasReasignacion());
                 document.getElementById('atlasPresRankingPeriodo').addEventListener('change', () => this.renderRanking());
                 document.getElementById('atlasPresRankingSemana').addEventListener('change', () => this.renderRanking());
                 document.getElementById('atlasPresRankingOrden').addEventListener('change', () => this.renderRanking());
@@ -659,6 +754,10 @@
                             <div class="atlas-pres-main mt-1">${this.escape(d.sucursal || 'Sin sucursal')}</div>
                             <div class="atlas-pres-sub">${this.escape(d.distribuidor || 'Sin distribuidor')}</div>
                         </td>
+                        <td>
+                            <div class="atlas-pres-main">${this.escape(d.asesor || 'Sin responsable')}</div>
+                            <div class="atlas-pres-sub">${d.asesor_persona_id ? `Persona ${this.escape(d.asesor_persona_id)}` : 'Sin vínculo de usuario'}</div>
+                        </td>
                         <td>${this.renderClasificacionBadge(d)}</td>
                         <td><strong>${this.number(d.meta_creditos)}</strong></td>
                         <td><span class="atlas-pres-badge atlas-pres-badge-warn">${this.comisionaDesde(d.comisiona_a_partir_de)}</span></td>
@@ -670,6 +769,266 @@
                 `).join('');
                 this.inicializarTablaDom('#atlasPresDetalleTabla', 10);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            },
+
+            abrirReasignacion() {
+                const presupuestoId = parseInt(this.detalle?.presupuesto?.id, 10);
+                if (!presupuestoId) {
+                    showError('Selecciona un presupuesto mensual.');
+                    return;
+                }
+                const form = document.getElementById('atlasPresReasignarForm');
+                form.reset();
+                this.reasignacionOrigenIndex = -1;
+                this.reasignacionDetalleIds = new Set();
+                document.getElementById('atlasPresReasignarOrigen').innerHTML = '<option value="">Cargando responsables...</option>';
+                document.getElementById('atlasPresReasignarDestino').innerHTML = '<option value="">Cargando colaboradores...</option>';
+                document.getElementById('atlasPresReasignarResumen').textContent = 'Consultando sucursales del presupuesto...';
+                document.getElementById('atlasPresReasignarSucursales').innerHTML =
+                    '<div class="atlas-pres-reassign-empty">Consultando sucursales...</div>';
+                document.getElementById('atlasPresReasignarTodas').disabled = true;
+
+                http.request({
+                    endpoint: '/Atlas/getPresupuestoReasignacionCatalogos',
+                    metodo: 'GET',
+                    data: { id: presupuestoId },
+                    showLoader: true,
+                    onSuccess: (resp) => {
+                        if (!resp || resp.success === false) {
+                            showError(resp?.mensaje || 'No se pudieron cargar los responsables.');
+                            return;
+                        }
+                        this.reasignacionCatalogos = resp.datos || {};
+                        const grupos = this.reasignacionCatalogos.grupos_origen || [];
+                        const usuarios = this.reasignacionCatalogos.usuarios_destino || [];
+                        if (!grupos.length) {
+                            showError('Este presupuesto no tiene sucursales activas para reasignar.');
+                            return;
+                        }
+                        if (!usuarios.length) {
+                            showError('No hay colaboradores activos en Accesos Atlas.');
+                            return;
+                        }
+
+                        document.getElementById('atlasPresReasignarOrigen').innerHTML =
+                            '<option value="">Selecciona responsable</option>' +
+                            grupos.map((grupo, index) => {
+                                const vinculo = grupo.asesor_persona_id ? '' : ' - sin vinculo';
+                                return `<option value="${index}">${this.escape(grupo.asesor || 'Sin responsable')}${vinculo} (${this.number(grupo.total_sucursales || 0)})</option>`;
+                            }).join('');
+                        document.getElementById('atlasPresReasignarDestino').innerHTML =
+                            '<option value="">Selecciona nuevo colaborador</option>' +
+                            usuarios.map(usuario => {
+                                const empleado = usuario.numero_empleado ? ` - ${this.escape(usuario.numero_empleado)}` : '';
+                                const acceso = usuario.acceso_movil ? '' : ' - acceso móvil pendiente';
+                                return `<option value="${usuario.persona_id}">${this.escape(usuario.nombre || '')}${empleado}${acceso}</option>`;
+                            }).join('');
+                        this.inicializarBuscadoresReasignacion();
+                        document.getElementById('atlasPresReasignarSub').textContent =
+                            `${this.detalle.presupuesto.nombre_mes} ${this.detalle.presupuesto.anio}`;
+                        this.cambiarOrigenReasignacion();
+                        this.modalReasignar.show();
+                    },
+                    onError: (mensaje) => showError(mensaje || 'No se pudieron cargar los responsables.')
+                });
+            },
+
+            inicializarBuscadoresReasignacion() {
+                if (!window.jQuery || !jQuery.fn || !jQuery.fn.select2) return;
+                const modal = jQuery('#modalAtlasPresupuestoReasignar');
+                [
+                    ['#atlasPresReasignarOrigen', 'Buscar responsable actual'],
+                    ['#atlasPresReasignarDestino', 'Buscar nuevo colaborador']
+                ].forEach(([selector, placeholder]) => {
+                    const select = jQuery(selector);
+                    if (select.hasClass('select2-hidden-accessible')) select.select2('destroy');
+                    select.select2({
+                        width: '100%',
+                        dropdownParent: modal,
+                        placeholder,
+                        allowClear: true,
+                        minimumResultsForSearch: 0
+                    });
+                    if (selector === '#atlasPresReasignarOrigen') {
+                        select
+                            .off('change.atlasPresReasignacion')
+                            .on('change.atlasPresReasignacion', () => this.cambiarOrigenReasignacion());
+                    }
+                });
+            },
+
+            grupoReasignacionActual() {
+                return (this.reasignacionCatalogos?.grupos_origen || [])[this.reasignacionOrigenIndex] || null;
+            },
+
+            idsGrupoReasignacion(grupo) {
+                const ids = (grupo?.sucursales || [])
+                    .map(item => parseInt(item.detalle_id, 10))
+                    .filter(id => id > 0);
+                if (ids.length) return [...new Set(ids)];
+                return [...new Set((grupo?.detalle_ids || []).map(id => parseInt(id, 10)).filter(id => id > 0))];
+            },
+
+            cambiarOrigenReasignacion() {
+                const select = document.getElementById('atlasPresReasignarOrigen');
+                const index = select.value === '' ? -1 : parseInt(select.value, 10);
+                if (index !== this.reasignacionOrigenIndex) {
+                    this.reasignacionOrigenIndex = index;
+                    this.reasignacionDetalleIds = new Set();
+                }
+                this.renderResumenReasignacion();
+                this.renderSucursalesReasignacion();
+            },
+
+            renderResumenReasignacion() {
+                const grupo = this.grupoReasignacionActual();
+                const resumen = document.getElementById('atlasPresReasignarResumen');
+                if (!grupo) {
+                    resumen.textContent = 'Selecciona un responsable para revisar las sucursales que serán transferidas.';
+                    return;
+                }
+                const total = this.idsGrupoReasignacion(grupo).length;
+                resumen.innerHTML = `
+                    <div class="fw-bold mb-1">${this.number(grupo.total_sucursales || 0)} sucursales · ${this.number(grupo.meta_creditos || 0)} créditos · ${this.money(grupo.meta_cash || 0)}</div>
+                    <div class="small ${this.reasignacionDetalleIds.size ? 'text-primary fw-bold' : 'text-danger fw-bold'}">
+                        ${this.number(this.reasignacionDetalleIds.size)} de ${this.number(total)} sucursales seleccionadas
+                    </div>
+                `;
+            },
+
+            renderSucursalesReasignacion() {
+                const grupo = this.grupoReasignacionActual();
+                const contenedor = document.getElementById('atlasPresReasignarSucursales');
+                const botonTodas = document.getElementById('atlasPresReasignarTodas');
+                const sucursales = grupo?.sucursales || [];
+                if (!grupo || !sucursales.length) {
+                    contenedor.innerHTML = '<div class="atlas-pres-reassign-empty">Selecciona un responsable actual.</div>';
+                    botonTodas.disabled = true;
+                    botonTodas.textContent = 'Seleccionar todas';
+                    return;
+                }
+
+                contenedor.innerHTML = sucursales.map(item => {
+                    const detalleId = parseInt(item.detalle_id, 10);
+                    const checked = this.reasignacionDetalleIds.has(detalleId) ? ' checked' : '';
+                    const distribuidor = item.distribuidor
+                        ? `<span class="d-block text-muted small">${this.escape(item.distribuidor)}</span>`
+                        : '';
+                    return `
+                        <label class="atlas-pres-reassign-item">
+                            <input class="form-check-input" type="checkbox" value="${detalleId}" data-atlas-pres-reasignar-sucursal${checked}>
+                            <span>
+                                <span class="d-block fw-bold">${this.escape(item.sucursal || `Sucursal ${item.fk_sucursal || ''}`)}</span>
+                                ${distribuidor}
+                            </span>
+                        </label>
+                    `;
+                }).join('');
+                botonTodas.disabled = false;
+                this.actualizarBotonTodasReasignacion();
+            },
+
+            cambiarSucursalReasignacion(ev) {
+                const checkbox = ev.target.closest('[data-atlas-pres-reasignar-sucursal]');
+                if (!checkbox) return;
+                const detalleId = parseInt(checkbox.value, 10);
+                if (!detalleId) return;
+                if (checkbox.checked) this.reasignacionDetalleIds.add(detalleId);
+                else this.reasignacionDetalleIds.delete(detalleId);
+                this.renderResumenReasignacion();
+                this.actualizarBotonTodasReasignacion();
+            },
+
+            actualizarBotonTodasReasignacion() {
+                const boton = document.getElementById('atlasPresReasignarTodas');
+                const ids = this.idsGrupoReasignacion(this.grupoReasignacionActual());
+                const todas = ids.length > 0 && ids.every(id => this.reasignacionDetalleIds.has(id));
+                boton.textContent = todas ? 'Quitar selección' : 'Seleccionar todas';
+            },
+
+            alternarTodasReasignacion() {
+                const ids = this.idsGrupoReasignacion(this.grupoReasignacionActual());
+                if (!ids.length) return;
+                const todas = ids.every(id => this.reasignacionDetalleIds.has(id));
+                this.reasignacionDetalleIds = todas ? new Set() : new Set(ids);
+                this.renderResumenReasignacion();
+                this.renderSucursalesReasignacion();
+            },
+
+            async reasignarPresupuesto(ev) {
+                ev.preventDefault();
+                const form = ev.currentTarget;
+                const submitBtn = form?.querySelector('button[type="submit"]');
+                const origenIndex = parseInt(document.getElementById('atlasPresReasignarOrigen').value, 10);
+                const destinoId = parseInt(document.getElementById('atlasPresReasignarDestino').value, 10);
+                const motivo = document.getElementById('atlasPresReasignarMotivo').value.trim();
+                const grupo = (this.reasignacionCatalogos?.grupos_origen || [])[origenIndex];
+                const presupuestoId = parseInt(this.detalle?.presupuesto?.id, 10);
+                if (!grupo || !destinoId || !presupuestoId || motivo.length < 5) {
+                    showError('Completa responsable actual, nuevo colaborador y motivo.');
+                    return;
+                }
+                if (parseInt(grupo.asesor_persona_id, 10) === destinoId) {
+                    showError('Selecciona un colaborador distinto al responsable actual.');
+                    return;
+                }
+                const detalleIds = [...this.reasignacionDetalleIds];
+                if (!detalleIds.length) {
+                    showError('Selecciona al menos una sucursal para transferir.');
+                    return;
+                }
+
+                const usuarioDestino = (this.reasignacionCatalogos.usuarios_destino || [])
+                    .find(usuario => parseInt(usuario.persona_id, 10) === destinoId);
+                const confirmado = typeof Swal === 'undefined'
+                    ? window.confirm(`¿Reasignar ${detalleIds.length} sucursales a ${usuarioDestino?.nombre || 'este colaborador'}?`)
+                    : await Swal.fire({
+                        icon: 'question',
+                        title: 'Confirmar reasignación',
+                        html: `Se transferirán únicamente las <strong>${this.number(detalleIds.length)} sucursales seleccionadas</strong> a <strong>${this.escape(usuarioDestino?.nombre || '')}</strong>.`,
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, reasignar',
+                        cancelButtonText: 'Cancelar'
+                    }).then(result => !!result.isConfirmed);
+                if (!confirmado) return;
+
+                if (submitBtn) submitBtn.disabled = true;
+                http.request({
+                    endpoint: '/Atlas/reasignarPresupuesto',
+                    metodo: 'POST',
+                    data: JSON.stringify({
+                        presupuesto_id: presupuestoId,
+                        detalle_ids: detalleIds,
+                        asesor_destino_persona_id: destinoId,
+                        motivo
+                    }),
+                    contentType: 'application/json',
+                    processData: false,
+                    showLoader: true,
+                    onSuccess: (resp) => {
+                        if (!resp || resp.success === false) {
+                            showError(resp?.mensaje || 'No se pudo reasignar el presupuesto.');
+                            return;
+                        }
+                        this.modalReasignar.hide();
+                        const total = resp.datos?.sucursales_reasignadas || detalleIds.length;
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Presupuesto reasignado',
+                                text: `${total} sucursales ahora pertenecen a ${usuarioDestino?.nombre || 'el nuevo colaborador'}.`
+                            });
+                        } else {
+                            showSuccess(resp.mensaje || 'Presupuesto reasignado.');
+                        }
+                        this.cargarDetalle(presupuestoId);
+                        this.cargar();
+                    },
+                    onError: (mensaje) => showError(mensaje || 'No se pudo reasignar el presupuesto.'),
+                    onAlways: () => {
+                        if (submitBtn) submitBtn.disabled = false;
+                    }
+                });
             },
 
             inicializarTablaDom(selector, registrosPorPagina) {
@@ -956,6 +1315,7 @@
                     modificacion_sucursal: 'Modificacion de sucursal',
                     alta_sucursal: 'Alta de sucursal en presupuesto',
                     desactivacion_sucursal: 'Sucursal desactivada del presupuesto',
+                    reasignacion_asesor: 'Reasignacion de responsable',
                     eliminacion: 'Eliminacion de presupuesto',
                     carga_inicial: 'Carga inicial'
                 };
@@ -967,6 +1327,7 @@
                 if (evento === 'modificacion_sucursal') return 'fa-solid fa-pen';
                 if (evento === 'alta_sucursal') return 'fa-solid fa-circle-plus';
                 if (evento === 'desactivacion_sucursal') return 'fa-solid fa-circle-minus';
+                if (evento === 'reasignacion_asesor') return 'fa-solid fa-user-pen';
                 if (evento === 'eliminacion') return 'fa-solid fa-trash-can';
                 if (evento === 'recarga') return 'fa-solid fa-file-import';
                 return 'fa-solid fa-file-excel';
@@ -980,6 +1341,15 @@
                 if (['modificacion_sucursal', 'alta_sucursal', 'desactivacion_sucursal'].includes(ev.evento)) {
                     partes.push(`Creditos: ${this.number(ev.meta_creditos_anterior || 0)} -> ${this.number(ev.meta_creditos_nueva || 0)}`);
                     partes.push(`Cash: ${this.money(ev.meta_cash_anterior || 0)} -> ${this.money(ev.meta_cash_nueva || 0)}`);
+                }
+                if (ev.evento === 'reasignacion_asesor' && ev.payload_json) {
+                    const payload = typeof ev.payload_json === 'string'
+                        ? (() => { try { return JSON.parse(ev.payload_json); } catch (err) { return {}; } })()
+                        : ev.payload_json;
+                    const anterior = payload?.antes?.asesor || 'Sin responsable';
+                    const nuevo = payload?.despues?.asesor || 'Sin responsable';
+                    partes.push(`${this.escape(anterior)} -> ${this.escape(nuevo)}`);
+                    if (payload?.motivo) partes.push(`Motivo: ${this.escape(payload.motivo)}`);
                 }
                 return partes.length ? `<div class="atlas-pres-timeline-sub">${partes.join(' | ')}</div>` : '';
             },
