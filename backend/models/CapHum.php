@@ -3693,6 +3693,7 @@ class CapHum extends Model
     public static function getDocumentosPersona($id_persona, $id_documento = null)
     {
         try {
+            CapHumNotificacionDocumental::asegurarTablas();
             $db = new Database();
 
             $query = "
@@ -3700,10 +3701,16 @@ class CapHum extends Model
                     cdp.id,
                     cdp.archivo,
                     cdp.id_documento,
-                    d.nombre AS documento_nombre,
+                    COALESCE(NULLIF(nd.nombre_logico, ''), d.nombre) AS documento_nombre,
+                    nc.anio AS documento_anio,
+                    nc.semestre AS documento_semestre,
                     DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
                 FROM estado_cuenta.carga_documento_persona cdp
                 LEFT JOIN estado_cuenta.documento d ON d.id = cdp.id_documento
+                LEFT JOIN estado_cuenta.rrhh_notificacion_documental_entrega nd
+                    ON nd.id_documento_carga = cdp.id
+                LEFT JOIN estado_cuenta.rrhh_notificacion_documental_campania nc
+                    ON nc.id = nd.id_campania
                 WHERE cdp.id_persona = :id_persona
             ";
 

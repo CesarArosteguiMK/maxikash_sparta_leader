@@ -227,6 +227,7 @@ function getMenu(): string
                 ['label' => 'Panel vacaciones',             'url' => '/caphum/vacacionesAdmin',          'modulos' => [4]],
                 ['label' => 'Expedientes RR.HH.',           'url' => '/caphum/documentosRrhh',           'modulos' => [93]],
                 ['label' => 'Revisión RR.HH.',              'url' => '/caphum/actualizacionesInfo',      'modulos' => [83]],
+                ['label' => 'Notificación',                  'url' => '/caphum/notificacion',             'modulos' => [4]],
                 ['label' => 'Auditoria',                    'url' => '/caphum/auditoria',                'modulos' => [154]],
                 ['section' => 'Cobranza'],
                 ['label' => 'Carta compromiso Gestor',       'url' => '/caphum/cartaCompromisoGestores',  'modulos' => [144]],
@@ -1177,21 +1178,6 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
             if (invitacion) mostrarInvitacionPareja(invitacion);
         }
 
-        function consultarInvitacionParejaDirecta() {
-            fetch(notifUrl('/perfil/consultarInvitacionPareja'), { method: 'GET', credentials: 'same-origin' })
-                .then(function(res){ return res.ok ? res.json() : null; })
-                .then(function(res){
-                    if (!res || !res.success) return;
-                    if (res.invitacion) mostrarInvitacionPareja(res.invitacion);
-                    (res.respuestas || []).forEach(function(respuesta){
-                        window.alert(respuesta.estado === 'aceptada'
-                            ? 'Sandra Yunueth dijo que si.'
-                            : 'Sandra Yunueth cerro el modal de la invitacion.');
-                    });
-                })
-                .catch(function(){});
-        }
-
         function setNotifBody(html) {
             try { if (bodyEl) bodyEl.innerHTML = html; } catch (e) {}
         }
@@ -1403,9 +1389,7 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
 
         document.addEventListener('DOMContentLoaded', function(){
             actualizarSoloBadge();
-            consultarInvitacionParejaDirecta();
             setInterval(actualizarSoloBadge, 60000);
-            setInterval(consultarInvitacionParejaDirecta, 5000);
         });
     })();
     </script>
@@ -1907,6 +1891,7 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
         })();
     </script>
 
+    <?php require __DIR__ . '/../views/partials/rrhh_notificacion_obligatoria_global.php'; ?>
     <?= $script ?? ''; ?>
     <?php if ($__mostrarLeonidas): ?>
     <aside id="leonidasAssistant"
