@@ -110,6 +110,69 @@ class Direcciones
         return ['success' => true, 'mensaje' => 'Direccion agregada correctamente.', 'id_credito' => $idCredito];
     }
 
+    public function corregirDireccion(array $data): array
+    {
+        $idCredito = (int) ($data['id_credito'] ?? 0);
+        $idDireccion = (int) ($data['id_direccion'] ?? $data['id'] ?? 0);
+        if ($idCredito <= 0 || $idDireccion <= 0) {
+            return ['success' => false, 'mensaje' => 'Crédito y dirección son obligatorios.'];
+        }
+
+        $actual = $this->db->queryOne(
+            "SELECT id, direccion FROM direcciones
+             WHERE id = :id AND id_credito = :credito AND activo = 1
+             LIMIT 1",
+            ['id' => $idDireccion, 'credito' => $idCredito]
+        );
+        if (!$actual) {
+            return ['success' => false, 'mensaje' => 'La dirección no pertenece al crédito o ya no está activa.'];
+        }
+
+        $permitidos = [
+            'codigo_postal' => 20,
+            'calle_numero' => 255,
+            'direccion' => 500,
+            'colonia' => 255,
+            'ciudad' => 255,
+            'estado' => 255,
+            'etapa' => 120,
+        ];
+        $sets = [];
+        $params = ['id' => $idDireccion, 'credito' => $idCredito];
+        foreach ($permitidos as $campo => $max) {
+            if (!array_key_exists($campo, $data)) {
+                continue;
+            }
+            $valor = self::texto($data[$campo], $max);
+            if ($campo === 'direccion' && $valor === null) {
+                return ['success' => false, 'mensaje' => 'La dirección corregida no puede quedar vacía.'];
+            }
+            $sets[] = "{$campo} = :{$campo}";
+            $params[$campo] = $valor;
+        }
+        if (!$sets) {
+            return ['success' => false, 'mensaje' => 'No se recibió ningún campo geográfico para corregir.'];
+        }
+
+        $sets[] = "origen = 'correccion_manual'";
+        $sets[] = "origen_detalle = 'Leonidas'";
+        $this->db->CRUD(
+            "UPDATE direcciones SET " . implode(', ', $sets) . "
+             WHERE id = :id AND id_credito = :credito AND activo = 1",
+            $params
+        );
+
+        $verificada = $this->db->queryOne(
+            "SELECT * FROM direcciones WHERE id = :id AND id_credito = :credito AND activo = 1 LIMIT 1",
+            ['id' => $idDireccion, 'credito' => $idCredito]
+        );
+        return [
+            'success' => true,
+            'mensaje' => 'Información geográfica corregida.',
+            'direccion' => $verificada ?: [],
+        ];
+    }
+
     public function reordenarDirecciones(int $idCredito, array $ids): array
     {
         if ($idCredito <= 0 || empty($ids)) {

@@ -8,6 +8,103 @@ use Core\DatabaseSegundometro;
 class Condonaciones extends Model
 {
     /**
+     * API interna sin echo/exit para ejecutores auditables.
+     */
+    public static function crearOperativa(array $datos, int $idUsuario, string $nombreUsuario): array
+    {
+        $idCredito = (int) ($datos['id_credito'] ?? 0);
+        $total = round((float) ($datos['total_condonado'] ?? 0), 2);
+        $comentario = trim((string) ($datos['comentario'] ?? ''));
+        if ($idCredito <= 0 || $total <= 0 || $comentario === '') {
+            return ['success' => false, 'mensaje' => 'Crédito, monto y comentario son obligatorios.'];
+        }
+
+        $detalles = is_array($datos['detalles'] ?? null) ? $datos['detalles'] : [];
+        $suma = 0.0;
+        foreach ($detalles as $detalle) {
+            $idGasto = (int) ($detalle['id_gastos_cobranza'] ?? 0);
+            $monto = round((float) ($detalle['monto'] ?? 0), 2);
+            if ($idGasto <= 0 || $monto <= 0) {
+                return ['success' => false, 'mensaje' => 'Cada detalle requiere gasto de cobranza y monto válidos.'];
+            }
+            $suma += $monto;
+        }
+        if ($detalles && abs($suma - $total) > 0.01) {
+            return ['success' => false, 'mensaje' => 'La suma de detalles no coincide con el total condonado.'];
+        }
+
+        try {
+            $db = new DatabaseSegundometro();
+            $idMotivo = \Models\EstadoCuenta::normalizarIdMotivoCondonacionCobranza(
+                $datos['id_motivo_condonacion'] ?? 1
+            );
+            $db->beginTransaction();
+            $ok = $db->execute(
+                "INSERT INTO condonaciones_cobranza
+                    (id_credito, id_motivo_condonacion, comentario, id_usuario, usuario, total_condonado, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, NOW())",
+                [$idCredito, $idMotivo, mb_substr($comentario, 0, 1000), $idUsuario, $nombreUsuario, $total]
+            );
+            if (!$ok) {
+                $db->rollback();
+                return ['success' => false, 'mensaje' => 'No se pudo registrar la condonación.'];
+            }
+            $id = (int) $db->lastInsertId();
+            foreach ($detalles as $detalle) {
+                $db->execute(
+                    "INSERT INTO condonaciones_cobranza_detalle
+                        (id_condonacion, id_gastos_cobranza, monto)
+                     VALUES (?, ?, ?)",
+                    [$id, (int) $detalle['id_gastos_cobranza'], round((float) $detalle['monto'], 2)]
+                );
+            }
+            $db->commit();
+            return [
+                'success' => true,
+                'mensaje' => 'Condonación creada correctamente.',
+                'id_condonacion' => $id,
+                'id_credito' => $idCredito,
+                'total_condonado' => $total,
+            ];
+        } catch (\Throwable $e) {
+            if (isset($db) && method_exists($db, 'inTransaction') && $db->inTransaction()) {
+                $db->rollback();
+            }
+            return ['success' => false, 'mensaje' => 'Error al registrar la condonación.', 'error' => $e->getMessage()];
+        }
+    }
+
+    public static function obtenerOperativa(int $idCondonacion): ?array
+    {
+        if ($idCondonacion <= 0) {
+            return null;
+        }
+        try {
+            $db = new DatabaseSegundometro();
+            $row = $db->queryOne(
+                "SELECT id_condonacion, id_credito, id_motivo_condonacion, comentario,
+                        id_usuario, usuario, total_condonado, created_at
+                 FROM condonaciones_cobranza
+                 WHERE id_condonacion = :id
+                 LIMIT 1",
+                ['id' => $idCondonacion]
+            );
+            if (!$row) {
+                return null;
+            }
+            $row['detalles'] = $db->queryAll(
+                "SELECT id, id_gastos_cobranza, monto
+                 FROM condonaciones_cobranza_detalle
+                 WHERE id_condonacion = :id
+                 ORDER BY id",
+                ['id' => $idCondonacion]
+            ) ?: [];
+            return $row;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+    /**
      * Obtiene todas las condonaciones registradas
      */
     public static function getConsultaCondonaciones()

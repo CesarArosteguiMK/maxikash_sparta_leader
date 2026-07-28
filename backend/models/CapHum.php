@@ -4488,6 +4488,18 @@ class CapHum extends Model
                 WHERE cdp.id_persona IN (" . implode(', ', $placeholders) . ")
                   AND cdp.id_documento IN (" . implode(',', array_map('intval', $idsDocumento)) . ")
                   AND COALESCE(cdp.archivo, '') <> ''
+                  AND (
+                      cdp.id_documento <> 33
+                      OR cdp.id = (
+                          SELECT reciente.id
+                          FROM estado_cuenta.carga_documento_persona reciente
+                          WHERE reciente.id_persona = cdp.id_persona
+                            AND reciente.id_documento = 33
+                            AND COALESCE(reciente.archivo, '') <> ''
+                          ORDER BY reciente.fecha_carga DESC, reciente.id DESC
+                          LIMIT 1
+                      )
+                  )
                 ORDER BY cdp.id_persona ASC, cdp.id_documento ASC, cdp.fecha_carga ASC, cdp.id ASC
             ", $params);
 
@@ -7314,11 +7326,29 @@ class CapHum extends Model
             $nombreArchivo = $documento['archivo'];
             $id_documento = $documento['id_documento'];
 
-            // Eliminar de la base de datos
-            $db->queryOne("
-                DELETE FROM estado_cuenta.carga_documento_persona
-                WHERE id = :id
-            ", ['id' => $id_documento_carga]);
+            // Al borrar una entrega obligatoria se reactiva su pendiente para que el
+            // colaborador vuelva a recibir el aviso del documento solicitado.
+            CapHumNotificacionDocumental::asegurarTablas();
+            $db->beginTransaction();
+            try {
+                $entregasReactivadas = $db->CRUD("
+                    DELETE FROM estado_cuenta.rrhh_notificacion_documental_entrega
+                    WHERE id_documento_carga = :id
+                ", ['id' => $id_documento_carga]);
+                $eliminados = $db->CRUD("
+                    DELETE FROM estado_cuenta.carga_documento_persona
+                    WHERE id = :id
+                ", ['id' => $id_documento_carga]);
+                if ($eliminados !== 1) {
+                    throw new \RuntimeException('No se pudo eliminar el registro del documento.');
+                }
+                $db->commit();
+            } catch (\Throwable $e) {
+                if ($db->inTransaction()) {
+                    $db->rollback();
+                }
+                throw $e;
+            }
 
             // Eliminar archivo físico (puede estar en diferentes carpetas según el tipo)
             $carpetas = [
@@ -7334,7 +7364,11 @@ class CapHum extends Model
                 @unlink($rutaArchivo);
             }
 
-            return self::resultado(true, 'Documento eliminado correctamente.');
+            return self::resultado(true, $entregasReactivadas > 0
+                ? 'Documento eliminado. La solicitud se reactivó para el colaborador.'
+                : 'Documento eliminado correctamente.', [
+                'notificacion_reactivada' => $entregasReactivadas > 0,
+            ]);
 
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al eliminar documento.', null, $e->getMessage());

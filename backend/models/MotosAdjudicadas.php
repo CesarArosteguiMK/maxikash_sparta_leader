@@ -3922,16 +3922,14 @@ SQL;
         if ($idOperacion <= 0 || !$this->adjEvidenciaTieneColumnasAtn()) {
             return;
         }
-        if ($this->operacionTieneEnvioAtencionMarcado($idOperacion)) {
-            return;
-        }
 
         try {
             $rows = $this->db->queryAll(
                 "SELECT h.id_evidencia,
                         h.url_vieja_rechazada,
                         h.url_nueva,
-                        e.url AS url_actual
+                        e.url AS url_actual,
+                        e.slot
                  FROM adj_evidencia_rechazo_historial h
                  INNER JOIN (
                      SELECT id_evidencia, MAX(id) AS id_historial
@@ -3957,8 +3955,19 @@ SQL;
 
                 $urlNueva = trim((string) ($row['url_nueva'] ?? ''));
                 if ($urlNueva !== '') {
+                    $urlAplicable = $urlNueva;
+                    if (preg_match('#^https?://#i', $urlNueva)) {
+                        $urlAplicable = $this->respaldarEvidenciaDictumApp(
+                            $idOperacion,
+                            trim((string) ($row['slot'] ?? '')),
+                            $urlNueva
+                        );
+                        if ($urlAplicable === null) {
+                            continue;
+                        }
+                    }
                     $urlActual = trim((string) ($row['url_actual'] ?? ''));
-                    if ($urlActual === $urlNueva) {
+                    if ($urlActual === $urlAplicable) {
                         continue;
                     }
                     if ($this->operacionTieneEnvioAtencionMarcado($idOperacion)) {
@@ -3970,8 +3979,8 @@ SQL;
                              WHERE id = :id_evidencia
                                AND id_operacion = :id_operacion",
                             [
-                                'tipo' => $this->tipoEvidenciaPorUrl($urlNueva),
-                                'url' => $urlNueva,
+                                'tipo' => $this->tipoEvidenciaPorUrl($urlAplicable),
+                                'url' => $urlAplicable,
                                 'id_evidencia' => $idEvidencia,
                                 'id_operacion' => $idOperacion,
                             ]
@@ -3987,8 +3996,8 @@ SQL;
                              WHERE id = :id_evidencia
                                AND id_operacion = :id_operacion",
                             [
-                                'tipo' => $this->tipoEvidenciaPorUrl($urlNueva),
-                                'url' => $urlNueva,
+                                'tipo' => $this->tipoEvidenciaPorUrl($urlAplicable),
+                                'url' => $urlAplicable,
                                 'id_evidencia' => $idEvidencia,
                                 'id_operacion' => $idOperacion,
                             ]
@@ -5020,7 +5029,28 @@ SQL;
         );
 
         if ($old) {
+            $urlAnterior = trim((string) ($old['url'] ?? ''));
             if ($this->operacionTieneEnvioAtencionMarcado($idOperacion)) {
+                /*
+                 * Aunque la evidencia ya haya pasado por AtenciÃ³n, la URL de
+                 * la app mÃ³vil no se debe conservar. El respaldo local ya se
+                 * descargÃ³ arriba; actualizar la referencia sin borrar el
+                 * veredicto evita que Firebase deje un expediente sin archivo.
+                 */
+                if ($urlAnterior !== $urlRespaldada) {
+                    $this->db->CRUD(
+                        "UPDATE adj_evidencia
+                         SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = 'recibido'
+                         WHERE id_operacion = :id AND slot = :slot",
+                        [
+                            'tipo' => $tipo,
+                            'url' => $urlRespaldada,
+                            'fecha' => $fecha,
+                            'id' => $idOperacion,
+                            'slot' => $slot,
+                        ]
+                    );
+                }
                 return true;
             }
             $historialRechazo = $this->db->queryOne(
@@ -5038,7 +5068,6 @@ SQL;
                 return true;
             }
 
-            $urlAnterior = trim((string) ($old['url'] ?? ''));
             if ($urlAnterior === $urlRespaldada) {
                 $this->db->CRUD(
                     "UPDATE adj_evidencia
@@ -5160,6 +5189,70 @@ SQL;
                 @unlink($temporal);
             }
         }
+    }
+
+    /**
+     * Migra evidencias antiguas que aÃºn apuntan directamente a Firebase a la
+     * carpeta local de Sparta. No modifica validaciones ni fechas de captura.
+     * Las que el origen ya no puede entregar se reportan para recuperarlas desde
+     * el respaldo de la app, sin ocultar el problema con un enlace roto.
+     *
+     * @return array{revisadas:int,respaldadas:int,no_disponibles:int,omitidas:int}
+     */
+    public function migrarRespaldosEvidenciasFirebase(?int $idOperacion = null, int $limite = 500): array
+    {
+        $limite = max(1, min($limite, 5000));
+        $params = ['firebase' => 'https://firebasestorage.googleapis.com/%'];
+        $whereOperacion = '';
+        if ($idOperacion !== null && $idOperacion > 0) {
+            $whereOperacion = ' AND id_operacion = :id_operacion';
+            $params['id_operacion'] = $idOperacion;
+        }
+
+        $rows = $this->db->queryAll(
+            "SELECT id, id_operacion, slot, url
+             FROM adj_evidencia
+             WHERE url LIKE :firebase{$whereOperacion}
+             ORDER BY id ASC
+             LIMIT {$limite}",
+            $params
+        ) ?: [];
+
+        $resultado = ['revisadas' => 0, 'respaldadas' => 0, 'no_disponibles' => 0, 'omitidas' => 0];
+        $slotsDictum = array_values(self::DICTUM_APP_EVIDENCIA_SLOTS);
+        foreach ($rows as $row) {
+            $resultado['revisadas']++;
+            $slot = trim((string) ($row['slot'] ?? ''));
+            $url = trim((string) ($row['url'] ?? ''));
+            $idEvidencia = (int) ($row['id'] ?? 0);
+            $operacion = (int) ($row['id_operacion'] ?? 0);
+            if ($idEvidencia <= 0 || $operacion <= 0 || $url === '' || !in_array($slot, $slotsDictum, true)) {
+                $resultado['omitidas']++;
+                continue;
+            }
+
+            $urlLocal = $this->respaldarEvidenciaDictumApp($operacion, $slot, $url);
+            if ($urlLocal === null) {
+                $resultado['no_disponibles']++;
+                continue;
+            }
+
+            $this->db->CRUD(
+                'UPDATE adj_evidencia
+                 SET url = :url_local, tipo = :tipo
+                 WHERE id = :id AND id_operacion = :id_operacion AND url = :url_remota',
+                [
+                    'url_local' => $urlLocal,
+                    'tipo' => $this->tipoEvidenciaPorUrl($urlLocal),
+                    'id' => $idEvidencia,
+                    'id_operacion' => $operacion,
+                    'url_remota' => $url,
+                ]
+            );
+            $resultado['respaldadas']++;
+        }
+
+        return $resultado;
     }
 
     private function extensionEvidenciaRemotaDictum(string $url, string $slot): string
@@ -8790,6 +8883,7 @@ EOSQL;
                 o.id_credito,
                 o.nombre_cliente,
                 COALESCE(NULLIF(TRIM(o.estatus), ''), 'Sin estatus') AS estatus,
+                COALESCE(NULLIF(TRIM(o.area_actual), ''), '') AS origen_carga,
                 {$estadoSql} AS estado_normalizado,
                 COALESCE(NULLIF(TRIM(o.log_ciudad), ''), 'SIN MUNICIPIO') AS municipio,
                 COALESCE(NULLIF(TRIM(o.log_direccion), ''), 'Sin direccion') AS direccion,
@@ -8806,13 +8900,13 @@ EOSQL;
                 (SELECT MIN(aca.fecha_alta)
                  FROM asigna_creditos_adjudicacion aca
                  WHERE aca.id_credito = o.id_credito) AS fecha_asignacion,
-                (SELECT TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))
+                COALESCE((SELECT TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))
                  FROM asigna_creditos_adjudicacion aca
                  INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
                  INNER JOIN persona per ON per.id = pa.id_persona
                  WHERE aca.id_credito = o.id_credito
                  ORDER BY (aca.estatus = '1') DESC, aca.id DESC
-                 LIMIT 1) AS gestor_nombre,
+                 LIMIT 1), NULLIF(TRIM(o.log_responsable), ''), '') AS gestor_nombre,
                 (SELECT COUNT(*)
                  FROM adj_evidencia ev
                  WHERE ev.id_operacion = o.id) AS evidencias_total,
@@ -8962,6 +9056,7 @@ EOSQL;
                 'id_credito' => (int) ($row['id_credito'] ?? 0),
                 'nombre_cliente' => $row['nombre_cliente'] ?? '',
                 'estatus' => $row['estatus'] ?? '',
+                'origen_carga' => $row['origen_carga'] ?? '',
                 'estado' => $row['estado_normalizado'] ?? '',
                 'municipio' => $row['municipio'] ?? '',
                 'direccion' => $row['direccion'] ?? '',
@@ -9075,11 +9170,14 @@ EOSQL;
         ], $extra);
     }
 
-    public function obtenerTimelineCreditoMotosAdjudicadas(int $idCredito): array
+    public function obtenerTimelineCreditoMotosAdjudicadas(int $idCredito, int $idOperacion = 0): array
     {
-        if ($idCredito <= 0) {
+        if ($idCredito <= 0 && $idOperacion <= 0) {
             return ['success' => false, 'message' => 'Indica un credito valido.'];
         }
+
+        $whereOperacion = $idOperacion > 0 ? 'o.id = :id_operacion' : 'o.id_credito = :id_credito';
+        $paramsOperacion = $idOperacion > 0 ? ['id_operacion' => $idOperacion] : ['id_credito' => $idCredito];
 
         $op = $this->db->queryOne(
             "SELECT
@@ -9106,6 +9204,7 @@ EOSQL;
                 o.recepcion_ubicacion,
                 o.recepcion_observaciones,
                 o.recepcion_confirmada_at,
+                o.kilometraje,
                 o.marca AS factura_marca,
                 o.modelo AS factura_modelo,
                 o.serie AS factura_serie,
@@ -9121,10 +9220,10 @@ EOSQL;
                 o.saldo_capital,
                 o.adeudo_total
              FROM adj_operacion o
-             WHERE o.id_credito = :id_credito
+             WHERE {$whereOperacion}
              ORDER BY o.id DESC
              LIMIT 1",
-            ['id_credito' => $idCredito]
+            $paramsOperacion
         );
 
         if (!$op) {
@@ -9132,6 +9231,8 @@ EOSQL;
         }
 
         $idOperacion = (int) ($op['id'] ?? 0);
+        $idCredito = (int) ($op['id_credito'] ?? 0);
+        $esCargaMasiva = trim((string) ($op['area_actual'] ?? '')) === 'Carga masiva historico';
         $eventos = [];
         $asignaciones = [];
         $evidencias = [];
@@ -9233,8 +9334,10 @@ EOSQL;
 
         $eventos[] = $this->madjTimelineEvento(
             'alta_operacion',
-            'Operacion creada en Motos Adjudicadas',
-            'Se registro la operacion adjudicada en Sparta.',
+            $esCargaMasiva ? 'Registro incorporado por carga masiva' : 'Operacion creada en Motos Adjudicadas',
+            $esCargaMasiva
+                ? 'Registro historico incorporado desde el archivo de carga masiva.'
+                : 'Se registro la operacion adjudicada en Sparta.',
             $op['fecha_alta'] ?? null,
             'adj_operacion'
         );
@@ -9356,10 +9459,12 @@ EOSQL;
             ],
             [
                 'key' => 'evidencias',
-                'titulo' => 'Evidencias',
-                'descripcion' => 'Captura fotografica y documental por parte del gestor.',
-                'estado' => $this->madjTimelineEstado($hayEvidencias, !$hayEvidencias && $asignaciones !== []),
-                'fecha_fmt' => $hayEvidencias ? $this->madjFmtFecha($evidencias[0]['fecha_alta'] ?? null) : 'Pendiente',
+                'titulo' => $esCargaMasiva ? 'Evidencias de carga masiva' : 'Evidencias',
+                'descripcion' => $esCargaMasiva
+                    ? 'No aplica: el registro historico fue incorporado por carga masiva y no contiene archivos adjuntos.'
+                    : 'Captura fotografica y documental por parte del gestor.',
+                'estado' => $esCargaMasiva ? 'no_aplica' : $this->madjTimelineEstado($hayEvidencias, !$hayEvidencias && $asignaciones !== []),
+                'fecha_fmt' => $esCargaMasiva ? 'Carga masiva' : ($hayEvidencias ? $this->madjFmtFecha($evidencias[0]['fecha_alta'] ?? null) : 'Pendiente'),
                 'total' => count($evidencias),
             ],
             [
@@ -9402,6 +9507,8 @@ EOSQL;
                 'nombre_cliente' => $op['nombre_cliente'] ?? '',
                 'estatus' => $op['estatus'] ?? '',
                 'area_actual' => $op['area_actual'] ?? '',
+                'es_carga_masiva' => $esCargaMasiva,
+                'observaciones_recepcion' => $op['recepcion_observaciones'] ?? '',
                 'ubicacion' => [
                     'estado' => $op['log_estado'] ?? '',
                     'municipio' => $op['log_ciudad'] ?? '',
@@ -9420,6 +9527,7 @@ EOSQL;
                     'vin' => $op['vin'] ?? '',
                     'motor' => $op['motor'] ?? '',
                     'placas' => $op['placas'] ?? '',
+                    'kilometraje' => $op['kilometraje'] ?? '',
                     'factura_marca' => $op['factura_marca'] ?? '',
                     'factura_modelo' => $op['factura_modelo'] ?? '',
                     'factura_serie' => $op['factura_serie'] ?? '',

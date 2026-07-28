@@ -501,8 +501,10 @@ class CapHumNotificacionDocumental extends Model
                     p.correo,
                     COALESCE(p.estatus, '') AS estatus,
                     CASE WHEN e.id IS NULL THEN 'Pendiente' ELSE 'Entregado' END AS estado_entrega,
+                    e.id_documento_carga,
                     e.nombre_logico,
                     e.nombre_original,
+                    e.archivo,
                     DATE_FORMAT(e.cargado_en, '%Y-%m-%d %H:%i') AS cargado_en
                 FROM estado_cuenta.rrhh_notificacion_documental_campania c
                 INNER JOIN estado_cuenta.persona p ON 1 = 1

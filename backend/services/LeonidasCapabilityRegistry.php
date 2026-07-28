@@ -21,6 +21,15 @@ class LeonidasCapabilityRegistry
     private const ACCIONES_EJECUTABLES = [
         'creditos' => [
             'cartera_reactivar_tarea_movil',
+            'condonacion_preparar',
+            'condonacion_enviar',
+            'condonacion_aprobar',
+            'condonacion_rechazar',
+            'cierre_preparar',
+            'cierre_enviar_autorizacion',
+            'cierre_aprobar',
+            'cierre_rechazar',
+            'cierre_enviar_cartera',
         ],
         'capital_humano' => [
             'rrhh_registrar',
@@ -48,11 +57,45 @@ class LeonidasCapabilityRegistry
             'moto_enviar_evidencias',
             'moto_forzar_evidencias',
             'moto_guardar_datos',
+            'almacen_confirmar_recepcion',
+            'almacen_iniciar_revision',
+            'almacen_finalizar_revision',
+            'almacen_crear_traspaso',
+            'almacen_confirmar_entrega',
+            'tracking_crear_ruta',
+            'tracking_actualizar_ruta',
+            'tracking_cancelar_ruta',
+            'tracking_adjuntar_evidencia',
         ],
-        'direcciones' => [],
-        'legacy' => [],
+        'direcciones' => [
+            'direccion_registrar',
+            'direccion_prioridad',
+            'direccion_sincronizar',
+            'direccion_corregir',
+        ],
+        'legacy' => [
+            'despacho_asignar_credito',
+            'despacho_desasignar_credito',
+            'despacho_cambiar_estatus',
+            'despacho_importar_excel',
+            'despacho_adjuntar_documento',
+        ],
         'atlas' => [],
-        'tickets' => [],
+        'tickets' => [
+            'ticket_crear',
+            'ticket_asignar',
+            'ticket_desasignar',
+            'ticket_seguimiento',
+            'ticket_adjuntar_evidencia',
+            'ticket_cerrar',
+            'ticket_reabrir',
+            'viatico_crear',
+            'viatico_adjuntar_comprobante',
+            'viatico_enviar_autorizacion',
+            'viatico_aprobar',
+            'viatico_rechazar',
+            'viatico_registrar_pago',
+        ],
         'analitica' => [],
         'gastos_cobranza' => [
             'servicio_local_control',
@@ -73,7 +116,12 @@ class LeonidasCapabilityRegistry
         return [
             'creditos' => $this->dominio(
                 'Créditos',
-                ['credito', 'creditos', 'estado de cuenta', 'saldo', 'pago', 'pagos', 'cargos moratorios', 'domiciliado'],
+                [
+                    'credito', 'creditos', 'estado de cuenta', 'saldo', 'pago', 'pagos',
+                    'cargos moratorios', 'domiciliado', 'cierre de credito', 'cierre credito',
+                    'condonacion', 'condonaciones', 'aplicaciones de pago', 'aplicaciones pago',
+                    'aclaracion de credito', 'credito problematico', 'estado cuenta guatemala',
+                ],
                 'Consulta el estado financiero y operativo de un crédito, sus pagos, saldos, cargos, gestiones y documentación.',
                 ['Estados de cuenta', 'Documentación', 'Histórico de gestiones', 'Cierre de crédito'],
                 ['s2_estado_cuenta', 'legacy', 'sparta_principal'],
@@ -83,7 +131,12 @@ class LeonidasCapabilityRegistry
             ),
             'capital_humano' => $this->dominio(
                 'Capital Humano',
-                ['capital humano', 'rrhh', 'recursos humanos', 'colaborador', 'colaboradores', 'candidato', 'candidatos', 'vacaciones', 'baja', 'reingreso', 'expediente'],
+                [
+                    'capital humano', 'rrhh', 'recursos humanos', 'colaborador', 'colaboradores',
+                    'candidato', 'candidatos', 'vacaciones', 'baja', 'reingreso', 'expediente',
+                    'seleccion de personal', 'plantilla', 'documentos colaborador',
+                    'perfil colaborador', 'carta compromiso',
+                ],
                 'Administra el ciclo de vida de colaboradores y candidatos, estructura laboral, expedientes, accesos, vacaciones y auditoría.',
                 ['Gestión de personal', 'Selección de personal', 'Control de bajas', 'Vacaciones', 'Expedientes RR.HH.', 'Revisión RR.HH.', 'Auditoría', 'Accesos', 'Organigrama'],
                 ['sparta_principal', 'legacy', 'geografia'],
@@ -103,7 +156,13 @@ class LeonidasCapabilityRegistry
             ),
             'motos_adjudicadas' => $this->dominio(
                 'Motos Adjudicadas',
-                ['moto', 'motos', 'motos adjudicadas', 'adjudicacion', 'evidencias', 'dictamen', 'tracking', 'inventario', 'motocicleta'],
+                [
+                    'moto', 'motos', 'motos adjudicadas', 'adjudicacion', 'evidencias',
+                    'dictamen', 'tracking', 'inventario', 'motocicleta', 'almacen virtual',
+                    'atencion clientes', 'atencion al cliente', 'tracking recoleccion',
+                    'solicitud adjudicacion', 'config motos', 'revision mecanica', 'piso venta',
+                    'traspasos', 'repuve', 'recepcion almacen',
+                ],
                 'Gestiona créditos adjudicados, asignaciones, recuperación, datos de motocicleta, evidencias, dictámenes, inventario y tracking.',
                 ['Asignaciones', 'Evidencias', 'Dictamen', 'Recuperación', 'Cartera', 'Recepción', 'Inventario', 'Tracking', 'BlackList'],
                 ['sparta_principal', 'legacy', 'segundometro', 's2_estado_cuenta'],
@@ -113,7 +172,11 @@ class LeonidasCapabilityRegistry
             ),
             'direcciones' => $this->dominio(
                 'Direcciones',
-                ['direccion', 'direcciones', 'domicilio', 'domicilios', 'geolocalizacion', 'ubicacion', 'colonia', 'codigo postal'],
+                [
+                    'direccion', 'direcciones', 'domicilio', 'domicilios', 'geolocalizacion',
+                    'ubicacion', 'colonia', 'codigo postal', 'asignacion direcciones',
+                    'prioridad direccion',
+                ],
                 'Consulta y mantiene direcciones relacionadas con créditos y personas, su prioridad y sincronización operativa.',
                 ['Consulta por crédito', 'Captura de dirección', 'Orden de prioridad', 'Sincronización desde Segundómetro', 'Catálogos geográficos'],
                 ['sparta_principal', 'geografia', 'segundometro'],
@@ -123,7 +186,11 @@ class LeonidasCapabilityRegistry
             ),
             'legacy' => $this->dominio(
                 'Legacy',
-                ['legacy', 'campania', 'campana', 'task', 'tasks', 'dictum', 'dictums', 'tarea', 'tareas', 'gestion', 'gestiones'],
+                [
+                    'legacy', 'campania', 'campana', 'task', 'tasks', 'dictum', 'dictums',
+                    'tarea', 'tareas', 'gestion', 'gestiones', 'layout legacy',
+                    'despacho', 'despachos',
+                ],
                 'Consulta la operación histórica de cobranza: créditos, campañas, tareas, asignaciones, dictámenes, usuarios y gestiones.',
                 ['Campañas', 'Tareas', 'Asignaciones', 'Dictámenes', 'Usuarios', 'Gestiones', 'Layout Legacy'],
                 ['legacy'],
@@ -143,7 +210,11 @@ class LeonidasCapabilityRegistry
             ),
             'tickets' => $this->dominio(
                 'Tickets',
-                ['ticket', 'tickets', 'sabueso', 'aclaracion', 'prorroga', 'ilocalizable', 'reconsulta'],
+                [
+                    'ticket', 'tickets', 'sabueso', 'aclaracion', 'prorroga', 'ilocalizable',
+                    'reconsulta', 'viaticos', 'validaciones', 'formulario territorial',
+                    'ticket puesto', 'solicitud vacaciones',
+                ],
                 'Registra y da seguimiento a incidencias operativas, aclaraciones, dictámenes, evidencias y conversaciones.',
                 ['Bandeja', 'Asignación', 'Chat', 'Dictamen', 'Evidencias', 'Prórrogas', 'Ilocalizables', 'Reconsulta de pagos', 'Reportes'],
                 ['sparta_principal', 'legacy', 's2_estado_cuenta'],
@@ -153,7 +224,12 @@ class LeonidasCapabilityRegistry
             ),
             'analitica' => $this->dominio(
                 'Analítica',
-                ['analitica', 'analisis', 'bucket', 'buckets', 'segundometro', 'comparativo', 'historico bucket', 'avance', 'indicador', 'grafica'],
+                [
+                    'analitica', 'analisis', 'bucket', 'buckets', 'segundometro',
+                    'comparativo', 'historico bucket', 'avance', 'indicador', 'indicadores',
+                    'grafica', 'reporteria', 'gestion campo', 'call center', 'cartera actual',
+                    'primeros pagos', 'vencimientos lunes',
+                ],
                 'Explica y compara métricas operativas de cartera, buckets, pagos, campo, asignación y desempeño.',
                 ['Histórico bucket', 'Avance', 'Comparativo', 'Segundómetro', 'Primeros pagos', 'Campo', 'Asignación', 'Sabueso'],
                 ['segundometro', 'legacy', 'sparta_principal', 's2_estado_cuenta', 'gastos_cobranza'],
@@ -173,7 +249,11 @@ class LeonidasCapabilityRegistry
             ),
             'organizacion' => $this->dominio(
                 'Organización',
-                ['organizacion', 'estructura', 'empresa', 'empresas', 'area', 'areas', 'departamento', 'departamentos', 'puesto', 'puestos', 'organigrama', 'equivalencia'],
+                [
+                    'organizacion', 'estructura', 'empresa', 'empresas', 'area', 'areas',
+                    'departamento', 'departamentos', 'puesto', 'puestos', 'organigrama',
+                    'equivalencia', 'equivalencias', 'paises', 'catalogo puestos',
+                ],
                 'Mantiene la estructura Empresa > Dirección > Área > Departamento > Puesto y su relación con personas y Legacy.',
                 ['Empresas', 'Países', 'Direcciones', 'Áreas', 'Departamentos', 'Puestos', 'Equivalencias', 'Asignación por puestos', 'Sincronización Legacy'],
                 ['sparta_principal', 'legacy', 'geografia'],
@@ -198,6 +278,7 @@ class LeonidasCapabilityRegistry
     public function detectar(string $texto): ?array
     {
         $normalizado = $this->normalizar($texto);
+        $tokensTexto = $this->tokens($normalizado);
         $mejor = null;
         $mejorPuntaje = 0;
         foreach ($this->todos() as $id => $dominio) {
@@ -207,6 +288,27 @@ class LeonidasCapabilityRegistry
                 if ($aliasNormalizado !== '' && str_contains($normalizado, $aliasNormalizado)) {
                     $palabras = substr_count($aliasNormalizado, ' ') + 1;
                     $puntaje = max($puntaje, strlen($aliasNormalizado) + ($palabras * 10));
+                    continue;
+                }
+                $tokensAlias = $this->tokens($aliasNormalizado);
+                if ($tokensAlias === []) {
+                    continue;
+                }
+                $coincidencias = 0;
+                foreach ($tokensAlias as $tokenAlias) {
+                    foreach ($tokensTexto as $tokenTexto) {
+                        if ($tokenAlias === $tokenTexto
+                            || (strlen($tokenAlias) >= 5 && levenshtein($tokenAlias, $tokenTexto) <= 1)) {
+                            $coincidencias++;
+                            break;
+                        }
+                    }
+                }
+                if ($coincidencias === count($tokensAlias)) {
+                    $puntaje = max(
+                        $puntaje,
+                        strlen($aliasNormalizado) + (count($tokensAlias) * 7)
+                    );
                 }
             }
             if ($puntaje > $mejorPuntaje) {
@@ -277,15 +379,17 @@ class LeonidasCapabilityRegistry
     private function normalizar(string $texto): string
     {
         $texto = mb_strtolower($texto, 'UTF-8');
-        $texto = strtr($texto, [
-            'á' => 'a',
-            'é' => 'e',
-            'í' => 'i',
-            'ó' => 'o',
-            'ú' => 'u',
-            'ü' => 'u',
-            'ñ' => 'n',
-        ]);
+        $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
+        $texto = $ascii === false ? $texto : $ascii;
         return trim(preg_replace('/\s+/u', ' ', $texto) ?? $texto);
+    }
+
+    /** @return list<string> */
+    private function tokens(string $texto): array
+    {
+        return array_values(array_filter(
+            preg_split('/[^a-z0-9]+/', $texto) ?: [],
+            static fn(string $token): bool => strlen($token) >= 3
+        ));
     }
 }

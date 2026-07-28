@@ -157,6 +157,7 @@ class LeonidasDomainService
 
         return preg_match(
             '/\b(que es|que hace|como funciona|como se usa|para que sirve|explica|explicame|'
+                . 'cuentame|platica|platicame|hablame|quiero saber|necesito entender|'
                 . 'que puedo hacer|que puedes hacer|de que eres capaz|submodulos|fuentes)\b/',
             $normalizado
         ) === 1;
