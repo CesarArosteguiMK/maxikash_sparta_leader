@@ -106,6 +106,10 @@ if (!function_exists('getRutasModulos')) {
         $rutas['analitica/postasignaciondireccionessync'] = [84];
         $rutas['atlas/accesosatlas'] = [137];
         $rutas['atlas/creditosoperacion'] = [139];
+        $rutas['atlas/expedientes'] = [139];
+        $rutas['atlas/getexpedientes'] = [139];
+        $rutas['atlas/getexpedientedetalle'] = [139];
+        $rutas['atlas/registrarmovimientoexpediente'] = [139];
         $rutas['atlas/distribuidores'] = [133];
         $rutas['atlas/clasificaciones'] = [133];
         $rutas['atlas/riesgosoperativos'] = [148];

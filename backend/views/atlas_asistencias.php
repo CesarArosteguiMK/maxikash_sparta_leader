@@ -17,7 +17,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .atlas-attendance-subtitle { margin:.2rem 0 0; color:#64748b; font-size:.86rem; font-weight:700; }
         .atlas-attendance-actions { display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; }
         .atlas-attendance-filter-panel { border:1px solid #dbe4ef; border-radius:.5rem; background:#f8fafc; padding:.9rem; margin-bottom:1rem; }
-        .atlas-attendance-filters { display:grid; grid-template-columns:repeat(7, minmax(9rem, 1fr)); gap:.7rem; align-items:end; }
+        .atlas-attendance-filters { display:grid; grid-template-columns:repeat(8, minmax(9rem, 1fr)); gap:.7rem; align-items:end; }
         .atlas-attendance-filter-actions { display:flex; align-items:center; }
         .atlas-attendance-filter-actions .btn { min-height:2.35rem; width:100%; }
         .atlas-attendance-metrics { display:grid; grid-template-columns:repeat(6, minmax(8rem, 1fr)); gap:.7rem; margin-bottom:1rem; }
@@ -162,6 +162,15 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                     <option value="">Todas</option>
                 </select>
             </div>
+            <div>
+                <label class="form-label mb-1" for="atlasAttendanceEvidence">Evidencias</label>
+                <select class="form-select form-select-sm atlas-attendance-select" id="atlasAttendanceEvidence">
+                    <option value="">Todas</option>
+                    <option value="con">Con evidencias</option>
+                    <option value="sin">Sin evidencias</option>
+                    <option value="incompletas">Incompletas</option>
+                </select>
+            </div>
             <div class="atlas-attendance-filter-actions">
                 <button type="button" class="btn btn-outline-secondary btn-sm" id="atlasAttendanceClear" title="Eliminar filtros">
                     <i class="fa-solid fa-filter-circle-xmark me-2"></i>Eliminar filtros
@@ -259,14 +268,13 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     const distributorSelect = document.getElementById('atlasAttendanceDistributor');
     const statusSelect = document.getElementById('atlasAttendanceStatus');
     const divisionalSelect = document.getElementById('atlasAttendanceDivisional');
+    const evidenceSelect = document.getElementById('atlasAttendanceEvidence');
     const body = document.getElementById('atlasAttendanceBody');
     const downloadButton = document.getElementById('atlasAttendanceDownload');
     const evidenceModalElement = document.getElementById('atlasAttendanceEvidenceModal');
     const evidenceGrid = document.getElementById('atlasAttendanceEvidenceGrid');
     const evidenceMeta = document.getElementById('atlasAttendanceEvidenceMeta');
-    const evidenceModal = typeof bootstrap !== 'undefined'
-        ? bootstrap.Modal.getOrCreateInstance(evidenceModalElement)
-        : null;
+    let evidenceModal = null;
     let visibleRows = [];
     let attendanceTable = null;
     let generatedAt = '';
@@ -369,6 +377,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         if (distributorSelect.value) params.set('distribuidor_id', distributorSelect.value);
         if (statusSelect.value) params.set('estatus', statusSelect.value);
         if (divisionalSelect.value) params.set('divisional', divisionalSelect.value);
+        if (evidenceSelect.value) params.set('evidencias', evidenceSelect.value);
         return params;
     };
 
@@ -400,6 +409,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             [distributorSelect, 'Todos los distribuidores'],
             [statusSelect, 'Todos los estatus'],
             [divisionalSelect, 'Todas las divisionales'],
+            [evidenceSelect, 'Todas las evidencias'],
         ]);
         placeholders.forEach((placeholder, select) => {
             const $select = window.jQuery(select);
@@ -408,6 +418,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 width: '100%',
                 allowClear: true,
                 placeholder,
+                minimumResultsForSearch: 0,
                 language: {
                     noResults: () => 'Sin resultados',
                     searching: () => 'Buscando...',
@@ -433,6 +444,25 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         && endInput.value <= datasetEnd
     );
 
+    const evidenceStatus = (row) => {
+        const evidences = Array.isArray(row?.evidencias) ? row.evidencias : [];
+        const declaredCount = row?.total_evidencias === null || row?.total_evidencias === undefined
+            ? evidences.length
+            : Math.max(0, Number(row.total_evidencias) || 0);
+        const hasEvidence = declaredCount > 0
+            || evidences.length > 0
+            || String(row?.evidencia || '').trim() !== '';
+        if (!hasEvidence) return 'sin';
+
+        const hasMissingDetails = declaredCount > evidences.length;
+        const hasUnavailableEvidence = evidences.some((evidence) => (
+            !evidence
+            || ![true, 1, '1', 'true'].includes(evidence.disponible)
+            || !evidence.id
+        ));
+        return hasMissingDetails || hasUnavailableEvidence ? 'incompletas' : 'con';
+    };
+
     const rowMatchesFilters = (row) => {
         if (!row || !dateRangeIsValid()) return false;
         const rowDate = String(row.fecha || '');
@@ -448,6 +478,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         ) return false;
         if (statusSelect.value && String(row.estatus_visita || '') !== String(statusSelect.value)) return false;
         if (divisionalSelect.value && String(row.divisional || '') !== String(divisionalSelect.value)) return false;
+        if (evidenceSelect.value && evidenceStatus(row) !== evidenceSelect.value) return false;
         return true;
     };
 
@@ -701,62 +732,74 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         }
     };
 
-    document.getElementById('atlasAttendanceRefresh').addEventListener('click', loadReport);
-    document.getElementById('atlasAttendanceDownload').addEventListener('click', () => {
-        if (!dateRangeIsValid()) {
-            applyLocalFilters();
+    const initializeAttendanceModule = () => {
+        if (!window.jQuery?.fn?.DataTable || !window.jQuery?.fn?.select2) {
+            reportError('No se pudieron cargar los componentes de tabla y filtros.');
+            downloadButton.disabled = true;
             return;
         }
-        window.location.href = `/Atlas/descargarReporteAsistencias?${exportQuery().toString()}`;
-    });
-    document.getElementById('atlasAttendanceClear').addEventListener('click', () => {
-        startInput.value = initialStart;
-        endInput.value = initialEnd;
-        [collaboratorSelect, distributorSelect, statusSelect, divisionalSelect].forEach((select) => {
-            select.value = '';
-            refreshSearchableSelect(select);
-        });
-        if (attendanceTable) attendanceTable.search('');
-        applyLocalFilters();
-    });
-    [startInput, endInput].forEach((input) => {
-        input.addEventListener('change', applyLocalFilters);
-    });
-    if (window.jQuery) {
-        window.jQuery([
-            collaboratorSelect,
-            distributorSelect,
-            statusSelect,
-            divisionalSelect,
-        ]).off('change.atlasAttendance').on('change.atlasAttendance', applyLocalFilters);
-    } else {
-        [collaboratorSelect, distributorSelect, statusSelect, divisionalSelect].forEach((select) => {
-            select.addEventListener('change', applyLocalFilters);
-        });
-    }
-    body.addEventListener('click', (event) => {
-        const button = event.target.closest('[data-atlas-evidence-row]');
-        if (!button) return;
-        const row = visibleRows[Number(button.dataset.atlasEvidenceRow)];
-        if (row) showEvidenceModal(row);
-    });
-    evidenceModalElement.addEventListener('hidden.bs.modal', () => {
-        evidenceGrid.querySelectorAll('video, audio').forEach((media) => {
-            media.pause();
-            media.removeAttribute('src');
-            media.querySelectorAll('source').forEach((source) => source.removeAttribute('src'));
-            media.load();
-        });
-        evidenceGrid.innerHTML = '';
-    });
 
-    initializeSearchableSelects();
-    registerAttendanceFilter();
-    if (apiReady) {
-        loadReport();
+        evidenceModal = typeof bootstrap !== 'undefined'
+            ? bootstrap.Modal.getOrCreateInstance(evidenceModalElement)
+            : null;
+
+        initializeSearchableSelects();
+        registerAttendanceFilter();
+
+        document.getElementById('atlasAttendanceRefresh').addEventListener('click', loadReport);
+        document.getElementById('atlasAttendanceDownload').addEventListener('click', () => {
+            if (!dateRangeIsValid()) {
+                applyLocalFilters();
+                return;
+            }
+            window.location.href = `/Atlas/descargarReporteAsistencias?${exportQuery().toString()}`;
+        });
+        document.getElementById('atlasAttendanceClear').addEventListener('click', () => {
+            startInput.value = initialStart;
+            endInput.value = initialEnd;
+            [collaboratorSelect, distributorSelect, statusSelect, divisionalSelect, evidenceSelect].forEach((select) => {
+                select.value = '';
+                refreshSearchableSelect(select);
+            });
+            if (attendanceTable) attendanceTable.search('');
+            applyLocalFilters();
+        });
+        [startInput, endInput].forEach((input) => {
+            input.addEventListener('change', applyLocalFilters);
+        });
+        [collaboratorSelect, distributorSelect, statusSelect, divisionalSelect, evidenceSelect].forEach((select) => {
+            window.jQuery(select)
+                .off('change.atlasAttendance')
+                .on('change.atlasAttendance', applyLocalFilters);
+        });
+        body.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-atlas-evidence-row]');
+            if (!button) return;
+            const row = visibleRows[Number(button.dataset.atlasEvidenceRow)];
+            if (row) showEvidenceModal(row);
+        });
+        evidenceModalElement.addEventListener('hidden.bs.modal', () => {
+            evidenceGrid.querySelectorAll('video, audio').forEach((media) => {
+                media.pause();
+                media.removeAttribute('src');
+                media.querySelectorAll('source').forEach((source) => source.removeAttribute('src'));
+                media.load();
+            });
+            evidenceGrid.innerHTML = '';
+        });
+
+        if (apiReady) {
+            loadReport();
+        } else {
+            body.innerHTML = '<tr><td class="atlas-attendance-empty" colspan="12">API administrativa no configurada.</td></tr>';
+            downloadButton.disabled = true;
+        }
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeAttendanceModule, { once: true });
     } else {
-        body.innerHTML = '<tr><td class="atlas-attendance-empty" colspan="12">API administrativa no configurada.</td></tr>';
-        downloadButton.disabled = true;
+        initializeAttendanceModule();
     }
 })();
 </script>
