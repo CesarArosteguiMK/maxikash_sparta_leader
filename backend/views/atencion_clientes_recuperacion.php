@@ -1,4 +1,4 @@
-﻿<style>
+<style>
 .ar-header-gradient {
     background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
     border-radius: 1rem;
@@ -576,6 +576,7 @@
     text-transform: uppercase;
     white-space: nowrap;
 }
+.ar-ev-hdr-status--missing { color: #b45309; }
 .ar-ev-hdr-left { justify-content: flex-start; }
 .ar-ev-hdr-download {
     display: inline-flex;
@@ -638,6 +639,16 @@
 .ar-ev-slot--pend { border-color: #f59e0b; }
 .ar-ev-slot--acep { border-color: #22c55a; background: #f0fdf4; }
 .ar-ev-slot--rec  { border-color: #ef4444; background: #fef2f2; }
+.ar-ev-slot--missing-file {
+    border-color: #f97316;
+    background: #fff7ed;
+    color: #9a3412;
+    font-size: .62rem;
+    text-align: center;
+    padding: .35rem;
+}
+.ar-ev-slot--missing-file .ar-ev-file-missing-icon { font-size: 1.25rem; color: #ea580c; }
+.ar-ev-slot--missing-file .ar-ev-file-missing-copy { line-height: 1.15; font-weight: 800; }
 .ar-ev-slot--click { cursor: pointer; }
 .ar-ev-slot .ar-ev-thumb {
     position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
@@ -671,6 +682,13 @@
 }
 .ar-ev-doc-zone--green { border-color: #86efac; background: #f0fdf4; }
 .ar-ev-doc-zone--purple { border-color: #d8b4fe; background: #faf5ff; }
+.ar-ev-doc-zone--missing {
+    border-color: #fdba74;
+    background: #fff7ed;
+    color: #9a3412;
+    cursor: default;
+}
+.ar-ev-doc-zone--missing .ar-ev-doc-title { color: #9a3412; }
 .ar-ev-doc-zone a { font-size: .8rem; font-weight: 700; }
 .ar-ev-doc-zone .fa-2x { font-size: .95rem; }
 .ar-ev-doc-main {
@@ -1897,7 +1915,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         const map = arMapaPorSlot((_arEvDetalle && _arEvDetalle.evidencias) || []);
         return AR_IMG_KEYS
             .filter(function (slot) {
-                return map[slot] && map[slot].url;
+                return map[slot] && map[slot].url && arArchivoEstaDisponible(map[slot]);
             })
             .map(function (slot) {
                 const row = map[slot];
@@ -1952,11 +1970,28 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         return 'pend';
     }
 
+    function arArchivoEstaDisponible(row) {
+        // El backend verifica los archivos locales. Los externos permanecen utilizables
+        // hasta que una verificacion explicita indique lo contrario.
+        return !row || String(row.archivo_estado || '') !== 'no_disponible';
+    }
+
+    function arCuentaArchivosNoDisponibles(map, keys) {
+        let n = 0;
+        (keys || []).forEach(function (k) {
+            const row = map[k];
+            if (row && row.url && !arArchivoEstaDisponible(row)) {
+                n++;
+            }
+        });
+        return n;
+    }
+
     function arCuentaValidadasImg(map) {
         let n = 0;
         AR_IMG_KEYS.forEach(function (k) {
             const row = map[k];
-            if (row && row.url && arEstadoSlot(row) === 'acep') {
+            if (row && row.url && arArchivoEstaDisponible(row) && arEstadoSlot(row) === 'acep') {
                 n++;
             }
         });
@@ -1967,7 +2002,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         let n = 0;
         AR_DOC_KEYS.forEach(function (k) {
             const row = map[k];
-            if (row && row.url && String(row.url).trim() !== '') {
+            if (row && row.url && String(row.url).trim() !== '' && arArchivoEstaDisponible(row)) {
                 n++;
             }
         });
@@ -1978,12 +2013,15 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         const row = map[sl.key];
         const st = arEstadoSlot(row);
         const has = row && row.url;
+        const missingFile = has && !arArchivoEstaDisponible(row);
         const uRaw = has ? arUrlForDisplay(row.url) : '';
         const uEsc = arEsc(uRaw);
 
         let cls = 'ar-ev-slot';
         if (!has) {
             cls += ' ar-ev-slot--vac';
+        } else if (missingFile) {
+            cls += ' ar-ev-slot--missing-file';
         } else if (st === 'acep') {
             cls += ' ar-ev-slot--acep ar-ev-slot--click';
         } else if (st === 'rec') {
@@ -1997,6 +2035,15 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             <div class="${cls}">
                 <i class="fa-solid ${sl.icon} opacity-50" style="font-size:1.1rem;"></i>
                 <span style="line-height:1.15;">${arEsc(sl.label)}</span>
+            </div>`;
+        }
+
+        if (missingFile) {
+            return `
+            <div class="${cls}" title="El registro existe, pero el archivo no esta disponible en el servidor">
+                <i class="fa-solid fa-file-circle-xmark ar-ev-file-missing-icon"></i>
+                <span class="ar-ev-file-missing-copy">Archivo no disponible</span>
+                <span class="ar-ev-lbl">${arEsc(sl.label)}</span>
             </div>`;
         }
 
@@ -2025,9 +2072,12 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             inner += arRenderSlotHtml(sl, map);
         });
         const validadas = sec.key === 'fis' ? arCuentaValidadasImg(map) : 0;
-        const estatusTxt = validadas >= AR_TOTAL_VALIDABLE_IMG ? 'Evidencias completas ' : 'Evidencias validadas ';
+        const noDisponibles = sec.key === 'fis' ? arCuentaArchivosNoDisponibles(map, AR_IMG_KEYS) : 0;
+        const estatusTxt = noDisponibles > 0
+            ? noDisponibles + ' archivo(s) no disponible(s) · accesibles '
+            : (validadas >= AR_TOTAL_VALIDABLE_IMG ? 'Evidencias completas ' : 'Evidencias validadas ');
         const estatus = sec.key === 'fis'
-            ? '<span class="ar-ev-hdr-status">' + estatusTxt + validadas + '/' + AR_TOTAL_VALIDABLE_IMG + '</span>'
+            ? '<span class="ar-ev-hdr-status' + (noDisponibles > 0 ? ' ar-ev-hdr-status--missing' : '') + '">' + estatusTxt + validadas + '/' + AR_TOTAL_VALIDABLE_IMG + '</span>'
             : '';
         const acciones = sec.key === 'fis'
             ? '<button type="button" id="ar-ev-btn-descargar-evidencias" class="btn btn-sm ar-ev-hdr-download" style="display:none;"><i class="fa-solid fa-cloud-arrow-down"></i>Descargar evidencias</button>'
@@ -2046,7 +2096,18 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
     function arRenderDocRepuve(map) {
         const row = map.doc_repuve;
         const has = row && row.url;
+        const missingFile = has && !arArchivoEstaDisponible(row);
         const url = has ? arUrlForDisplay(row.url) : '';
+        if (missingFile) {
+            return `
+            <div class="ar-ev-doc-zone ar-ev-doc-zone--green ar-ev-doc-zone--missing" title="El registro existe, pero el archivo no esta disponible en el servidor">
+                <i class="fa-solid fa-file-circle-xmark fa-2x"></i>
+                <div class="ar-ev-doc-main">
+                    <span class="ar-ev-doc-title">Repuve no disponible</span>
+                    <span class="ar-ev-doc-sub">El registro existe, pero el archivo debe restaurarse antes de poder verlo.</span>
+                </div>
+            </div>`;
+        }
         if (has) {
             return `
             <div class="ar-ev-doc-zone ar-ev-doc-zone--green">
@@ -2077,7 +2138,18 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
     function arRenderDocFactura(map) {
         const row = map.doc_factura;
         const has = row && row.url;
+        const missingFile = has && !arArchivoEstaDisponible(row);
         const url = has ? arUrlForDisplay(row.url) : '';
+        if (missingFile) {
+            return `
+            <div class="ar-ev-doc-zone ar-ev-doc-zone--purple ar-ev-doc-zone--missing" title="El registro existe, pero el archivo no esta disponible en el servidor">
+                <i class="fa-solid fa-file-circle-xmark fa-2x"></i>
+                <div class="ar-ev-doc-main">
+                    <span class="ar-ev-doc-title">Factura no disponible</span>
+                    <span class="ar-ev-doc-sub">El registro existe, pero el archivo debe restaurarse antes de poder verlo.</span>
+                </div>
+            </div>`;
+        }
         if (has) {
             return `
             <div class="ar-ev-doc-zone ar-ev-doc-zone--purple">
@@ -2111,7 +2183,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             return '';
         }
         const row = map.doc_factura;
-        const has = row && row.url && String(row.url).trim() !== '';
+        const has = row && row.url && String(row.url).trim() !== '' && arArchivoEstaDisponible(row);
         if (!has) {
             return '';
         }
@@ -2134,7 +2206,9 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             btn.disabled = true;
             return;
         }
-        const has = map && map.doc_factura && map.doc_factura.url && String(map.doc_factura.url).trim() !== '';
+        const has = map && map.doc_factura && map.doc_factura.url
+            && String(map.doc_factura.url).trim() !== ''
+            && arArchivoEstaDisponible(map.doc_factura);
         btn.style.display = has ? '' : 'none';
         btn.disabled = false;
     }
@@ -2145,7 +2219,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         keys.forEach(function (slot) {
             const row = map && map[slot] ? map[slot] : null;
             const url = row && row.url ? arUrlForDisplay(row.url) : '';
-            if (!url) {
+            if (!url || !arArchivoEstaDisponible(row)) {
                 return;
             }
             items.push({

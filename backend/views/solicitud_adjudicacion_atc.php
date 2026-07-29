@@ -125,6 +125,19 @@ $tablasDisponibles = !empty($solicitudes_tablas_disponibles);
         if (!definido) $('sa-tercero').classList.add('d-none');
     }
 
+    function resumenMotoFactura(moto) {
+        if (!moto) {
+            return '<div class="small text-muted mt-3"><i class="fa-solid fa-motorcycle me-1"></i>Sin factura de motocicleta registrada para este crédito.</div>';
+        }
+        const nombreMoto = [moto.marca, moto.modelo, moto.anio].filter(Boolean).map(esc).join(' ');
+        return `<div class="border-top mt-3 pt-3">
+            <div class="small fw-bold text-primary"><i class="fa-solid fa-motorcycle me-1"></i>Motocicleta facturada</div>
+            <div class="small mt-1">${nombreMoto || 'Datos de unidad sin marca o modelo'}</div>
+            <div class="small text-muted">NIV/VIN: <strong class="text-body">${esc(moto.numero_serie || 'No registrado')}</strong>${moto.numero_motor ? ` &middot; Motor: ${esc(moto.numero_motor)}` : ''}</div>
+            <div class="small text-success mt-1"><i class="fa-solid fa-link me-1"></i>Coincidencia exacta por crédito</div>
+        </div>`;
+    }
+
     function renderCredito(credito, status) {
         creditoActual = credito;
         idempotencyKey = window.crypto && crypto.randomUUID
@@ -134,7 +147,8 @@ $tablasDisponibles = !empty($solicitudes_tablas_disponibles);
             <div class="d-flex justify-content-between gap-2"><strong>Credito #${esc(credito.id_credito)}</strong><span class="badge bg-label-primary">${esc(status || 'Sin estatus')}</span></div>
             <div class="fw-semibold mt-2">${esc(credito.nombre_cliente)}</div>
             <div class="small text-muted mt-1">${esc(credito.telefono)} · ${esc(credito.sucursal)}</div>
-            <div class="small text-muted">${esc(credito.direccion)}</div>`;
+            <div class="small text-muted">${esc(credito.direccion)}</div>
+            ${resumenMotoFactura(credito.moto_factura)}`;
         $('sa-credito').classList.remove('d-none');
         $('sa-captura').classList.remove('d-none');
     }
@@ -192,12 +206,40 @@ $tablasDisponibles = !empty($solicitudes_tablas_disponibles);
                 return;
             }
             notify('success', 'Solicitud registrada', r.solicitud?.folio || 'La solicitud quedo en estatus Recibida.');
+            verificarRepuveSolicitudAutomatica(r.solicitud?.id);
             event.target.reset(); creditoActual = null; idempotencyKey = null; toggleTercero();
             $('sa-credito').classList.add('d-none'); $('sa-captura').classList.add('d-none');
             await cargarLista();
         } catch (e) { notify('error', 'No se pudo registrar', e.message); }
         finally { $('sa-guardar').disabled = !tablasDisponibles; }
     });
+
+    async function verificarRepuveSolicitudAutomatica(idSolicitud, intento = 0) {
+        if (!idSolicitud) return;
+        try {
+            const r = await json('/SolicitudAdjudicacion/verificarRepuveSolicitud', {
+                method: 'POST',
+                body: JSON.stringify({id_solicitud: Number(idSolicitud)})
+            });
+            if (r.blacklist) {
+                notify('error', 'Adjudicacion bloqueada', r.message || 'No se puede proceder con la adjudicacion. Cualquier duda contacta a tu lider.');
+                await cargarLista();
+            } else if (r.requiere_validacion_manual) {
+                notify('warning', 'Validacion manual REPUVE requerida', r.message || 'Debe realizarse la validacion manual de REPUVE posteriormente.');
+            } else if (r.estado === 'SIN_REPORTE_ROBO') {
+                notify('success', 'Sin Reporte de Robo', r.message || 'Puede continuar con la siguiente validacion.');
+            } else if (r.estado === 'PENDIENTE_REPUVE') {
+                if (intento === 0) {
+                    notify('info', 'Validacion REPUVE en proceso', r.message || 'La adjudicacion no debe continuar hasta contar con el resultado.');
+                }
+                if (intento < 5) {
+                    window.setTimeout(() => verificarRepuveSolicitudAutomatica(idSolicitud, intento + 1), 10000);
+                }
+            }
+        } catch (e) {
+            console.warn('No se pudo completar la verificación automática REPUVE.', e);
+        }
+    }
 
     async function cargarLista() {
         if (!tablasDisponibles) {

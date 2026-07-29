@@ -4325,12 +4325,16 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                             if (inst) inst.hide();
                         }
                         if (typeof spartaSwalEnviadoOk === 'function') {
-                            spartaSwalEnviadoOk('Evidencias enviadas correctamente.');
+                            spartaSwalEnviadoOk(data.validacion_ia_pendiente
+                                ? 'Evidencias enviadas. La moto quedo pendiente de validacion IA.'
+                                : 'Evidencias enviadas correctamente.');
                         } else if (typeof Swal !== 'undefined') {
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Enviado',
-                                text: 'Evidencias enviadas correctamente.',
+                                text: data.validacion_ia_pendiente
+                                    ? 'Evidencias enviadas. La moto quedo pendiente de validacion IA.'
+                                    : 'Evidencias enviadas correctamente.',
                                 confirmButtonColor: '#0f172a',
                             });
                         }

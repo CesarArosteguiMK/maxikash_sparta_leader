@@ -11,7 +11,7 @@ class DatabaseAWS
     /**
      * @param string|null $esquema Nombre de la BD: "__SPARTA_SECRET_REDACTED__" (por defecto) o "__SPARTA_SECRET_REDACTED__" (p. ej. oferta_documentos / Documentación S3)
      */
-    function __construct($esquema = null)
+    function __construct($esquema = null, bool $lanzarErrorConexion = false)
     {
         EnvLoader::load();
 
@@ -64,7 +64,8 @@ class DatabaseAWS
                 $e->getMessage()
             ));
             if (
-                DatabaseCliSupport::isCli()
+                $lanzarErrorConexion
+                || DatabaseCliSupport::isCli()
                 || DatabaseCliSupport::esEstadoCuentaDocumentoRequest()
                 || DatabaseCliSupport::esSabuesoRastreoJsonRequest()
             ) {

@@ -474,6 +474,165 @@ class SolicitudAdjudicacion extends Model
         return $row;
     }
 
+    /**
+     * Cierra la solicitud cuando REPUVE confirma expresamente un reporte de robo.
+     * Es idempotente para que un sondeo posterior no duplique la bitacora.
+     */
+    public function marcarBlacklistPorRepuve(
+        int $idSolicitud,
+        int $actorId,
+        string $actorNombre,
+        array $reporteRobo
+    ): array {
+        if ($idSolicitud <= 0 || empty($reporteRobo['confirmado']) || !$this->tablasDisponibles()) {
+            return ['success' => false, 'message' => 'No hay una confirmacion REPUVE valida para bloquear la solicitud.'];
+        }
+
+        $actorNombre = $this->texto($actorNombre !== '' ? $actorNombre : 'Proceso automatico REPUVE', 180);
+        $ahora = $this->fechaHoraCdmx();
+        try {
+            $this->db->beginTransaction();
+            $solicitud = $this->db->queryOne(
+                'SELECT id, id_credito, estatus
+                   FROM adj_solicitud
+                  WHERE id = :id AND deleted_at IS NULL
+                  LIMIT 1 FOR UPDATE',
+                ['id' => $idSolicitud]
+            );
+            if (!$solicitud) {
+                $this->db->rollback();
+                return ['success' => false, 'message' => 'La solicitud ya no esta disponible.'];
+            }
+            if ((string) $solicitud['estatus'] === 'blacklist') {
+                $this->db->rollback();
+                return ['success' => true, 'already_blacklisted' => true, 'message' => 'La solicitud ya estaba en blacklist.'];
+            }
+            if (in_array((string) $solicitud['estatus'], ['cancelada', 'rechazada', 'completada'], true)) {
+                $this->db->rollback();
+                return ['success' => false, 'message' => 'La solicitud ya se encuentra cerrada y no puede cambiarse a blacklist.'];
+            }
+
+            $motivo = $this->texto((string) ($reporteRobo['motivo'] ?? 'Reporte de robo confirmado por REPUVE.'), 700);
+            $this->db->CRUD(
+                'UPDATE adj_solicitud
+                    SET estatus = :estatus, version = version + 1, fecha_actualizacion = :fecha
+                  WHERE id = :id',
+                ['estatus' => 'blacklist', 'fecha' => $ahora, 'id' => $idSolicitud]
+            );
+            $this->db->CRUD(
+                'INSERT INTO adj_solicitud_historial (
+                    id_solicitud, evento, estatus_anterior, estatus_nuevo, comentario,
+                    actor_id, actor_nombre, actor_canal, metadata_json, fecha
+                 ) VALUES (
+                    :id_solicitud, :evento, :anterior, :nuevo, :comentario,
+                    :actor_id, :actor_nombre, :canal, :metadata, :fecha
+                 )',
+                [
+                    'id_solicitud' => $idSolicitud,
+                    'evento' => 'blacklist_repuve_confirmado',
+                    'anterior' => (string) $solicitud['estatus'],
+                    'nuevo' => 'blacklist',
+                    'comentario' => 'Solicitud enviada automaticamente a blacklist. REPUVE confirmo reporte de robo: ' . $motivo,
+                    'actor_id' => $actorId > 0 ? $actorId : null,
+                    'actor_nombre' => $actorNombre,
+                    'canal' => 'REPUVE',
+                    'metadata' => $this->json([
+                        'id_credito' => (int) $solicitud['id_credito'],
+                        'campo_repuve' => $this->texto((string) ($reporteRobo['campo'] ?? ''), 180),
+                        'motivo_repuve' => $motivo,
+                    ]),
+                    'fecha' => $ahora,
+                ]
+            );
+            $this->db->commit();
+            return ['success' => true, 'message' => 'Solicitud enviada a blacklist por confirmacion de REPUVE.'];
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollback();
+            }
+            error_log('[SolicitudAdjudicacion::marcarBlacklistPorRepuve] ' . $e->getMessage());
+            return ['success' => false, 'message' => 'No se pudo actualizar la solicitud a blacklist.'];
+        }
+    }
+
+    /** Conserva el resultado REPUVE como etiqueta consultable y bitacora de negocio. */
+    public function registrarResultadoRepuveKnockout(
+        int $idSolicitud,
+        string $estado,
+        string $etiqueta,
+        string $mensaje,
+        int $actorId,
+        string $actorNombre,
+        array $detalle = []
+    ): void {
+        if ($idSolicitud <= 0 || !$this->tablasDisponibles()) return;
+        $solicitud = $this->db->queryOne('SELECT estatus FROM adj_solicitud WHERE id = :id LIMIT 1', ['id' => $idSolicitud]);
+        if (!$solicitud) return;
+        $ahora = $this->fechaHoraCdmx();
+        $actorNombre = $this->texto($actorNombre !== '' ? $actorNombre : 'Proceso automatico REPUVE', 180);
+        try {
+            $this->db->CRUD(
+                "INSERT INTO adj_solicitud_historial
+                    (id_solicitud, evento, estatus_anterior, estatus_nuevo, comentario,
+                     actor_id, actor_nombre, actor_canal, metadata_json, fecha)
+                 VALUES (:solicitud, :evento, :estatus, :estatus, :comentario,
+                         :actor, :nombre, 'REPUVE', :metadata, :fecha)",
+                [
+                    'solicitud' => $idSolicitud,
+                    'evento' => 'repuve_' . strtolower($estado),
+                    'estatus' => (string) $solicitud['estatus'],
+                    'comentario' => $this->texto($mensaje, 1000),
+                    'actor' => $actorId > 0 ? $actorId : null,
+                    'nombre' => $actorNombre,
+                    'metadata' => $this->json([
+                        'estado_repuve' => $estado,
+                        'etiqueta' => $etiqueta,
+                        'detalle' => $detalle,
+                    ]),
+                    'fecha' => $ahora,
+                ]
+            );
+            // La tabla es aditiva; si aun no fue migrada, el historial conserva el resultado.
+            try {
+                $this->db->CRUD(
+                    "INSERT INTO adj_validacion_knockout
+                        (id_solicitud, tipo, estado, etiqueta, proveedor, motivo, detalle_json, fecha_alta, fecha_actualizacion, fecha_resolucion)
+                     VALUES (:solicitud, 'REPUVE', :estado, :etiqueta, 'repuve', :motivo, :detalle, :fecha, :fecha, :fecha)
+                     ON DUPLICATE KEY UPDATE estado = VALUES(estado), etiqueta = VALUES(etiqueta), motivo = VALUES(motivo),
+                         detalle_json = VALUES(detalle_json), fecha_actualizacion = VALUES(fecha_actualizacion), fecha_resolucion = VALUES(fecha_resolucion)",
+                    [
+                        'solicitud' => $idSolicitud, 'estado' => $estado, 'etiqueta' => $etiqueta,
+                        'motivo' => $this->texto($mensaje, 1000),
+                        'detalle' => $this->json($detalle), 'fecha' => $ahora,
+                    ]
+                );
+            } catch (\Throwable $ignored) {
+                // El historial anterior permite operar mientras se aplica la migracion aditiva.
+            }
+        } catch (\Throwable $e) {
+            error_log('[SolicitudAdjudicacion::registrarResultadoRepuveKnockout] ' . $e->getMessage());
+        }
+    }
+
+    /** @return array<int, array{id:int,id_credito:int}> */
+    public function obtenerSolicitudesConRepuveProcesando(int $limite = 50): array
+    {
+        if (!$this->tablasDisponibles()) {
+            return [];
+        }
+        $limite = max(1, min($limite, 200));
+        return $this->db->queryAll(
+            "SELECT s.id, s.id_credito
+               FROM adj_solicitud s
+               INNER JOIN adj_repuve_consulta r ON r.id_credito = s.id_credito
+              WHERE s.deleted_at IS NULL
+                AND s.estatus NOT IN ('cancelada', 'rechazada', 'completada', 'blacklist')
+                AND UPPER(COALESCE(r.estado, '')) = 'PROCESANDO'
+              ORDER BY s.fecha_actualizacion ASC, s.id ASC
+              LIMIT {$limite}"
+        ) ?: [];
+    }
+
     private function historial(int $idSolicitud): array
     {
         return $this->db->queryAll(

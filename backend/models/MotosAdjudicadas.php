@@ -6,6 +6,7 @@ use Core\Model;
 use Core\Database;
 use Core\DatabaseLegacy;
 use Models\Adjudicacion as AdjudicacionModel;
+use Services\AnthropicMotoConditionClient;
 
 class MotosAdjudicadas extends Model
 {
@@ -3357,6 +3358,8 @@ SQL;
             FIELD(o.estatus,
                 'Recibido',
                 'en_transito',
+                'Validacion IA',
+                'Bloqueado IA',
                 'Procesando IA',
                 'Revisión Recuperaciones',
                 'Cierre Documentado',
@@ -3403,7 +3406,7 @@ SQL;
         $etapa = trim((string) ($filtros['etapa'] ?? ''));
         $mapaEtapas = [
             'evidencias' => ['Recibido', 'en_transito'],
-            'recuperacion' => ['Procesando IA', 'Revisión Recuperaciones'],
+            'recuperacion' => ['Validacion IA', 'Bloqueado IA', 'Procesando IA', 'Revisión Recuperaciones'],
             'cartera' => ['Cierre Documentado'],
             'recepcion' => ['Recepción'],
         ];
@@ -3416,7 +3419,7 @@ SQL;
             }
             $where[] = 'o.estatus IN (' . implode(',', $ph) . ')';
         } else {
-            $where[] = "o.estatus IN ('Recibido', 'en_transito', 'Procesando IA', 'Revisión Recuperaciones', 'Cierre Documentado', 'Recepción')";
+            $where[] = "o.estatus IN ('Recibido', 'en_transito', 'Validacion IA', 'Bloqueado IA', 'Procesando IA', 'Revisión Recuperaciones', 'Cierre Documentado', 'Recepción')";
         }
 
         $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
@@ -3859,9 +3862,14 @@ SQL;
                     );
                 }
 
+                // Un registro aceptado no garantiza que su archivo siga presente.
+                // Las vistas usan este estado para no mostrar evidencia fantasma como completa.
+                $r['archivo_estado'] = $this->obtenerEstadoArchivoEvidencia($urlLimpia);
                 $r['url'] = function_exists('sparta_url_publica_desde_repositorio')
                     ? sparta_url_publica_desde_repositorio($urlLimpia)
                     : $urlLimpia;
+            } else {
+                $r['archivo_estado'] = 'sin_archivo';
             }
         }
         unset($r);
@@ -3899,6 +3907,21 @@ SQL;
         ) ?: [];
 
         $op['bitacora'] = $this->obtenerBitacora($id);
+        $op['validacion_knockout'] = null;
+        if ($this->tablaKnockoutDisponible()) {
+            try {
+                $op['validacion_knockout'] = $this->db->queryOne(
+                    "SELECT tipo, estado, etiqueta, proveedor, modelo, confianza, motivo,
+                            DATE_FORMAT(fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion
+                     FROM adj_validacion_knockout
+                     WHERE id_operacion = :id AND tipo = 'ESTADO_MOTO_CLAUDE'
+                     ORDER BY id DESC LIMIT 1",
+                    ['id' => $id]
+                ) ?: null;
+            } catch (\Throwable $ignored) {
+                // The detail remains available while the additive migration is pending.
+            }
+        }
         $ultimoAnalista = $this->obtenerUltimoAnalistaEvidencias($id);
         $op['ultimo_analista_evidencias'] = $ultimoAnalista;
         $op['ultimo_analista_nombre'] = $ultimoAnalista['nombre_usuario'] ?? null;
@@ -3915,6 +3938,36 @@ SQL;
         }
 
         return $op;
+    }
+
+    /**
+     * Verifica archivos locales sin llamar a proveedores remotos al abrir un expediente.
+     * Los enlaces externos se mantienen como pendientes de verificar para no ralentizar la vista.
+     */
+    private function obtenerEstadoArchivoEvidencia(string $url): string
+    {
+        $raw = trim(str_replace('\\', '/', $url));
+        if ($raw === '') {
+            return 'sin_archivo';
+        }
+
+        $path = (string) (parse_url($raw, PHP_URL_PATH) ?: $raw);
+        $uploadsPos = stripos($path, '/uploads/');
+        if ($uploadsPos !== false) {
+            if (!function_exists('sparta_uploads_resolve_relative')) {
+                require_once dirname(__DIR__) . '/core/UploadsPaths.php';
+            }
+
+            $relative = substr($path, $uploadsPos + strlen('/uploads/'));
+            $local = sparta_uploads_resolve_relative($relative);
+            return ($local && is_file($local)) ? 'disponible' : 'no_disponible';
+        }
+
+        if (!preg_match('#^https?://#i', $raw)) {
+            return is_file($raw) ? 'disponible' : 'no_disponible';
+        }
+
+        return 'externo_sin_verificar';
     }
 
     private function sincronizarUltimosReemplazosEvidenciaOperacion(int $idOperacion): void
@@ -4230,12 +4283,18 @@ SQL;
     private const ESTATUS_VALIDOS = [
         'Recibido',
         'en_transito',
+        'Validacion IA',
+        'Bloqueado IA',
         'Procesando IA',
         'Revisión Recuperaciones',
         'Retenciones',
         'Cierre Documentado',
         'Recepción',
     ];
+
+    /** Evidencia minima del segundo knockout; configurable antes de habilitarlo. */
+    private const KNOCKOUT_IA_FOTOS = ['fis_frontal', 'fis_trasera', 'fis_lateral_izq', 'fis_lateral_der'];
+    private const KNOCKOUT_IA_VIDEOS = ['fis_360_encendida', 'fis_video_vuelta_prueba'];
 
     /**
      * Cambia el estatus de una operaci?n y registra historial.
@@ -4253,6 +4312,15 @@ SQL;
 
         if (!$actual) {
             return ['success' => false, 'message' => 'Operaci?n no encontrada.'];
+        }
+
+        $estatusActual = (string) ($actual['estatus'] ?? '');
+        if ($estatusActual === 'Validacion IA'
+            && !in_array($estatusNuevo, ['Validacion IA', 'Procesando IA', 'Bloqueado IA', 'Revisión Recuperaciones'], true)) {
+            return ['success' => false, 'message' => 'La operacion esta en validacion IA y no puede avanzar hasta recibir el resultado del knockout.'];
+        }
+        if ($estatusActual === 'Bloqueado IA' && $estatusNuevo !== 'Bloqueado IA') {
+            return ['success' => false, 'message' => 'La adjudicacion esta bloqueada por la validacion del estado de la moto.'];
         }
 
         $ahora = $this->fechaHoraCdmx();
@@ -6675,6 +6743,10 @@ EOSQL;
     {
         $result['limite_consultas'] = $this->repuveInfoLimite($idUsuario);
 
+        // REPUVE puede responder con el dictamen antes de incluir todos los datos de la moto.
+        // Este indicador solo se activa con una confirmacion expresa de reporte de robo.
+        $result['reporte_robo'] = $this->analizarReporteRoboRepuve($result);
+
         $dmSync = $result['datos_moto'] ?? [];
         if (
             $idCredito > 0
@@ -6688,6 +6760,153 @@ EOSQL;
         }
 
         return $result;
+    }
+
+    /**
+     * Determina si la respuesta de REPUVE confirma un reporte de robo vigente.
+     * No infiere robo por errores, ausencia de datos o mensajes ambiguos.
+     *
+     * @return array{confirmado: bool, motivo: ?string, campo: ?string}
+     */
+    public function analizarReporteRoboRepuve(array $resultado): array
+    {
+        $sinConfirmacion = ['confirmado' => false, 'motivo' => null, 'campo' => null];
+        $origenes = [
+            $resultado['repuve_respuesta_api'] ?? null,
+            $resultado['repuve_ultima_encuesta'] ?? null,
+        ];
+
+        foreach ($origenes as $origen) {
+            if (!is_array($origen)) {
+                continue;
+            }
+            $deteccion = $this->repuveBuscarReporteRoboEnNodo($origen);
+            if (!empty($deteccion['confirmado'])) {
+                return $deteccion;
+            }
+        }
+
+        return $sinConfirmacion;
+    }
+
+    /** @return array{confirmado: bool, motivo: ?string, campo: ?string} */
+    private function repuveBuscarReporteRoboEnNodo($nodo, string $ruta = ''): array
+    {
+        $vacio = ['confirmado' => false, 'motivo' => null, 'campo' => null];
+        if (!is_array($nodo)) {
+            return $vacio;
+        }
+
+        foreach ($nodo as $clave => $valor) {
+            $rutaActual = $ruta === '' ? (string) $clave : $ruta . '.' . $clave;
+            if (is_array($valor)) {
+                $encontrado = $this->repuveBuscarReporteRoboEnNodo($valor, $rutaActual);
+                if (!empty($encontrado['confirmado'])) {
+                    return $encontrado;
+                }
+                continue;
+            }
+
+            $claveNormalizada = $this->repuveNormalizarTexto((string) $clave);
+            if (!$this->repuveClavePuedeIndicarRobo($claveNormalizada)) {
+                continue;
+            }
+
+            $dictamen = $this->repuveValorIndicaReporteRobo($valor);
+            if ($dictamen === true) {
+                return [
+                    'confirmado' => true,
+                    'motivo' => $this->textoRepuveValor($valor),
+                    'campo' => $rutaActual,
+                ];
+            }
+        }
+
+        return $vacio;
+    }
+
+    private function repuveClavePuedeIndicarRobo(string $clave): bool
+    {
+        if ($clave === '') {
+            return false;
+        }
+
+        foreach ([
+            'reporterobo', 'reportederobo', 'tienereporterobo', 'roboactivo',
+            'robovigente', 'vehiculorobado', 'unidadrobada', 'estatusrobo',
+            'estadorobo', 'situacionrobo', 'alertarobo',
+        ] as $indicador) {
+            if (str_contains($clave, $indicador)) {
+                return true;
+            }
+        }
+
+        // Algunos proveedores entregan el dictamen en un campo genérico de mensaje.
+        return in_array($clave, ['mensaje', 'message', 'observacion', 'observaciones', 'situacion', 'estatus', 'estado'], true);
+    }
+
+    /** null = sin dictamen concluyente. */
+    private function repuveValorIndicaReporteRobo($valor): ?bool
+    {
+        if (is_bool($valor)) {
+            return $valor;
+        }
+        if (is_int($valor) || is_float($valor)) {
+            return (float) $valor > 0 ? true : false;
+        }
+
+        $texto = $this->repuveNormalizarTexto($this->textoRepuveValor($valor));
+        if ($texto === '') {
+            return null;
+        }
+
+        foreach ([
+            'sin reporte de robo', 'sin reporte', 'no cuenta con reporte',
+            'no tiene reporte', 'sin antecedentes de robo', 'no robado',
+            'vehiculo recuperado', 'unidad recuperada', 'recuperado',
+        ] as $negativo) {
+            if (str_contains($texto, $negativo)) {
+                return false;
+            }
+        }
+
+        if (in_array($texto, ['si', 'true', '1', 'robado'], true)) {
+            return true;
+        }
+        foreach ([
+            'con reporte de robo', 'reporte de robo vigente', 'reporte de robo activo',
+            'vehiculo robado', 'unidad robada', 'reporte por robo',
+        ] as $positivo) {
+            if (str_contains($texto, $positivo)) {
+                return true;
+            }
+        }
+
+        if (in_array($texto, ['no', 'false', '0'], true)) {
+            return false;
+        }
+
+        return null;
+    }
+
+    private function repuveNormalizarTexto(string $texto): string
+    {
+        $texto = trim($texto);
+        if (function_exists('mb_strtolower')) {
+            $texto = mb_strtolower($texto, 'UTF-8');
+        } else {
+            $texto = strtolower($texto);
+        }
+        $texto = strtr($texto, [
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u',
+            'ü' => 'u', 'ñ' => 'n',
+        ]);
+        return preg_replace('/\s+/u', ' ', $texto) ?? '';
+    }
+
+    private function textoRepuveValor($valor): string
+    {
+        return trim(is_scalar($valor) ? (string) $valor : '');
     }
 
     /** @return array{max:int,usado_hoy:int,restantes:int} */
@@ -7938,6 +8157,9 @@ EOSQL;
                 ? (int) $ev['val_atn']
                 : 0;
             $ev['comentario_atn'] = isset($ev['comentario_atn']) ? (string) $ev['comentario_atn'] : '';
+            $ev['archivo_estado'] = !empty($ev['url'])
+                ? $this->obtenerEstadoArchivoEvidencia((string) $ev['url'])
+                : 'sin_archivo';
         }
         unset($ev);
 
@@ -8366,6 +8588,259 @@ EOSQL;
     }
 
     /**
+     * Deja la operacion en cola para el segundo knockout. La cola solo se usa
+     * cuando la bandera esta habilitada y la clave vive en el servidor.
+     *
+     * @return array{success:bool,enabled?:bool,message?:string,media_hash?:string}
+     */
+    public function encolarValidacionEstadoMotoClaude(int $idOperacion): array
+    {
+        $cliente = new AnthropicMotoConditionClient();
+        $config = $cliente->config();
+        if (!$config['enabled']) {
+            return ['success' => true, 'enabled' => false];
+        }
+        if (!$this->tablaKnockoutDisponible()) {
+            return ['success' => false, 'message' => 'Falta aplicar scripts/migration_adjudicacion_knockouts.sql.'];
+        }
+        if ($config['api_key'] === '') {
+            return ['success' => false, 'message' => 'La validacion IA esta habilitada, pero falta ANTHROPIC_API_KEY en el servidor.'];
+        }
+
+        $media = $this->recolectarMediosKnockoutIA($idOperacion, false);
+        if (empty($media['success'])) {
+            return $media;
+        }
+        $ahora = $this->fechaHoraCdmx();
+        $this->db->CRUD(
+            "INSERT INTO adj_validacion_knockout
+                (id_operacion, tipo, estado, etiqueta, proveedor, media_hash, intentos, fecha_alta, fecha_actualizacion)
+             VALUES (:id, 'ESTADO_MOTO_CLAUDE', 'PENDIENTE', 'Validacion IA pendiente', 'anthropic', :hash, 0, :fecha, :fecha)
+             ON DUPLICATE KEY UPDATE
+                estado = IF(media_hash <> VALUES(media_hash), 'PENDIENTE', estado),
+                etiqueta = IF(media_hash <> VALUES(media_hash), 'Validacion IA pendiente', etiqueta),
+                media_hash = VALUES(media_hash), fecha_actualizacion = VALUES(fecha_actualizacion)",
+            ['id' => $idOperacion, 'hash' => $media['media_hash'], 'fecha' => $ahora]
+        );
+        return ['success' => true, 'enabled' => true, 'media_hash' => $media['media_hash']];
+    }
+
+    /** Procesado por scripts/procesar_validaciones_ia_adjudicacion.php. */
+    public function procesarValidacionEstadoMotoClaude(int $idOperacion): array
+    {
+        if ($idOperacion <= 0 || !$this->tablaKnockoutDisponible()) {
+            return ['success' => false, 'message' => 'No existe la cola de validacion IA.'];
+        }
+        $cliente = new AnthropicMotoConditionClient();
+        $config = $cliente->config();
+        if (!$config['enabled'] || $config['api_key'] === '') {
+            return ['success' => false, 'pending_configuration' => true, 'message' => 'Anthropic aun no esta configurado.'];
+        }
+        $media = $this->recolectarMediosKnockoutIA($idOperacion, true);
+        if (empty($media['success'])) {
+            return $this->guardarResultadoKnockoutIA(
+                $idOperacion,
+                'REVISION_MANUAL',
+                0,
+                [$media['message'] ?? 'No se pudieron preparar las evidencias.'],
+                [],
+                '',
+                $media['media_hash'] ?? null
+            );
+        }
+
+        try {
+            $respuesta = $cliente->analizarEstadoMoto($media['imagenes']);
+            if (empty($respuesta['success'])) {
+                return $this->guardarResultadoKnockoutIA(
+                    $idOperacion,
+                    'REVISION_MANUAL',
+                    0,
+                    [(string) ($respuesta['message'] ?? 'Anthropic no pudo evaluar las evidencias.')],
+                    [],
+                    '',
+                    $media['media_hash']
+                );
+            }
+            return $this->guardarResultadoKnockoutIA(
+                $idOperacion,
+                (string) $respuesta['estado'],
+                (int) ($respuesta['confianza'] ?? 0),
+                is_array($respuesta['motivos'] ?? null) ? $respuesta['motivos'] : [],
+                is_array($respuesta['raw'] ?? null) ? $respuesta['raw'] : [],
+                (string) ($respuesta['model'] ?? ''),
+                $media['media_hash']
+            );
+        } finally {
+            foreach ((array) ($media['temporales'] ?? []) as $temporal) {
+                if (is_string($temporal) && is_file($temporal)) @unlink($temporal);
+            }
+        }
+    }
+
+    /** @return list<array{id_operacion:int}> */
+    public function obtenerValidacionesEstadoMotoPendientes(int $limite = 20): array
+    {
+        if (!$this->tablaKnockoutDisponible()) return [];
+        $limite = max(1, min(100, $limite));
+        return $this->db->queryAll(
+            "SELECT id_operacion
+               FROM adj_validacion_knockout
+              WHERE tipo = 'ESTADO_MOTO_CLAUDE'
+                AND estado = 'PENDIENTE'
+                AND id_operacion IS NOT NULL
+              ORDER BY fecha_actualizacion ASC, id ASC
+              LIMIT {$limite}"
+        ) ?: [];
+    }
+
+    /** @return array{success:bool,message?:string,media_hash?:string,imagenes?:array,temporales?:array} */
+    private function recolectarMediosKnockoutIA(int $idOperacion, bool $extraerFotogramas): array
+    {
+        if ($idOperacion <= 0) return ['success' => false, 'message' => 'Operacion invalida.'];
+        $slots = array_merge(self::KNOCKOUT_IA_FOTOS, self::KNOCKOUT_IA_VIDEOS);
+        $params = ['id_operacion' => $idOperacion];
+        $in = [];
+        foreach ($slots as $index => $slot) {
+            $key = 'slot_' . $index;
+            $in[] = ':' . $key;
+            $params[$key] = $slot;
+        }
+        $rows = $this->db->queryAll(
+            'SELECT slot, url FROM adj_evidencia WHERE id_operacion = :id_operacion AND slot IN (' . implode(',', $in) . ') ORDER BY id DESC',
+            $params
+        ) ?: [];
+        $porSlot = [];
+        foreach ($rows as $row) {
+            $slot = (string) ($row['slot'] ?? '');
+            if ($slot !== '' && !array_key_exists($slot, $porSlot)) {
+                $porSlot[$slot] = (string) ($row['url'] ?? '');
+            }
+        }
+
+        $faltantes = [];
+        $fuentes = [];
+        foreach ($slots as $slot) {
+            $ruta = $this->rutaLocalEvidenciaKnockout((string) ($porSlot[$slot] ?? ''));
+            if ($ruta === null) {
+                $faltantes[] = self::SLOT_LABELS[$slot] ?? $slot;
+            } else {
+                $fuentes[$slot] = $ruta;
+            }
+        }
+        if ($faltantes !== []) {
+            return ['success' => false, 'message' => 'Faltan evidencias para el knockout IA: ' . implode(', ', $faltantes) . '.'];
+        }
+
+        $hashes = [];
+        foreach ($fuentes as $slot => $ruta) {
+            $hashes[] = $slot . ':' . (hash_file('sha256', $ruta) ?: '');
+        }
+        sort($hashes, SORT_STRING);
+        $mediaHash = hash('sha256', implode('|', $hashes));
+        if (!$extraerFotogramas) return ['success' => true, 'media_hash' => $mediaHash];
+
+        $imagenes = [];
+        foreach (self::KNOCKOUT_IA_FOTOS as $slot) $imagenes[] = $fuentes[$slot];
+        $temporales = [];
+        foreach (self::KNOCKOUT_IA_VIDEOS as $slot) {
+            $frames = $this->extraerFotogramasKnockoutIA($idOperacion, $slot, $fuentes[$slot], $mediaHash);
+            if ($frames === []) {
+                foreach ($temporales as $archivo) if (is_file($archivo)) @unlink($archivo);
+                return ['success' => false, 'media_hash' => $mediaHash, 'message' => 'No se pudieron extraer fotogramas del video ' . (self::SLOT_LABELS[$slot] ?? $slot) . '.'];
+            }
+            $imagenes = array_merge($imagenes, $frames);
+            $temporales = array_merge($temporales, $frames);
+        }
+        return ['success' => true, 'media_hash' => $mediaHash, 'imagenes' => $imagenes, 'temporales' => $temporales];
+    }
+
+    private function rutaLocalEvidenciaKnockout(string $url): ?string
+    {
+        $url = str_replace('\\', '/', trim($url));
+        if (!preg_match('#^/uploads/operaciones/[0-9]+/[A-Za-z0-9_.-]+$#', $url)) return null;
+        $path = dirname(__DIR__, 2) . '/public' . $url;
+        return is_file($path) && is_readable($path) ? $path : null;
+    }
+
+    /** @return list<string> */
+    private function extraerFotogramasKnockoutIA(int $idOperacion, string $slot, string $video, string $mediaHash): array
+    {
+        $ffmpeg = $this->valorEnvKnockoutIA('ADJUDICACION_IA_FFMPEG_PATH') ?: 'ffmpeg';
+        $base = dirname(__DIR__) . '/storage/adjudicacion_ia/' . $idOperacion . '/' . substr($mediaHash, 0, 16) . '/' . $slot;
+        if (!is_dir($base) && !@mkdir($base, 0770, true)) return [];
+        foreach (glob($base . '/*.jpg') ?: [] as $old) @unlink($old);
+        $pattern = $base . '/frame_%02d.jpg';
+        $command = escapeshellarg($ffmpeg) . ' -hide_banner -loglevel error -y -i ' . escapeshellarg($video)
+            . ' -vf ' . escapeshellarg('fps=1/5') . ' -frames:v 3 ' . escapeshellarg($pattern) . ' 2>&1';
+        $output = [];
+        $exit = 1;
+        @exec($command, $output, $exit);
+        if ($exit !== 0) return [];
+        $frames = glob($base . '/frame_*.jpg') ?: [];
+        sort($frames, SORT_NATURAL);
+        return array_values(array_filter($frames, 'is_file'));
+    }
+
+    private function valorEnvKnockoutIA(string $key): string
+    {
+        $value = getenv($key);
+        if (is_string($value) && trim($value) !== '') return trim($value);
+        $envPath = dirname(__DIR__) . '/API/.env';
+        if (!is_readable($envPath)) return '';
+        foreach (file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            if (preg_match('/^\s*' . preg_quote($key, '/') . '\s*=\s*(.*)\s*$/', $line, $m)) {
+                return trim($m[1], " \t\n\r\0\x0B\"'");
+            }
+        }
+        return '';
+    }
+
+    private function tablaKnockoutDisponible(): bool
+    {
+        try {
+            $this->db->queryOne('SELECT id FROM adj_validacion_knockout LIMIT 1');
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /** @param list<string> $motivos @param array<string,mixed> $raw */
+    private function guardarResultadoKnockoutIA(int $idOperacion, string $estado, int $confianza, array $motivos, array $raw, string $modelo, ?string $mediaHash): array
+    {
+        $estado = strtoupper($estado);
+        $mapa = [
+            'BUEN_ESTADO' => ['APROBADO', 'Moto en Buen Estado', 'Procesando IA'],
+            'MAL_ESTADO' => ['BLOQUEADO', 'Moto en Mal Estado', 'Bloqueado IA'],
+            'REVISION_MANUAL' => ['REVISION_MANUAL', 'Revisión manual requerida', 'Revisión Recuperaciones'],
+        ];
+        $regla = $mapa[$estado] ?? $mapa['REVISION_MANUAL'];
+        $ahora = $this->fechaHoraCdmx();
+        $motivo = trim(implode(' | ', array_slice(array_map('strval', $motivos), 0, 5)));
+        $this->db->CRUD(
+            "UPDATE adj_validacion_knockout
+                SET estado = :estado, etiqueta = :etiqueta, proveedor = 'anthropic', modelo = :modelo,
+                    confianza = :confianza, motivo = :motivo, detalle_json = :detalle, media_hash = :hash,
+                    intentos = intentos + 1, fecha_actualizacion = :fecha, fecha_resolucion = :fecha
+              WHERE id_operacion = :id AND tipo = 'ESTADO_MOTO_CLAUDE'",
+            [
+                'estado' => $regla[0], 'etiqueta' => $regla[1], 'modelo' => $modelo ?: null,
+                'confianza' => max(0, min(100, $confianza)), 'motivo' => $motivo ?: null,
+                'detalle' => json_encode($raw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'hash' => $mediaHash, 'fecha' => $ahora, 'id' => $idOperacion,
+            ]
+        );
+        $mov = $this->cambiarEstatus($idOperacion, $regla[2], 0, 'Validacion automatica Anthropic', 'knockout_ia');
+        if (empty($mov['success'])) return $mov;
+        $mensaje = $estado === 'MAL_ESTADO'
+            ? 'No se puede Proceder con la Adjudicacion. Cualquier duda contacta a tu lider.'
+            : ($estado === 'BUEN_ESTADO' ? 'Moto en Buen Estado.' : 'La moto requiere revision manual antes de continuar.');
+        $this->registrarBitacora($idOperacion, 'KNOCKOUT IA: ' . $regla[1] . ($motivo !== '' ? ' - ' . $motivo : ''), 0, 'Anthropic', $ahora);
+        return ['success' => true, 'estado' => $estado, 'etiqueta' => $regla[1], 'message' => $mensaje];
+    }
+
+    /**
      * Atenci?n a clientes: bot?n "Enviar evidencias validadas" ??? Procesando IA (pesta?a Aprobados).
      * No se llama autom?ticamente al cerrar el modal ni al guardar veredictos.
      *
@@ -8387,6 +8862,10 @@ EOSQL;
             return ['success' => false, 'message' => 'Operaci?n no encontrada.'];
         }
         $est = (string) ($op['estatus'] ?? '');
+
+        if ($est === 'Validacion IA') {
+            return ['success' => true, 'validacion_ia_pendiente' => true, 'message' => 'La validacion IA de la moto ya esta en cola.'];
+        }
 
         $yaEnviado = false;
         if ($this->adjOperacionTieneColumnaEnvioAtencion()) {
@@ -8411,9 +8890,27 @@ EOSQL;
             return ['success' => false, 'message' => 'Esta operaci?n ya fue enviada.'];
         }
 
-        $previos = ['Recibido', 'en_transito', 'Revisión Recuperaciones', 'Procesando IA'];
+        $previos = ['Recibido', 'en_transito', 'Revisión Recuperaciones', 'Validacion IA', 'Procesando IA'];
         if (!in_array($est, $previos, true)) {
             return ['success' => false, 'message' => 'Esta operaci?n no est? en etapa para este paso.'];
+        }
+        $colaIa = $this->encolarValidacionEstadoMotoClaude($idOperacion);
+        if (!empty($colaIa['enabled'])) {
+            if (empty($colaIa['success'])) {
+                return $colaIa;
+            }
+            $r = $this->cambiarEstatus($idOperacion, 'Validacion IA', $idUsuario, $nombreUsuario);
+            if (empty($r['success'])) {
+                return $r;
+            }
+            if ($this->adjOperacionTieneColumnaEnvioAtencion()) {
+                $this->db->CRUD(
+                    'UPDATE adj_operacion SET atencion_envio_validado = 1 WHERE id = :id',
+                    ['id' => $idOperacion]
+                );
+            }
+            $this->registrarBitacora($idOperacion, 'EVIDENCIAS ENCOLADAS PARA KNOCKOUT IA', $idUsuario, $nombreUsuario);
+            return ['success' => true, 'validacion_ia_pendiente' => true, 'message' => 'Evidencias recibidas. La moto esta pendiente de validacion IA.'];
         }
         if ($est !== 'Procesando IA') {
             $r = $this->cambiarEstatus($idOperacion, 'Procesando IA', $idUsuario, $nombreUsuario);
