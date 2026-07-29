@@ -10197,8 +10197,18 @@ class CapHum extends Controller
             }
             unset($persona);
         }
+        $workerLanzado = true;
         if ($hayPendienteConArchivo) {
-            $this->iniciarWorkerPatronesNotificacionDocumental($idCampania);
+            $workerLanzado = $this->iniciarWorkerPatronesNotificacionDocumental($idCampania);
+        }
+        if (!empty($resultado['datos']) && is_array($resultado['datos'])) {
+            foreach ($resultado['datos'] as &$persona) {
+                if (($persona['estado_analisis_patrones'] ?? '') === 'pendiente'
+                    && !empty($persona['archivo_disponible_nodo'])) {
+                    $persona['worker_lanzado_nodo'] = $workerLanzado;
+                }
+            }
+            unset($persona);
         }
         self::respuestaJSON($resultado);
     }
@@ -10221,37 +10231,46 @@ class CapHum extends Controller
         self::respuestaJSON($resultado);
     }
 
-    private function iniciarWorkerPatronesNotificacionDocumental(int $idCampania): void
+    private function iniciarWorkerPatronesNotificacionDocumental(int $idCampania): bool
     {
         if ($idCampania <= 0 || !defined('RAIZ')) {
-            return;
+            return false;
         }
         $script = RAIZ . '/cronjobs/procesar_patrones_notificacion_documental.php';
         if (!is_file($script)) {
-            return;
+            return false;
         }
-        $php = PHP_BINARY;
-        if (PHP_OS_FAMILY === 'Windows') {
-            $candidato = rtrim((string)PHP_BINDIR, '\\/') . DIRECTORY_SEPARATOR . 'php.exe';
-            if (is_file($candidato)) {
-                $php = $candidato;
+        $projectRoot = dirname(RAIZ);
+        $php = $this->phpCliBinarioVerificacionDocumental();
+        try {
+            if (PHP_OS_FAMILY === 'Windows') {
+                $quote = static function (string $valor): string {
+                    return '"' . str_replace('"', '""', $valor) . '"';
+                };
+                $cmdPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR)
+                    . DIRECTORY_SEPARATOR
+                    . 'sparta-rrhh-patrones-' . date('Ymd-His') . '-' . getmypid() . '.cmd';
+                $contenido = "@echo off\r\n";
+                $contenido .= 'cd /d ' . $quote($projectRoot) . "\r\n";
+                $contenido .= $quote($php) . ' ' . $quote($script) . ' ' . $idCampania
+                    . ' >NUL 2>NUL' . "\r\n";
+                $contenido .= 'del "%~f0" >NUL 2>NUL' . "\r\n";
+                if (@file_put_contents($cmdPath, $contenido) === false) {
+                    return false;
+                }
+                return $this->lanzarCmdOcultoVerificacionDocumental($cmdPath, $projectRoot);
             }
-            $comando = 'cmd.exe /c start "" /B '
-                . escapeshellarg($php) . ' '
+            $salida = [];
+            $codigo = 0;
+            $comando = escapeshellarg($php) . ' '
                 . escapeshellarg($script) . ' '
                 . $idCampania
-                . ' >NUL 2>&1';
-            $proceso = @popen($comando, 'r');
-            if (is_resource($proceso)) {
-                @pclose($proceso);
-            }
-            return;
+                . ' >/dev/null 2>&1 &';
+            @exec($comando, $salida, $codigo);
+            return $codigo === 0;
+        } catch (\Throwable $e) {
+            return false;
         }
-        $comando = escapeshellarg($php) . ' '
-            . escapeshellarg($script) . ' '
-            . $idCampania
-            . ' >/dev/null 2>&1 &';
-        @exec($comando);
     }
 
     /**
