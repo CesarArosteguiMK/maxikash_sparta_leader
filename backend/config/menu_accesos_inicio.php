@@ -105,6 +105,12 @@ if (!function_exists('getRutasModulos')) {
         $rutas['analitica/postasignaciondireccionesorden'] = [84];
         $rutas['analitica/postasignaciondireccionessync'] = [84];
         $rutas['atlas/accesosatlas'] = [137];
+        $rutas['atlas/asistencias'] = [132];
+        $rutas['atlas/getreporteasistencias'] = [132];
+        $rutas['atlas/descargarreporteasistencias'] = [132];
+        $rutas['atlas/verevidenciaasistencia'] = [132];
+        $rutas['atlas/vermaparutaasistencia'] = [132];
+        $rutas['atlas/getrutasusuariospartan'] = [132];
         $rutas['atlas/creditosoperacion'] = [139];
         $rutas['atlas/expedientes'] = [139];
         $rutas['atlas/getexpedientes'] = [139];

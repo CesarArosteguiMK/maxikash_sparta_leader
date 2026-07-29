@@ -17,7 +17,11 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .atlas-attendance-subtitle { margin:.2rem 0 0; color:#64748b; font-size:.86rem; font-weight:700; }
         .atlas-attendance-actions { display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; }
         .atlas-attendance-filter-panel { border:1px solid #dbe4ef; border-radius:.5rem; background:#f8fafc; padding:.9rem; margin-bottom:1rem; }
-        .atlas-attendance-filters { display:grid; grid-template-columns:repeat(8, minmax(9rem, 1fr)); gap:.7rem; align-items:end; }
+        .atlas-attendance-filters { display:flex; flex-direction:column; gap:.7rem; }
+        .atlas-attendance-filter-primary { display:grid; grid-template-columns:minmax(18rem, .8fr) minmax(36rem, 1.4fr); gap:.7rem; align-items:end; }
+        .atlas-attendance-filter-dates { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.7rem; align-items:end; }
+        .atlas-attendance-filter-main { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:.7rem; align-items:end; }
+        .atlas-attendance-filter-secondary { display:grid; grid-template-columns:repeat(2, minmax(12rem, 1fr)) minmax(11rem, max-content); gap:.7rem; align-items:end; max-width:56rem; }
         .atlas-attendance-filter-actions { display:flex; align-items:center; }
         .atlas-attendance-filter-actions .btn { min-height:2.35rem; width:100%; }
         .atlas-attendance-metrics { display:grid; grid-template-columns:repeat(6, minmax(8rem, 1fr)); gap:.7rem; margin-bottom:1rem; }
@@ -64,6 +68,21 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .atlas-evidence-name { color:#22303e; font-size:.82rem; font-weight:900; overflow-wrap:anywhere; }
         .atlas-evidence-detail { margin-top:.15rem; color:#64748b; font-size:.7rem; font-weight:700; }
         .atlas-evidence-empty { padding:3rem 1rem; color:#64748b; text-align:center; font-weight:800; }
+        .atlas-evidence-routes { margin-top:1.1rem; padding-top:1rem; border-top:1px solid #e2e8f0; }
+        .atlas-evidence-routes-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.75rem; flex-wrap:wrap; }
+        .atlas-evidence-routes-title { margin:0; color:#22303e; font-size:.9rem; font-weight:900; }
+        .atlas-evidence-routes-meta { color:#64748b; font-size:.72rem; font-weight:800; }
+        .atlas-evidence-route-list { display:grid; gap:.65rem; }
+        .atlas-evidence-route-item { border:1px solid #dbe4ef; border-radius:.45rem; background:#f8fafc; padding:.7rem .8rem; }
+        .atlas-evidence-route-head { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; }
+        .atlas-evidence-route-name { color:#22303e; font-size:.8rem; font-weight:900; line-height:1.25; }
+        .atlas-evidence-route-badge { display:inline-flex; align-items:center; border-radius:999px; padding:.17rem .5rem; background:#e0f2fe; color:#0369a1; font-size:.65rem; font-weight:900; white-space:nowrap; }
+        .atlas-evidence-route-detail { margin-top:.25rem; color:#64748b; font-size:.7rem; font-weight:700; }
+        .atlas-evidence-route-actions { display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; margin-top:.55rem; }
+        .atlas-evidence-route-map-state { margin-top:.65rem; }
+        .atlas-evidence-route-map-media { width:100%; min-height:13rem; aspect-ratio:640/430; border:1px solid #dbe4ef; border-radius:.45rem; overflow:hidden; background:#e2e8f0; display:grid; place-items:center; }
+        .atlas-evidence-route-map-media img { width:100%; height:100%; object-fit:contain; display:block; }
+        .atlas-evidence-route-map-footer { margin-top:.45rem; display:flex; justify-content:flex-end; }
         .atlas-attendance-page .select2-container { width:100% !important; }
         .atlas-attendance-page .select2-container .select2-selection--single { min-height:2.35rem; display:flex; align-items:center; border-color:#d9dee3; }
         .atlas-attendance-page .select2-container--default .select2-selection--single .select2-selection__rendered { padding-left:.75rem; color:#566a7f; }
@@ -82,11 +101,14 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .atlas-attendance-page .dataTables_wrapper .dataTables_filter input,
         .atlas-attendance-page .dataTables_wrapper .dt-search input { min-width:16rem; border-radius:.375rem; border-color:#d9dee3; }
         @media (max-width: 1399.98px) {
-            .atlas-attendance-filters { grid-template-columns:repeat(3, minmax(10rem, 1fr)); }
+            .atlas-attendance-filter-primary { grid-template-columns:1fr; }
+            .atlas-attendance-filter-secondary { max-width:none; }
             .atlas-attendance-metrics { grid-template-columns:repeat(3, minmax(9rem, 1fr)); }
         }
         @media (max-width: 767.98px) {
-            .atlas-attendance-filters,
+            .atlas-attendance-filter-dates,
+            .atlas-attendance-filter-main,
+            .atlas-attendance-filter-secondary,
             .atlas-attendance-metrics { grid-template-columns:1fr; }
             .atlas-attendance-actions,
             .atlas-attendance-actions .btn,
@@ -118,63 +140,71 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     <?php if (!$atlasApiReady): ?>
         <div class="alert alert-warning d-flex align-items-center gap-2" role="alert">
             <i class="fa-solid fa-triangle-exclamation"></i>
-            <span>Configura <strong>ATLAS_ADMIN_API_KEYS</strong> para consultar el reporte.</span>
+            <span>El reporte no está disponible por ahora. Si necesitas consultarlo, avísanos y lo revisamos.</span>
         </div>
     <?php endif; ?>
 
     <section class="atlas-attendance-filter-panel" aria-label="Filtros de asistencias">
         <div class="atlas-attendance-filters">
-            <div>
-                <label class="form-label mb-1" for="atlasAttendanceStart">Fecha inicio</label>
-                <input class="form-control form-control-sm" type="date" id="atlasAttendanceStart"
-                       min="<?= htmlspecialchars($atlasDatasetStart, ENT_QUOTES, 'UTF-8') ?>"
-                       max="<?= htmlspecialchars($atlasDatasetEnd, ENT_QUOTES, 'UTF-8') ?>"
-                       value="<?= htmlspecialchars($atlasStart, ENT_QUOTES, 'UTF-8') ?>">
+            <div class="atlas-attendance-filter-primary">
+                <div class="atlas-attendance-filter-dates">
+                    <div>
+                        <label class="form-label mb-1" for="atlasAttendanceStart">Fecha inicio</label>
+                        <input class="form-control form-control-sm" type="date" id="atlasAttendanceStart"
+                               min="<?= htmlspecialchars($atlasDatasetStart, ENT_QUOTES, 'UTF-8') ?>"
+                               max="<?= htmlspecialchars($atlasDatasetEnd, ENT_QUOTES, 'UTF-8') ?>"
+                               value="<?= htmlspecialchars($atlasStart, ENT_QUOTES, 'UTF-8') ?>">
+                    </div>
+                    <div>
+                        <label class="form-label mb-1" for="atlasAttendanceEnd">Fecha fin</label>
+                        <input class="form-control form-control-sm" type="date" id="atlasAttendanceEnd"
+                               min="<?= htmlspecialchars($atlasDatasetStart, ENT_QUOTES, 'UTF-8') ?>"
+                               max="<?= htmlspecialchars($atlasDatasetEnd, ENT_QUOTES, 'UTF-8') ?>"
+                               value="<?= htmlspecialchars($atlasEnd, ENT_QUOTES, 'UTF-8') ?>">
+                    </div>
+                </div>
+                <div class="atlas-attendance-filter-main">
+                    <div>
+                        <label class="form-label mb-1" for="atlasAttendanceCollaborator">Colaborador</label>
+                        <select class="form-select form-select-sm atlas-attendance-select" id="atlasAttendanceCollaborator">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label mb-1" for="atlasAttendanceDistributor">Distribuidor</label>
+                        <select class="form-select form-select-sm atlas-attendance-select" id="atlasAttendanceDistributor">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label mb-1" for="atlasAttendanceStatus">Estatus</label>
+                        <select class="form-select form-select-sm atlas-attendance-select" id="atlasAttendanceStatus">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                </div>
             </div>
-            <div>
-                <label class="form-label mb-1" for="atlasAttendanceEnd">Fecha fin</label>
-                <input class="form-control form-control-sm" type="date" id="atlasAttendanceEnd"
-                       min="<?= htmlspecialchars($atlasDatasetStart, ENT_QUOTES, 'UTF-8') ?>"
-                       max="<?= htmlspecialchars($atlasDatasetEnd, ENT_QUOTES, 'UTF-8') ?>"
-                       value="<?= htmlspecialchars($atlasEnd, ENT_QUOTES, 'UTF-8') ?>">
-            </div>
-            <div>
-                <label class="form-label mb-1" for="atlasAttendanceCollaborator">Colaborador</label>
-                <select class="form-select form-select-sm atlas-attendance-select" id="atlasAttendanceCollaborator">
-                    <option value="">Todos</option>
-                </select>
-            </div>
-            <div>
-                <label class="form-label mb-1" for="atlasAttendanceDistributor">Distribuidor</label>
-                <select class="form-select form-select-sm atlas-attendance-select" id="atlasAttendanceDistributor">
-                    <option value="">Todos</option>
-                </select>
-            </div>
-            <div>
-                <label class="form-label mb-1" for="atlasAttendanceStatus">Estatus</label>
-                <select class="form-select form-select-sm atlas-attendance-select" id="atlasAttendanceStatus">
-                    <option value="">Todos</option>
-                </select>
-            </div>
-            <div>
-                <label class="form-label mb-1" for="atlasAttendanceDivisional">Divisional</label>
-                <select class="form-select form-select-sm atlas-attendance-select" id="atlasAttendanceDivisional">
-                    <option value="">Todas</option>
-                </select>
-            </div>
-            <div>
-                <label class="form-label mb-1" for="atlasAttendanceEvidence">Evidencias</label>
-                <select class="form-select form-select-sm atlas-attendance-select" id="atlasAttendanceEvidence">
-                    <option value="">Todas</option>
-                    <option value="con">Con evidencias</option>
-                    <option value="sin">Sin evidencias</option>
-                    <option value="incompletas">Incompletas</option>
-                </select>
-            </div>
-            <div class="atlas-attendance-filter-actions">
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="atlasAttendanceClear" title="Eliminar filtros">
-                    <i class="fa-solid fa-filter-circle-xmark me-2"></i>Eliminar filtros
-                </button>
+            <div class="atlas-attendance-filter-secondary">
+                <div>
+                    <label class="form-label mb-1" for="atlasAttendanceDivisional">Divisional</label>
+                    <select class="form-select form-select-sm atlas-attendance-select" id="atlasAttendanceDivisional">
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label mb-1" for="atlasAttendanceEvidence">Evidencias</label>
+                    <select class="form-select form-select-sm atlas-attendance-select" id="atlasAttendanceEvidence">
+                        <option value="">Todas</option>
+                        <option value="con">Con evidencias</option>
+                        <option value="incompletas">Incompletas</option>
+                        <option value="sin">Sin evidencias</option>
+                    </select>
+                </div>
+                <div class="atlas-attendance-filter-actions">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="atlasAttendanceClear" title="Eliminar filtros">
+                        <i class="fa-solid fa-filter-circle-xmark me-2"></i>Eliminar filtros
+                    </button>
+                </div>
             </div>
         </div>
         <div class="atlas-attendance-note" id="atlasAttendancePerimeter">Perímetro operativo pendiente de consultar.</div>
@@ -198,14 +228,29 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             <div class="atlas-attendance-metric-value" id="atlasAttendanceOutside">0</div>
         </article>
         <article class="atlas-attendance-metric is-blue">
-            <div class="atlas-attendance-metric-label">Gestiones</div>
+            <div class="atlas-attendance-metric-label" title="Créditos gestionados dentro de la ventana de cada visita o registro">
+                Gestiones
+            </div>
             <div class="atlas-attendance-metric-value" id="atlasAttendanceManaged">0</div>
         </article>
         <article class="atlas-attendance-metric">
-            <div class="atlas-attendance-metric-label">Pendientes</div>
+            <div class="atlas-attendance-metric-label" title="Saldo actual de créditos pendientes; el resumen cuenta cada sucursal una sola vez">
+                Pendientes actuales
+            </div>
             <div class="atlas-attendance-metric-value" id="atlasAttendancePending">0</div>
         </article>
     </section>
+
+    <div class="alert alert-info d-flex align-items-start gap-2 py-2 mb-3" role="note">
+        <i class="fa-solid fa-circle-info mt-1"></i>
+        <div class="small">
+            <strong>Cómo se calculan:</strong>
+            Gestiones cuenta los créditos atendidos durante la visita o registro; el mismo crédito cuenta nuevamente si se atiende en otra visita.
+            Pendientes actuales es el saldo de la sucursal al generar el reporte, descontando los créditos dictaminados en el periodo;
+            en el resumen cada sucursal se contabiliza una sola vez.
+            Total de gestiones suma ambos valores de la fila y no debe acumularse entre visitas porque el saldo puede repetirse.
+        </div>
+    </div>
 
     <section class="atlas-attendance-table-panel">
         <div class="atlas-attendance-table-head">
@@ -219,13 +264,15 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                         <th>Fecha</th>
                         <th>Colaborador</th>
                         <th>Agencia / Distribuidor</th>
+                        <th>Visitas agencia</th>
                         <th>Estatus</th>
                         <th>Perímetro</th>
                         <th>Llegada</th>
                         <th>Salida</th>
                         <th>Permanencia</th>
-                        <th class="text-end">Gestiones</th>
-                        <th class="text-end">Pendientes</th>
+                        <th class="text-end" title="Créditos gestionados dentro de la ventana de esta visita o registro">Gestiones</th>
+                        <th class="text-end" title="Saldo actual de la sucursal al corte del reporte">Pendientes actuales</th>
+                        <th class="text-end" title="Gestiones de la fila más el saldo pendiente actual; no debe sumarse entre visitas">Total de gestiones</th>
                         <th class="text-center">Evidencias</th>
                         <th>Observaciones</th>
                     </tr>
@@ -250,6 +297,15 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             </div>
             <div class="modal-body">
                 <div class="atlas-evidence-grid" id="atlasAttendanceEvidenceGrid"></div>
+                <section class="atlas-evidence-routes" aria-label="Rutas Spartan del usuario seleccionado">
+                    <div class="atlas-evidence-routes-head">
+                        <h3 class="atlas-evidence-routes-title">
+                            <i class="fa-solid fa-route me-2 text-primary"></i>Rutas generadas en Spartan
+                        </h3>
+                        <span class="atlas-evidence-routes-meta" id="atlasAttendanceRoutesMeta"></span>
+                    </div>
+                    <div id="atlasAttendanceRoutesState"></div>
+                </section>
             </div>
         </div>
     </div>
@@ -274,11 +330,14 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     const evidenceModalElement = document.getElementById('atlasAttendanceEvidenceModal');
     const evidenceGrid = document.getElementById('atlasAttendanceEvidenceGrid');
     const evidenceMeta = document.getElementById('atlasAttendanceEvidenceMeta');
+    const routesMeta = document.getElementById('atlasAttendanceRoutesMeta');
+    const routesState = document.getElementById('atlasAttendanceRoutesState');
     let evidenceModal = null;
     let visibleRows = [];
     let attendanceTable = null;
     let generatedAt = '';
     let loading = false;
+    let loadingAlertOpen = false;
 
     const escapeHtml = (value) => String(value ?? '')
         .replaceAll('&', '&amp;')
@@ -288,11 +347,79 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .replaceAll("'", '&#039;');
 
     const number = (value) => Number(value || 0).toLocaleString('es-MX');
+    const showAttendanceLoading = () => {
+        if (typeof Swal === 'undefined') return;
+        loadingAlertOpen = true;
+        Swal.fire({
+            title: 'Cargando asistencias...',
+            html: '<span style="font-size:.875rem;color:#64748b;">Consultando visitas y gestiones registradas</span>',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => Swal.showLoading(),
+        });
+    };
+    const hideAttendanceLoading = () => {
+        if (!loadingAlertOpen || typeof Swal === 'undefined') return;
+        loadingAlertOpen = false;
+        if (Swal.isVisible()) Swal.close();
+    };
     const formatBytes = (value) => {
         const bytes = Number(value || 0);
         if (!bytes) return 'Tamaño sin dato';
         if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
         return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    const agencyVisitKey = (row, index = -1) => {
+        const fk = String(row?.fk_sucursal ?? '').trim();
+        if (fk) return `fk_sucursal:${fk}`;
+        const routeBranch = String(row?.ruta_sucursal_id ?? '').trim();
+        if (routeBranch) return `ruta_sucursal_id:${routeBranch}`;
+        const agency = String(row?.agencia ?? '').trim().toLowerCase();
+        const distributor = String(row?.distribuidor ?? '').trim().toLowerCase();
+        const named = [agency, distributor].filter(Boolean).join('|');
+        return named ? `agencia:${named}` : `fila:${index}`;
+    };
+
+    const visitHourLabel = (row) => {
+        const date = String(row?.fecha || '').trim();
+        const start = String(row?.hora_llegada || row?.hora_confirmacion_llegada || row?.hora_gestion || '').trim();
+        const end = String(row?.hora_salida || row?.hora_termino_visita || '').trim();
+        const parts = [];
+        if (date) parts.push(date);
+        if (start && end) parts.push(`${start}-${end}`);
+        else if (start) parts.push(start);
+        else if (end) parts.push(`Salida ${end}`);
+        else parts.push('Hora no disponible');
+        return parts.join(' ');
+    };
+
+    const agencyVisitGroups = (rows) => {
+        const groups = new Map();
+        rows.forEach((row) => {
+            const index = visibleRows.indexOf(row);
+            if (row?.es_visita === false) return;
+            const key = agencyVisitKey(row, index);
+            const list = groups.get(key) || [];
+            list.push(visitHourLabel(row));
+            groups.set(key, list);
+        });
+        return groups;
+    };
+
+    const agencyVisitsCellHtml = (row, groups) => {
+        const index = visibleRows.indexOf(row);
+        const visits = groups.get(agencyVisitKey(row, index)) || [];
+        const fallbackLabels = Array.isArray(row?.visitas_agencia_horarios)
+            ? row.visitas_agencia_horarios
+                .map((visit) => String(visit?.etiqueta || visit || '').trim())
+                .filter(Boolean)
+            : [];
+        const labels = visits.length ? visits : fallbackLabels;
+        const total = labels.length || Number(row?.visitas_agencia_total || 0);
+        return `<div class="atlas-attendance-main">${number(total)} visita${total === 1 ? '' : 's'}</div>
+            <div class="atlas-attendance-sub">${escapeHtml(labels.length ? labels.join(' | ') : 'Horas no disponibles')}</div>`;
     };
 
     const evidenceMedia = (evidence) => {
@@ -329,6 +456,129 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         </div>`;
     };
 
+    const routeField = (route, keys, fallback = '') => {
+        for (const key of keys) {
+            const value = route?.[key];
+            if (value !== null && value !== undefined && String(value).trim() !== '') return value;
+        }
+        return fallback;
+    };
+
+    const routesMaintenanceMessage = 'El servicio de consulta de rutas de usuarios se encuentra en mantenimiento, en breves se desplegara y podras ver de nuevo las rutas';
+    const routeMapUrl = (routeId) => `/Atlas/verMapaRutaAsistencia?ruta_id=${encodeURIComponent(routeId)}`;
+
+    const loadRouteMapPreview = (button) => {
+        const routeId = String(button?.dataset?.atlasRouteMapId || '').trim();
+        const card = button?.closest('.atlas-evidence-route-item');
+        const state = card?.querySelector('[data-atlas-route-map-state]');
+        if (!routeId || !state || state.dataset.loaded === '1' || state.dataset.loading === '1') return;
+
+        const url = routeMapUrl(routeId);
+        const originalHtml = button.innerHTML;
+        state.dataset.loading = '1';
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Mapa';
+        state.innerHTML = `
+            <div class="atlas-evidence-route-map-media">
+                <span class="spinner-border spinner-border-sm text-primary"></span>
+            </div>`;
+
+        const img = new Image();
+        img.alt = 'Mapa de ruta';
+        img.loading = 'lazy';
+        img.addEventListener('load', () => {
+            state.dataset.loaded = '1';
+            delete state.dataset.loading;
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+
+            const media = document.createElement('div');
+            media.className = 'atlas-evidence-route-map-media';
+            media.replaceChildren(img);
+
+            const footer = document.createElement('div');
+            footer.className = 'atlas-evidence-route-map-footer';
+
+            const link = document.createElement('a');
+            link.className = 'btn btn-sm btn-outline-primary';
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Abrir mapa';
+            footer.appendChild(link);
+
+            state.replaceChildren(media, footer);
+        }, { once: true });
+        img.addEventListener('error', () => {
+            delete state.dataset.loading;
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+            state.innerHTML = `<div class="alert alert-info mb-0 py-2">${routesMaintenanceMessage}</div>`;
+        }, { once: true });
+        img.src = url;
+    };
+
+    const renderSpartanRoutes = (routes) => {
+        if (!Array.isArray(routes) || !routes.length) {
+            routesState.innerHTML = '<div class="atlas-evidence-empty py-3">Sin rutas generadas para este usuario en el periodo filtrado.</div>';
+            return;
+        }
+        routesState.innerHTML = `<div class="atlas-evidence-route-list">${routes.map((route) => {
+            const routeId = String(routeField(route, ['id', 'ruta_id'], '') || '').trim();
+            const name = routeField(route, ['nombre_ruta', 'nombre'], routeId ? `Ruta #${routeId}` : 'Ruta sin nombre');
+            const status = routeField(route, ['estatus', 'estado'], 'Sin estatus');
+            const start = routeField(route, ['fecha_inicio', 'fecha_ruta'], '');
+            const end = routeField(route, ['fecha_fin'], start);
+            const visits = Number(routeField(route, ['total_visitas', 'total_sucursales'], 0));
+            const branchList = Array.isArray(route.sucursales)
+                ? route.sucursales
+                    .map((branch) => String(branch?.sucursal || branch?.agencia || branch?.fk_sucursal || '').trim())
+                    .filter(Boolean)
+                    .slice(0, 6)
+                    .join(' | ')
+                : '';
+            return `<article class="atlas-evidence-route-item">
+                <div class="atlas-evidence-route-head">
+                    <div>
+                        <div class="atlas-evidence-route-name">${escapeHtml(name)}</div>
+                        <div class="atlas-evidence-route-detail">${escapeHtml([start && end ? `${start} a ${end}` : start, visits ? `${number(visits)} visita(s)` : null].filter(Boolean).join(' · '))}</div>
+                    </div>
+                    <span class="atlas-evidence-route-badge">${escapeHtml(status)}</span>
+                </div>
+                ${branchList ? `<div class="atlas-evidence-route-detail">${escapeHtml(branchList)}</div>` : ''}
+                ${routeId ? `<div class="atlas-evidence-route-actions">
+                    <button type="button" class="btn btn-sm btn-label-primary" data-atlas-route-map-id="${escapeHtml(routeId)}">
+                        <i class="fa-solid fa-map-location-dot me-1"></i>Ver mapa
+                    </button>
+                </div>
+                <div class="atlas-evidence-route-map-state" data-atlas-route-map-state></div>` : ''}
+            </article>`;
+        }).join('')}</div>`;
+    };
+
+    const loadSpartanRoutes = async (row) => {
+        const personaId = collaboratorSelect.value || row?.colaborador_persona_id || row?.gestor_persona_id || '';
+        const params = new URLSearchParams();
+        if (personaId) params.set('gestor_persona_id', personaId);
+        if (startInput.value) params.set('fecha_inicio', startInput.value);
+        if (endInput.value) params.set('fecha_fin', endInput.value);
+        params.set('limit', '100');
+        routesMeta.textContent = [row?.colaborador || 'Usuario seleccionado', startInput.value && endInput.value ? `${startInput.value} a ${endInput.value}` : 'Periodo actual'].filter(Boolean).join(' · ');
+        routesState.innerHTML = '<div class="atlas-evidence-empty py-3"><span class="spinner-border spinner-border-sm me-2"></span>Consultando rutas en Spartan...</div>';
+        try {
+            const headers = { Accept: 'application/json' };
+            const response = await fetch(`/Atlas/getRutasUsuarioSpartan?${params.toString()}`, { headers });
+            const payload = await response.json();
+            if (!response.ok || !payload.success) {
+                throw new Error(payload.mensaje || 'No se pudieron consultar rutas Spartan.');
+            }
+            const data = payload.datos || {};
+            renderSpartanRoutes(data.rutas || []);
+        } catch (error) {
+            routesState.innerHTML = `<div class="alert alert-info mb-0 py-2">${routesMaintenanceMessage}</div>`;
+        }
+    };
+
     const showEvidenceModal = (row) => {
         const evidences = Array.isArray(row.evidencias) ? row.evidencias : [];
         evidenceMeta.textContent = [row.agencia, row.colaborador, row.fecha].filter(Boolean).join(' · ');
@@ -360,6 +610,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         } else if (window.jQuery && typeof window.jQuery.fn.modal === 'function') {
             window.jQuery(evidenceModalElement).modal('show');
         }
+        loadSpartanRoutes(row);
     };
 
     const datasetQuery = () => {
@@ -449,12 +700,9 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         const declaredCount = row?.total_evidencias === null || row?.total_evidencias === undefined
             ? evidences.length
             : Math.max(0, Number(row.total_evidencias) || 0);
-        const hasEvidence = declaredCount > 0
-            || evidences.length > 0
-            || String(row?.evidencia || '').trim() !== '';
-        if (!hasEvidence) return 'sin';
+        if (declaredCount === 0 && evidences.length === 0) return 'sin';
 
-        const hasMissingDetails = declaredCount > evidences.length;
+        const hasMissingDetails = evidences.length === 0 || declaredCount > evidences.length;
         const hasUnavailableEvidence = evidences.some((evidence) => (
             !evidence
             || ![true, 1, '1', 'true'].includes(evidence.disponible)
@@ -506,26 +754,27 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             body.innerHTML = '';
             return;
         }
+        const initialVisitGroups = agencyVisitGroups(rows);
         body.innerHTML = rows.map((row, rowIndex) => {
             const distance = row.distancia_metros === null || row.distancia_metros === undefined
                 ? 'Sin distancia'
                 : `${number(row.distancia_metros)} m`;
             const observations = row.observaciones_incumplimiento || row.observaciones || '';
             const evidences = Array.isArray(row.evidencias) ? row.evidencias : [];
-            const evidenceCount = Number(row.total_evidencias ?? evidences.length);
-            const evidenceButton = evidenceCount > 0
-                ? `<button type="button" class="atlas-attendance-evidence-button" data-atlas-evidence-row="${rowIndex}" title="Ver ${number(evidenceCount)} evidencia(s)" aria-label="Ver evidencias">
-                    <i class="fa-solid fa-eye"></i>
-                    <span class="atlas-attendance-evidence-count">${number(evidenceCount)}</span>
-                </button>`
-                : `<button type="button" class="atlas-attendance-evidence-button" disabled title="Sin evidencias" aria-label="Sin evidencias">
-                    <i class="fa-solid fa-eye-slash"></i>
-                </button>`;
-            const managementDetails = (row.gestiones_detalle || []).map((item) => {
-                const client = item.cliente || 'Cliente sin nombre';
-                const offer = item.oferta ? `Oferta #${item.oferta}` : '';
-                return [client, offer].filter(Boolean).join(' · ');
-            }).join(' | ');
+            const completedManagements = Number(row.gestiones_realizadas || 0);
+            const pendingManagements = row.pendientes_por_gestionar === null
+                || row.pendientes_por_gestionar === undefined
+                ? null
+                : Number(row.pendientes_por_gestionar || 0);
+            const totalManagements = pendingManagements === null
+                ? null
+                : completedManagements + pendingManagements;
+            const declaredEvidenceCount = Math.max(0, Number(row.total_evidencias) || 0);
+            const evidenceCount = Math.max(declaredEvidenceCount, evidences.length);
+            const evidenceButton = `<button type="button" class="atlas-attendance-evidence-button" data-atlas-evidence-row="${rowIndex}" title="Ver ${number(evidenceCount)} evidencia(s)" aria-label="Ver evidencias">
+                <i class="fa-solid fa-eye"></i>
+                <span class="atlas-attendance-evidence-count">${number(evidenceCount)}</span>
+            </button>`;
             return `<tr data-atlas-row="${rowIndex}">
                 <td>
                     <div class="atlas-attendance-main">${escapeHtml(row.fecha || '')}</div>
@@ -538,6 +787,9 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 <td>
                     <div class="atlas-attendance-main">${escapeHtml(row.agencia || 'Sin agencia')}</div>
                     <div class="atlas-attendance-sub">${escapeHtml(row.distribuidor || 'Sin distribuidor')}</div>
+                </td>
+                <td style="max-width:18rem; white-space:normal;" data-atlas-agency-visits-row="${rowIndex}">
+                    ${agencyVisitsCellHtml(row, initialVisitGroups)}
                 </td>
                 <td><span class="atlas-attendance-badge ${statusClass(row.estatus_visita)}">${escapeHtml(row.estatus_visita || '')}</span></td>
                 <td>
@@ -553,11 +805,9 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                     <div class="atlas-attendance-sub">Fin ${escapeHtml(row.hora_termino_visita || '--:--')}</div>
                 </td>
                 <td>${escapeHtml(row.tiempo_permanencia || 'Sin dato')}</td>
-                <td class="text-end" style="max-width:18rem; white-space:normal;">
-                    <strong>${number(row.gestiones_realizadas)}</strong>
-                    ${managementDetails ? `<div class="atlas-attendance-sub">${escapeHtml(managementDetails)}</div>` : ''}
-                </td>
-                <td class="text-end"><strong>${row.pendientes_por_gestionar === null ? '-' : number(row.pendientes_por_gestionar)}</strong></td>
+                <td class="text-end"><strong>${number(completedManagements)}</strong></td>
+                <td class="text-end"><strong>${pendingManagements === null ? '-' : number(pendingManagements)}</strong></td>
+                <td class="text-end"><strong>${totalManagements === null ? '-' : number(totalManagements)}</strong></td>
                 <td class="text-center">${evidenceButton}</td>
                 <td style="max-width:22rem; white-space:normal;">${escapeHtml(observations || 'Sin observaciones')}</td>
             </tr>`;
@@ -583,8 +833,39 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             .filter(Boolean);
     };
 
+    const updateAgencyVisitCells = (rows) => {
+        const groups = agencyVisitGroups(rows);
+        document.querySelectorAll('[data-atlas-agency-visits-row]').forEach((cell) => {
+            const row = visibleRows[Number(cell.dataset.atlasAgencyVisitsRow)];
+            if (row) cell.innerHTML = agencyVisitsCellHtml(row, groups);
+        });
+    };
+
+    const pendingTotalForRows = (rows) => {
+        const pendingByBranch = new Map();
+        rows.forEach((row, index) => {
+            if (row.es_visita === false
+                || row.pendientes_por_gestionar === null
+                || row.pendientes_por_gestionar === undefined) {
+                return;
+            }
+            const branchKey = String(
+                row.fk_sucursal
+                ?? row.ruta_sucursal_id
+                ?? `fila:${index}`
+            );
+            const pending = Math.max(0, Number(row.pendientes_por_gestionar || 0));
+            pendingByBranch.set(
+                branchKey,
+                Math.max(pendingByBranch.get(branchKey) || 0, pending)
+            );
+        });
+        return [...pendingByBranch.values()].reduce((total, pending) => total + pending, 0);
+    };
+
     const updateFilteredSummary = () => {
         const rows = currentFilteredRows();
+        updateAgencyVisitCells(rows);
         const visitRows = rows.filter((row) => row.es_visita !== false);
         setSummary({
             total_visitas: visitRows.length,
@@ -595,15 +876,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 (total, row) => total + Number(row.gestiones_realizadas || 0),
                 0
             ),
-            pendientes_por_gestionar: visitRows.reduce(
-                (total, row) => total + (
-                    row.pendientes_por_gestionar === null
-                    || row.pendientes_por_gestionar === undefined
-                        ? 0
-                        : Number(row.pendientes_por_gestionar || 0)
-                ),
-                0
-            ),
+            pendientes_por_gestionar: pendingTotalForRows(visitRows),
         });
         document.getElementById('atlasAttendanceGenerated').textContent =
             `${number(rows.length)} de ${number(visibleRows.length)} registros` +
@@ -648,7 +921,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             searchDelay: 100,
             order: [[0, 'desc']],
             columnDefs: [
-                { targets: 10, orderable: false },
+                { targets: 12, orderable: false },
             ],
             initComplete() {
                 const container = this.api().table().container();
@@ -674,7 +947,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     const reportError = (message) => {
         destroyAttendanceTable();
         visibleRows = [];
-        body.innerHTML = `<tr><td class="atlas-attendance-empty text-danger" colspan="12">${escapeHtml(message)}</td></tr>`;
+        body.innerHTML = `<tr><td class="atlas-attendance-empty text-danger" colspan="14">${escapeHtml(message)}</td></tr>`;
         setSummary({});
         document.getElementById('atlasAttendanceGenerated').textContent = 'No disponible';
         if (typeof Swal !== 'undefined') {
@@ -685,17 +958,18 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     const loadReport = async () => {
         if (loading || !apiReady) return;
         loading = true;
+        showAttendanceLoading();
         downloadButton.disabled = true;
         document.getElementById('atlasAttendanceRefresh').disabled = true;
         destroyAttendanceTable();
-        body.innerHTML = '<tr><td class="atlas-attendance-empty" colspan="12">Consultando asistencias...</td></tr>';
+        body.innerHTML = '<tr><td class="atlas-attendance-empty" colspan="14">Consultando asistencias...</td></tr>';
         try {
             const response = await fetch(`/Atlas/getReporteAsistencias?${datasetQuery().toString()}`, {
                 headers: { Accept: 'application/json' }
             });
             const payload = await response.json();
             if (!response.ok || !payload.success) {
-                throw new Error(payload.mensaje || 'API-COMERCIAL devolvió un error.');
+                throw new Error('No pudimos cargar el reporte en este momento. Intenta de nuevo más tarde o avísanos para revisarlo.');
             }
             const data = payload.datos || {};
             const rows = Array.isArray(data.filas) ? data.filas : [];
@@ -714,7 +988,12 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 'nombre',
                 'Todos los distribuidores'
             );
-            updateSelect(statusSelect, catalogs.estatuses || [], '', '', 'Todos los estatus');
+            const statusOptions = [...new Set([
+                ...(catalogs.estatuses || []),
+                'En visita',
+            ].map((status) => String(status || '').trim()).filter(Boolean))]
+                .sort((left, right) => left.localeCompare(right, 'es'));
+            updateSelect(statusSelect, statusOptions, '', '', 'Todos los estatus');
             updateSelect(divisionalSelect, catalogs.divisionales || [], '', '', 'Todas las divisionales');
             generatedAt = String(data.generado_at || '').replace('T', ' ');
             renderRows(rows);
@@ -724,8 +1003,10 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 (data.pendientes_disponibles === false ? 'La fuente de pendientes no estuvo disponible en esta consulta.' : '');
             applyLocalFilters();
         } catch (error) {
+            hideAttendanceLoading();
             reportError(error.message || 'No se pudo consultar el reporte.');
         } finally {
+            hideAttendanceLoading();
             loading = false;
             document.getElementById('atlasAttendanceRefresh').disabled = false;
             downloadButton.disabled = !dateRangeIsValid();
@@ -778,6 +1059,11 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             const row = visibleRows[Number(button.dataset.atlasEvidenceRow)];
             if (row) showEvidenceModal(row);
         });
+        routesState.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-atlas-route-map-id]');
+            if (!button) return;
+            loadRouteMapPreview(button);
+        });
         evidenceModalElement.addEventListener('hidden.bs.modal', () => {
             evidenceGrid.querySelectorAll('video, audio').forEach((media) => {
                 media.pause();
@@ -786,12 +1072,14 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 media.load();
             });
             evidenceGrid.innerHTML = '';
+            routesState.innerHTML = '';
+            routesMeta.textContent = '';
         });
 
         if (apiReady) {
             loadReport();
         } else {
-            body.innerHTML = '<tr><td class="atlas-attendance-empty" colspan="12">API administrativa no configurada.</td></tr>';
+            body.innerHTML = '<tr><td class="atlas-attendance-empty" colspan="14">El reporte no está disponible por ahora. Si necesitas consultarlo, avísanos y lo revisamos.</td></tr>';
             downloadButton.disabled = true;
         }
     };

@@ -25,6 +25,17 @@
         .atlas-pres-badge-muted { background:#f1f5f9; color:#64748b; }
         .atlas-pres-main { color:#22303e; font-weight:800; line-height:1.16; }
         .atlas-pres-sub { color:#7a838b; font-size:.75rem; font-weight:700; line-height:1.2; margin-top:.16rem; }
+        .atlas-pres-resp-compact { max-width:19rem; cursor:help; }
+        .atlas-pres-resp-main { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .atlas-pres-resp-summary { display:flex; align-items:center; gap:.3rem .45rem; flex-wrap:wrap; margin-top:.2rem; color:#7a838b; font-size:.73rem; font-weight:800; line-height:1.2; }
+        .atlas-pres-resp-more { display:inline-flex; align-items:center; border-radius:999px; padding:.12rem .45rem; background:#eef2ff; color:#334b8f; font-size:.68rem; font-weight:900; }
+        .tooltip.atlas-pres-resp-tooltip { --bs-tooltip-max-width:min(25rem, 92vw); }
+        .tooltip.atlas-pres-resp-tooltip .tooltip-inner { text-align:left; padding:.65rem .75rem; }
+        .atlas-pres-resp-tip-title { font-weight:900; margin-bottom:.42rem; }
+        .atlas-pres-resp-tip-row { display:grid; gap:.08rem; padding:.35rem 0; border-top:1px solid rgba(255,255,255,.18); }
+        .atlas-pres-resp-tip-row:first-of-type { border-top:0; padding-top:0; }
+        .atlas-pres-resp-tip-row strong { line-height:1.18; }
+        .atlas-pres-resp-tip-row span { opacity:.82; font-size:.75rem; line-height:1.2; }
         .atlas-pres-empty { text-align:center; color:#9ca3af; font-weight:700; padding:2rem !important; }
         .atlas-pres-actions { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; }
         .atlas-pres-actions .btn { width:2rem; height:2rem; padding:0; display:inline-flex; align-items:center; justify-content:center; }
@@ -869,12 +880,38 @@
                         <div class="atlas-pres-main">${this.escape(detalle.asesor || 'Sin responsable')}</div>
                         <div class="atlas-pres-sub">${detalle.asesor_persona_id ? `Persona ${this.escape(detalle.asesor_persona_id)}` : 'Sin distribución'}</div>`;
                 }
-                return asignaciones.map(item => `
-                    <div class="mb-2">
-                        <div class="atlas-pres-main">${this.escape(item.gestor || item.gestor_nombre || `Persona ${item.persona_id}`)}</div>
-                        <div class="atlas-pres-sub">${this.number(item.meta_creditos || 0)} créditos · ${this.money(item.meta_cash || 0)}</div>
-                    </div>
-                `).join('');
+                const principal = asignaciones[0];
+                const nombrePrincipal = principal.gestor || principal.gestor_nombre || `Persona ${principal.persona_id}`;
+                const totalResponsables = asignaciones.length;
+                const totalCreditos = asignaciones.reduce((total, item) => total + Number(item.meta_creditos || 0), 0);
+                const totalCash = asignaciones.reduce((total, item) => total + Number(item.meta_cash || 0), 0);
+                const otros = Math.max(0, totalResponsables - 1);
+                const tooltip = `
+                    <div class="atlas-pres-resp-tip-title">${this.number(totalResponsables)} responsable${totalResponsables === 1 ? '' : 's'}</div>
+                    ${asignaciones.map(item => {
+                        const nombre = item.gestor || item.gestor_nombre || `Persona ${item.persona_id}`;
+                        return `<div class="atlas-pres-resp-tip-row">
+                            <strong>${this.escape(nombre)}</strong>
+                            <span>${this.number(item.meta_creditos || 0)} créditos · ${this.money(item.meta_cash || 0)}</span>
+                        </div>`;
+                    }).join('')}
+                `;
+                return `
+                    <div class="atlas-pres-resp-compact"
+                         tabindex="0"
+                         data-bs-toggle="tooltip"
+                         data-bs-html="true"
+                         data-bs-placement="right"
+                         data-bs-custom-class="atlas-pres-resp-tooltip"
+                         data-bs-title="${this.escape(tooltip)}">
+                        <div class="atlas-pres-main atlas-pres-resp-main">${this.escape(nombrePrincipal)}</div>
+                        <div class="atlas-pres-resp-summary">
+                            <span>${this.number(totalResponsables)} responsable${totalResponsables === 1 ? '' : 's'}</span>
+                            <span>${this.number(totalCreditos)} créditos</span>
+                            <span>${this.money(totalCash)}</span>
+                            ${otros ? `<span class="atlas-pres-resp-more">+${this.number(otros)} más</span>` : ''}
+                        </div>
+                    </div>`;
             },
 
             abrirAsignarSucursal() {
@@ -1442,6 +1479,7 @@
             inicializarTablaDom(selector, registrosPorPagina) {
                 if (!window.jQuery || !jQuery.fn || !jQuery.fn.DataTable) return;
                 if (jQuery.fn.DataTable.isDataTable(selector)) {
+                    this.disposeTooltips(selector);
                     jQuery(selector).DataTable().destroy();
                 }
                 const tabla = jQuery(selector).DataTable({
@@ -1460,9 +1498,36 @@
                         search: 'Buscar:',
                         paginate: { first: '«', last: '»', next: '›', previous: '‹' }
                     },
-                    drawCallback: () => this.repararPaginacion(selector)
+                    drawCallback: () => {
+                        this.repararPaginacion(selector);
+                        this.activarTooltips(selector);
+                    }
                 });
                 this.repararPaginacion(selector, tabla);
+                this.activarTooltips(selector);
+            },
+
+            disposeTooltips(scopeSelector) {
+                if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+                const scope = scopeSelector ? document.querySelector(scopeSelector) : document;
+                if (!scope) return;
+                scope.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => {
+                    const instance = bootstrap.Tooltip.getInstance(el);
+                    if (instance) instance.dispose();
+                });
+            },
+
+            activarTooltips(scopeSelector) {
+                if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+                const scope = scopeSelector ? document.querySelector(scopeSelector) : document;
+                if (!scope) return;
+                scope.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => {
+                    bootstrap.Tooltip.getOrCreateInstance(el, {
+                        container: 'body',
+                        trigger: 'hover focus',
+                        html: el.getAttribute('data-bs-html') === 'true'
+                    });
+                });
             },
 
             repararPaginacion(selector, tablaInstancia) {
