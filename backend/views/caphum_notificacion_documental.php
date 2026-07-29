@@ -305,6 +305,28 @@ $tipoInicial = $tipos[0] ?? [
         }
     };
 
+    const insigniaPatrones = (row) => {
+        if (!campaniaAvance || campaniaAvance.tipo !== 'semanas_cotizadas' || row.estado_entrega !== 'Entregado') {
+            return '';
+        }
+        const estado = String(row.estado_analisis_patrones || 'pendiente');
+        if (estado === 'pendiente') {
+            return '<span class="badge rounded-pill text-bg-light border text-secondary mt-1"><i class="fa-solid fa-spinner fa-spin me-1"></i>Lectura pendiente</span>';
+        }
+        if (estado === 'sin_lectura') {
+            return '<span class="badge rounded-pill text-bg-secondary mt-1"><i class="fa-solid fa-eye-low-vision me-1"></i>Revisión manual</span>';
+        }
+        const cantidad = Number(row.patrones_vigentes || 0);
+        const clase = cantidad >= 2 ? 'text-bg-danger' : (cantidad === 1 ? 'text-bg-primary' : 'text-bg-warning');
+        const historial = Number(row.patrones_historial || 0);
+        const titulo = historial
+            ? `${historial} registro${historial === 1 ? '' : 's'} patronal${historial === 1 ? '' : 'es'} en el historial`
+            : 'Lectura del Motor V1';
+        return `<span class="badge rounded-pill ${clase} mt-1" title="${escapeHtml(titulo)}">
+            <i class="fa-solid fa-building-user me-1"></i>${cantidad} ${cantidad === 1 ? 'patrón vigente' : 'patrones vigentes'}
+        </span>`;
+    };
+
     const cargarAvance = async () => {
         if (!campaniaAvance) return;
         const cuerpo = $('#avanceCuerpo');
@@ -319,11 +341,12 @@ $tipoInicial = $tipos[0] ?? [
             $('#avanceResumen').textContent = `${rows.length} resultado(s)`;
             cuerpo.innerHTML = rows.length ? rows.map(row => {
                 const entregado = row.estado_entrega === 'Entregado';
+                const badgePatrones = insigniaPatrones(row);
                 return `<tr>
                     <td><strong>${escapeHtml(row.nombre)}</strong><br><small class="text-muted">${escapeHtml(row.numero_empleado || 'Sin número')}</small></td>
                     <td>${escapeHtml(row.user_name || '')}</td>
                     <td><span class="badge ${entregado ? 'text-bg-success' : 'text-bg-warning'}">${escapeHtml(row.estado_entrega)}</span></td>
-                    <td>${entregado ? `${escapeHtml(row.nombre_logico || '')}<br><small class="text-muted">${escapeHtml(row.cargado_en || '')}</small>` : '—'}</td>
+                    <td>${entregado ? `${escapeHtml(row.nombre_logico || '')}<br><small class="text-muted">${escapeHtml(row.cargado_en || '')}</small>${badgePatrones ? `<br>${badgePatrones}` : ''}` : '—'}</td>
                     <td class="text-end">${entregado ? `
                         <div class="btn-group btn-group-sm" role="group" aria-label="Acciones del documento">
                             <button class="btn btn-outline-primary" type="button" title="Ver PDF" aria-label="Ver PDF"

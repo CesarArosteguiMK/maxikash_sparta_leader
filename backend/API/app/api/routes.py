@@ -33,6 +33,7 @@ from app.services.document_crosscheck import (
     es_documento_nss, es_tarjeta_nss, es_documento_curp, es_documento_constancia_fiscal, es_documento_acta_nacimiento,
     pdf_paginas_a_png_bytes,
 )
+from app.services.semanas_cotizadas_analyzer import analizar_semanas_cotizadas
 from app.services.alibaba_document_ai import (
     AlibabaDocumentAI,
     quick_result_to_summary,
@@ -5075,6 +5076,24 @@ async def validar_paginas_pdf(
         ),
         "rechazado": paginas > 0 and not valido,
     }
+
+
+@router.post(
+    "/analizar-semanas-cotizadas",
+    summary="Detectar patrones vigentes en constancia IMSS",
+    description="Usa texto nativo del PDF y OCR local como respaldo para contar registros patronales vigentes.",
+    tags=["Utilidades"],
+)
+async def analizar_documento_semanas_cotizadas(
+    documento: UploadFile = File(..., description="Constancia de semanas cotizadas del IMSS en PDF"),
+    api_key: str = Depends(verificar_api_key),
+):
+    if not documento.filename or not documento.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF")
+    file_bytes = await documento.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Documento vacío")
+    return await asyncio.to_thread(analizar_semanas_cotizadas, file_bytes)
 
 
 @router.post(

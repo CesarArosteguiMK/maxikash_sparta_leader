@@ -10178,11 +10178,52 @@ class CapHum extends Controller
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar el avance.']);
             return;
         }
-        self::respuestaJSON(CapHumNotificacionDocumental::personasCampania(
-            (int)($_GET['id'] ?? 0),
+        $idCampania = (int)($_GET['id'] ?? 0);
+        $resultado = CapHumNotificacionDocumental::personasCampania(
+            $idCampania,
             (string)($_GET['estado'] ?? 'todos'),
             (string)($_GET['buscar'] ?? '')
-        ));
+        );
+        foreach (($resultado['datos'] ?? []) as $persona) {
+            if (($persona['estado_analisis_patrones'] ?? '') === 'pendiente') {
+                $this->iniciarWorkerPatronesNotificacionDocumental($idCampania);
+                break;
+            }
+        }
+        self::respuestaJSON($resultado);
+    }
+
+    private function iniciarWorkerPatronesNotificacionDocumental(int $idCampania): void
+    {
+        if ($idCampania <= 0 || !defined('RAIZ')) {
+            return;
+        }
+        $script = RAIZ . '/cronjobs/procesar_patrones_notificacion_documental.php';
+        if (!is_file($script)) {
+            return;
+        }
+        $php = PHP_BINARY;
+        if (PHP_OS_FAMILY === 'Windows') {
+            $candidato = rtrim((string)PHP_BINDIR, '\\/') . DIRECTORY_SEPARATOR . 'php.exe';
+            if (is_file($candidato)) {
+                $php = $candidato;
+            }
+            $comando = 'cmd.exe /c start "" /B '
+                . escapeshellarg($php) . ' '
+                . escapeshellarg($script) . ' '
+                . $idCampania
+                . ' >NUL 2>&1';
+            $proceso = @popen($comando, 'r');
+            if (is_resource($proceso)) {
+                @pclose($proceso);
+            }
+            return;
+        }
+        $comando = escapeshellarg($php) . ' '
+            . escapeshellarg($script) . ' '
+            . $idCampania
+            . ' >/dev/null 2>&1 &';
+        @exec($comando);
     }
 
     /**
@@ -10256,10 +10297,13 @@ class CapHum extends Controller
                 $nombreFinal,
                 $nombreOriginal,
                 $tamanio,
-                $sha256
+                $sha256,
+                null
             );
             if (empty($resultado['success']) || !empty($resultado['datos']['ya_entregado'])) {
                 @unlink($rutaFinal);
+            } elseif ((string)($pendiente['datos']['tipo'] ?? '') === CapHumNotificacionDocumental::TIPO_SEMANAS_COTIZADAS) {
+                $this->iniciarWorkerPatronesNotificacionDocumental($idCampania);
             }
             self::respuestaJSON($resultado);
         } catch (\Throwable $e) {

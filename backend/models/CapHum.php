@@ -1045,13 +1045,13 @@ class CapHum extends Model
         // Gestion de Personal se filtra por Acceso a Puestos.
         // Sin puestos asignados en privilegios_departamento, no hay usuarios visibles.
         // =========================
-        $filtroPuestosSesion = "
+        $filtroPuestosSesion = $tieneDepartamento ? "
         AND EXISTS (
             SELECT 1
             FROM privilegios_departamento pd_perm
             WHERE pd_perm.idPersona = $id_gestor_sesion
               AND pd_perm.idPuesto = ap.id_puesto
-        )";
+        )" : '';
 
         if (true) {
 
