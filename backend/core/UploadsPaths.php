@@ -78,6 +78,66 @@ if (!function_exists('sparta_uploads_resolve_relative')) {
     }
 }
 
+if (!function_exists('sparta_evidencias_respaldo_root')) {
+    /**
+     * Copia privada de evidencias descargadas desde proveedores externos.
+     * No queda expuesta por HTTP. En produccion puede apuntar a otro volumen
+     * mediante SPARTA_EVIDENCIAS_RESPALDO_ROOT.
+     */
+    function sparta_evidencias_respaldo_root(): string
+    {
+        if (defined('SPARTA_EVIDENCIAS_RESPALDO_ROOT')) {
+            return SPARTA_EVIDENCIAS_RESPALDO_ROOT;
+        }
+
+        return sparta_project_root() . DIRECTORY_SEPARATOR . 'storage'
+            . DIRECTORY_SEPARATOR . 'evidencias_respaldo';
+    }
+}
+
+if (!function_exists('sparta_evidencias_respaldo_join')) {
+    /** @param string ...$parts segmentos bajo el respaldo privado (sin "..") */
+    function sparta_evidencias_respaldo_join(string ...$parts): string
+    {
+        $ruta = rtrim(sparta_evidencias_respaldo_root(), DIRECTORY_SEPARATOR . '/\\');
+        foreach ($parts as $part) {
+            if ($part === '' || $part === '.' || strpos($part, '..') !== false) {
+                continue;
+            }
+            $ruta .= DIRECTORY_SEPARATOR . trim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $part), DIRECTORY_SEPARATOR . '/\\');
+        }
+
+        return $ruta;
+    }
+}
+
+if (!function_exists('sparta_evidencias_respaldo_resolve_relative')) {
+    /** Resuelve una ruta privada relativa, sin permitir salir de su raiz. */
+    function sparta_evidencias_respaldo_resolve_relative(string $relativePath): ?string
+    {
+        $relativePath = str_replace('\\', '/', trim($relativePath, "/\\"));
+        if ($relativePath === '' || strpos($relativePath, '..') !== false) {
+            return null;
+        }
+
+        $full = sparta_evidencias_respaldo_root() . DIRECTORY_SEPARATOR
+            . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+        $resolved = realpath($full);
+        $root = realpath(sparta_evidencias_respaldo_root());
+        if ($resolved === false || $root === false) {
+            return null;
+        }
+
+        $resolvedNorm = strtolower(str_replace('\\', '/', $resolved));
+        $rootNorm = strtolower(str_replace('\\', '/', $root));
+        if ($resolvedNorm !== $rootNorm && strpos($resolvedNorm, $rootNorm . '/') !== 0) {
+            return null;
+        }
+
+        return $resolved;
+    }
+}
+
 if (!function_exists('sparta_public_web_base')) {
     /**
      * Prefijo de ruta URL para la carpeta public (p. ej. "/sparta___SPARTA_SECRET_REDACTED__/public") o "" si el vhost document root es public.

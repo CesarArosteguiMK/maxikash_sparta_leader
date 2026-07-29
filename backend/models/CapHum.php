@@ -3336,10 +3336,94 @@ class CapHum extends Model
     /**
      * Guardar documentos de una baja
      */
-    public static function guardarDocumentosBaja($registro_baja, int $id_documento, $archivos)
+    private static function sincronizarEtapaBajaDocumental(Database $db, int $idPersona, int $usuarioId = 0): array
+    {
+        $baja = $db->queryOne("
+            SELECT
+                bp.id,
+                COALESCE(bp.estatus_tramite, '') AS estatus_tramite,
+                COALESCE(bp.fecha_transito, bp.fecha_baja) AS fecha_inicio_ciclo
+            FROM estado_cuenta.baja_persona bp
+            INNER JOIN estado_cuenta.persona p ON p.id = bp.id_persona
+            WHERE bp.id_persona = :id_persona
+              AND LOWER(TRIM(COALESCE(p.estatus, ''))) = 'baja'
+            ORDER BY bp.id DESC
+            LIMIT 1
+        ", ['id_persona' => $idPersona]);
+
+        if (!$baja) {
+            return [
+                'estatus_tramite' => null,
+                'tiene_finiquito' => false,
+                'tiene_comprobante_finiquito' => false,
+                'actualizado' => false,
+            ];
+        }
+
+        $fechaInicioCiclo = (string)($baja['fecha_inicio_ciclo'] ?? '1970-01-01 00:00:00');
+        $documentos = $db->queryOne("
+            SELECT
+                SUM(CASE WHEN id_documento = 37 THEN 1 ELSE 0 END) AS finiquitos,
+                SUM(CASE WHEN id_documento = 38 THEN 1 ELSE 0 END) AS comprobantes,
+                MAX(CASE WHEN id_documento IN (37, 38) THEN fecha_carga ELSE NULL END) AS fecha_documentacion_completa
+            FROM estado_cuenta.carga_documento_persona
+            WHERE id_persona = :id_persona
+              AND fecha_carga >= :fecha_inicio_ciclo
+        ", [
+            'id_persona' => $idPersona,
+            'fecha_inicio_ciclo' => $fechaInicioCiclo,
+        ]);
+
+        $tieneFiniquito = (int)($documentos['finiquitos'] ?? 0) > 0;
+        $tieneComprobante = (int)($documentos['comprobantes'] ?? 0) > 0;
+        $idBaja = (int)$baja['id'];
+        $estatusActual = strtolower(trim((string)$baja['estatus_tramite']));
+        // El comprobante de pago acredita el cierre económico del proceso.
+        // El Finiquito puede adjuntarse adicionalmente, pero no bloquea la Baja completa.
+        $completa = $tieneComprobante;
+        $actualizado = false;
+
+        if ($completa && $estatusActual !== 'baja completa') {
+            $fechaCompleta = (string)($documentos['fecha_documentacion_completa'] ?? '');
+            if ($fechaCompleta === '') {
+                $fechaCompleta = (new \DateTime('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
+            }
+            $db->CRUD("
+                UPDATE estado_cuenta.baja_persona
+                SET estatus_tramite = 'Baja completa',
+                    fecha_baja_completa = :fecha_completa,
+                    usuario_baja_completa = :usuario
+                WHERE id = :id_baja
+            ", [
+                'fecha_completa' => $fechaCompleta,
+                'usuario' => $usuarioId > 0 ? $usuarioId : null,
+                'id_baja' => $idBaja,
+            ]);
+            $actualizado = true;
+        } elseif (!$completa && $estatusActual === 'baja completa') {
+            $db->CRUD("
+                UPDATE estado_cuenta.baja_persona
+                SET estatus_tramite = 'Baja parcial',
+                    fecha_baja_completa = NULL,
+                    usuario_baja_completa = NULL
+                WHERE id = :id_baja
+            ", ['id_baja' => $idBaja]);
+            $actualizado = true;
+        }
+
+        return [
+            'estatus_tramite' => $completa ? 'Baja completa' : 'Baja parcial',
+            'tiene_finiquito' => $tieneFiniquito,
+            'tiene_comprobante_finiquito' => $tieneComprobante,
+            'actualizado' => $actualizado,
+        ];
+    }
+
+    public static function guardarDocumentosBaja($registro_baja, int $id_documento, $archivos, int $usuarioId = 0)
     {
         try {
             $db = new Database();
+            self::asegurarSeguimientoTransitoBaja($db);
 
             // Obtener el id_persona desde baja_persona
             $baja = $db->queryOne("
@@ -3355,6 +3439,7 @@ class CapHum extends Model
             $id_persona = $baja['id_persona'];
 
             $archivosGuardados = [];
+            $db->beginTransaction();
 
             foreach ($archivos as $nombreArchivo) {
                 $archivoEsc = addslashes($nombreArchivo);
@@ -3373,9 +3458,18 @@ class CapHum extends Model
                 $archivosGuardados[] = $nombreArchivo;
             }
 
-            return self::resultado(true, 'Documentos guardados correctamente.', $archivosGuardados);
+            $etapa = self::sincronizarEtapaBajaDocumental($db, (int)$id_persona, $usuarioId);
+            $db->commit();
+
+            return self::resultado(true, 'Documentos guardados correctamente.', [
+                'archivos' => $archivosGuardados,
+                'etapa_baja' => $etapa,
+            ]);
 
         } catch (\Exception $e) {
+            if (isset($db)) {
+                try { $db->rollback(); } catch (\Exception $ignored) {}
+            }
             return self::resultado(false, 'Error al guardar documentos.', null, $e->getMessage());
         }
     }
@@ -3383,14 +3477,15 @@ class CapHum extends Model
     /**
      * Eliminar documento de una baja
      */
-    public static function eliminarDocumentoBaja($id_documento_carga)
+    public static function eliminarDocumentoBaja($id_documento_carga, int $usuarioId = 0)
     {
         try {
             $db = new Database();
+            self::asegurarSeguimientoTransitoBaja($db);
 
             // Primero obtener el nombre del archivo para eliminarlo físicamente
             $documento = $db->queryOne("
-                SELECT archivo
+                SELECT id_persona, archivo
                 FROM estado_cuenta.carga_documento_persona
                 WHERE id = :id
             ", ['id' => $id_documento_carga]);
@@ -3400,12 +3495,16 @@ class CapHum extends Model
             }
 
             $nombreArchivo = $documento['archivo'];
+            $idPersona = (int)($documento['id_persona'] ?? 0);
 
             // Eliminar de la base de datos
+            $db->beginTransaction();
             $db->queryOne("
                 DELETE FROM estado_cuenta.carga_documento_persona
                 WHERE id = :id
             ", ['id' => $id_documento_carga]);
+            $etapa = self::sincronizarEtapaBajaDocumental($db, $idPersona, $usuarioId);
+            $db->commit();
 
             // Eliminar archivo físico
             $rutaArchivo = sparta_uploads_join('bajas', $nombreArchivo);
@@ -3413,9 +3512,12 @@ class CapHum extends Model
                 @unlink($rutaArchivo);
             }
 
-            return self::resultado(true, 'Documento eliminado correctamente.');
+            return self::resultado(true, 'Documento eliminado correctamente.', ['etapa_baja' => $etapa]);
 
         } catch (\Exception $e) {
+            if (isset($db)) {
+                try { $db->rollback(); } catch (\Exception $ignored) {}
+            }
             return self::resultado(false, 'Error al eliminar documento.', null, $e->getMessage());
         }
     }
@@ -7273,12 +7375,17 @@ class CapHum extends Model
     /**
      * Guardar documentos de una persona
      */
-    public static function guardarDocumentosPersona($id_persona, $id_documento, $archivos)
+    public static function guardarDocumentosPersona($id_persona, $id_documento, $archivos, int $usuarioId = 0)
     {
         try {
             $db = new Database();
+            $esDocumentoCierreBaja = in_array((int)$id_documento, [37, 38], true);
+            if ($esDocumentoCierreBaja) {
+                self::asegurarSeguimientoTransitoBaja($db);
+            }
 
             $archivosGuardados = [];
+            $db->beginTransaction();
 
             foreach ($archivos as $nombreArchivo) {
                 $archivoEsc = addslashes($nombreArchivo);
@@ -7297,9 +7404,20 @@ class CapHum extends Model
                 $archivosGuardados[] = $nombreArchivo;
             }
 
-            return self::resultado(true, 'Documentos guardados correctamente.', $archivosGuardados);
+            $etapa = $esDocumentoCierreBaja
+                ? self::sincronizarEtapaBajaDocumental($db, (int)$id_persona, $usuarioId)
+                : null;
+            $db->commit();
+
+            return self::resultado(true, 'Documentos guardados correctamente.', [
+                'archivos' => $archivosGuardados,
+                'etapa_baja' => $etapa,
+            ]);
 
         } catch (\Exception $e) {
+            if (isset($db)) {
+                try { $db->rollback(); } catch (\Exception $ignored) {}
+            }
             return self::resultado(false, 'Error al guardar documentos.', null, $e->getMessage());
         }
     }
@@ -7307,14 +7425,14 @@ class CapHum extends Model
     /**
      * Eliminar documento de una persona
      */
-    public static function eliminarDocumentoPersona($id_documento_carga)
+    public static function eliminarDocumentoPersona($id_documento_carga, int $usuarioId = 0)
     {
         try {
             $db = new Database();
 
             // Primero obtener el nombre del archivo para eliminarlo físicamente
             $documento = $db->queryOne("
-                SELECT archivo, id_documento
+                SELECT archivo, id_documento, id_persona
                 FROM estado_cuenta.carga_documento_persona
                 WHERE id = :id
             ", ['id' => $id_documento_carga]);
@@ -7324,7 +7442,12 @@ class CapHum extends Model
             }
 
             $nombreArchivo = $documento['archivo'];
-            $id_documento = $documento['id_documento'];
+            $id_documento = (int)$documento['id_documento'];
+            $idPersona = (int)($documento['id_persona'] ?? 0);
+            $esDocumentoCierreBaja = in_array($id_documento, [37, 38], true);
+            if ($esDocumentoCierreBaja) {
+                self::asegurarSeguimientoTransitoBaja($db);
+            }
 
             // Al borrar una entrega obligatoria se reactiva su pendiente para que el
             // colaborador vuelva a recibir el aviso del documento solicitado.
@@ -7342,6 +7465,9 @@ class CapHum extends Model
                 if ($eliminados !== 1) {
                     throw new \RuntimeException('No se pudo eliminar el registro del documento.');
                 }
+                $etapa = $esDocumentoCierreBaja
+                    ? self::sincronizarEtapaBajaDocumental($db, $idPersona, $usuarioId)
+                    : null;
                 $db->commit();
             } catch (\Throwable $e) {
                 if ($db->inTransaction()) {
@@ -7368,6 +7494,7 @@ class CapHum extends Model
                 ? 'Documento eliminado. La solicitud se reactivó para el colaborador.'
                 : 'Documento eliminado correctamente.', [
                 'notificacion_reactivada' => $entregasReactivadas > 0,
+                'etapa_baja' => $etapa,
             ]);
 
         } catch (\Exception $e) {
@@ -10412,8 +10539,8 @@ class CapHum extends Model
     }
 
     /**
-     * Asegura las columnas que permiten separar el trámite de baja de la baja definitiva.
-     * Los registros anteriores se conservan como bajas finalizadas.
+     * Asegura las columnas que separan Tránsito, Baja parcial y Baja completa.
+     * Las bajas históricas previamente "Finalizadas" se conservan como Baja parcial.
      */
     private static function asegurarSeguimientoTransitoBaja(Database $db): void
     {
@@ -10428,8 +10555,13 @@ class CapHum extends Model
         if (!$columnaEstatus) {
             $db->CRUD("
                 ALTER TABLE estado_cuenta.baja_persona
-                ADD COLUMN estatus_tramite VARCHAR(30) NOT NULL DEFAULT 'Finalizada'
+                ADD COLUMN estatus_tramite VARCHAR(30) NOT NULL DEFAULT 'Baja parcial'
                 AFTER usuario_baja
+            ");
+        } elseif (strcasecmp(trim((string)($columnaEstatus['Default'] ?? '')), 'Baja parcial') !== 0) {
+            $db->CRUD("
+                ALTER TABLE estado_cuenta.baja_persona
+                ALTER COLUMN estatus_tramite SET DEFAULT 'Baja parcial'
             ");
         }
 
@@ -10452,6 +10584,8 @@ class CapHum extends Model
             'fecha_finalizacion' => "DATETIME NULL AFTER usuario_cancelacion",
             'usuario_finalizacion' => "INT NULL AFTER fecha_finalizacion",
             'tipo_documento_final' => "VARCHAR(50) NULL AFTER usuario_finalizacion",
+            'fecha_baja_completa' => "DATETIME NULL AFTER tipo_documento_final",
+            'usuario_baja_completa' => "INT NULL AFTER fecha_baja_completa",
         ];
         foreach ($columnasSeguimiento as $nombreColumna => $definicionColumna) {
             $columna = $db->queryOne("SHOW COLUMNS FROM estado_cuenta.baja_persona LIKE '" . $nombreColumna . "'");
@@ -10462,8 +10596,10 @@ class CapHum extends Model
 
         $db->CRUD("
             UPDATE estado_cuenta.baja_persona
-            SET estatus_tramite = 'Finalizada'
-            WHERE estatus_tramite IS NULL OR TRIM(estatus_tramite) = ''
+            SET estatus_tramite = 'Baja parcial'
+            WHERE estatus_tramite IS NULL
+               OR TRIM(estatus_tramite) = ''
+               OR LOWER(TRIM(estatus_tramite)) = 'finalizada'
         ");
 
         $columnasVerificadas = true;
@@ -10471,7 +10607,7 @@ class CapHum extends Model
 
     /**
      * Primer paso de baja: bloquea a la persona para operación sin ejecutar aún
-     * la baja definitiva, las reasignaciones ni la sincronización al sistema legado.
+     * la Baja parcial, las reasignaciones ni la sincronización al sistema legado.
      */
     public static function registrarBajaGestor($data)
     {
@@ -10513,7 +10649,7 @@ class CapHum extends Model
             $estatusActual = strtolower(trim((string)$personaActual['estatus']));
             if ($estatusActual === 'baja') {
                 $db->rollback();
-                return self::resultado(false, 'Esta persona ya se encuentra dada de baja definitivamente.');
+                return self::resultado(false, 'Esta persona ya se encuentra en Baja parcial o Baja completa.');
             }
             if ($estatusActual === 'transito de baja') {
                 $db->rollback();
@@ -10681,7 +10817,7 @@ class CapHum extends Model
                 SELECT estatus FROM estado_cuenta.persona WHERE id = '$id_persona' LIMIT 1
             ");
             if (!$personaActual || strtolower(trim((string)$personaActual['estatus'])) !== 'transito de baja') {
-                return self::resultado(false, 'La baja definitiva solo se puede completar desde un trámite de baja pendiente.');
+                return self::resultado(false, 'La Baja parcial solo se puede registrar desde un trámite de baja pendiente.');
             }
             if (!in_array($modoReasignacion, ['vacante', 'sustituto'], true)) {
                 return self::resultado(false, 'Debe elegir si la posición queda como vacante o con sustituto.');
@@ -10864,7 +11000,7 @@ class CapHum extends Model
                     fecha_baja = :fecha_baja,
                     descripcion = CASE WHEN :descripcion = '' THEN descripcion ELSE :descripcion END,
                     usuario_baja = :usuario_baja,
-                    estatus_tramite = 'Finalizada',
+                    estatus_tramite = 'Baja parcial',
                     fecha_finalizacion = :fecha_finalizacion,
                     usuario_finalizacion = :usuario_finalizacion,
                     tipo_documento_final = :tipo_documento_final
@@ -10989,8 +11125,9 @@ class CapHum extends Model
 
             $legacySync = LegacyUserSync::sincronizarBajaDesdeSpartan((int)$id_persona, (int)$usuario_baja);
 
-            return self::resultado(true, 'Baja registrada correctamente con archivos.', [
+            return self::resultado(true, 'Baja parcial registrada correctamente con el documento inicial.', [
                 'id_persona' => (int)$id_persona,
+                'estatus_tramite' => 'Baja parcial',
                 'legacy_sync' => $legacySync,
             ]);
 
@@ -11202,7 +11339,7 @@ class CapHum extends Model
     /**
      * Lista personas en estatus Baja: una fila por persona (solo la baja más reciente).
      */
-    public static function getConsultaBajas($fecha_inicio = null, $fecha_fin = null)
+    public static function getConsultaBajas($fecha_inicio = null, $fecha_fin = null, string $etapaBaja = 'todas')
     {
         $exB = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
         $query = <<<SQL
@@ -11222,6 +11359,12 @@ class CapHum extends Model
             bp.id AS registro_baja,
             bp.motivo,
             bp.descripcion,
+            CASE
+                WHEN LOWER(TRIM(COALESCE(bp.estatus_tramite, ''))) = 'baja completa' THEN 'Baja completa'
+                ELSE 'Baja parcial'
+            END AS estatus_tramite,
+            bp.fecha_finalizacion AS fecha_baja_parcial,
+            bp.fecha_baja_completa,
             p.user_name,
             c_reingreso.id AS id_candidato_reingreso,
             c_reingreso.estatus AS estatus_candidato_reingreso,
@@ -11256,6 +11399,12 @@ class CapHum extends Model
         {$exB}
         SQL;
 
+        if ($etapaBaja === 'baja_completa') {
+            $query .= " AND LOWER(TRIM(COALESCE(bp.estatus_tramite, ''))) = 'baja completa'";
+        } elseif ($etapaBaja === 'baja_parcial') {
+            $query .= " AND LOWER(TRIM(COALESCE(bp.estatus_tramite, ''))) <> 'baja completa'";
+        }
+
         // Agregar filtro de fecha si se proporciona
         if ($fecha_inicio && $fecha_fin) {
             $query .= " AND DATE(bp.fecha_baja) BETWEEN :fecha_inicio AND :fecha_fin";
@@ -11269,6 +11418,7 @@ class CapHum extends Model
 
         try {
             $db = new Database();
+            self::asegurarSeguimientoTransitoBaja($db);
 
             // Si hay filtros de fecha, usar parámetros preparados
             // NOTA: Las claves NO deben incluir el ':' porque Database::runQuery lo agrega automáticamente
