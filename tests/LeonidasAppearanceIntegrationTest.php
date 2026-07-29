@@ -12,6 +12,7 @@ $view = file_get_contents($root . '/backend/core/View.php');
 $controller = file_get_contents($root . '/backend/controllers/Leonidas.php');
 $appearanceJs = file_get_contents($root . '/public/assets/js/leonidas-appearance.js');
 $threeJs = file_get_contents($root . '/public/assets/js/leonidas-3d.js');
+$builder = file_get_contents($root . '/scripts/construir_leonidas_modular.py');
 $manifest = json_decode(
     file_get_contents($root . '/public/assets/models/leonidas/leonidas-modular-manifest.json'),
     true,
@@ -45,27 +46,32 @@ appearanceIntegrationAssert(
 );
 appearanceIntegrationAssert(
     str_contains($threeJs, "root.addEventListener('leonidas:appearance'")
-        && str_contains($threeJs, 'new THREE.CanvasTexture'),
-    'El modelo 3D debe aplicar la paleta a una textura propia.'
+        && str_contains($threeJs, 'applyModularPalette')
+        && str_contains($threeJs, 'useRigTexture: false'),
+    'El modelo modular debe aplicar la paleta por materiales, no repintando el atlas.'
 );
 appearanceIntegrationAssert(
     str_contains($threeJs, 'leonidas-spartan-rigged.fbx')
-        && !str_contains($threeJs, 'LeonidasBareHead')
-        && !str_contains($threeJs, 'LeonidasBareTorso')
-        && !str_contains($threeJs, 'prepareRigParts'),
-    'El editor debe conservar el modelo original y no fabricar anatomia ni separar armadura inexistente.'
+        && str_contains($threeJs, 'spartan-modular-v2')
+        && str_contains($builder, 'LeonidasHeadUnderlay')
+        && str_contains($builder, 'LeonidasTorsoUnderlay')
+        && str_contains($builder, 'LeonidasHair'),
+    'El modelo modular debe conservar el FBX como respaldo y aportar anatomia reconstruida.'
 );
 appearanceIntegrationAssert(
-    str_contains($threeJs, 'buildRigRegionMask')
-        && str_contains($threeJs, 'uvOwners')
-        && str_contains($threeJs, 'triangleRegions')
-        && str_contains($view, 'modelo actual conserva casco y pechera'),
-    'Los colores deben aplicarse por islas UV completas y explicar el limite de la armadura soldada.'
+    str_contains($builder, 'assign_body_semantic_materials')
+        && str_contains($builder, 'uv_face_components')
+        && str_contains($builder, 'LeonidasPrimary')
+        && str_contains($builder, 'LeonidasSecondary')
+        && str_contains($builder, 'LeonidasMetal')
+        && str_contains($builder, 'open_helmet_face')
+        && str_contains($threeJs, 'modularParts.headUnderlay.visible = true'),
+    'Los colores deben usar materiales semanticos y el casco debe mostrar el rostro real.'
 );
 appearanceIntegrationAssert(
     str_contains($threeJs, '|| region === RIG_REGION.chest')
         && str_contains($view, 'Casco, pechera, grebas y brazales')
-        && str_contains($view, 'Correas laterales y ribetes'),
+        && str_contains($view, 'Paneles, correas y ribetes'),
     'La pechera debe usar el canal metal y no contaminar el color secundario.'
 );
 appearanceIntegrationAssert(
@@ -73,15 +79,19 @@ appearanceIntegrationAssert(
         && str_contains($appearanceJs, "root.addEventListener('leonidas:capabilities'")
         && str_contains($threeJs, "root.dispatchEvent(new CustomEvent('leonidas:capabilities'")
         && str_contains($threeJs, 'resolveModularParts')
-        && ($manifest['enabled'] ?? null) === false
+        && str_contains($view, 'data-leonidas-part="cabello_visible"')
+        && str_contains($appearanceJs, 'cabello_visible')
+        && str_contains($threeJs, 'currentAppearance.cabello_visible')
+        && ($manifest['enabled'] ?? null) === true
         && ($manifest['requiredParts'] ?? []) === [
             'body',
             'helmet',
             'chest',
             'headUnderlay',
             'torsoUnderlay',
+            'hair',
         ],
-    'Los controles de piezas deben permanecer ocultos hasta cargar y validar un modelo modular real.'
+    'Los controles de piezas deben habilitarse únicamente después de validar el modelo modular real.'
 );
 
 echo "LeonidasAppearanceIntegration: OK\n";

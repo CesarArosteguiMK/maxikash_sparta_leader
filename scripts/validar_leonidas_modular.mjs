@@ -64,6 +64,11 @@ if (!configuredAsset) {
         const required = Array.isArray(manifest.requiredParts)
             ? manifest.requiredParts
             : ['body', 'helmet', 'chest'];
+        const paletteRoles = new Set(
+            (document.materials || [])
+                .map((material) => normalized(material.extras?.leonidasPalette))
+                .filter(Boolean)
+        );
         const missing = required.filter((role) => !found[role]);
         if (missing.length) {
             fail(`faltan piezas independientes: ${missing.join(', ')}`);
@@ -80,6 +85,20 @@ if (!configuredAsset) {
                 'body no contiene una malla ni hijos con anatomia. Nodos: '
                 + JSON.stringify(available)
             );
+        } else if (
+            !['primary', 'secondary', 'metal']
+                .every((role) => paletteRoles.has(role))
+        ) {
+            fail('faltan materiales semanticos primary, secondary o metal');
+        } else if (
+            !String(found.body.node.extras?.leonidasSemanticFaces || '')
+                .includes('original=')
+        ) {
+            fail('body no declara la separacion semantica de piel y vestuario');
+        } else if (
+            Number(found.helmet.node.extras?.leonidasHelmetOpeningFaces || 0) <= 0
+        ) {
+            fail('helmet no contiene aberturas para mostrar el rostro anatomico');
         } else {
             console.log(
                 `Leonidas modular: OK - ${required.map((role) => `${role}=${found[role].node.name}`).join(', ')}`

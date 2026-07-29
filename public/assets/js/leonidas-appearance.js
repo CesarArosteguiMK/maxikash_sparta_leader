@@ -37,7 +37,8 @@
         color_secundario: '#D2D854',
         color_metal: '#D7E0EA',
         casco_visible: true,
-        pechera_visible: true
+        pechera_visible: true,
+        cabello_visible: true
     };
     var draftAppearance = copyAppearance(savedAppearance);
 
@@ -51,6 +52,7 @@
             color_metal: normalizeHex(appearance && appearance.color_metal, '#D7E0EA'),
             casco_visible: normalizeVisibility(appearance && appearance.casco_visible),
             pechera_visible: normalizeVisibility(appearance && appearance.pechera_visible),
+            cabello_visible: normalizeVisibility(appearance && appearance.cabello_visible),
             personalizada: Boolean(appearance && appearance.personalizada)
         };
     }
@@ -334,6 +336,7 @@
                 var selectedTheme = copyAppearance(theme);
                 selectedTheme.casco_visible = draftAppearance.casco_visible;
                 selectedTheme.pechera_visible = draftAppearance.pechera_visible;
+                selectedTheme.cabello_visible = draftAppearance.cabello_visible;
                 setStatus('');
                 applyAppearance(selectedTheme);
             });
@@ -423,7 +426,8 @@
         var capabilities = event.detail || {};
         var supportsGear = capabilities.validated === true
             && capabilities.helmet === true
-            && capabilities.chest === true;
+            && capabilities.chest === true
+            && capabilities.hair === true;
         if (gearControls) gearControls.hidden = !supportsGear;
         if (gearNote) {
             gearNote.hidden = supportsGear;
@@ -441,7 +445,8 @@
                 color_secundario: draftAppearance.color_secundario,
                 color_metal: draftAppearance.color_metal,
                 casco_visible: draftAppearance.casco_visible,
-                pechera_visible: draftAppearance.pechera_visible
+                pechera_visible: draftAppearance.pechera_visible,
+                cabello_visible: draftAppearance.cabello_visible
             }).then(function (response) {
                 savedAppearance = copyAppearance(response.apariencia || draftAppearance);
                 cacheAppearance(savedAppearance);

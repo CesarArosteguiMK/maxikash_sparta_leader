@@ -20,14 +20,19 @@ Flujo:
      - Pago viernes, sábado o domingo → primero debe quedar cubierta la cuota del lunes siguiente.
      - Pago lunes a jueves → se conserva el lunes de la misma semana calendario.
      Solo el saldo posterior a cubrir por completo esa cuota puede considerarse para GC.
-  7. Reglas de salida del .xlsx (pipeline final):
+  7. Exclusiones confirmadas por Cartera:
+     - Se valida en S2 cuánto del pago con fechaValor del día de negocio fue
+       asignado realmente a extemporáneos.
+     - Si ese importe no cubre SALDO APLICABLE A GC, el registro sale en
+       "Requiere revisión"; los demás conservan el flujo histórico.
+  8. Reglas de salida de la hoja principal (pipeline final):
      - No exportar filas con STATUS CREDITO = ERROR.
      - Conjunto NO (MAXI APP — ¿SE CONECTÓ? = NO): conservar solo SALDO APLICABLE A GC entre 200 y 300 (incluyente).
      - Reintegrar todas las filas SI + las NO válidas.
      - Validación interna (no visible en Excel): ABS(ultimo_abono_efectivo) >= SALDO APLICABLE A GC.
        Si no alcanza, SALDO APLICABLE A GC = ABS(ultimo_abono_efectivo).
      - Filtro final: SALDO APLICABLE A GC > 200 (sin tope superior).
-  8. Columnas Maxi app (__SPARTA_SECRET_REDACTED__.ubicacion, idCliente = ID CLIENTE): ventana en calendario CDMX —
+  9. Columnas Maxi app (__SPARTA_SECRET_REDACTED__.ubicacion, idCliente = ID CLIENTE): ventana en calendario CDMX —
      vie–dom → lunes de esa semana hasta hoy CDMX; lun–jue → hoy CDMX y 4 días anteriores (5 días en total).
      Última conexión mostrada en hora CDMX (no depender del huso del servidor del script).
      ultimo_abono_efectivo va después de fecha_ultimo_abono_efectivo y antes de las columnas Maxi app.
@@ -78,6 +83,7 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from zoneinfo import ZoneInfo
 
 # Blindaje de dependencias locales: permite importar paquetes instalados en
@@ -537,7 +543,15 @@ def merge_descargo_en_reporte(
           · Vacío     → COMENTARIOS calculado por armar_comentarios_fila; color = relleno_fila_por_reglas.
       Columnas del descargo sin equivalente en el reporte se descartan.
       Columnas del reporte sin datos del descargo quedan en 0 / cadena vacía.
+      La excepción manual no evita la validación S2: si el pago del corte no
+      respalda monto_aplicar, la fila queda en "Requiere revisión".
     """
+    fecha_negocio = _parse_fecha_desde_mysql(fecha_corte)
+    if fecha_negocio is None:
+        raise RuntimeError(
+            f"fecha_corte inválida para validar descargo: {fecha_corte!r}"
+        )
+
     ids_en_reporte: set[str] = {str(r.get("ID_CREDITO", "")) for r in resultados}
     filas_nuevas  = 0
     filas_saltadas = 0
@@ -564,6 +578,9 @@ def merge_descargo_en_reporte(
             "DEUDA_GC":                     0.0,
             "SALDO_A_FAVOR":                0.0,
             "SALDO_APLICABLE_GC":           0.0,
+            "_EXTEMPORANEOS_S2_DIA":        0.0,
+            "_PAGOS_FECHA_VALOR_S2":        0,
+            "_MOTIVO_REVISION_CARTERA":     "",
             "FECHA_ULTIMO_ABONO_EFECTIVO":  _dt_descargo_a_str(
                 row.get("ultimo_pago_efectivo") or row.get("registrado_en_cdmx")
             ),
@@ -585,6 +602,7 @@ def merge_descargo_en_reporte(
             row,
             fecha_corte,
             lunes,
+            fecha_negocio,
             deuda_gc_bd_fallback=deuda_gc_bd_por_credito.get(id_c, 0.0),
         )
         if metricas_s2:
@@ -597,6 +615,38 @@ def merge_descargo_en_reporte(
             reg["CUOTA_SEMANAL"] = float(metricas_s2.get("cuota_semanal") or 0)
             reg["DEUDA_GC"] = float(metricas_s2.get("deuda_gc") or 0)
             reg["SALDO_A_FAVOR"] = float(metricas_s2.get("saldo_a_favor") or 0)
+            status_s2 = str(metricas_s2.get("status_credito") or "").strip()
+            if status_s2:
+                reg["STATUS_CREDITO"] = status_s2
+
+            metricas_extemporaneos = (
+                metricas_s2.get("metricas_extemporaneos") or {}
+            )
+            reg["_EXTEMPORANEOS_S2_DIA"] = float(
+                metricas_extemporaneos.get("total") or 0
+            )
+            reg["_PAGOS_FECHA_VALOR_S2"] = int(
+                metricas_extemporaneos.get("pagos_fecha") or 0
+            )
+
+            if not metricas_s2.get("s2_ok"):
+                reg["_MOTIVO_REVISION_CARTERA"] = (
+                    "SIN_RESPUESTA_S2_DESCARGO: no fue posible validar "
+                    "automáticamente el monto solicitado."
+                )
+            elif status_s2.lower() != "vigente":
+                reg["_MOTIVO_REVISION_CARTERA"] = (
+                    "CREDITO_NO_VIGENTE_S2: "
+                    f"statusCredito={status_s2 or 'vacío'}."
+                )
+            else:
+                reg["_MOTIVO_REVISION_CARTERA"] = (
+                    motivo_revision_extemporaneos_s2(
+                        metricas_extemporaneos,
+                        reg["SALDO_APLICABLE_GC"],
+                        fecha_negocio,
+                    )
+                )
 
         if obs:
             reg["COMENTARIOS"]    = obs
@@ -918,6 +968,7 @@ def _metricas_descargo_desde_s2(
     row_descargo: dict,
     fecha_corte: str,
     lunes: date,
+    fecha_negocio: date,
     *,
     deuda_gc_bd_fallback: float = 0.0,
 ) -> dict:
@@ -944,12 +995,21 @@ def _metricas_descargo_desde_s2(
     data = consultar_s2(id_credito, fecha_corte)
     if not data:
         return {
+            "s2_ok": False,
             "id_cliente": "",
             "nombre_cliente": "",
             "status_credito": "",
             "cuota_semanal": 0.0,
             "deuda_gc": deuda_gc,
             "saldo_a_favor": 0.0,
+            "metricas_extemporaneos": {
+                "total": 0.0,
+                "fecha_valor_disponible": False,
+                "fechas_validas": 0,
+                "pagos_fecha": 0,
+                "montos_invalidos": 0,
+                "ids_duplicados": 0,
+            },
         }
     ec = data.get("estadoCuenta", {}) or {}
     cliente = ec.get("datosCliente", {}) or {}
@@ -963,12 +1023,17 @@ def _metricas_descargo_desde_s2(
     saldo_favor = float(calcular_saldo_a_favor(ec, lunes) or 0)
 
     return {
+        "s2_ok": True,
         "id_cliente": _id_cliente_desde_s2(ec),
         "nombre_cliente": str(cliente.get("nombreCliente", "") or ""),
         "status_credito": str(status),
         "cuota_semanal": cuota,
         "deuda_gc": deuda_gc,
         "saldo_a_favor": saldo_favor,
+        "metricas_extemporaneos": metricas_extemporaneos_pago_fecha_valor(
+            ec,
+            fecha_negocio,
+        ),
     }
 
 
@@ -1404,6 +1469,109 @@ def calcular_gc(ec, fecha_limite):
     return max(round(total_gc - pagado, 2), 0.0)
 
 
+def metricas_extemporaneos_pago_fecha_valor(
+    ec: dict,
+    fecha_negocio: date,
+) -> dict:
+    """
+    Resume los extemporáneos confirmados por S2 para la fecha económica.
+
+    `fechaValor` es la fecha contable del pago. No se sustituye por
+    `fechaRegistro`, porque un registro capturado otro día no demuestra que el
+    monto pertenezca al corte. Si S2 repite un `idPago`, se cuenta una sola vez.
+    """
+    pagos = ec.get("datosPagos") or []
+    if not isinstance(pagos, list):
+        pagos = []
+
+    total = Decimal("0")
+    ids_vistos: set[str] = set()
+    fechas_validas = 0
+    pagos_fecha = 0
+    montos_invalidos = 0
+    ids_duplicados = 0
+
+    for pago in pagos:
+        if not isinstance(pago, dict):
+            continue
+
+        fecha_pago = _parse_fecha_desde_mysql(pago.get("fechaValor"))
+        if fecha_pago is None:
+            continue
+        fechas_validas += 1
+        if fecha_pago != fecha_negocio:
+            continue
+
+        id_pago = pago.get("idPago")
+        if id_pago not in (None, ""):
+            clave = str(id_pago).strip()
+            if clave in ids_vistos:
+                ids_duplicados += 1
+                continue
+            ids_vistos.add(clave)
+
+        pagos_fecha += 1
+        raw_extemporaneos = pago.get("extemporaneos")
+        if raw_extemporaneos in (None, ""):
+            importe = Decimal("0")
+        else:
+            try:
+                importe = Decimal(str(raw_extemporaneos))
+            except (InvalidOperation, ValueError, TypeError):
+                montos_invalidos += 1
+                continue
+        total += importe
+
+    total = total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return {
+        "total": float(total),
+        "fecha_valor_disponible": fechas_validas > 0,
+        "fechas_validas": fechas_validas,
+        "pagos_fecha": pagos_fecha,
+        "montos_invalidos": montos_invalidos,
+        "ids_duplicados": ids_duplicados,
+    }
+
+
+def sumar_extemporaneos_pago_fecha_valor(ec: dict, fecha_negocio: date) -> float:
+    """Suma auditable de extemporáneos S2 cuya fechaValor coincide con el corte."""
+    return float(
+        metricas_extemporaneos_pago_fecha_valor(ec, fecha_negocio)["total"]
+    )
+
+
+def motivo_revision_extemporaneos_s2(
+    metricas: dict,
+    saldo_aplicable: float,
+    fecha_negocio: date,
+) -> str:
+    """Devuelve motivo auditable o vacío cuando S2 respalda el monto aplicable."""
+    extemporaneos_dia = float(metricas.get("total") or 0)
+    if not metricas.get("fecha_valor_disponible"):
+        return (
+            "FECHA_VALOR_S2_NO_DISPONIBLE: S2 no proporcionó ninguna "
+            f"fechaValor válida para validar el corte {fecha_negocio.isoformat()}."
+        )
+    if metricas.get("montos_invalidos") or metricas.get("ids_duplicados"):
+        return (
+            "DATOS_PAGO_S2_NO_CONFIABLES: "
+            f"montos inválidos={int(metricas.get('montos_invalidos') or 0)}; "
+            f"idPago duplicados={int(metricas.get('ids_duplicados') or 0)}."
+        )
+    if extemporaneos_dia + 0.009 >= float(saldo_aplicable or 0):
+        return ""
+    codigo = (
+        "SIN_EXTEMPORANEOS_S2_DIA"
+        if extemporaneos_dia <= 0.009
+        else "EXTEMPORANEOS_INSUFICIENTES_S2_DIA"
+    )
+    return (
+        f"{codigo}: fechaValor {fecha_negocio.isoformat()}; S2 confirmó "
+        f"${extemporaneos_dia:,.2f} y el saldo aplicable calculado es "
+        f"${float(saldo_aplicable or 0):,.2f}."
+    )
+
+
 def calcular_saldo_a_favor(ec, lunes: date):
     saldos = ec.get("datosSaldos") or {}
     vencido = float(saldos.get("saldoTotalVencido") or 0)
@@ -1526,6 +1694,9 @@ def procesar_registro(row, fecha_corte_str, lunes: date, hoy: date, fecha_coment
         "DEUDA_GC": float(row["valor_real"] or 0),
         "SALDO_A_FAVOR": 0.0,
         "SALDO_APLICABLE_GC": 0.0,
+        "_EXTEMPORANEOS_S2_DIA": 0.0,
+        "_PAGOS_FECHA_VALOR_S2": 0,
+        "_MOTIVO_REVISION_CARTERA": "",
         "FECHA_ULTIMO_ABONO_EFECTIVO": fecha_abono_efectivo_para_excel(row, hoy),
         "ULTIMO_ABONO_EFECTIVO": monto_abono_efectivo_para_excel(row.get("monto_abono_efectivo")),
         "COMENTARIOS": "",
@@ -1563,6 +1734,28 @@ def procesar_registro(row, fecha_corte_str, lunes: date, hoy: date, fecha_coment
         return None
 
     saldo_aplicable = round(min(sf, deuda_gc), 2)
+    metricas_extemporaneos = metricas_extemporaneos_pago_fecha_valor(ec, hoy)
+    extemporaneos_dia = float(metricas_extemporaneos["total"])
+
+    base.update({
+        "DEUDA_GC": deuda_gc,
+        "SALDO_A_FAVOR": sf,
+        "SALDO_APLICABLE_GC": saldo_aplicable,
+        "_EXTEMPORANEOS_S2_DIA": extemporaneos_dia,
+        "_PAGOS_FECHA_VALOR_S2": metricas_extemporaneos["pagos_fecha"],
+    })
+
+    motivo_revision = motivo_revision_extemporaneos_s2(
+        metricas_extemporaneos,
+        saldo_aplicable,
+        hoy,
+    )
+
+    if motivo_revision:
+        base["_MOTIVO_REVISION_CARTERA"] = motivo_revision
+        base["COMENTARIOS"] = "REQUIERE REVISION CARTERA"
+        return base
+
     # calcular_saldo_a_favor solo devuelve un valor positivo cuando la cuota
     # objetivo indicada por `lunes` quedó completamente cubierta. Por eso un
     # reporte ejecutado sábado, domingo o lunes ya puede marcar el excedente
@@ -1570,11 +1763,6 @@ def procesar_registro(row, fecha_corte_str, lunes: date, hoy: date, fecha_coment
     _ = fecha_comentario_cdmx  # firma conservada para compatibilidad.
     comentario = COMENTARIO_APLICAR
 
-    base.update({
-        "DEUDA_GC": deuda_gc,
-        "SALDO_A_FAVOR": sf,
-        "SALDO_APLICABLE_GC": saldo_aplicable,
-    })
     base["COMENTARIOS"] = armar_comentarios_fila(comentario, base)
     return base
 
@@ -1593,6 +1781,11 @@ COLUMNAS = [
     ("MAXI_APP_ULTIMA_CDMX", "MAXI APP — ÚLTIMA CONEXIÓN (CDMX)"),
     ("MAXI_APP_CONECTO", "MAXI APP — ¿SE CONECTÓ?"),
 ]
+COLUMNAS_REVISION = COLUMNAS + [
+    ("_EXTEMPORANEOS_S2_DIA", "EXTEMPORANEOS S2 FECHA VALOR"),
+    ("_PAGOS_FECHA_VALOR_S2", "PAGOS S2 FECHA VALOR"),
+    ("_MOTIVO_REVISION_CARTERA", "MOTIVO DE REVISION"),
+]
 ANCHOS = {
     "ID_CREDITO": 14,
     "ID_CLIENTE": 14,
@@ -1606,8 +1799,18 @@ ANCHOS = {
     "ULTIMO_ABONO_EFECTIVO": 20,
     "MAXI_APP_ULTIMA_CDMX": 36,
     "MAXI_APP_CONECTO": 22,
+    "_EXTEMPORANEOS_S2_DIA": 26,
+    "_PAGOS_FECHA_VALOR_S2": 22,
+    "_MOTIVO_REVISION_CARTERA": 58,
 }
-MONEY_COLS = {"CUOTA_SEMANAL", "DEUDA_GC", "SALDO_A_FAVOR", "SALDO_APLICABLE_GC", "ULTIMO_ABONO_EFECTIVO"}
+MONEY_COLS = {
+    "CUOTA_SEMANAL",
+    "DEUDA_GC",
+    "SALDO_A_FAVOR",
+    "SALDO_APLICABLE_GC",
+    "ULTIMO_ABONO_EFECTIVO",
+    "_EXTEMPORANEOS_S2_DIA",
+}
 SF_COLS    = {"SALDO_A_FAVOR", "SALDO_APLICABLE_GC"}
 DEUDA_COLS = {"DEUDA_GC"}
 
@@ -1668,6 +1871,37 @@ def _extraer_fecha_abono_excel(reg: dict) -> date | None:
         except ValueError:
             return None
     return None
+
+
+def separar_registros_revision_cartera(
+    registros: list[dict],
+) -> tuple[list[dict], list[dict], dict]:
+    """
+    Separa las validaciones S2 que no deben enviarse como aplicación automática.
+
+    `procesar_registro` escribe un motivo cuando el pago del día no tiene
+    extemporáneos suficientes según su fechaValor. Los registros sin motivo
+    continúan sin alterar su SALDO_APLICABLE_GC.
+    """
+    elegibles: list[dict] = []
+    revision: list[dict] = []
+    motivos: dict[str, int] = {}
+
+    for reg in registros:
+        motivo = str(reg.get("_MOTIVO_REVISION_CARTERA") or "").strip()
+        if not motivo:
+            elegibles.append(reg)
+            continue
+        revision.append(reg)
+        codigo = motivo.split(":", 1)[0].strip() or "REVISION_S2"
+        motivos[codigo] = motivos.get(codigo, 0) + 1
+
+    return elegibles, revision, {
+        "inicial": len(registros),
+        "elegibles": len(elegibles),
+        "revision": len(revision),
+        "motivos": motivos,
+    }
 
 
 def aplicar_pipeline_final_excel_gc(registros: list[dict], fecha_permitida: date) -> tuple[list[dict], dict]:
@@ -1838,8 +2072,10 @@ def generar_excel(
     *,
     fecha_generacion_cdmx: date,
     inicio_semana_operativa: date,
+    registros_revision: list[dict] | None = None,
 ):
     log.info(f"Construyendo Excel ({len(registros):,} filas)...")
+    registros_revision = list(registros_revision or [])
     wb = Workbook()
     ws = wb.active
     ws.title = "Reporte Cobranza"
@@ -1907,8 +2143,56 @@ def generar_excel(
     ws.freeze_panes = "A3"
     ws.auto_filter.ref = f"A2:{get_column_letter(ncols)}2"
 
+    # Si el corte no tiene exclusiones, el libro conserva exactamente su
+    # estructura histórica de una sola hoja.
+    if registros_revision:
+        ws_revision = wb.create_sheet("Requiere revisión")
+        ncols_revision = len(COLUMNAS_REVISION)
+        ws_revision.merge_cells(f"A1:{get_column_letter(ncols_revision)}1")
+        ws_revision["A1"] = (
+            "CASOS DETENIDOS POR VALIDACIÓN S2 PARA REVISIÓN  |  "
+            f"Total: {len(registros_revision):,}"
+        )
+        ws_revision["A1"].font = Font(name="Arial", bold=True, color="9C0006", size=10)
+        ws_revision["A1"].fill = PatternFill("solid", start_color="FFC7CE")
+        ws_revision["A1"].alignment = Alignment(horizontal="center")
+        ws_revision.row_dimensions[1].height = 22
+
+        for ci, (key, label) in enumerate(COLUMNAS_REVISION, 1):
+            cell = ws_revision.cell(row=2, column=ci, value=label)
+            cell.font = Font(name="Arial", bold=True, color="FFFFFF", size=10)
+            cell.fill = PatternFill("solid", start_color="C65911")
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = border
+        ws_revision.row_dimensions[2].height = 32
+
+        for ri, reg in enumerate(registros_revision, 3):
+            for ci, (key, _) in enumerate(COLUMNAS_REVISION, 1):
+                val = reg.get(key, "")
+                cell = ws_revision.cell(row=ri, column=ci, value=val)
+                cell.font = f_data
+                cell.border = border
+                cell.fill = PatternFill("solid", start_color="FFF2CC")
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+                if key in ("MAXI_APP_ULTIMA_CDMX", "_MOTIVO_REVISION_CARTERA"):
+                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                if key in MONEY_COLS and isinstance(val, (int, float)):
+                    cell.number_format = "$#,##0.00"
+                elif key in ("ID_CREDITO", "ID_CLIENTE") and isinstance(val, (int, float)):
+                    cell.number_format = "#,##0"
+
+        for ci, (key, _) in enumerate(COLUMNAS_REVISION, 1):
+            ws_revision.column_dimensions[get_column_letter(ci)].width = ANCHOS.get(key, 14)
+        ws_revision.freeze_panes = "A3"
+        ws_revision.auto_filter.ref = f"A2:{get_column_letter(ncols_revision)}2"
+
     wb.save(ruta_salida)
-    log.info(f"Excel guardado: {ruta_salida}")
+    log.info(
+        "Excel guardado: %s (aplicación automática=%s, requiere revisión=%s)",
+        ruta_salida,
+        len(registros),
+        len(registros_revision),
+    )
 
 
 def main() -> None:
@@ -2264,6 +2548,28 @@ def main() -> None:
     log.info("  Maxi app: fecha referencia CDMX (ventana) = %s", fecha_ref_maxi_cdmx)
     enriquecer_columnas_maxi_app(resultados, fecha_ref_maxi_cdmx)
 
+    resultados, registros_revision_cartera, st_cartera = (
+        separar_registros_revision_cartera(resultados)
+    )
+    motivos_cartera = ", ".join(
+        f"{codigo}={cantidad}"
+        for codigo, cantidad in sorted(st_cartera["motivos"].items())
+    ) or "sin observaciones"
+    log.info(
+        "  Validación S2 fechaValor: inicial=%s · elegibles=%s · "
+        "revisión=%s · motivos: %s",
+        f"{st_cartera['inicial']:,}",
+        f"{st_cartera['elegibles']:,}",
+        f"{st_cartera['revision']:,}",
+        motivos_cartera,
+    )
+    notificar_google_chat(
+        "🛡️ **Validación S2 por fechaValor**\n"
+        f"- Continúan al pipeline: **{st_cartera['elegibles']:,}**\n"
+        f"- Hoja `Requiere revisión`: **{st_cartera['revision']:,}**\n"
+        f"- Motivos: `{motivos_cartera}`"
+    )
+
     resultados, st_gc_excel = aplicar_pipeline_final_excel_gc(resultados, hoy)
     log.info(
         "  Pipeline Excel GC (fecha permitida=%s): inicial=%s · fecha_ok=%s · sin_status_error=%s · NO_validos_200_300=%s/%s · ajustes_no_le_alcanza=%s · excl_cuota_siguiente_cubierta=%s · final=%s",
@@ -2303,6 +2609,7 @@ def main() -> None:
         ruta_excel,
         fecha_generacion_cdmx=fecha_generacion_cdmx,
         inicio_semana_operativa=inicio_semana,
+        registros_revision=registros_revision_cartera,
     )
 
     if checkpoint_descargo_pendiente is not None:

@@ -1910,14 +1910,14 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                                     <p>Modifica tela principal, detalles y metal conservando la textura original.</p>
                                 </div>
                                 <label>
-                                    <span>Tela principal<small>Faldón y telas visibles</small></span>
+                                    <span>Tela principal<small>Tela interior y base del faldón</small></span>
                                     <span class="leonidas-color-control">
                                         <input type="color" value="#0048B7" data-leonidas-color="color_principal">
                                         <output data-leonidas-color-output="color_principal">#0048B7</output>
                                     </span>
                                 </label>
                                 <label>
-                                    <span>Detalles secundarios<small>Correas laterales y ribetes</small></span>
+                                    <span>Cuero y detalles<small>Paneles, correas y ribetes</small></span>
                                     <span class="leonidas-color-control">
                                         <input type="color" value="#D2D854" data-leonidas-color="color_secundario">
                                         <output data-leonidas-color-output="color_secundario">#D2D854</output>
@@ -1932,8 +1932,8 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                                 </label>
                                 <div class="leonidas-appearance-gear" data-leonidas-gear-controls hidden>
                                     <div>
-                                        <h6>Armadura visible</h6>
-                                        <p>Combina las piezas independientes del modelo validado.</p>
+                                        <h6>Piezas visibles</h6>
+                                        <p>Combina armadura y cabello del modelo validado.</p>
                                     </div>
                                     <label>
                                         <span><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i>Casco</span>
@@ -1944,6 +1944,11 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                                         <span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i>Pechera y correas</span>
                                         <input type="checkbox" role="switch" checked
                                                data-leonidas-part="pechera_visible">
+                                    </label>
+                                    <label>
+                                        <span><i class="fa-solid fa-scissors" aria-hidden="true"></i>Cabello</span>
+                                        <input type="checkbox" role="switch" checked
+                                               data-leonidas-part="cabello_visible">
                                     </label>
                                 </div>
                                 <p class="leonidas-appearance-note" data-leonidas-gear-note>

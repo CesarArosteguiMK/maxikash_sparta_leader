@@ -90,10 +90,12 @@ if (root && canvas) {
         let modularParts = null;
         let currentAppearance = normalizeAppearance(root._leonidasAppearance);
         let rigAppearanceTexture = null;
+        let rigSourceTexture = leonidasColorTexture;
         let appearanceTimer = null;
         const rigMaterials = new Set();
         let rigRegionMask = null;
         let rigRegionMaskModel = null;
+        let rigSkinMask = null;
         let pelvis = null;
         let spine = null;
         let head = null;
@@ -137,7 +139,10 @@ if (root && canvas) {
                     && value?.casco_visible !== '0',
                 pechera_visible: value?.pechera_visible !== false
                     && value?.pechera_visible !== 0
-                    && value?.pechera_visible !== '0'
+                    && value?.pechera_visible !== '0',
+                cabello_visible: value?.cabello_visible !== false
+                    && value?.cabello_visible !== 0
+                    && value?.cabello_visible !== '0'
             };
         }
 
@@ -198,10 +203,16 @@ if (root && canvas) {
             modularParts.helmet.visible = currentAppearance.casco_visible;
             modularParts.chest.visible = currentAppearance.pechera_visible;
             if (modularParts.headUnderlay) {
-                modularParts.headUnderlay.visible = !currentAppearance.casco_visible;
+                // La cabeza anatómica debe permanecer debajo del casco. Así,
+                // las aberturas muestran piel real y nunca el color del metal.
+                modularParts.headUnderlay.visible = true;
             }
             if (modularParts.torsoUnderlay) {
                 modularParts.torsoUnderlay.visible = !currentAppearance.pechera_visible;
+            }
+            if (modularParts.hair) {
+                modularParts.hair.visible = !currentAppearance.casco_visible
+                    && currentAppearance.cabello_visible;
             }
         };
 
@@ -375,7 +386,7 @@ if (root && canvas) {
             const visibleWidth = visibleHeight * camera.aspect;
             const previewingAppearance = root.classList.contains('is-appearance-preview-live');
             const desiredHeight = previewingAppearance
-                ? Math.min(height * 0.84, width * 1.48)
+                ? Math.min(height * 0.90, width * 1.85)
                 : width <= 575 ? 210 : 300;
             const edgeMargin = (previewingAppearance ? 25 : width <= 575 ? 12 : 22) * visibleHeight / height;
 
@@ -595,7 +606,11 @@ if (root && canvas) {
             const u = ((uValue % 1) + 1) % 1;
             const v = ((vValue % 1) + 1) % 1;
             const x = Math.min(width - 1, Math.max(0, Math.floor(u * width)));
-            const y = Math.min(height - 1, Math.max(0, Math.floor((1 - v) * height)));
+            const textureV = modularParts ? v : (1 - v);
+            const y = Math.min(
+                height - 1,
+                Math.max(0, Math.floor(textureV * height))
+            );
             const offset = (y * width + x) * 4;
             return [
                 pixels[offset],
@@ -629,6 +644,136 @@ if (root && canvas) {
             const bronze = red > blue * 1.08 && red >= green * 0.94
                 && blue < green * 0.86 && luminance > 0.2 && saturation < 0.7;
             return neutral || bronze;
+        };
+
+        const buildTextureSkinMask = (pixels, width, height) => {
+            if (rigSkinMask?.length === width * height) return rigSkinMask;
+            const length = width * height;
+            const candidates = new Uint8Array(length);
+            const seeds = new Uint8Array(length);
+            const visited = new Uint8Array(length);
+            const queue = new Int32Array(length);
+            const mask = new Uint8Array(length);
+            for (let index = 0; index < length; index++) {
+                const offset = index * 4;
+                const red = pixels[offset];
+                const green = pixels[offset + 1];
+                const blue = pixels[offset + 2];
+                const alpha = pixels[offset + 3];
+                if (alpha < 12) continue;
+                const luminance = red * 0.299 + green * 0.587 + blue * 0.114;
+                const candidate = red > 48
+                    && green > 27
+                    && blue > 22
+                    && red > green * 1.025
+                    && red - blue > 13
+                    && blue >= green * 0.59
+                    && blue <= green * 1.03;
+                if (!candidate) continue;
+                candidates[index] = 1;
+                if (
+                    luminance > 78
+                    && red > green * 1.105
+                    && red - blue > 25
+                    && green - blue > 5
+                    && blue >= green * 0.82
+                ) {
+                    seeds[index] = 1;
+                }
+            }
+
+            for (let start = 0; start < length; start++) {
+                if (!candidates[start] || visited[start]) continue;
+                let head = 0;
+                let tail = 0;
+                let seedCount = 0;
+                const component = [];
+                queue[tail++] = start;
+                visited[start] = 1;
+                while (head < tail) {
+                    const current = queue[head++];
+                    component.push(current);
+                    seedCount += seeds[current];
+                    const x = current % width;
+                    const neighbors = [
+                        current - width,
+                        current + width,
+                        x > 0 ? current - 1 : -1,
+                        x + 1 < width ? current + 1 : -1
+                    ];
+                    neighbors.forEach((neighbor) => {
+                        if (
+                            neighbor >= 0
+                            && neighbor < length
+                            && candidates[neighbor]
+                            && !visited[neighbor]
+                        ) {
+                            visited[neighbor] = 1;
+                            queue[tail++] = neighbor;
+                        }
+                    });
+                }
+                const requiredSeeds = Math.max(3, Math.ceil(component.length * 0.02));
+                if (seedCount >= requiredSeeds) {
+                    component.forEach((pixelIndex) => {
+                        mask[pixelIndex] = 1;
+                    });
+                }
+            }
+            rigSkinMask = mask;
+            return mask;
+        };
+
+        const texturePixelMaterial = ([redByte, greenByte, blueByte, alpha]) => {
+            if (alpha < 12) return 'original';
+            const red = redByte / 255;
+            const green = greenByte / 255;
+            const blue = blueByte / 255;
+            const maximum = Math.max(red, green, blue);
+            const minimum = Math.min(red, green, blue);
+            const saturation = maximum > 0 ? (maximum - minimum) / maximum : 0;
+            const luminance = red * 0.299 + green * 0.587 + blue * 0.114;
+            const neutralMetal = saturation < 0.2 && luminance > 0.28;
+            const brightBronze = red > green * 1.04
+                && green > blue * 1.08
+                && luminance > 0.48
+                && saturation < 0.5;
+            const leather = red > green * 1.035
+                && green > blue * 1.025
+                && luminance > 0.12
+                && luminance < 0.58
+                && saturation > 0.12;
+            if (neutralMetal || brightBronze) return 'metal';
+            if (luminance < 0.23) return 'cloth';
+            if (leather) return 'leather';
+            return 'cloth';
+        };
+
+        const resolveRigPixelRegion = (region, pixel, protectedSkin) => {
+            if (
+                region === RIG_REGION.secondary
+                && (protectedSkin || texturePixelIsSkin(pixel))
+            ) {
+                return RIG_REGION.original;
+            }
+            const material = texturePixelMaterial(pixel);
+            if (region === RIG_REGION.helmet || region === RIG_REGION.metal) {
+                return RIG_REGION.metal;
+            }
+            if (region === RIG_REGION.chest) {
+                return RIG_REGION.metal;
+            }
+            if (region === RIG_REGION.primary) {
+                if (material === 'metal') return RIG_REGION.metal;
+                if (material === 'leather') return RIG_REGION.secondary;
+                return RIG_REGION.primary;
+            }
+            if (region === RIG_REGION.secondary) {
+                return material === 'metal'
+                    ? RIG_REGION.metal
+                    : RIG_REGION.secondary;
+            }
+            return region;
         };
 
         const rigTriangleRegion = (
@@ -669,11 +814,12 @@ if (root && canvas) {
             centerV /= 3;
 
             const sampledPixel = texturePixel(sourcePixels, width, height, centerU, centerV);
-            if (texturePixelIsSkin(sampledPixel)) return RIG_REGION.original;
+            const sampledPixelIsSkin = texturePixelIsSkin(sampledPixel);
 
             let headWeight = 0;
             let torsoWeight = 0;
             let hipsWeight = 0;
+            let upperLegWeight = 0;
             let metalLimbWeight = 0;
             let totalWeight = 0;
             boneScores.forEach((weight, boneName) => {
@@ -686,7 +832,8 @@ if (root && canvas) {
                 ) {
                     torsoWeight += weight;
                 }
-                if (boneName.includes('hips') || boneName.includes('upleg')) hipsWeight += weight;
+                if (boneName.includes('hips')) hipsWeight += weight;
+                if (boneName.includes('upleg')) upperLegWeight += weight;
                 if (
                     boneName.includes('forearm')
                     || (boneName.includes('leg') && !boneName.includes('upleg'))
@@ -700,6 +847,7 @@ if (root && canvas) {
             const headRatio = headWeight / totalWeight;
             const torsoRatio = torsoWeight / totalWeight;
             const hipsRatio = hipsWeight / totalWeight;
+            const upperLegRatio = upperLegWeight / totalWeight;
             const metalLimbRatio = metalLimbWeight / totalWeight;
             if (centerY > 1.08 && headRatio > 0.25) return RIG_REGION.helmet;
             if (
@@ -707,13 +855,35 @@ if (root && canvas) {
                 && centerY < 1.17
                 && Math.abs(centerX) < 0.5
                 && torsoRatio > 0.18
+                && !sampledPixelIsSkin
             ) {
                 return RIG_REGION.chest;
             }
-            if (metalLimbRatio > 0.36 && (centerY < 0.68 || centerY > 0.72)) {
+            if (
+                centerY > 0.43
+                && centerY < 0.84
+                && Math.abs(centerX) < 0.38
+                && hipsRatio > 0.08
+                && hipsRatio >= upperLegRatio * 0.35
+                && torsoRatio < 0.18
+            ) {
+                return RIG_REGION.primary;
+            }
+            if (
+                metalLimbRatio > 0.36
+                && (centerY < 0.68 || centerY > 0.72)
+                && !sampledPixelIsSkin
+            ) {
                 return RIG_REGION.metal;
             }
-            if (hipsRatio > 0.3 && centerY < 0.82) return RIG_REGION.primary;
+            if (
+                hipsRatio > 0.28
+                && hipsRatio > upperLegRatio * 1.1
+                && centerY < 0.82
+            ) {
+                return RIG_REGION.primary;
+            }
+            if (sampledPixelIsSkin) return RIG_REGION.original;
             if (torsoRatio > 0.22) return RIG_REGION.secondary;
             if (texturePixelLooksMetal(sampledPixel)) return RIG_REGION.metal;
             return centerZ > -0.16 ? RIG_REGION.secondary : RIG_REGION.original;
@@ -750,6 +920,16 @@ if (root && canvas) {
 
             model.traverse((node) => {
                 if (!node.isSkinnedMesh || !node.geometry || !node.skeleton) return;
+                if (modularParts) {
+                    const materials = Array.isArray(node.material)
+                        ? node.material
+                        : [node.material];
+                    const usesLeonidasAtlas = materials.some(
+                        (material) => normalizedPartName(material?.name)
+                            === 'leonidasoriginal'
+                    );
+                    if (!usesLeonidasAtlas) return;
+                }
                 const geometry = node.geometry;
                 const positions = geometry.getAttribute('position');
                 const uvs = geometry.getAttribute('uv');
@@ -800,15 +980,33 @@ if (root && canvas) {
                         width,
                         height
                     );
-                    vertices.forEach((vertex) => {
-                        const key = [
-                            Math.round(uvs.getX(vertex) * 100000),
-                            Math.round(uvs.getY(vertex) * 100000)
-                        ].join(':');
+                    for (let edge = 0; edge < 3; edge++) {
+                        const firstVertex = vertices[edge];
+                        const secondVertex = vertices[(edge + 1) % 3];
+                        const firstUv = [
+                            Math.round(uvs.getX(firstVertex) * 100000),
+                            Math.round(uvs.getY(firstVertex) * 100000)
+                        ];
+                        const secondUv = [
+                            Math.round(uvs.getX(secondVertex) * 100000),
+                            Math.round(uvs.getY(secondVertex) * 100000)
+                        ];
+                        const ordered = (
+                            firstUv[0] < secondUv[0]
+                            || (
+                                firstUv[0] === secondUv[0]
+                                && firstUv[1] <= secondUv[1]
+                            )
+                        )
+                            ? [firstUv, secondUv]
+                            : [secondUv, firstUv];
+                        const key = ordered
+                            .map((uv) => uv.join(':'))
+                            .join('|');
                         const owner = uvOwners.get(key);
                         if (owner === undefined) uvOwners.set(key, triangle);
                         else joinTriangles(triangle, owner);
-                    });
+                    }
                 }
 
                 const islands = new Map();
@@ -844,7 +1042,8 @@ if (root && canvas) {
                     }
                     const winningRatio = winningVotes / island.triangles.length;
                     const strongEquipmentIsland = (
-                        winningRegion === RIG_REGION.metal
+                        winningRegion === RIG_REGION.primary
+                        || winningRegion === RIG_REGION.metal
                         || winningRegion === RIG_REGION.helmet
                         || winningRegion === RIG_REGION.chest
                     ) && winningRatio >= 0.3;
@@ -863,7 +1062,10 @@ if (root && canvas) {
                         context.beginPath();
                         vertices.forEach((vertex, corner) => {
                             const x = uvs.getX(vertex) * width;
-                            const y = (1 - uvs.getY(vertex)) * height;
+                            const textureV = modularParts
+                                ? uvs.getY(vertex)
+                                : (1 - uvs.getY(vertex));
+                            const y = textureV * height;
                             if (corner === 0) context.moveTo(x, y);
                             else context.lineTo(x, y);
                         });
@@ -884,7 +1086,7 @@ if (root && canvas) {
         };
 
         const tintRigTexture = () => {
-            const source = leonidasColorTexture.image;
+            const source = rigSourceTexture.image;
             if (!source || !source.width || !source.height || !rigMaterials.size || !activeModel) return;
 
             const canvas = document.createElement('canvas');
@@ -905,10 +1107,24 @@ if (root && canvas) {
             const primary = hexToRgb(currentAppearance.color_principal);
             const secondary = hexToRgb(currentAppearance.color_secundario);
             const metal = hexToRgb(currentAppearance.color_metal);
-
+            const skinMask = buildTextureSkinMask(
+                pixels,
+                canvas.width,
+                canvas.height
+            );
             for (let index = 0; index < pixels.length; index += 4) {
                 if (pixels[index + 3] < 12) continue;
-                const region = regionMask[index / 4];
+                const sourcePixel = [
+                    pixels[index],
+                    pixels[index + 1],
+                    pixels[index + 2],
+                    pixels[index + 3]
+                ];
+                const region = resolveRigPixelRegion(
+                    regionMask[index / 4],
+                    sourcePixel,
+                    skinMask[index / 4] === 1
+                );
                 if (region === RIG_REGION.original) continue;
                 const red = pixels[index] / 255;
                 const green = pixels[index + 1] / 255;
@@ -942,11 +1158,11 @@ if (root && canvas) {
             if (rigAppearanceTexture) rigAppearanceTexture.dispose();
             rigAppearanceTexture = new THREE.CanvasTexture(canvas);
             rigAppearanceTexture.colorSpace = THREE.SRGBColorSpace;
-            rigAppearanceTexture.flipY = true;
-            rigAppearanceTexture.wrapS = leonidasColorTexture.wrapS;
-            rigAppearanceTexture.wrapT = leonidasColorTexture.wrapT;
-            rigAppearanceTexture.minFilter = leonidasColorTexture.minFilter;
-            rigAppearanceTexture.magFilter = leonidasColorTexture.magFilter;
+            rigAppearanceTexture.flipY = rigSourceTexture.flipY;
+            rigAppearanceTexture.wrapS = rigSourceTexture.wrapS;
+            rigAppearanceTexture.wrapT = rigSourceTexture.wrapT;
+            rigAppearanceTexture.minFilter = rigSourceTexture.minFilter;
+            rigAppearanceTexture.magFilter = rigSourceTexture.magFilter;
             rigAppearanceTexture.needsUpdate = true;
 
             rigMaterials.forEach((material) => {
@@ -980,9 +1196,21 @@ if (root && canvas) {
                 const materials = Array.isArray(node.material) ? node.material : [node.material];
                 materials.forEach((material) => {
                     if (useRigTexture) {
+                        if (
+                            modularParts
+                            && normalizedPartName(material.name)
+                                !== 'leonidasoriginal'
+                        ) {
+                            return;
+                        }
                         rigMaterials.add(material);
-                        material.map = rigAppearanceTexture || leonidasColorTexture;
-                        material.normalMap = leonidasNormalTexture;
+                        if (modularParts && material.map?.image) {
+                            rigSourceTexture = material.map;
+                        } else if (!modularParts) {
+                            rigSourceTexture = leonidasColorTexture;
+                        }
+                        material.map = rigAppearanceTexture || rigSourceTexture;
+                        if (!modularParts) material.normalMap = leonidasNormalTexture;
                         material.color.setHex(0xffffff);
                         if (material.normalScale) material.normalScale.set(0.32, 0.32);
                         material.roughness = 0.66;
@@ -1024,7 +1252,12 @@ if (root && canvas) {
             activeUsesRigTexture = options.useRigTexture === true;
             modularParts = options.modularParts || null;
             if (modularParts) {
-                applyModularPalette(model);
+                if (activeUsesRigTexture) {
+                    applyLeonidasSkin(model, true);
+                    applyModularVisibility();
+                } else {
+                    applyModularPalette(model);
+                }
             } else {
                 applyLeonidasSkin(model, activeUsesRigTexture);
             }
@@ -1088,7 +1321,8 @@ if (root && canvas) {
                 detail: {
                     validated: Boolean(modularParts),
                     helmet: Boolean(modularParts?.helmet),
-                    chest: Boolean(modularParts?.chest)
+                    chest: Boolean(modularParts?.chest),
+                    hair: Boolean(modularParts?.hair)
                 }
             }));
         };
@@ -1099,7 +1333,9 @@ if (root && canvas) {
             currentAppearance = normalizeAppearance(event.detail || root._leonidasAppearance);
             if (!activeModel) return;
             if (modularParts) {
-                applyModularPalette(activeModel);
+                if (activeUsesRigTexture) scheduleRigTexture();
+                else applyModularPalette(activeModel);
+                applyModularVisibility();
             } else if (activeUsesRigTexture) {
                 scheduleRigTexture();
             } else {
@@ -1163,7 +1399,7 @@ if (root && canvas) {
                     return;
                 }
                 loader.load(
-                    manifest.asset,
+                    `${manifest.asset}?v=${encodeURIComponent(manifest.version || 1)}`,
                     (gltf) => {
                         const parts = resolveModularParts(gltf.scene, manifest);
                         if (!parts) {
@@ -1176,6 +1412,9 @@ if (root && canvas) {
                             gltf.animations,
                             'spartan-modular-v2',
                             {
+                                // El GLB modular ya separa piel, tela, cuero y
+                                // metal por materiales. No debe volver a
+                                // colorearse mediante inferencias sobre el atlas.
                                 useRigTexture: false,
                                 modularParts: parts
                             }
