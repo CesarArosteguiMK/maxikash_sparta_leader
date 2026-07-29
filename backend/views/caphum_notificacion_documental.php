@@ -314,6 +314,9 @@ $tipoInicial = $tipos[0] ?? [
             if (row.archivo_disponible_nodo === false) {
                 return '<span class="badge rounded-pill text-bg-light border text-secondary mt-1" title="Este entorno comparte la base de datos, pero no tiene el PDF físico."><i class="fa-solid fa-server me-1"></i>Pendiente: PDF solo en servidor</span>';
             }
+            if (row.worker_lanzado_nodo === false) {
+                return '<span class="badge rounded-pill text-bg-danger mt-1" title="El servidor no pudo iniciar el proceso interno."><i class="fa-solid fa-triangle-exclamation me-1"></i>Motor V1 no inició</span>';
+            }
             return '<span class="badge rounded-pill text-bg-light border text-warning mt-1"><i class="fa-solid fa-spinner fa-spin me-1"></i>En cola del Motor V1</span>';
         }
         if (estado === 'sin_lectura') {
