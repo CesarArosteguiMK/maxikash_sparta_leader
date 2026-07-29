@@ -21,7 +21,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .atlas-attendance-filter-primary { display:grid; grid-template-columns:minmax(18rem, .8fr) minmax(36rem, 1.4fr); gap:.7rem; align-items:end; }
         .atlas-attendance-filter-dates { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.7rem; align-items:end; }
         .atlas-attendance-filter-main { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:.7rem; align-items:end; }
-        .atlas-attendance-filter-secondary { display:grid; grid-template-columns:repeat(2, minmax(12rem, 1fr)) minmax(11rem, max-content); gap:.7rem; align-items:end; max-width:56rem; }
+        .atlas-attendance-filter-secondary { display:grid; grid-template-columns:repeat(3, minmax(12rem, 1fr)) minmax(11rem, max-content); gap:.7rem; align-items:end; max-width:72rem; }
         .atlas-attendance-filter-actions { display:flex; align-items:center; }
         .atlas-attendance-filter-actions .btn { min-height:2.35rem; width:100%; }
         .atlas-attendance-metrics { display:grid; grid-template-columns:repeat(6, minmax(8rem, 1fr)); gap:.7rem; margin-bottom:1rem; }
@@ -200,6 +200,14 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                         <option value="sin">Sin evidencias</option>
                     </select>
                 </div>
+                <div>
+                    <label class="form-label mb-1" for="atlasAttendanceRoutes">Rutas</label>
+                    <select class="form-select form-select-sm atlas-attendance-select" id="atlasAttendanceRoutes">
+                        <option value="">Todas</option>
+                        <option value="con">Con rutas</option>
+                        <option value="sin">Sin rutas</option>
+                    </select>
+                </div>
                 <div class="atlas-attendance-filter-actions">
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="atlasAttendanceClear" title="Eliminar filtros">
                         <i class="fa-solid fa-filter-circle-xmark me-2"></i>Eliminar filtros
@@ -325,6 +333,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     const statusSelect = document.getElementById('atlasAttendanceStatus');
     const divisionalSelect = document.getElementById('atlasAttendanceDivisional');
     const evidenceSelect = document.getElementById('atlasAttendanceEvidence');
+    const routeSelect = document.getElementById('atlasAttendanceRoutes');
     const body = document.getElementById('atlasAttendanceBody');
     const downloadButton = document.getElementById('atlasAttendanceDownload');
     const evidenceModalElement = document.getElementById('atlasAttendanceEvidenceModal');
@@ -629,6 +638,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         if (statusSelect.value) params.set('estatus', statusSelect.value);
         if (divisionalSelect.value) params.set('divisional', divisionalSelect.value);
         if (evidenceSelect.value) params.set('evidencias', evidenceSelect.value);
+        if (routeSelect.value) params.set('rutas', routeSelect.value);
         return params;
     };
 
@@ -661,6 +671,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             [statusSelect, 'Todos los estatus'],
             [divisionalSelect, 'Todas las divisionales'],
             [evidenceSelect, 'Todas las evidencias'],
+            [routeSelect, 'Todas las rutas'],
         ]);
         placeholders.forEach((placeholder, select) => {
             const $select = window.jQuery(select);
@@ -711,6 +722,21 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         return hasMissingDetails || hasUnavailableEvidence ? 'incompletas' : 'con';
     };
 
+    const hasRouteValue = (value) => {
+        const route = String(value ?? '').trim();
+        return route !== '' && route !== '0';
+    };
+
+    const routeStatus = (row) => {
+        if (Array.isArray(row?.rutas)) return row.rutas.length > 0 ? 'con' : 'sin';
+        for (const field of ['total_rutas', 'rutas_total', 'rutas_generadas']) {
+            if (row?.[field] !== null && row?.[field] !== undefined && String(row[field]).trim() !== '') {
+                return Number(row[field]) > 0 ? 'con' : 'sin';
+            }
+        }
+        return hasRouteValue(row?.ruta_sucursal_id) ? 'con' : 'sin';
+    };
+
     const rowMatchesFilters = (row) => {
         if (!row || !dateRangeIsValid()) return false;
         const rowDate = String(row.fecha || '');
@@ -727,6 +753,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         if (statusSelect.value && String(row.estatus_visita || '') !== String(statusSelect.value)) return false;
         if (divisionalSelect.value && String(row.divisional || '') !== String(divisionalSelect.value)) return false;
         if (evidenceSelect.value && evidenceStatus(row) !== evidenceSelect.value) return false;
+        if (routeSelect.value && routeStatus(row) !== routeSelect.value) return false;
         return true;
     };
 
@@ -1038,7 +1065,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         document.getElementById('atlasAttendanceClear').addEventListener('click', () => {
             startInput.value = initialStart;
             endInput.value = initialEnd;
-            [collaboratorSelect, distributorSelect, statusSelect, divisionalSelect, evidenceSelect].forEach((select) => {
+            [collaboratorSelect, distributorSelect, statusSelect, divisionalSelect, evidenceSelect, routeSelect].forEach((select) => {
                 select.value = '';
                 refreshSearchableSelect(select);
             });
@@ -1048,7 +1075,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         [startInput, endInput].forEach((input) => {
             input.addEventListener('change', applyLocalFilters);
         });
-        [collaboratorSelect, distributorSelect, statusSelect, divisionalSelect, evidenceSelect].forEach((select) => {
+        [collaboratorSelect, distributorSelect, statusSelect, divisionalSelect, evidenceSelect, routeSelect].forEach((select) => {
             window.jQuery(select)
                 .off('change.atlasAttendance')
                 .on('change.atlasAttendance', applyLocalFilters);
