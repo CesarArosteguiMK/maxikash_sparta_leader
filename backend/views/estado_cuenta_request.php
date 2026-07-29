@@ -3303,6 +3303,7 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
                                     <textarea id="cc-adj-motivo" class="form-control" rows="2" maxlength="1000"></textarea>
                                 </div>
                             </div>
+                            <div id="cc-adjudicacion-moto" class="border rounded bg-light p-3 mt-3 d-none" aria-live="polite"></div>
                         </div>
                     </div>
                 </div>
@@ -4119,9 +4120,60 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
     }
 
     const ccSolicitarAdjudicacion = document.getElementById('cc-solicitar-adjudicacion');
+    let ccMotoFactura = null;
+    const ccMotoFacturaContenedor = document.getElementById('cc-adjudicacion-moto');
+    const ccEsc = (valor) => String(valor ?? '').replace(/[&<>"']/g, (caracter) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    }[caracter]));
+
+    function mostrarMotoFacturaCallCenter(moto, mensaje = '') {
+        if (!ccMotoFacturaContenedor) return;
+        ccMotoFacturaContenedor.classList.remove('d-none');
+        if (!moto) {
+            ccMotoFacturaContenedor.innerHTML = `<div class="small text-muted"><i class="fa-solid fa-motorcycle me-1"></i>${ccEsc(mensaje || 'Sin factura de motocicleta registrada para este crédito.')}</div>`;
+            return;
+        }
+        const unidad = [moto.marca, moto.modelo, moto.anio].filter(Boolean).map(ccEsc).join(' ');
+        ccMotoFacturaContenedor.innerHTML = `<div class="small fw-bold text-primary"><i class="fa-solid fa-motorcycle me-1"></i>Motocicleta facturada</div>
+            <div class="small mt-1">${unidad || 'Datos de unidad sin marca o modelo'}</div>
+            <div class="small text-muted">NIV/VIN: <strong class="text-body">${ccEsc(moto.numero_serie || 'No registrado')}</strong>${moto.numero_motor ? ` &middot; Motor: ${ccEsc(moto.numero_motor)}` : ''}</div>
+            <div class="small text-success mt-1"><i class="fa-solid fa-link me-1"></i>Coincidencia exacta por crédito</div>`;
+    }
+
+    async function cargarMotoFacturaCallCenter() {
+        const idCredito = Number(document.getElementById('idCredito_dictamen')?.value || 0);
+        if (!idCredito) return;
+        ccMotoFactura = null;
+        if (ccMotoFacturaContenedor) {
+            ccMotoFacturaContenedor.classList.remove('d-none');
+            ccMotoFacturaContenedor.innerHTML = '<div class="small text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Consultando motocicleta facturada...</div>';
+        }
+        try {
+            const respuesta = await fetch('/SolicitudAdjudicacion/consultarMotoFactura', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', Accept: 'application/json'},
+                body: JSON.stringify({id_credito: idCredito})
+            });
+            const datos = await respuesta.json().catch(() => ({}));
+            if (!respuesta.ok || !datos.success) {
+                throw new Error(datos.message || 'No fue posible consultar la motocicleta.');
+            }
+            ccMotoFactura = datos.datos || null;
+            mostrarMotoFacturaCallCenter(ccMotoFactura, datos.message || '');
+        } catch (error) {
+            mostrarMotoFacturaCallCenter(null, 'No fue posible consultar los datos de motocicleta en este momento.');
+        }
+    }
+
     if (ccSolicitarAdjudicacion) {
         ccSolicitarAdjudicacion.addEventListener('change', function () {
             document.getElementById('cc-adjudicacion-campos')?.classList.toggle('d-none', !this.checked);
+            if (this.checked) {
+                cargarMotoFacturaCallCenter();
+            } else {
+                ccMotoFactura = null;
+                ccMotoFacturaContenedor?.classList.add('d-none');
+            }
         });
     }
     document.querySelectorAll('[name="cc_entregara_titular"]').forEach(function (radio) {
@@ -4288,6 +4340,10 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
                     });
                 }
 
+                if (solicitud?.success && solicitud?.solicitud?.id) {
+                    verificarRepuveSolicitudCallCenter(solicitud.solicitud.id);
+                }
+
                 const idCredRefetch = document.getElementById('idCredito_dictamen')?.value;
                 if (idCredRefetch) {
                     refetchDictamenContactoPreload(idCredRefetch);
@@ -4307,6 +4363,37 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
                 console.error(err);
                 Swal.fire("Error", "Error de conexión con el servidor", "error");
             });
+    }
+
+    async function verificarRepuveSolicitudCallCenter(idSolicitud, intento = 0) {
+        try {
+            const respuesta = await fetch('/SolicitudAdjudicacion/verificarRepuveSolicitud', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id_solicitud: Number(idSolicitud)})
+            });
+            const resultado = await respuesta.json();
+            if (resultado?.blacklist) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Adjudicacion bloqueada',
+                    text: resultado.message || 'No se puede proceder con la adjudicacion. Cualquier duda contacta a tu lider.'
+                });
+            } else if (resultado?.requiere_validacion_manual) {
+                Swal.fire('Validacion manual REPUVE requerida', resultado.message || 'Debe realizarse la validacion manual de REPUVE posteriormente.', 'warning');
+            } else if (resultado?.estado === 'SIN_REPORTE_ROBO') {
+                Swal.fire('Sin Reporte de Robo', resultado.message || 'Puede continuar con la siguiente validacion.', 'success');
+            } else if (resultado?.estado === 'PENDIENTE_REPUVE') {
+                if (intento === 0) {
+                    Swal.fire('Validacion REPUVE en proceso', resultado.message || 'La adjudicacion no debe continuar hasta contar con el resultado.', 'info');
+                }
+                if (intento < 5) {
+                    window.setTimeout(() => verificarRepuveSolicitudCallCenter(idSolicitud, intento + 1), 10000);
+                }
+            }
+        } catch (error) {
+            console.warn('No se pudo completar la verificación automática REPUVE.', error);
+        }
     }
 
     function limpiarFormularioDictamen() {
@@ -4350,6 +4437,8 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
             ccSolicitarAdjudicacion.checked = false;
             document.getElementById('cc-adjudicacion-campos')?.classList.add('d-none');
             document.getElementById('cc-adjudicacion-tercero')?.classList.add('d-none');
+            ccMotoFactura = null;
+            ccMotoFacturaContenedor?.classList.add('d-none');
             document.querySelectorAll('[name="cc_entregara_titular"]').forEach(function (radio) {
                 radio.checked = false;
             });

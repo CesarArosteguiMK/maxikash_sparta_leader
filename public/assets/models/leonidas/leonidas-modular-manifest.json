@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "enabled": false,
+  "asset": "/assets/models/leonidas/leonidas-spartan-modular-v2.glb",
+  "requiredParts": [
+    "body",
+    "helmet",
+    "chest"
+  ],
+  "parts": {
+    "body": [
+      "LeonidasBody",
+      "Body"
+    ],
+    "helmet": [
+      "LeonidasHelmet",
+      "Helmet"
+    ],
+    "chest": [
+      "LeonidasChest",
+      "Chest",
+      "ChestHarness"
+    ]
+  }
+}

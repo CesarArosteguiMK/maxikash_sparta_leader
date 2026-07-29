@@ -14,11 +14,13 @@ $__swalGlassCss = realpath(__DIR__ . '/../../public/assets/css/swal-liquid-glass
 $__spartaSwalEnviadoOkJs = realpath(__DIR__ . '/../../public/assets/js/sparta_swal_enviado_ok.js');
 $__leonidasCss = realpath(__DIR__ . '/../../public/assets/css/leonidas-assistant.css');
 $__leonidasJs = realpath(__DIR__ . '/../../public/assets/js/leonidas-assistant.js');
+$__leonidasAppearanceJs = realpath(__DIR__ . '/../../public/assets/js/leonidas-appearance.js');
 $__leonidas3dJs = realpath(__DIR__ . '/../../public/assets/js/leonidas-3d.js');
 $__spartaSwalEnviadoOkVer = ($__spartaSwalEnviadoOkJs ? filemtime($__spartaSwalEnviadoOkJs) : time());
 $__leonidasVer = max(
     $__leonidasCss ? filemtime($__leonidasCss) : 0,
     $__leonidasJs ? filemtime($__leonidasJs) : 0,
+    $__leonidasAppearanceJs ? filemtime($__leonidasAppearanceJs) : 0,
     $__leonidas3dJs ? filemtime($__leonidas3dJs) : 0
 );
 $__assetsVer  = ($__demoCss ? filemtime($__demoCss) : '')
@@ -838,6 +840,13 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                                             <i class="fa-solid fa-moon dark-mode-icon fa-fw" id="darkModeIcon"></i><span id="darkModeText">Apariencia (modo oscuro)</span>
                                         </a>
                                     </li>
+                                    <?php if ($__mostrarLeonidas): ?>
+                                    <li>
+                                        <button type="button" class="dropdown-item user-dropdown-leonidas" data-leonidas-appearance-open>
+                                            <i class="fa-solid fa-palette fa-fw"></i><span>Vestuario de Leónidas</span>
+                                        </button>
+                                    </li>
+                                    <?php endif; ?>
                                     <li><hr class="dropdown-divider"></li>
                                     <li>
                                         <a class="dropdown-item user-dropdown-logout" href="/login/cerrarSesion">
@@ -1828,6 +1837,10 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                     <span><strong>Leónidas</strong><small>Asistente de Sparta</small></span>
                 </div>
                 <div class="leonidas-panel__actions">
+                    <button type="button" class="leonidas-panel__appearance" data-leonidas-appearance-open
+                            aria-label="Personalizar vestuario de Leónidas" title="Personalizar vestuario">
+                        <i class="fa-solid fa-palette"></i>
+                    </button>
                     <button type="button" class="leonidas-panel__voice is-enabled" data-leonidas-voice
                             aria-label="Silenciar voz de Leónidas" aria-pressed="true" title="Silenciar voz">
                         <i class="fa-solid fa-volume-high"></i>
@@ -1859,11 +1872,103 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
         <button type="button" class="leonidas-orb" data-leonidas-toggle aria-expanded="false" aria-controls="leonidasAssistant" aria-label="Abrir a Leónidas">
             <span class="leonidas-orb__stage" aria-hidden="true">
                 <canvas class="leonidas-orb__canvas" data-leonidas-canvas></canvas>
-                <img class="leonidas-orb__fallback" src="/assets/img/leonidas-reposo.png" alt="">
+                <img class="leonidas-orb__fallback" src="/assets/img/leonidas-reposo.png"
+                     data-leonidas-fallback alt="">
             </span>
         </button>
     </aside>
+    <div class="modal fade leonidas-appearance-modal" id="leonidasAppearanceModal" tabindex="-1"
+         aria-labelledby="leonidasAppearanceTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <span class="leonidas-appearance-modal__eyebrow">Identidad personal</span>
+                        <h5 class="modal-title" id="leonidasAppearanceTitle">Vestuario de Leónidas</h5>
+                        <p class="mb-0">Elige un uniforme o crea una combinación propia sin alterar el rostro, la anatomía ni las piezas originales.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="leonidas-appearance-editor">
+                        <section class="leonidas-appearance-preview" aria-label="Vista previa del vestuario">
+                            <div class="leonidas-appearance-preview__halo"></div>
+                            <div class="leonidas-appearance-preview__model" data-leonidas-appearance-model></div>
+                            <canvas class="leonidas-appearance-preview__fallback"
+                                    width="300" height="410" data-leonidas-appearance-preview></canvas>
+                            <span data-leonidas-appearance-name>Corporativo</span>
+                        </section>
+                        <section class="leonidas-appearance-controls">
+                            <div>
+                                <h6>Uniformes</h6>
+                                <p>Selecciona una combinación preparada para Leonidas.</p>
+                                <div class="leonidas-appearance-themes" data-leonidas-appearance-themes></div>
+                            </div>
+                            <div class="leonidas-appearance-custom">
+                                <div>
+                                    <h6>Personalizar colores</h6>
+                                    <p>Modifica tela principal, detalles y metal conservando la textura original.</p>
+                                </div>
+                                <label>
+                                    <span>Tela principal<small>Faldón y telas visibles</small></span>
+                                    <span class="leonidas-color-control">
+                                        <input type="color" value="#0048B7" data-leonidas-color="color_principal">
+                                        <output data-leonidas-color-output="color_principal">#0048B7</output>
+                                    </span>
+                                </label>
+                                <label>
+                                    <span>Detalles secundarios<small>Correas, cuero y ribetes</small></span>
+                                    <span class="leonidas-color-control">
+                                        <input type="color" value="#D2D854" data-leonidas-color="color_secundario">
+                                        <output data-leonidas-color-output="color_secundario">#D2D854</output>
+                                    </span>
+                                </label>
+                                <label>
+                                    <span>Metal<small>Casco, grebas y broches</small></span>
+                                    <span class="leonidas-color-control">
+                                        <input type="color" value="#D7E0EA" data-leonidas-color="color_metal">
+                                        <output data-leonidas-color-output="color_metal">#D7E0EA</output>
+                                    </span>
+                                </label>
+                                <div class="leonidas-appearance-gear" data-leonidas-gear-controls hidden>
+                                    <div>
+                                        <h6>Armadura visible</h6>
+                                        <p>Combina las piezas independientes del modelo validado.</p>
+                                    </div>
+                                    <label>
+                                        <span><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i>Casco</span>
+                                        <input type="checkbox" role="switch" checked
+                                               data-leonidas-part="casco_visible">
+                                    </label>
+                                    <label>
+                                        <span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i>Pechera y correas</span>
+                                        <input type="checkbox" role="switch" checked
+                                               data-leonidas-part="pechera_visible">
+                                    </label>
+                                </div>
+                                <p class="leonidas-appearance-note" data-leonidas-gear-note>
+                                    <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+                                    El modelo actual conserva casco y pechera porque forman parte de una sola malla. Los controles se habilitan solamente con anatomía modular validada.
+                                </p>
+                            </div>
+                            <div class="leonidas-appearance-status" data-leonidas-appearance-status role="status" aria-live="polite"></div>
+                        </section>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary me-auto" data-leonidas-appearance-reset>
+                        <i class="fa-solid fa-rotate-left me-1"></i>Restablecer corporativo
+                    </button>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" data-leonidas-appearance-save>
+                        <i class="fa-solid fa-floppy-disk me-1"></i>Guardar vestuario
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="/assets/js/leonidas-assistant.js?v=<?= (int) $__leonidasVer ?>"></script>
+    <script src="/assets/js/leonidas-appearance.js?v=<?= (int) $__leonidasVer ?>"></script>
     <script type="module" src="/assets/js/leonidas-3d.js?v=<?= (int) $__leonidasVer ?>"></script>
     <?php endif; ?>
 </body>

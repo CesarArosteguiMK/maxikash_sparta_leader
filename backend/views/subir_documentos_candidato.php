@@ -961,7 +961,9 @@ if ($requiere_carta_compromiso_gestor) {
             var targetNum = null;
 
             var API_BASE = <?= json_encode($api_verificacion_base) ?>;
-            var TOTAL_DOCUMENTOS_CANDIDATO = <?= $requiere_carta_compromiso_gestor ? '11' : '10' ?>;
+            // El envio del formulario vive fuera de este bloque aislado; exponer la
+            // configuracion evita que pierda el contador al momento de subir.
+            window.TOTAL_DOCUMENTOS_CANDIDATO = <?= $requiere_carta_compromiso_gestor ? '11' : '10' ?>;
             var API_KEY = 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
             var idVerificado = { front: false, back: false };
             var VERIFICACION_TIMEOUT_MS = 35000;
@@ -2695,6 +2697,14 @@ if ($requiere_carta_compromiso_gestor) {
             var btn = document.getElementById('btnEnviar');
             var msg = document.getElementById('mensajeResultado');
             var form = document.getElementById('formSubirDocumentos');
+            var totalDocumentosCandidato = Number(window.TOTAL_DOCUMENTOS_CANDIDATO || 0);
+            if (!totalDocumentosCandidato) {
+                totalDocumentosCandidato = Array.prototype.reduce.call(
+                    form.querySelectorAll('[data-doc-num]'),
+                    function(maximo, campo) { return Math.max(maximo, Number(campo.getAttribute('data-doc-num')) || 0); },
+                    0
+                );
+            }
             var uploadAlert = document.getElementById('docUploadAlert');
             var uploadAlertIcon = document.getElementById('docUploadAlertIcon');
             var uploadAlertTitle = document.getElementById('docUploadAlertTitle');
@@ -2757,7 +2767,7 @@ if ($requiere_carta_compromiso_gestor) {
             }
             // Envío parcial: solo exigir que haya al menos un archivo seleccionado
             var tieneAlgunArchivo = false;
-            for (var i = 1; i <= TOTAL_DOCUMENTOS_CANDIDATO; i++) {
+            for (var i = 1; i <= totalDocumentosCandidato; i++) {
                 var input = document.getElementById('archivo_' + i);
                 if (input && input.files && input.files.length > 0) { tieneAlgunArchivo = true; break; }
             }
@@ -2768,7 +2778,7 @@ if ($requiere_carta_compromiso_gestor) {
             }
             var totalBytesSeleccionados = 0;
             var archivoMayorLimite = null;
-            for (var pesoIdx = 1; pesoIdx <= TOTAL_DOCUMENTOS_CANDIDATO; pesoIdx++) {
+            for (var pesoIdx = 1; pesoIdx <= totalDocumentosCandidato; pesoIdx++) {
                 var inputPeso = document.getElementById('archivo_' + pesoIdx);
                 if (!inputPeso || !inputPeso.files || inputPeso.files.length === 0) continue;
                 totalBytesSeleccionados += Number(inputPeso.files[0].size || 0);
@@ -2802,7 +2812,7 @@ if ($requiere_carta_compromiso_gestor) {
                     console.warn('Revision rapida de solicitud interna omitida:', err);
                 }
             }
-            for (var j = 1; j <= TOTAL_DOCUMENTOS_CANDIDATO; j++) {
+            for (var j = 1; j <= totalDocumentosCandidato; j++) {
                 var inputDoc = document.getElementById('archivo_' + j);
                 if (!inputDoc || !inputDoc.files || inputDoc.files.length === 0) continue;
                 var fileDoc = inputDoc.files[0];

@@ -135,6 +135,7 @@
         // ──────────────────────────────────────────────────────────────────
         const STAGES = [
             'Recibido',
+            'Validacion IA',
             'Revisión Recuperaciones',
             'Cierre Documentado',
             'Recepción',
@@ -142,6 +143,7 @@
 
         const STAGE_ICONS = {
             'Recibido':                  'fa-inbox',
+            'Validacion IA':              'fa-robot',
             'Revisión Recuperaciones':   'fa-magnifying-glass',
             'Cierre Documentado':        'fa-file-circle-check',
             'Recepción':                 'fa-flag-checkered',
@@ -291,7 +293,7 @@
                 if (stage === 'en_transito') stage = 'Recibido';
                 else if (stage === 'cancelado' || stage === 'Retenciones') return;
                 /* Misma bandeja que 2.- Recuperación (Evidencias → Aprobados): sigue en BD como Procesando IA */
-                else if (stage === 'Procesando IA') stage = 'Revisión Recuperaciones';
+                else if (stage === 'Procesando IA' || stage === 'Bloqueado IA') stage = 'Validacion IA';
                 if (groups[stage]) groups[stage].push(op);
             });
 
@@ -394,6 +396,8 @@
             const esCompacto = opsEsColumnaRetenciones(op)
                 || op.estatus === 'en_transito'
                 || op.estatus === 'Recibido'
+                || op.estatus === 'Validacion IA'
+                || op.estatus === 'Bloqueado IA'
                 || op.estatus === 'Procesando IA'
                 || op.estatus === 'Revisión Recuperaciones';
 
@@ -481,6 +485,8 @@
                 'cancelado':               'Actualmente se encuentra en Retenciones',
                 'en_transito':             'Actualmente se encuentra en evidencias',
                 'Recibido':                'Actualmente se encuentra en evidencias',
+                'Validacion IA':           'Validacion automatica del estado de la moto en proceso',
+                'Bloqueado IA':            'Adjudicacion bloqueada por la validacion del estado de la moto',
                 'Procesando IA':           'Actualmente se encuentra en Recuperacion',
                 'Revisión Recuperaciones': 'Actualmente se encuentra en Recuperacion',
                 'Cierre Documentado':      'Actualmente se encuentra en Cartera',
@@ -504,7 +510,7 @@
 
         /** Modal Recuperación: progreso expediente hasta factura (momento 3). */
         function opsEsEtapaRecuperacionDetalle(op) {
-            return op && (op.estatus === 'Procesando IA' || op.estatus === 'Revisión Recuperaciones');
+            return op && (op.estatus === 'Validacion IA' || op.estatus === 'Procesando IA' || op.estatus === 'Revisión Recuperaciones' || op.estatus === 'Bloqueado IA');
         }
 
         function opsAbrirDetalle(id) {
@@ -552,7 +558,7 @@
             if (est === 'en_transito' || est === 'Recibido') {
                 return { current: 0, rejected: false };
             }
-            if (est === 'Procesando IA' || est === 'Revisión Recuperaciones') {
+            if (est === 'Validacion IA' || est === 'Procesando IA' || est === 'Revisión Recuperaciones' || est === 'Bloqueado IA') {
                 return { current: 1, rejected: false };
             }
             if (est === 'Cierre Documentado') {
@@ -841,6 +847,15 @@
             const r = op.resumen_evidencia_flujo || {};
             const rep = r.repuve || {};
             const repPdf = !!rep.pdf_cargado;
+            const knockout = op.validacion_knockout || {};
+            const knockoutEtiqueta = String(knockout.etiqueta || '').trim();
+            const knockoutEstado = String(knockout.estado || '').trim();
+            const knockoutClass = knockoutEstado === 'APROBADO'
+                ? 'bg-label-success'
+                : (knockoutEstado === 'BLOQUEADO' ? 'bg-label-danger' : 'bg-label-warning');
+            const knockoutHtml = knockoutEtiqueta
+                ? `<div class="mb-3"><span class="badge ${knockoutClass}"><i class="fa-solid fa-robot me-1"></i>${opsEsc(knockoutEtiqueta)}</span>${knockout.motivo ? `<span class="small text-muted ms-2">${opsEsc(String(knockout.motivo))}</span>` : ''}</div>`
+                : '';
 
             const evsArr = Array.isArray(op.evidencias) ? op.evidencias : [];
             const bySlot = {};
@@ -892,6 +907,7 @@
                 <p class="text-muted small mb-3 mb-md-4">
                     En esta etapa se revisa el expediente completo (evidencia física, Repuve y factura).
                 </p>
+                ${knockoutHtml}
                 <div class="row g-3">
                     <div class="col-12">
                         <div class="text-muted fw-semibold mb-1" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;">Archivos en expediente</div>

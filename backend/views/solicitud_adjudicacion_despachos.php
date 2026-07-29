@@ -119,6 +119,19 @@
     document.querySelectorAll('[name="sad_titular"]').forEach(el => el.addEventListener('change', mostrarTercero));
     document.querySelectorAll('[name="sad_asignacion"]').forEach(el => el.addEventListener('change', mostrarGestor));
 
+    function resumenMotoFactura(moto) {
+        if (!moto) {
+            return '<div class="small text-muted mt-3"><i class="fa-solid fa-motorcycle me-1"></i>Sin factura de motocicleta registrada para este crédito.</div>';
+        }
+        const nombreMoto = [moto.marca, moto.modelo, moto.anio].filter(Boolean).map(esc).join(' ');
+        return `<div class="border-top mt-3 pt-3">
+            <div class="small fw-bold text-primary"><i class="fa-solid fa-motorcycle me-1"></i>Motocicleta facturada</div>
+            <div class="small mt-1">${nombreMoto || 'Datos de unidad sin marca o modelo'}</div>
+            <div class="small text-muted">NIV/VIN: <strong class="text-body">${esc(moto.numero_serie || 'No registrado')}</strong>${moto.numero_motor ? ` &middot; Motor: ${esc(moto.numero_motor)}` : ''}</div>
+            <div class="small text-success mt-1"><i class="fa-solid fa-link me-1"></i>Coincidencia exacta por crédito</div>
+        </div>`;
+    }
+
     async function cargarGestores() {
         try {
             const r = await api('/despachos/obtenerListaDespachos?id_celula=1');
@@ -141,6 +154,11 @@
             credito = r.credito;
             key = crypto.randomUUID ? crypto.randomUUID() : `despachos-${Date.now()}-${id}`;
             $('sad-credito').innerHTML = `<strong>Crédito #${esc(credito.id_credito)}</strong><div class="fw-semibold mt-2">${esc(credito.nombre_cliente)}</div><small class="text-muted">${esc(credito.telefono)} · ${esc(credito.direccion)}</small>`;
+            $('sad-credito').insertAdjacentHTML('beforeend', resumenMotoFactura(credito.moto_factura));
+            const vinFactura = String(credito.moto_factura?.numero_serie || '').toUpperCase();
+            if (/^[A-HJ-NPR-Z0-9]{17}$/.test(vinFactura) && !$('sad-vin').value.trim()) {
+                $('sad-vin').value = vinFactura;
+            }
             $('sad-credito').classList.remove('d-none');
             $('sad-captura').classList.remove('d-none');
         } catch (e) {
@@ -179,12 +197,40 @@
                 return;
             }
             avisar('success', 'Solicitud registrada', r.solicitud?.folio || '');
+            verificarRepuveSolicitudAutomatica(r.solicitud?.id);
             e.target.reset(); credito = null; key = null; mostrarTercero(); mostrarGestor();
             $('sad-credito').classList.add('d-none'); $('sad-captura').classList.add('d-none');
             cargarLista();
         } catch (error) { avisar('error', 'No se pudo registrar', error.message); }
         finally { $('sad-guardar').disabled = !tablas; }
     });
+
+    async function verificarRepuveSolicitudAutomatica(idSolicitud, intento = 0) {
+        if (!idSolicitud) return;
+        try {
+            const r = await api('/SolicitudAdjudicacion/verificarRepuveSolicitud', {
+                method: 'POST',
+                body: JSON.stringify({id_solicitud: Number(idSolicitud)})
+            });
+            if (r.blacklist) {
+                avisar('error', 'Adjudicacion bloqueada', r.message || 'No se puede proceder con la adjudicacion. Cualquier duda contacta a tu lider.');
+                await cargarLista();
+            } else if (r.requiere_validacion_manual) {
+                avisar('warning', 'Validacion manual REPUVE requerida', r.message || 'Debe realizarse la validacion manual de REPUVE posteriormente.');
+            } else if (r.estado === 'SIN_REPORTE_ROBO') {
+                avisar('success', 'Sin Reporte de Robo', r.message || 'Puede continuar con la siguiente validacion.');
+            } else if (r.estado === 'PENDIENTE_REPUVE') {
+                if (intento === 0) {
+                    avisar('info', 'Validacion REPUVE en proceso', r.message || 'La adjudicacion no debe continuar hasta contar con el resultado.');
+                }
+                if (intento < 5) {
+                    window.setTimeout(() => verificarRepuveSolicitudAutomatica(idSolicitud, intento + 1), 10000);
+                }
+            }
+        } catch (error) {
+            console.warn('No se pudo completar la verificación automática REPUVE.', error);
+        }
+    }
 
     async function cargarLista() {
         if (!tablas) return;

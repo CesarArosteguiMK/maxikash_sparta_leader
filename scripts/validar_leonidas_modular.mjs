@@ -1,0 +1,86 @@
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+
+const projectRoot = resolve(import.meta.dirname, '..');
+const manifestPath = resolve(
+    projectRoot,
+    'public/assets/models/leonidas/leonidas-modular-manifest.json'
+);
+const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+const configuredAsset = String(manifest.asset || '').replace(/^\/+/, '');
+const assetPath = resolve(projectRoot, 'public', configuredAsset.replace(/^assets[\\/]/, 'assets/'));
+
+function fail(message) {
+    console.error(`Leonidas modular: ERROR - ${message}`);
+    process.exitCode = 1;
+}
+
+function normalized(value) {
+    return String(value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '');
+}
+
+function readGlbJson(buffer) {
+    if (buffer.length < 20 || buffer.readUInt32LE(0) !== 0x46546c67) {
+        throw new Error('el archivo no tiene una cabecera GLB valida');
+    }
+    if (buffer.readUInt32LE(4) !== 2) {
+        throw new Error('solo se admite GLB version 2');
+    }
+    const declaredLength = buffer.readUInt32LE(8);
+    if (declaredLength !== buffer.length) {
+        throw new Error('la longitud declarada del GLB no coincide con el archivo');
+    }
+    const jsonLength = buffer.readUInt32LE(12);
+    const jsonType = buffer.readUInt32LE(16);
+    if (jsonType !== 0x4e4f534a || 20 + jsonLength > buffer.length) {
+        throw new Error('el primer bloque del GLB no es JSON valido');
+    }
+    return JSON.parse(buffer.subarray(20, 20 + jsonLength).toString('utf8').trim());
+}
+
+if (!configuredAsset) {
+    fail('el manifiesto no define asset');
+} else {
+    try {
+        const document = readGlbJson(await readFile(assetPath));
+        const found = {};
+        const definitions = manifest.parts || {};
+        (document.nodes || []).forEach((node, index) => {
+            const declaredRole = normalized(node.extras?.leonidasPart);
+            const nodeName = normalized(node.name);
+            Object.entries(definitions).forEach(([role, aliases]) => {
+                if (found[role]) return;
+                const names = (Array.isArray(aliases) ? aliases : []).map(normalized);
+                if (declaredRole === normalized(role) || names.includes(nodeName)) {
+                    found[role] = { index, node };
+                }
+            });
+        });
+
+        const required = Array.isArray(manifest.requiredParts)
+            ? manifest.requiredParts
+            : ['body', 'helmet', 'chest'];
+        const missing = required.filter((role) => !found[role]);
+        if (missing.length) {
+            fail(`faltan piezas independientes: ${missing.join(', ')}`);
+        } else if (new Set(required.map((role) => found[role].index)).size !== required.length) {
+            fail('body, helmet y chest deben ser nodos diferentes');
+        } else if (!found.body.node.mesh && !found.body.node.children?.length) {
+            fail('body no contiene una malla ni hijos con anatomia');
+        } else {
+            console.log(
+                `Leonidas modular: OK - ${required.map((role) => `${role}=${found[role].node.name}`).join(', ')}`
+            );
+        }
+    } catch (error) {
+        fail(
+            error && error.code === 'ENOENT'
+                ? `falta ${assetPath}`
+                : error.message
+        );
+    }
+}

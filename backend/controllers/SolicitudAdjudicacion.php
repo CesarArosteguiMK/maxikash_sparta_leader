@@ -4,18 +4,21 @@ namespace Controllers;
 
 use Core\Controller;
 use Models\Adjudicacion as AdjudicacionDAO;
+use Models\MotosAdjudicadas as MotosAdjudicadasDAO;
 use Models\SolicitudAdjudicacion as SolicitudDAO;
 
 class SolicitudAdjudicacion extends Controller
 {
     private SolicitudDAO $model;
     private AdjudicacionDAO $creditos;
+    private MotosAdjudicadasDAO $motos;
 
     public function __construct()
     {
         parent::__construct();
         $this->model = new SolicitudDAO();
         $this->creditos = new AdjudicacionDAO();
+        $this->motos = new MotosAdjudicadasDAO();
     }
 
     public function atc(): void
@@ -68,6 +71,23 @@ class SolicitudAdjudicacion extends Controller
         $this->buscarCreditoRespuesta();
     }
 
+    /** Consulta informativa de la moto facturada para ATC, Call Center y Despachos. */
+    public function consultarMotoFactura(): void
+    {
+        if (!$this->autorizarConsultaMotoFactura()) {
+            return;
+        }
+
+        $body = $this->payload();
+        $idCredito = (int) ($body['id_credito'] ?? $body['valor'] ?? 0);
+        if ($idCredito <= 0) {
+            $this->json(['success' => false, 'message' => 'Captura un ID de crédito válido.', 'datos' => null]);
+            return;
+        }
+
+        $this->json($this->creditos->consultarMotoFacturadaMaxiProd($idCredito));
+    }
+
     private function buscarCreditoRespuesta(): void
     {
         $body = $this->payload();
@@ -114,6 +134,137 @@ class SolicitudAdjudicacion extends Controller
         $body['canal'] = $canal;
         [$actorId, $actorNombre] = $this->actor();
         $this->json($this->model->crear($body, $actorId, $actorNombre));
+    }
+
+    /**
+     * POST /SolicitudAdjudicacion/verificarRepuveSolicitud
+     * Ejecuta el cruce automático una vez que la solicitud ya quedó guardada.
+     */
+    public function verificarRepuveSolicitud(): void
+    {
+        if (!$this->autorizarConsultaMotoFactura()) {
+            return;
+        }
+        $body = $this->payload();
+        $idSolicitud = (int) ($body['id_solicitud'] ?? 0);
+        [$actorId, $actorNombre] = $this->actor();
+        $solicitud = $this->model->obtenerPorId($idSolicitud, $actorId);
+        if (!$solicitud) {
+            $this->json(['success' => false, 'message' => 'La solicitud no esta disponible para la sesion actual.']);
+            return;
+        }
+        if ((string) ($solicitud['estatus'] ?? '') === 'blacklist') {
+            $this->json([
+                'success' => true,
+                'blacklist' => true,
+                'estado' => 'ya_en_blacklist',
+                'message' => 'La solicitud ya se encuentra en blacklist.',
+            ]);
+            return;
+        }
+        $resultado = $this->verificarRepuveSolicitudInterna(
+            $idSolicitud,
+            (int) ($solicitud['id_credito'] ?? 0),
+            $actorId,
+            $actorNombre
+        );
+        $resultado['success'] = true;
+        $this->json($resultado);
+    }
+
+    /** Ejecuta REPUVE con el NIV de factura; nunca bloquea la solicitud por una falla externa. */
+    private function verificarRepuveSolicitudInterna(int $idSolicitud, int $idCredito, int $actorId, string $actorNombre): array
+    {
+        if ($idSolicitud <= 0 || $idCredito <= 0) {
+            return ['intentada' => false, 'blacklist' => false, 'estado' => 'sin_credito'];
+        }
+
+        try {
+            $factura = $this->creditos->consultarMotoFacturadaMaxiProd($idCredito);
+            $moto = is_array($factura['datos'] ?? null) ? $factura['datos'] : [];
+            $vin = strtoupper(preg_replace('/\s+/u', '', (string) ($moto['numero_serie'] ?? '')));
+            if (!preg_match('/^[A-HJ-NPR-Z0-9]{17}$/', $vin)) {
+                $salida = [
+                    'intentada' => false,
+                    'blacklist' => false,
+                    'estado' => 'VALIDACION_MANUAL_REPUVE',
+                    'etiqueta' => 'Validacion manual REPUVE pendiente',
+                    'requiere_validacion_manual' => true,
+                    'message' => 'No se encontro un NIV de 17 caracteres en la factura. Debe realizarse la validacion manual de REPUVE posteriormente.',
+                ];
+                $this->model->registrarResultadoRepuveKnockout($idSolicitud, $salida['estado'], $salida['etiqueta'], $salida['message'], $actorId, $actorNombre);
+                return $salida;
+            }
+
+            $consulta = $this->motos->consultarRepuveConCriterio($idCredito, 'vin', $vin, $actorId);
+            $reporteRobo = is_array($consulta['reporte_robo'] ?? null)
+                ? $consulta['reporte_robo']
+                : ['confirmado' => false];
+            if (!empty($reporteRobo['confirmado'])) {
+                $blacklist = $this->model->marcarBlacklistPorRepuve($idSolicitud, $actorId, $actorNombre, $reporteRobo);
+                $salida = [
+                    'intentada' => true,
+                    'blacklist' => !empty($blacklist['success']),
+                    'estado' => !empty($blacklist['success']) ? 'reporte_robo_confirmado' : 'error_blacklist',
+                    'etiqueta' => 'Reporte de Robo',
+                    'message' => 'No se puede Proceder con la Adjudicacion. Cualquier duda contacta a tu lider.',
+                ];
+                $this->model->registrarResultadoRepuveKnockout($idSolicitud, 'REPORTE_ROBO', 'Reporte de Robo', $salida['message'], $actorId, $actorNombre, $reporteRobo);
+                return $salida;
+            }
+
+            $salida = $this->clasificarResultadoRepuve($consulta);
+            $this->model->registrarResultadoRepuveKnockout(
+                $idSolicitud,
+                $salida['estado'],
+                $salida['etiqueta'],
+                $salida['message'],
+                $actorId,
+                $actorNombre,
+                ['repuve_estado_tecnico' => $consulta['repuve']['estado'] ?? null]
+            );
+            return $salida;
+        } catch (\Throwable $e) {
+            error_log('[SolicitudAdjudicacion::verificarRepuveSolicitud] credito=' . $idCredito . ' :: ' . $e->getMessage());
+            $salida = [
+                'intentada' => false,
+                'blacklist' => false,
+                'estado' => 'VALIDACION_MANUAL_REPUVE',
+                'etiqueta' => 'Validacion manual REPUVE pendiente',
+                'requiere_validacion_manual' => true,
+                'message' => 'La consulta REPUVE no fue exitosa. Debe realizarse la validacion manual de REPUVE posteriormente.',
+            ];
+            $this->model->registrarResultadoRepuveKnockout($idSolicitud, $salida['estado'], $salida['etiqueta'], $salida['message'], $actorId, $actorNombre);
+            return $salida;
+        }
+    }
+
+    /** @param array<string,mixed> $consulta @return array<string,mixed> */
+    private function clasificarResultadoRepuve(array $consulta): array
+    {
+        $estadoTecnico = strtoupper(trim((string) ($consulta['repuve']['estado'] ?? '')));
+        $texto = trim((string) ($consulta['message'] ?? $consulta['repuve']['mensaje'] ?? ''));
+        $normalizado = function_exists('mb_strtolower') ? mb_strtolower($texto, 'UTF-8') : strtolower($texto);
+        if ($estadoTecnico === 'PROCESANDO') {
+            return [
+                'intentada' => true, 'blacklist' => false, 'estado' => 'PENDIENTE_REPUVE',
+                'etiqueta' => 'Validacion REPUVE en proceso',
+                'message' => 'La consulta REPUVE esta en proceso. La adjudicacion no debe continuar hasta contar con el resultado.',
+            ];
+        }
+        if (str_contains($normalizado, 'sin reporte de robo') || str_contains($normalizado, 'no cuenta con reporte')) {
+            return [
+                'intentada' => true, 'blacklist' => false, 'estado' => 'SIN_REPORTE_ROBO',
+                'etiqueta' => 'Sin Reporte de Robo',
+                'message' => 'REPUVE indica Sin Reporte de Robo. Puede continuar con la siguiente validacion.',
+            ];
+        }
+        return [
+            'intentada' => true, 'blacklist' => false, 'estado' => 'VALIDACION_MANUAL_REPUVE',
+            'etiqueta' => 'Validacion manual REPUVE pendiente',
+            'requiere_validacion_manual' => true,
+            'message' => 'La consulta REPUVE fue no exitosa o no permitio confirmar el resultado. Debe realizarse la validacion manual de REPUVE posteriormente.',
+        ];
     }
 
     public function listar(): void
@@ -292,6 +443,18 @@ class SolicitudAdjudicacion extends Controller
         } else {
             echo '<div class="alert alert-danger m-4">No tienes permiso para operar solicitudes de ' . htmlspecialchars($etiqueta) . '.</div>';
         }
+        return false;
+    }
+
+    private function autorizarConsultaMotoFactura(): bool
+    {
+        $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        if (array_intersect([69, 35, 20, 45], $modulos)) {
+            return true;
+        }
+
+        http_response_code(403);
+        $this->json(['success' => false, 'message' => 'No tienes permiso para consultar datos de motocicletas facturadas.']);
         return false;
     }
 

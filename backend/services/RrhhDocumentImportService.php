@@ -231,6 +231,36 @@ class RrhhDocumentImportService
         return is_array($fuentes) ? array_values($fuentes) : [];
     }
 
+    /**
+     * Reserva un lote ligero que solo conserva el anÃ¡lisis. Se usa cuando los
+     * archivos se procesan por tandas desde el navegador: evita volver a buscar
+     * persona y tipo de documento al momento de importar cada tanda.
+     */
+    public function crearLoteTemporalSoloAnalisis(): string
+    {
+        $this->limpiarLotesTemporales();
+        $batchId = bin2hex(random_bytes(16));
+        $dir = $this->directorioLote($batchId);
+        SecureUpload::ensureDir($dir);
+
+        $manifest = [
+            'batch_id' => $batchId,
+            'created_at' => time(),
+            'fuentes' => [],
+            'solo_analisis' => true,
+        ];
+        if (file_put_contents(
+            $dir . DIRECTORY_SEPARATOR . 'manifest.json',
+            json_encode($manifest, JSON_UNESCAPED_UNICODE),
+            LOCK_EX
+        ) === false) {
+            $this->eliminarDirectorio($dir);
+            throw new \RuntimeException('No se pudo preparar la cache temporal del analisis.');
+        }
+
+        return $batchId;
+    }
+
     public function guardarAnalisisLoteTemporal(string $batchId, array $analisis, array $documentosManual, array $contexto): bool
     {
         $manifest = $this->leerManifiestoLoteTemporal($batchId);
@@ -252,14 +282,28 @@ class RrhhDocumentImportService
     public function obtenerAnalisisLoteTemporal(string $batchId, array $documentosManual, array $contexto): ?array
     {
         $manifest = $this->leerManifiestoLoteTemporal($batchId);
-        if ($manifest === null
-            || ($manifest['contexto_analisis'] ?? null) !== $contexto
-            || $this->normalizarDocumentosManual((array) ($manifest['documentos_manual'] ?? [])) !== $this->normalizarDocumentosManual($documentosManual)) {
+        if ($manifest === null || ($manifest['contexto_analisis'] ?? null) !== $contexto) {
             return null;
         }
 
         $analisis = $manifest['analisis'] ?? null;
-        return is_array($analisis) && is_array($analisis['items'] ?? null) ? $analisis : null;
+        if (!is_array($analisis) || !is_array($analisis['items'] ?? null)) {
+            return null;
+        }
+
+        $manuales = $this->normalizarDocumentosManual($documentosManual);
+        if ($this->normalizarDocumentosManual((array) ($manifest['documentos_manual'] ?? [])) !== $manuales) {
+            $analisis = $this->aplicarDocumentosManualAlAnalisis($analisis, $manuales);
+            $manifest['analisis'] = $analisis;
+            $manifest['documentos_manual'] = $manuales;
+            file_put_contents(
+                $this->directorioLote(trim($batchId)) . DIRECTORY_SEPARATOR . 'manifest.json',
+                json_encode($manifest, JSON_UNESCAPED_UNICODE),
+                LOCK_EX
+            );
+        }
+
+        return $analisis;
     }
 
     public function eliminarLoteTemporal(string $batchId): void
@@ -1535,6 +1579,49 @@ class RrhhDocumentImportService
         }
 
         return $total;
+    }
+
+    /** @param array<int, int> $documentosManual */
+    private function aplicarDocumentosManualAlAnalisis(array $analisis, array $documentosManual): array
+    {
+        if (empty($documentosManual) || !is_array($analisis['items'] ?? null)) {
+            return $analisis;
+        }
+
+        $catalogo = [];
+        foreach ((array) ($analisis['catalogo'] ?? []) as $documento) {
+            $id = (int) ($documento['id'] ?? 0);
+            if ($id > 0) {
+                $catalogo[$id] = $documento;
+            }
+        }
+
+        foreach ($analisis['items'] as &$item) {
+            $sourceIndex = (int) ($item['source_index'] ?? -1);
+            $idDocumento = (int) ($documentosManual[$sourceIndex] ?? 0);
+            if ($idDocumento <= 0 || !isset($catalogo[$idDocumento])) {
+                continue;
+            }
+
+            $documento = $catalogo[$idDocumento];
+            $item['id_documento'] = $idDocumento;
+            $item['documento'] = (string) ($documento['nombre'] ?? '');
+            $item['documento_clave'] = (string) ($documento['clave'] ?? '');
+            $item['documento_manual'] = true;
+            $estadoActual = (string) ($item['estado'] ?? '');
+            if (in_array($estadoActual, ['documento_no_reconocido', 'documento_sin_permiso'], true)) {
+                if ($this->puedeUsarTipoDocumentoRrhh($idDocumento)) {
+                    $item['estado'] = 'listo';
+                    $item['razon'] = 'Tipo seleccionado manualmente.';
+                } else {
+                    $item['estado'] = 'documento_sin_permiso';
+                    $item['razon'] = 'No tienes permiso para importar este tipo de documento.';
+                }
+            }
+        }
+        unset($item);
+
+        return $analisis;
     }
 
     private function normalizarDocumentosManual(array $documentosManual): array
