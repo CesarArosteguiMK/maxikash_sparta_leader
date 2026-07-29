@@ -32,7 +32,8 @@ Durante la construcciÃ³n, cada isla UV se asigna a un material semÃ¡ntico
 independiente:
 
 - `primary`: tela interior y base del faldón.
-- `secondary`: paneles de cuero, correas y ribetes.
+- `secondary`: correas, ribetes y acentos discretos; los paneles grandes de
+  cuero conservan su acabado original.
 - `metal`: casco, pechera, grebas, brazales y broches.
 - `original`: piel y anatomÃ­a; nunca recibe la paleta.
 
@@ -40,8 +41,9 @@ Los materiales de vestuario conservan la geometrÃ­a, las normales y el sombrea
 3D, pero reciben un color sÃ³lido independiente. AsÃ­ no existen pÃ­xeles
 compartidos capaces de pintar piel, rostro u otra prenda.
 
-La cabeza anatÃ³mica permanece activa debajo del casco. Las aberturas del casco
-muestran esa piel real; el material metÃ¡lico solo pertenece a la carcasa.
+La cabeza anatÃ³mica permanece activa debajo del casco. Las aberturas pequeÃ±as
+de ojos y boca muestran esa piel real sin destruir la silueta corintia; el
+material metÃ¡lico solo pertenece a la carcasa.
 
 ## Reconstrucción y validación
 

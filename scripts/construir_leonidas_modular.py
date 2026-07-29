@@ -335,19 +335,19 @@ def assign_body_semantic_materials(obj):
         'LeonidasPrimary',
         'primary',
         metalness=0.06,
-        roughness=0.62,
+        roughness=0.72,
     )
     secondary = create_palette_material(
         'LeonidasSecondary',
         'secondary',
         metalness=0.03,
-        roughness=0.54,
+        roughness=0.68,
     )
     metal = create_palette_material(
         'LeonidasMetal',
         'metal',
-        metalness=0.74,
-        roughness=0.30,
+        metalness=0.52,
+        roughness=0.42,
     )
     obj.data.materials.clear()
     for material in (original, primary, secondary, metal):
@@ -423,7 +423,13 @@ def assign_body_semantic_materials(obj):
         )
         source_role = texture_material(average_pixel)
 
-        if skin_ratio >= 0.5:
+        protected_upper_leg = (
+            center.z < 0.56
+            and upper_leg_ratio > 0.34
+            and upper_leg_ratio > hips_ratio * 1.25
+        )
+
+        if skin_ratio >= 0.5 or protected_upper_leg:
             role = 'original'
         elif center.z > 1.0 and head_ratio > 0.18:
             role = 'original'
@@ -472,6 +478,10 @@ def assign_body_semantic_materials(obj):
             and votes['original'] >= votes[non_original]
         ):
             role = 'original'
+        elif non_original == 'secondary' and len(island) > 80:
+            # El cuero grande conserva su tono original. El segundo color se
+            # reserva para correas, ribetes y acentos discretos.
+            role = 'original'
         elif votes[non_original] > 0:
             role = non_original
         else:
@@ -497,8 +507,8 @@ def assign_solid_palette_material(obj, role):
     material = create_palette_material(
         f'Leonidas{role.title()}',
         role,
-        metalness=0.74 if role == 'metal' else 0.04,
-        roughness=0.30 if role == 'metal' else 0.56,
+        metalness=0.52 if role == 'metal' else 0.04,
+        roughness=0.42 if role == 'metal' else 0.56,
     )
     obj.data.materials.clear()
     obj.data.materials.append(material)
@@ -531,10 +541,10 @@ def open_helmet_face(obj):
             continue
         height = (world.z - minimum.z) / max(size.z, 0.001)
         horizontal = abs(world.x - center_x) / half_width
-        mouth_opening = 0.03 < height < 0.42 and horizontal < 0.72
+        mouth_opening = 0.05 < height < 0.30 and horizontal < 0.46
         eye_cheek_opening = (
-            0.34 < height < 0.62
-            and 0.15 < horizontal < 0.76
+            0.47 < height < 0.60
+            and 0.16 < horizontal < 0.60
         )
         if mouth_opening or eye_cheek_opening:
             remove.append(face)

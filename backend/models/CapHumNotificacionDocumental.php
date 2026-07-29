@@ -18,6 +18,7 @@ class CapHumNotificacionDocumental extends Model
     public const URL_IMSS_SEMANAS_COTIZADAS = 'https://serviciosdigitales.imss.gob.mx/semanascotizadas-web/usuarios/IngresoAsegurado';
 
     private static bool $tablasAseguradas = false;
+    private static bool $plantillaActivaExpedientesTablaAsegurada = false;
 
     public static function asegurarTablas(): void
     {
@@ -97,10 +98,14 @@ class CapHumNotificacionDocumental extends Model
 
     /**
      * Usa la misma fuente de plantilla activa que Expedientes RR.HH. para que
-     * los totales de las campanas no incluyan usuarios fuera de plantilla.
+     * los totales de las campañas no incluyan usuarios fuera de plantilla.
      */
     private static function asegurarPlantillaActivaExpedientes(Database $db): void
     {
+        if (self::$plantillaActivaExpedientesTablaAsegurada) {
+            return;
+        }
+
         $db->CRUD("
             CREATE TABLE IF NOT EXISTS estado_cuenta.rrhh_plantilla_activa (
                 curp VARCHAR(18) NOT NULL,
@@ -117,6 +122,7 @@ class CapHumNotificacionDocumental extends Model
                 KEY idx_rrhh_plantilla_activa_empresa (id_empresa, activo)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
+        self::$plantillaActivaExpedientesTablaAsegurada = true;
     }
 
     public static function catalogoTipos(): array
@@ -510,8 +516,9 @@ class CapHumNotificacionDocumental extends Model
                     'pendientes' => 0,
                 ],
             ];
-            foreach ($rows ?: [] as &$campania) {
+            foreach ($rows as &$campania) {
                 $porEmpresa = $empresasBase;
+                $idCampania = (int)($campania['id'] ?? 0);
                 $desglose = $db->queryAll("
                     SELECT
                         CASE
@@ -533,7 +540,7 @@ class CapHumNotificacionDocumental extends Model
                     LEFT JOIN estado_cuenta.rrhh_empresas emp ON emp.id = pla.id_empresa
                     LEFT JOIN estado_cuenta.rrhh_notificacion_documental_entrega e
                         ON e.id_campania = c.id AND e.id_persona = p.id
-                    WHERE c.id = :campania
+                    WHERE c.id = {$idCampania}
                       AND {$condicion}
                       AND (
                           c.alcance = 'todos'
@@ -544,7 +551,7 @@ class CapHumNotificacionDocumental extends Model
                           )
                       )
                     GROUP BY clave
-                ", ['campania' => (int)$campania['id']]);
+                ");
                 foreach ($desglose ?: [] as $empresa) {
                     $clave = (string)($empresa['clave'] ?? 'maxikash');
                     $porEmpresa[$clave]['total_personas'] = (int)($empresa['total_personas'] ?? 0);

@@ -71,7 +71,7 @@ appearanceIntegrationAssert(
 appearanceIntegrationAssert(
     str_contains($threeJs, '|| region === RIG_REGION.chest')
         && str_contains($view, 'Casco, pechera, grebas y brazales')
-        && str_contains($view, 'Paneles, correas y ribetes'),
+        && str_contains($view, 'Correas, ribetes y acentos'),
     'La pechera debe usar el canal metal y no contaminar el color secundario.'
 );
 appearanceIntegrationAssert(

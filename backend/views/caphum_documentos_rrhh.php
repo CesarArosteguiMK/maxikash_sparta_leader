@@ -628,6 +628,8 @@
     let paginaActual = 1;
     let importFiles = [];
     let importAnalisis = null;
+    let importBatchesAnalizados = new Map();
+    let importAnalisisVersion = 0;
     let importPreviewBuffer = null;
     let importPreviewZoom = 1;
     let importPreviewFitWidth = true;
@@ -1135,19 +1137,23 @@
 
     function importFormData(options = {}) {
         const fd = new FormData();
-        const batchId = String(importAnalisis?.batch_id || '').trim();
+        const batchId = String(options.batchId ?? importAnalisis?.batch_id ?? '').trim();
         const usarBatch = options.usarBatch !== false;
         const cacheLote = options.cacheLote !== false;
+        const cacheAnalisis = options.cacheAnalisis === true;
+        const incluirArchivos = options.incluirArchivos === true || !batchId || !usarBatch;
         const files = Array.isArray(options.files) ? options.files : importFiles;
         const sourceOffset = Number(options.sourceOffset || 0);
         const manualesGlobales = options.manualesGlobales || null;
         fd.append('cache_lote', cacheLote ? '1' : '0');
+        if (cacheAnalisis) fd.append('cache_analisis', '1');
         if (importPersonaObjetivo && Number(importPersonaObjetivo.id_persona || 0) > 0) {
             fd.append('id_persona', Number(importPersonaObjetivo.id_persona || 0));
         }
         if (batchId && usarBatch) {
             fd.append('batch_id', batchId);
-        } else {
+        }
+        if (files.length && incluirArchivos) {
             files.forEach(file => {
                 fd.append('archivos[]', file, file.name);
                 fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);
@@ -1304,12 +1310,30 @@
             ['Ya existe', resumen.ya_existe || 0, 'bg-info text-dark'],
             ['Duplicados', resumen.duplicado_lote || 0, 'bg-warning text-dark'],
             ['Omitidos', resumen.omitido || 0, 'bg-light text-dark border'],
-            ['Errores', resumen.error || 0, 'bg-danger']
+            ['Error al guardar', resumen.error || 0, 'bg-danger']
         ];
         els.importResumen.innerHTML = chips
             .filter(([, valor], index) => index === 0 || Number(valor) > 0)
             .map(([label, valor, cls]) => `<span class="badge ${cls}">${escapeHtml(label)}: ${escapeHtml(valor)}</span>`)
             .join('');
+    }
+
+    function importTiempoLegible(ms) {
+        const segundos = Math.max(0, Number(ms || 0)) / 1000;
+        if (segundos < 60) return `${segundos.toFixed(segundos < 10 ? 1 : 0)} s`;
+        const minutos = Math.floor(segundos / 60);
+        const resto = Math.round(segundos % 60);
+        return `${minutos} min${resto ? ` ${resto} s` : ''}`;
+    }
+
+    function importMensajeFinal(resultado, duracionMs) {
+        const importados = Number(resultado?.importados || 0);
+        const errores = Number(resultado?.resumen?.error || 0);
+        const tiempo = importTiempoLegible(duracionMs);
+        const base = `Importacion finalizada en ${tiempo}. ${importados} documento(s) importado(s).`;
+        return errores > 0
+            ? `${base} ${errores} archivo(s) no se guardaron; revisa las filas con estado "Error" para ver el motivo exacto.`
+            : base;
     }
 
     function importBadge(estado, item = null) {
@@ -1434,8 +1458,10 @@
     }
 
     function importSetFiles(fileList) {
+        importAnalisisVersion++;
         importFiles = Array.from(fileList || []);
         importAnalisis = null;
+        importBatchesAnalizados = new Map();
         importRenderResumen(null);
         importRenderTabla([]);
         const total = importFiles.length;
@@ -1660,9 +1686,12 @@
 
     async function importAnalizar() {
         if (!importFiles.length) return;
+        const versionAnalisis = ++importAnalisisVersion;
+        const filesAnalizados = importFiles;
         const mostrarPreparando = importSeleccionTieneZip();
+        const inicioAnalisis = Date.now();
         try {
-            const batches = importCrearBatches(importFiles);
+            const batches = importCrearBatches(filesAnalizados);
             importSetLoading(true, batches.length > 1 ? `Analizando lote 1 de ${batches.length}...` : 'Analizando documentos...');
             if (mostrarPreparando && !importPreparandoArchivosDesde) {
                 importMostrarPreparandoArchivos();
@@ -1687,7 +1716,8 @@
                         files: batch.files,
                         sourceOffset: batch.sourceOffset,
                         usarBatch: false,
-                        cacheLote: false
+                        cacheLote: batches.length === 1,
+                        cacheAnalisis: batches.length > 1
                     });
                 } catch (err) {
                     throw new Error(importMensajeErrorOperacion(err, {
@@ -1698,11 +1728,15 @@
                         total: batches.length
                     }));
                 }
+                if (versionAnalisis !== importAnalisisVersion) return;
                 if (!combinado.catalogo.length && Array.isArray(parcial.catalogo)) {
                     combinado.catalogo = parcial.catalogo;
                 }
                 if (batches.length === 1 && parcial.batch_id) {
                     combinado.batch_id = parcial.batch_id;
+                }
+                if (batches.length > 1 && parcial.batch_id) {
+                    importBatchesAnalizados.set(Number(batch.sourceOffset || 0), String(parcial.batch_id));
                 }
                 combinado.items.push(...importNormalizarItemsBatch(parcial.items || [], batch.sourceOffset));
                 importSumarResumen(combinado.resumen, parcial.resumen || {});
@@ -1712,6 +1746,8 @@
                     importSetLoading(true, `Analizando lote ${i + 1} de ${batches.length}. Acumulado: ${procesados}/${importFiles.length} archivo(s), ${Number(combinado.resumen.listo || 0)} listo(s).`);
                 }
             }
+            if (versionAnalisis !== importAnalisisVersion) return;
+            combinado.duracion_ms = Date.now() - inicioAnalisis;
             importAnalisis = combinado;
             if (mostrarPreparando) {
                 await importCerrarPreparandoArchivos();
@@ -1719,13 +1755,16 @@
             importRenderResumen(importAnalisis.resumen);
             importRenderTabla(importAnalisis.items || []);
             const listos = importAnalisis?.resumen?.listo || 0;
-            els.importSeleccionResumen.textContent = `Analisis listo. ${listos} documento(s) pueden importarse${batches.length > 1 ? ` en ${batches.length} lotes` : ''}.`;
+            els.importSeleccionResumen.textContent = `Analisis listo en ${importTiempoLegible(combinado.duracion_ms)}. ${listos} documento(s) pueden importarse${batches.length > 1 ? ` en ${batches.length} lotes` : ''}.`;
             els.importBtnImportar.disabled = listos <= 0;
         } catch (err) {
+            if (versionAnalisis !== importAnalisisVersion) return;
             importPreparandoArchivosDesde = 0;
             Swal.fire('Importar documentos', err.message || 'No se pudo analizar la seleccion.', 'error');
         } finally {
-            importSetLoading(false);
+            if (versionAnalisis === importAnalisisVersion) {
+                importSetLoading(false);
+            }
         }
     }
 
@@ -1743,7 +1782,12 @@
         if (!confirm.isConfirmed) return;
 
         try {
+            const versionImportacion = ++importAnalisisVersion;
+            const inicioImportacion = Date.now();
             const batches = importCrearBatches(importFiles);
+            if (!batches.length) {
+                throw new Error('La selección ya no contiene archivos. Vuelve a elegir la carpeta o los documentos antes de importar.');
+            }
             const manualesGlobales = importManualesGlobales();
             importSetLoading(true, batches.length > 1 ? `Importando lote 1 de ${batches.length}...` : 'Importando documentos...');
             Swal.fire({
@@ -1790,7 +1834,9 @@
                         parcial = await importEnviar(endpoint, {
                             files: batch.files,
                             sourceOffset: batch.sourceOffset,
-                            usarBatch: false,
+                            batchId: importBatchesAnalizados.get(Number(batch.sourceOffset || 0)) || '',
+                            usarBatch: true,
+                            incluirArchivos: true,
                             cacheLote: false,
                             manualesGlobales
                         });
@@ -1803,6 +1849,7 @@
                             total: batches.length
                         }));
                     }
+                    if (versionImportacion !== importAnalisisVersion) return;
                     resultado.items.push(...importNormalizarItemsBatch(parcial.items || [], batch.sourceOffset));
                     importSumarResumen(resultado.resumen, parcial.resumen || {});
                     resultado.importados += Number(parcial.importados || 0);
@@ -1813,12 +1860,15 @@
                     }
                 }
             }
+            if (versionImportacion !== importAnalisisVersion) return;
+            resultado.duracion_ms = Date.now() - inicioImportacion;
             importAnalisis = resultado;
             importRenderResumen(resultado.resumen);
             importRenderTabla(resultado.items || []);
-            els.importSeleccionResumen.textContent = `Importacion finalizada. ${Number(resultado.importados || 0)} documento(s) importado(s).`;
+            const mensajeFinal = importMensajeFinal(resultado, resultado.duracion_ms);
+            els.importSeleccionResumen.textContent = mensajeFinal;
             await cargarResumen();
-            Swal.fire('Importar documentos', `Se importaron ${Number(resultado.importados || 0)} documento(s).`, 'success');
+            Swal.fire('Importar documentos', mensajeFinal, Number(resultado?.resumen?.error || 0) > 0 ? 'warning' : 'success');
         } catch (err) {
             Swal.fire('Importar documentos', err.message || 'No se pudo importar la seleccion.', 'error');
         } finally {
@@ -2323,9 +2373,33 @@
         const sourceIndex = Number(select.getAttribute('data-import-doc-type') || 0);
         const item = (importAnalisis.items || []).find(row => Number(row.source_index || 0) === sourceIndex);
         if (!item) return;
-        item.id_documento = Number(select.value || 0) || null;
-        item.documento_manual = Number(select.value || 0) > 0;
-        importAnalizar();
+        const idDocumento = Number(select.value || 0) || 0;
+        const catalogo = Array.isArray(importAnalisis.catalogo) ? importAnalisis.catalogo : [];
+        const documento = catalogo.find(doc => Number(doc.id || 0) === idDocumento) || null;
+        const teniaManual = !!item.documento_manual;
+
+        item.id_documento = idDocumento || null;
+        item.documento = documento ? String(documento.nombre || '') : '';
+        item.documento_clave = documento ? String(documento.clave || '') : '';
+        item.documento_manual = idDocumento > 0;
+
+        if (idDocumento > 0 && ['documento_no_reconocido', 'documento_sin_permiso'].includes(String(item.estado || ''))) {
+            item.estado = 'listo';
+            item.razon = 'Tipo seleccionado manualmente. Se validara al importar.';
+        } else if (!idDocumento && teniaManual) {
+            item.estado = 'documento_no_reconocido';
+            item.razon = 'Selecciona un tipo de documento para importarlo.';
+        }
+
+        importAnalisis.resumen = importResumenVacio();
+        (importAnalisis.items || []).forEach(row => {
+            const estado = String(row.estado || 'error');
+            importAnalisis.resumen[estado] = Number(importAnalisis.resumen[estado] || 0) + 1;
+            importAnalisis.resumen.total++;
+        });
+        importRenderResumen(importAnalisis.resumen);
+        importRenderTabla(importAnalisis.items || []);
+        els.importBtnImportar.disabled = Number(importAnalisis.resumen.listo || 0) <= 0;
     });
     els.importTabla.addEventListener('click', function (event) {
         const btn = event.target.closest('[data-import-preview]');
