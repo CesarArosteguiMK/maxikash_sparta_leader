@@ -302,6 +302,7 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                     <div class="col-lg-8 col-12 d-flex flex-column">
                         <div id="modalDocumentacionCandidatoVacio" class="text-center py-4 text-muted d-none">No hay documentos subidos.</div>
                         <div id="modalDocumentacionCandidatoLista" class="list-group flex-grow-1 h-100 overflow-auto border rounded bg-body-tertiary"></div>
+                        <div id="modalDocumentacionCandidatoExtraGestor" class="d-none mt-3"></div>
                     </div>
                     <div class="col-lg-4 col-12 d-flex flex-column">
                         <div class="modal-doc-col-stack d-flex flex-column gap-3 flex-grow-1 h-100">

@@ -488,6 +488,49 @@ class MotosAdjudicadas extends Controller
         ];
     }
 
+    /**
+     * Resuelve una evidencia sin exponer sus fuentes al navegador.
+     * Orden: copia publicada, copia privada y, al final, origen remoto.
+     */
+    private function resolverArchivoEvidenciaConRespaldo(array $evidencia): ?array
+    {
+        $fuentesLocales = array_values(array_unique(array_filter([
+            trim((string) ($evidencia['url'] ?? '')),
+            trim((string) ($evidencia['url_respaldo'] ?? '')),
+        ])));
+        foreach ($fuentesLocales as $fuente) {
+            $archivo = $this->resolverArchivoEvidencia($fuente);
+            if ($archivo && !empty($archivo['path']) && is_file((string) $archivo['path'])) {
+                return $archivo;
+            }
+        }
+
+        $rutaPrivada = trim((string) ($evidencia['ruta_respaldo_privado'] ?? ''));
+        if ($rutaPrivada !== '') {
+            if (!function_exists('sparta_evidencias_respaldo_resolve_relative')) {
+                require_once dirname(__DIR__) . '/core/UploadsPaths.php';
+            }
+            $archivoPrivado = sparta_evidencias_respaldo_resolve_relative($rutaPrivada);
+            if ($archivoPrivado && is_file($archivoPrivado)) {
+                return [
+                    'path' => $archivoPrivado,
+                    'temp' => false,
+                    'ext' => $this->extensionDesdeUrl($archivoPrivado, strtolower((string) pathinfo($archivoPrivado, PATHINFO_EXTENSION)) ?: 'bin'),
+                ];
+            }
+        }
+
+        $origen = trim((string) ($evidencia['url_origen'] ?? ''));
+        if ($origen !== '') {
+            $archivo = $this->resolverArchivoEvidencia($origen);
+            if ($archivo && !empty($archivo['path']) && is_file((string) $archivo['path'])) {
+                return $archivo;
+            }
+        }
+
+        return null;
+    }
+
     // =========================================================================
     // VISTA PRINCIPAL
     // =========================================================================
@@ -3030,7 +3073,12 @@ class MotosAdjudicadas extends Controller
                 if (empty($porSlot[$slot]['url'])) {
                     continue;
                 }
-                $archivo = $this->resolverArchivoEvidencia((string) $porSlot[$slot]['url']);
+                $referencia = !empty($porSlot[$slot]['id'])
+                    ? $this->model->obtenerArchivoEvidenciaPorId((int) $porSlot[$slot]['id'])
+                    : null;
+                $archivo = $this->resolverArchivoEvidenciaConRespaldo(
+                    is_array($referencia) ? $referencia : $porSlot[$slot]
+                );
                 if (!$archivo || empty($archivo['path']) || !is_file($archivo['path'])) {
                     continue;
                 }
@@ -3649,19 +3697,7 @@ class MotosAdjudicadas extends Controller
                 exit;
             }
 
-            $archivo = null;
-            $fuentes = array_values(array_unique(array_filter([
-                trim((string) ($evidencia['url'] ?? '')),
-                trim((string) ($evidencia['url_respaldo'] ?? '')),
-                trim((string) ($evidencia['url_origen'] ?? '')),
-            ])));
-            foreach ($fuentes as $fuente) {
-                $archivo = $this->resolverArchivoEvidencia($fuente);
-                if ($archivo && !empty($archivo['path']) && is_file((string) $archivo['path'])) {
-                    break;
-                }
-                $archivo = null;
-            }
+            $archivo = $this->resolverArchivoEvidenciaConRespaldo($evidencia);
             if (!$archivo || empty($archivo['path']) || !is_file((string) $archivo['path'])) {
                 http_response_code(404);
                 exit;

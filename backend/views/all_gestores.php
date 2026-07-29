@@ -6293,7 +6293,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <div class="card-body">
                         <!-- Selector de Fechas Manual (ancho acotado: evita input a todo el ancho de la pantalla) -->
                         <div class="row align-items-end g-3 mb-3">
-                            <div class="col-12">
+                            <div class="col-12 col-lg-6">
                                 <label class="form-label fw-semibold">
                                     <i class="fa fa-calendar-alt me-2"></i>Rango de Fechas Personalizado
                                 </label>
@@ -6305,6 +6305,16 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                         placeholder="Selecciona un rango de fechas personalizado"
                                     />
                                 </div>
+                            </div>
+                            <div class="col-12 col-md-6 col-lg-4">
+                                <label for="filtroEtapaBajas" class="form-label fw-semibold">
+                                    <i class="fa fa-layer-group me-2"></i>Etapa de baja
+                                </label>
+                                <select id="filtroEtapaBajas" class="form-select form-select-sm">
+                                    <option value="todas">Todas las bajas</option>
+                                    <option value="baja_parcial">Baja parcial</option>
+                                    <option value="baja_completa">Baja completa</option>
+                                </select>
                             </div>
                         </div>
 
@@ -6858,7 +6868,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <p id="gestor"></p>
                     <div class="alert alert-warning small" id="bajaMensajeFlujo" role="alert">
                         <strong>Trámite pendiente.</strong> La persona quedará fuera de cartera, asignaciones y acceso al sistema.
-                        Aún no será una baja definitiva: las vacantes y reasignaciones se realizarán hasta completar los documentos requeridos.
+                        Aún no será una baja parcial: las vacantes y reasignaciones se realizarán cuando se cargue la Renuncia o el Aviso de rescisión.
                     </div>
 
                     <div class="mb-3" style="display: none;">
@@ -6908,7 +6918,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <div id="listaArchivos" class="mt-2" style="display: none;"></div>
 
                     <div id="bajaDocumentoFinalWrap" class="mb-3" style="display: none;">
-                        <label for="tipoDocumentoFinal" class="form-label"><strong>Documento obligatorio para completar la baja:</strong></label>
+                        <label for="tipoDocumentoFinal" class="form-label"><strong>Documento obligatorio para registrar la baja parcial:</strong></label>
                         <select class="form-select mb-2" id="tipoDocumentoFinal">
                             <option value="">-- Selecciona el tipo de documento --</option>
                             <option value="renuncia">Renuncia</option>
@@ -6921,7 +6931,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             </button>
                             <span id="bajaFinal_nombreArchivo" class="text-muted small">No se ha seleccionado ning&uacute;n archivo</span>
                         </div>
-                        <small class="text-danger d-block mt-2">Para completar la baja debes adjuntar un PDF de Renuncia o Aviso de rescisi&oacute;n.</small>
+                        <small class="text-danger d-block mt-2">Para registrar la baja parcial debes adjuntar un PDF de Renuncia o Aviso de rescisi&oacute;n. La baja completa requerir&aacute; posteriormente la documentaci&oacute;n final.</small>
                     </div>
                 </div>
 
@@ -6933,7 +6943,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         Iniciar trámite
                     </button>
                     <button type="button" class="btn btn-danger" id="btnFinalizarBaja" onclick="finalizarBaja()" style="display: none;">
-                        Completar baja
+                        Registrar baja parcial
                     </button>
                 </div>
                 </div>
