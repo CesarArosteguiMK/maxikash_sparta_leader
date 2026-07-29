@@ -197,6 +197,12 @@ if (root && canvas) {
             if (!modularParts) return;
             modularParts.helmet.visible = currentAppearance.casco_visible;
             modularParts.chest.visible = currentAppearance.pechera_visible;
+            if (modularParts.headUnderlay) {
+                modularParts.headUnderlay.visible = !currentAppearance.casco_visible;
+            }
+            if (modularParts.torsoUnderlay) {
+                modularParts.torsoUnderlay.visible = !currentAppearance.pechera_visible;
+            }
         };
 
         const applyModularPalette = (model) => {
@@ -914,10 +920,11 @@ if (root && canvas) {
                 if (
                     region === RIG_REGION.metal
                     || region === RIG_REGION.helmet
+                    || region === RIG_REGION.chest
                 ) {
                     target = metal;
                     amount = 0.93;
-                } else if (region === RIG_REGION.secondary || region === RIG_REGION.chest) {
+                } else if (region === RIG_REGION.secondary) {
                     target = secondary;
                     amount = 0.86;
                 } else {

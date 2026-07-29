@@ -69,8 +69,17 @@ if (!configuredAsset) {
             fail(`faltan piezas independientes: ${missing.join(', ')}`);
         } else if (new Set(required.map((role) => found[role].index)).size !== required.length) {
             fail('body, helmet y chest deben ser nodos diferentes');
-        } else if (!found.body.node.mesh && !found.body.node.children?.length) {
-            fail('body no contiene una malla ni hijos con anatomia');
+        } else if (found.body.node.mesh === undefined && !found.body.node.children?.length) {
+            const available = (document.nodes || []).map((node, index) => ({
+                index,
+                name: node.name || '',
+                mesh: node.mesh ?? null,
+                part: node.extras?.leonidasPart || null,
+            }));
+            fail(
+                'body no contiene una malla ni hijos con anatomia. Nodos: '
+                + JSON.stringify(available)
+            );
         } else {
             console.log(
                 `Leonidas modular: OK - ${required.map((role) => `${role}=${found[role].node.name}`).join(', ')}`

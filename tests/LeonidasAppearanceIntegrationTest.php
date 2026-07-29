@@ -63,12 +63,24 @@ appearanceIntegrationAssert(
     'Los colores deben aplicarse por islas UV completas y explicar el limite de la armadura soldada.'
 );
 appearanceIntegrationAssert(
+    str_contains($threeJs, '|| region === RIG_REGION.chest')
+        && str_contains($view, 'Casco, pechera, grebas y brazales')
+        && str_contains($view, 'Correas laterales y ribetes'),
+    'La pechera debe usar el canal metal y no contaminar el color secundario.'
+);
+appearanceIntegrationAssert(
     str_contains($view, 'data-leonidas-gear-controls hidden')
         && str_contains($appearanceJs, "root.addEventListener('leonidas:capabilities'")
         && str_contains($threeJs, "root.dispatchEvent(new CustomEvent('leonidas:capabilities'")
         && str_contains($threeJs, 'resolveModularParts')
         && ($manifest['enabled'] ?? null) === false
-        && ($manifest['requiredParts'] ?? []) === ['body', 'helmet', 'chest'],
+        && ($manifest['requiredParts'] ?? []) === [
+            'body',
+            'helmet',
+            'chest',
+            'headUnderlay',
+            'torsoUnderlay',
+        ],
     'Los controles de piezas deben permanecer ocultos hasta cargar y validar un modelo modular real.'
 );
 
