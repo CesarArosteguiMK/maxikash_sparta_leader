@@ -10184,11 +10184,21 @@ class CapHum extends Controller
             (string)($_GET['estado'] ?? 'todos'),
             (string)($_GET['buscar'] ?? '')
         );
-        foreach (($resultado['datos'] ?? []) as $persona) {
-            if (($persona['estado_analisis_patrones'] ?? '') === 'pendiente') {
-                $this->iniciarWorkerPatronesNotificacionDocumental($idCampania);
-                break;
+        $hayPendienteConArchivo = false;
+        if (!empty($resultado['datos']) && is_array($resultado['datos'])) {
+            foreach ($resultado['datos'] as &$persona) {
+                $archivo = basename((string)($persona['archivo'] ?? ''));
+                $archivoDisponible = $archivo !== ''
+                    && is_file(sparta_uploads_join('documentos', $archivo));
+                $persona['archivo_disponible_nodo'] = $archivoDisponible;
+                if (($persona['estado_analisis_patrones'] ?? '') === 'pendiente' && $archivoDisponible) {
+                    $hayPendienteConArchivo = true;
+                }
             }
+            unset($persona);
+        }
+        if ($hayPendienteConArchivo) {
+            $this->iniciarWorkerPatronesNotificacionDocumental($idCampania);
         }
         self::respuestaJSON($resultado);
     }

@@ -311,7 +311,10 @@ $tipoInicial = $tipos[0] ?? [
         }
         const estado = String(row.estado_analisis_patrones || 'pendiente');
         if (estado === 'pendiente') {
-            return '<span class="badge rounded-pill text-bg-light border text-secondary mt-1"><i class="fa-solid fa-spinner fa-spin me-1"></i>Lectura pendiente</span>';
+            if (row.archivo_disponible_nodo === false) {
+                return '<span class="badge rounded-pill text-bg-light border text-secondary mt-1" title="Este entorno comparte la base de datos, pero no tiene el PDF físico."><i class="fa-solid fa-server me-1"></i>Pendiente: PDF solo en servidor</span>';
+            }
+            return '<span class="badge rounded-pill text-bg-light border text-warning mt-1"><i class="fa-solid fa-spinner fa-spin me-1"></i>En cola del Motor V1</span>';
         }
         if (estado === 'sin_lectura') {
             return '<span class="badge rounded-pill text-bg-secondary mt-1"><i class="fa-solid fa-eye-low-vision me-1"></i>Revisión manual</span>';
