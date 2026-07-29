@@ -160,6 +160,19 @@ if (root && canvas) {
             return parseInt(normalized.slice(1), 16);
         }
 
+        function scaledHexToNumber(value, fallback, scale) {
+            const normalized = normalizeHex(value, fallback);
+            const channels = [
+                parseInt(normalized.slice(1, 3), 16),
+                parseInt(normalized.slice(3, 5), 16),
+                parseInt(normalized.slice(5, 7), 16)
+            ].map((channel) => Math.max(
+                0,
+                Math.min(255, Math.round(channel * scale))
+            ));
+            return (channels[0] << 16) | (channels[1] << 8) | channels[2];
+        }
+
         const normalizedBoneName = (name) => String(name || '')
             .toLowerCase()
             .replace(/[^a-z0-9]/g, '');
@@ -221,17 +234,21 @@ if (root && canvas) {
                 primary: {
                     color: hexToNumber(currentAppearance.color_principal, '#0048B7'),
                     metalness: 0.06,
-                    roughness: 0.62
+                    roughness: 0.72
                 },
                 secondary: {
                     color: hexToNumber(currentAppearance.color_secundario, '#D2D854'),
                     metalness: 0.03,
-                    roughness: 0.54
+                    roughness: 0.68
                 },
                 metal: {
-                    color: hexToNumber(currentAppearance.color_metal, '#D7E0EA'),
-                    metalness: 0.74,
-                    roughness: 0.3
+                    color: scaledHexToNumber(
+                        currentAppearance.color_metal,
+                        '#D7E0EA',
+                        0.82
+                    ),
+                    metalness: 0.52,
+                    roughness: 0.42
                 }
             };
             model.traverse((node) => {

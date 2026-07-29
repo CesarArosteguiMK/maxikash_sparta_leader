@@ -36,6 +36,9 @@ class MotosAdjudicadas extends Model
     /** @var null|bool tabla de caché para resumen S2 en modal de dictámenes */
     private static $cacheResumenS2DictamenTablaOk = null;
 
+    /** @var null|bool tabla que conserva el origen remoto y la copia local de evidencias de la app */
+    private static $adjEvidenciaRespaldoTablaOk = null;
+
     /** M?ximo de consultas REPUVE nuevas (POST a Nubarium) por usuario y d?a natural CDMX. */
     private const REPUVE_CONSULTAS_MAX_DIA = 5;
 
@@ -5098,6 +5101,15 @@ SQL;
 
         if ($old) {
             $urlAnterior = trim((string) ($old['url'] ?? ''));
+            $guardarRespaldo = function () use ($old, $idOperacion, $slot, $url, $urlRespaldada): void {
+                $this->guardarRespaldoEvidenciaDictumApp(
+                    (int) ($old['id'] ?? 0),
+                    $idOperacion,
+                    $slot,
+                    $url,
+                    $urlRespaldada
+                );
+            };
             if ($this->operacionTieneEnvioAtencionMarcado($idOperacion)) {
                 /*
                  * Aunque la evidencia ya haya pasado por AtenciÃ³n, la URL de
@@ -5119,6 +5131,7 @@ SQL;
                         ]
                     );
                 }
+                $guardarRespaldo();
                 return true;
             }
             $historialRechazo = $this->db->queryOne(
@@ -5133,6 +5146,7 @@ SQL;
                 ]
             );
             if ($historialRechazo) {
+                $guardarRespaldo();
                 return true;
             }
 
@@ -5143,6 +5157,7 @@ SQL;
                      WHERE id_operacion = :id AND slot = :slot AND estatus <> 'recibido'",
                     ['id' => $idOperacion, 'slot' => $slot]
                 );
+                $guardarRespaldo();
                 return true;
             }
 
@@ -5169,6 +5184,7 @@ SQL;
                     ['tipo' => $tipo, 'url' => $urlRespaldada, 'fecha' => $fecha, 'id' => $idOperacion, 'slot' => $slot]
                 );
             }
+            $guardarRespaldo();
             return true;
         }
 
@@ -5178,7 +5194,114 @@ SQL;
             ['id' => $idOperacion, 'tipo' => $tipo, 'slot' => $slot, 'url' => $urlRespaldada, 'fecha' => $fecha, 'alta' => $idUsuario ?: 0]
         );
 
+        $idEvidencia = (int) $this->db->lastInsertId();
+        if ($idEvidencia <= 0) {
+            $insertada = $this->db->queryOne(
+                'SELECT id FROM adj_evidencia WHERE id_operacion = :id AND slot = :slot ORDER BY id DESC LIMIT 1',
+                ['id' => $idOperacion, 'slot' => $slot]
+            );
+            $idEvidencia = (int) ($insertada['id'] ?? 0);
+        }
+        $this->guardarRespaldoEvidenciaDictumApp($idEvidencia, $idOperacion, $slot, $url, $urlRespaldada);
+
         return true;
+    }
+
+    /**
+     * Conserva las dos referencias de una evidencia de la app: la copia local
+     * para sobrevivir a un 404 remoto y la URL origen para recuperar la copia
+     * local si llegara a faltar. La URL origen nunca se expone a la vista.
+     */
+    private function guardarRespaldoEvidenciaDictumApp(
+        int $idEvidencia,
+        int $idOperacion,
+        string $slot,
+        string $urlOrigen,
+        string $urlRespaldo
+    ): void {
+        if ($idEvidencia <= 0 || $idOperacion <= 0 || trim($urlOrigen) === '' || trim($urlRespaldo) === '') {
+            return;
+        }
+        if (!$this->asegurarTablaRespaldoEvidencia()) {
+            return;
+        }
+        if (!function_exists('sparta_uploads_resolve_relative')) {
+            require_once dirname(__DIR__) . '/core/UploadsPaths.php';
+        }
+
+        $ruta = (string) (parse_url($urlRespaldo, PHP_URL_PATH) ?: $urlRespaldo);
+        $posicionUploads = stripos(str_replace('\\', '/', $ruta), '/uploads/');
+        $rutaLocal = $posicionUploads === false
+            ? null
+            : sparta_uploads_resolve_relative(substr($ruta, $posicionUploads + strlen('/uploads/')));
+        $tamano = ($rutaLocal && is_file($rutaLocal)) ? (int) filesize($rutaLocal) : null;
+        $sha256 = ($rutaLocal && is_file($rutaLocal)) ? (string) hash_file('sha256', $rutaLocal) : null;
+        $ahora = $this->fechaHoraCdmx();
+
+        try {
+            $this->db->CRUD(
+                "INSERT INTO adj_evidencia_respaldo
+                    (id_evidencia, id_operacion, slot, url_origen, url_respaldo, sha256, tamano_bytes, fecha_respaldo, created_at, updated_at)
+                 VALUES
+                    (:id_evidencia, :id_operacion, :slot, :url_origen, :url_respaldo, :sha256, :tamano_bytes, :fecha_respaldo, :created_at, :updated_at)
+                 ON DUPLICATE KEY UPDATE
+                    id_operacion = VALUES(id_operacion),
+                    slot = VALUES(slot),
+                    url_origen = VALUES(url_origen),
+                    url_respaldo = VALUES(url_respaldo),
+                    sha256 = VALUES(sha256),
+                    tamano_bytes = VALUES(tamano_bytes),
+                    fecha_respaldo = VALUES(fecha_respaldo),
+                    updated_at = VALUES(updated_at)",
+                [
+                    'id_evidencia' => $idEvidencia,
+                    'id_operacion' => $idOperacion,
+                    'slot' => $slot,
+                    'url_origen' => trim($urlOrigen),
+                    'url_respaldo' => trim($urlRespaldo),
+                    'sha256' => $sha256,
+                    'tamano_bytes' => $tamano,
+                    'fecha_respaldo' => $ahora,
+                    'created_at' => $ahora,
+                    'updated_at' => $ahora,
+                ]
+            );
+        } catch (\Throwable $e) {
+            // No se bloquea la evidencia si el registro de respaldo falla.
+        }
+    }
+
+    private function asegurarTablaRespaldoEvidencia(): bool
+    {
+        if (self::$adjEvidenciaRespaldoTablaOk !== null) {
+            return self::$adjEvidenciaRespaldoTablaOk;
+        }
+
+        try {
+            $this->db->CRUD(
+                'CREATE TABLE IF NOT EXISTS adj_evidencia_respaldo (
+                    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    id_evidencia INT NOT NULL,
+                    id_operacion INT NOT NULL,
+                    slot VARCHAR(100) NOT NULL,
+                    url_origen MEDIUMTEXT NULL,
+                    url_respaldo VARCHAR(1024) NULL,
+                    sha256 CHAR(64) NULL,
+                    tamano_bytes BIGINT UNSIGNED NULL,
+                    fecha_respaldo DATETIME NULL,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    PRIMARY KEY (id),
+                    UNIQUE KEY uq_adj_evidencia_respaldo_evidencia (id_evidencia),
+                    KEY ix_adj_evidencia_respaldo_operacion_slot (id_operacion, slot)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+            );
+            self::$adjEvidenciaRespaldoTablaOk = true;
+        } catch (\Throwable $e) {
+            self::$adjEvidenciaRespaldoTablaOk = false;
+        }
+
+        return self::$adjEvidenciaRespaldoTablaOk;
     }
 
     /**
@@ -5317,6 +5440,7 @@ SQL;
                     'url_remota' => $url,
                 ]
             );
+            $this->guardarRespaldoEvidenciaDictumApp($idEvidencia, $operacion, $slot, $url, $urlLocal);
             $resultado['respaldadas']++;
         }
 
@@ -8180,11 +8304,25 @@ EOSQL;
             return null;
         }
 
+        if (!$this->asegurarTablaRespaldoEvidencia()) {
+            return $this->db->queryOne(
+                'SELECT id, url, tipo, slot
+                 FROM adj_evidencia
+                 WHERE id = :id
+                 LIMIT 1',
+                ['id' => $idEvidencia]
+            ) ?: null;
+        }
+
         return $this->db->queryOne(
-            'SELECT id, url, tipo, slot
-             FROM adj_evidencia
-             WHERE id = :id
-             LIMIT 1',
+            "SELECT e.id, e.url, e.tipo, e.slot, r.url_respaldo,
+                    COALESCE(NULLIF(r.url_origen, ''),
+                        CASE WHEN e.url LIKE 'https://firebasestorage.googleapis.com/%' THEN e.url ELSE NULL END
+                    ) AS url_origen
+             FROM adj_evidencia e
+             LEFT JOIN adj_evidencia_respaldo r ON r.id_evidencia = e.id
+             WHERE e.id = :id
+             LIMIT 1",
             ['id' => $idEvidencia]
         ) ?: null;
     }

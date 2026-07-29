@@ -31583,6 +31583,7 @@ public function getEstadosMunicipiosMexico()
             $servicio = new RrhhDocumentImportService();
             $servicio->limpiarLotesTemporalesExpirados();
             $usarCacheLote = (string) ($_POST['cache_lote'] ?? '1') !== '0';
+            $cacheSoloAnalisis = (string) ($_POST['cache_analisis'] ?? '0') === '1';
             $batchId = trim((string) ($_POST['batch_id'] ?? ''));
             $fuentes = $batchId !== '' ? $servicio->fuentesDesdeLoteTemporal($batchId) : [];
             if (empty($fuentes)) {
@@ -31605,6 +31606,9 @@ public function getEstadosMunicipiosMexico()
             }
 
             $resultado = $servicio->analizarParaPersona($fuentes, $persona, $documentosManual);
+            if ($batchId === '' && $cacheSoloAnalisis) {
+                $batchId = $servicio->crearLoteTemporalSoloAnalisis();
+            }
             if ($batchId !== '') {
                 $servicio->guardarAnalisisLoteTemporal($batchId, $resultado, $documentosManual, [
                     'tipo' => 'persona',

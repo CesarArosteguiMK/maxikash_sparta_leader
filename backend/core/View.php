@@ -1917,7 +1917,7 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                                     </span>
                                 </label>
                                 <label>
-                                    <span>Cuero y detalles<small>Paneles, correas y ribetes</small></span>
+                                    <span>Cuero y detalles<small>Correas, ribetes y acentos</small></span>
                                     <span class="leonidas-color-control">
                                         <input type="color" value="#D2D854" data-leonidas-color="color_secundario">
                                         <output data-leonidas-color-output="color_secundario">#D2D854</output>

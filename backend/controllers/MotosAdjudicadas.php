@@ -3649,7 +3649,19 @@ class MotosAdjudicadas extends Controller
                 exit;
             }
 
-            $archivo = $this->resolverArchivoEvidencia((string) $evidencia['url']);
+            $archivo = null;
+            $fuentes = array_values(array_unique(array_filter([
+                trim((string) ($evidencia['url'] ?? '')),
+                trim((string) ($evidencia['url_respaldo'] ?? '')),
+                trim((string) ($evidencia['url_origen'] ?? '')),
+            ])));
+            foreach ($fuentes as $fuente) {
+                $archivo = $this->resolverArchivoEvidencia($fuente);
+                if ($archivo && !empty($archivo['path']) && is_file((string) $archivo['path'])) {
+                    break;
+                }
+                $archivo = null;
+            }
             if (!$archivo || empty($archivo['path']) || !is_file((string) $archivo['path'])) {
                 http_response_code(404);
                 exit;
