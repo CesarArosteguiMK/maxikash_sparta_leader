@@ -995,6 +995,15 @@ SQL;
 SQL;
     }
 
+    /**
+     * Las operaciones importadas solo pertenecen al histórico; no deben entrar
+     * en las bandejas operativas de Retenciones.
+     */
+    private function sqlExcluirCargaMasivaHistorica(string $alias = 'o'): string
+    {
+        return "COALESCE(TRIM({$alias}.area_actual), '') <> 'Carga masiva historico'";
+    }
+
     // =========================================================================
     // ENTRANTES  (estatus = 'Retenciones')
     // =========================================================================
@@ -1003,6 +1012,7 @@ SQL;
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $esRet    = $this->sqlEsDictamenLlamadaRetenciones('dr');
+        $excluirHistorico = $this->sqlExcluirCargaMasivaHistorica('o');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -1023,7 +1033,8 @@ SQL;
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
         {$joinAsig}
-        WHERE NOT EXISTS (
+        WHERE {$excluirHistorico}
+          AND NOT EXISTS (
               SELECT 1
               FROM adj_dictamen dr
               WHERE dr.id_operacion = o.id
@@ -2137,6 +2148,7 @@ SQL;
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $predD2   = $this->sqlEsDictamenLlamadaRetenciones('d2');
+        $excluirHistorico = $this->sqlExcluirCargaMasivaHistorica('o');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -2174,7 +2186,8 @@ SQL;
             LIMIT 1
         )
         {$joinAsig}
-        WHERE COALESCE(d.dictamen, '') NOT LIKE 'Pendiente%'
+        WHERE {$excluirHistorico}
+          AND COALESCE(d.dictamen, '') NOT LIKE 'Pendiente%'
         ORDER BY o.fecha_alta DESC
         SQL;
 
@@ -2192,6 +2205,7 @@ SQL;
         $predDp2  = $this->sqlEsDictamenLlamadaRetenciones('dp2');
         $predDp3  = $this->sqlEsDictamenLlamadaRetenciones('dp3');
         $predDp4  = $this->sqlEsDictamenLlamadaRetenciones('dp4');
+        $excluirHistorico = $this->sqlExcluirCargaMasivaHistorica('o');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -2225,7 +2239,8 @@ SQL;
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
         {$joinAsig}
-        WHERE EXISTS (
+        WHERE {$excluirHistorico}
+          AND EXISTS (
               SELECT 1
               FROM adj_dictamen dp3
               WHERE dp3.id_operacion = o.id

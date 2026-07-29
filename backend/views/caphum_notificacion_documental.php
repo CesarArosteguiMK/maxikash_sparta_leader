@@ -255,6 +255,20 @@ $tipoInicial = $tipos[0] ?? [
             const entregados = Number(c.entregados || 0);
             const porcentaje = total ? Math.round(entregados * 100 / total) : 0;
             const activa = Number(c.activa) === 1;
+            const avancePorEmpresa = (Array.isArray(c.por_empresa) ? c.por_empresa : []).map(empresa => {
+                const totalEmpresa = Number(empresa.total_personas || 0);
+                const entregadosEmpresa = Number(empresa.entregados || 0);
+                const pendientesEmpresa = Number(empresa.pendientes || 0);
+                const porcentajeEmpresa = totalEmpresa ? Math.round(entregadosEmpresa * 100 / totalEmpresa) : 0;
+                return `<div class="border rounded-2 p-2 flex-grow-1" style="min-width:210px">
+                    <div class="d-flex justify-content-between align-items-center gap-2 small">
+                        <strong>${escapeHtml(empresa.nombre || 'Empresa')}</strong>
+                        <span class="text-nowrap">${entregadosEmpresa} / ${totalEmpresa}</span>
+                    </div>
+                    <div class="progress my-2" style="height:6px"><div class="progress-bar" style="width:${porcentajeEmpresa}%"></div></div>
+                    <small class="text-muted">${pendientesEmpresa} pendientes · ${porcentajeEmpresa}%</small>
+                </div>`;
+            }).join('');
             return `<article class="border rounded-3 p-3 mb-3">
                 <div class="d-flex justify-content-between gap-3">
                     <div>
@@ -267,6 +281,7 @@ $tipoInicial = $tipos[0] ?? [
                     <span>${entregados} de ${total} entregados</span><strong>${porcentaje}%</strong>
                 </div>
                 <div class="progress" style="height:8px"><div class="progress-bar" style="width:${porcentaje}%"></div></div>
+                ${avancePorEmpresa ? `<div class="mt-3"><small class="d-block text-muted fw-semibold mb-2">Avance por empresa</small><div class="d-flex flex-wrap gap-2">${avancePorEmpresa}</div></div>` : ''}
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
                     <small class="text-danger fw-semibold">${Number(c.pendientes || 0)} pendientes</small>
                     <div class="d-flex gap-2">

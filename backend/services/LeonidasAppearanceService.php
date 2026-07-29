@@ -34,6 +34,7 @@ final class LeonidasAppearanceService
                 'color_metal' => '#D7E0EA',
                 'casco_visible' => true,
                 'pechera_visible' => true,
+                'cabello_visible' => true,
             ],
             'clasico' => [
                 'id' => 'clasico',
@@ -44,6 +45,7 @@ final class LeonidasAppearanceService
                 'color_metal' => '#D8B37B',
                 'casco_visible' => true,
                 'pechera_visible' => true,
+                'cabello_visible' => true,
             ],
             'nocturno' => [
                 'id' => 'nocturno',
@@ -54,6 +56,7 @@ final class LeonidasAppearanceService
                 'color_metal' => '#AEBBC8',
                 'casco_visible' => true,
                 'pechera_visible' => true,
+                'cabello_visible' => true,
             ],
             'dorado' => [
                 'id' => 'dorado',
@@ -64,6 +67,7 @@ final class LeonidasAppearanceService
                 'color_metal' => '#F5D57A',
                 'casco_visible' => true,
                 'pechera_visible' => true,
+                'cabello_visible' => true,
             ],
             'bosque' => [
                 'id' => 'bosque',
@@ -74,6 +78,7 @@ final class LeonidasAppearanceService
                 'color_metal' => '#C0A46B',
                 'casco_visible' => true,
                 'pechera_visible' => true,
+                'cabello_visible' => true,
             ],
         ];
     }
@@ -88,7 +93,7 @@ final class LeonidasAppearanceService
         self::validarPersona($personaId);
         $row = $this->db->queryOne(
             'SELECT tema, color_principal, color_secundario, color_metal,
-                    casco_visible, pechera_visible, actualizado_en
+                    casco_visible, pechera_visible, cabello_visible, actualizado_en
              FROM leonidas_apariencia_usuario
              WHERE persona_id = :persona_id
              LIMIT 1',
@@ -116,10 +121,10 @@ final class LeonidasAppearanceService
         $this->db->CRUD(
             'INSERT INTO leonidas_apariencia_usuario
                 (persona_id, tema, color_principal, color_secundario, color_metal,
-                 casco_visible, pechera_visible, creado_en, actualizado_en)
+                 casco_visible, pechera_visible, cabello_visible, creado_en, actualizado_en)
              VALUES
                 (:persona_id, :tema, :principal, :secundario, :metal,
-                 :casco_visible, :pechera_visible, NOW(), NOW())
+                 :casco_visible, :pechera_visible, :cabello_visible, NOW(), NOW())
              ON DUPLICATE KEY UPDATE
                 tema = VALUES(tema),
                 color_principal = VALUES(color_principal),
@@ -127,6 +132,7 @@ final class LeonidasAppearanceService
                 color_metal = VALUES(color_metal),
                 casco_visible = VALUES(casco_visible),
                 pechera_visible = VALUES(pechera_visible),
+                cabello_visible = VALUES(cabello_visible),
                 actualizado_en = NOW()',
             [
                 'persona_id' => $personaId,
@@ -136,6 +142,7 @@ final class LeonidasAppearanceService
                 'metal' => $apariencia['color_metal'],
                 'casco_visible' => $apariencia['casco_visible'] ? 1 : 0,
                 'pechera_visible' => $apariencia['pechera_visible'] ? 1 : 0,
+                'cabello_visible' => $apariencia['cabello_visible'] ? 1 : 0,
             ]
         );
 
@@ -172,6 +179,7 @@ final class LeonidasAppearanceService
             $apariencia = $temas[$tema];
             $apariencia['casco_visible'] = self::validarVisibilidad($payload['casco_visible'] ?? true, 'casco');
             $apariencia['pechera_visible'] = self::validarVisibilidad($payload['pechera_visible'] ?? true, 'pechera');
+            $apariencia['cabello_visible'] = self::validarVisibilidad($payload['cabello_visible'] ?? true, 'cabello');
             return $apariencia;
         }
         if ($tema !== 'personalizado') {
@@ -187,6 +195,7 @@ final class LeonidasAppearanceService
             'color_metal' => self::validarColor($payload['color_metal'] ?? null, 'metal'),
             'casco_visible' => self::validarVisibilidad($payload['casco_visible'] ?? true, 'casco'),
             'pechera_visible' => self::validarVisibilidad($payload['pechera_visible'] ?? true, 'pechera'),
+            'cabello_visible' => self::validarVisibilidad($payload['cabello_visible'] ?? true, 'cabello'),
         ];
     }
 
@@ -228,6 +237,7 @@ final class LeonidasAppearanceService
                 color_metal CHAR(7) NOT NULL,
                 casco_visible TINYINT(1) NOT NULL DEFAULT 1,
                 pechera_visible TINYINT(1) NOT NULL DEFAULT 1,
+                cabello_visible TINYINT(1) NOT NULL DEFAULT 1,
                 creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 PRIMARY KEY (persona_id),
@@ -236,6 +246,7 @@ final class LeonidasAppearanceService
         );
         $this->asegurarColumna('casco_visible');
         $this->asegurarColumna('pechera_visible');
+        $this->asegurarColumna('cabello_visible');
     }
 
     private function asegurarColumna(string $columna): void

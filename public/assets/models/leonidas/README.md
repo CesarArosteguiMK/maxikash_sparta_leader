@@ -1,72 +1,57 @@
 # Leonidas 3D
 
-The active character is `leonidas-spartan-rigged.fbx`, derived from the
-following Sketchfab model downloaded by the project owner:
+El personaje se deriva del modelo:
 
-- Model: Rigged for UE4 - Spartan - free
-- Author: Andy Woodhead
-- Source: https://sketchfab.com/3d-models/rigged-for-ue4-spartan-free-666f485199db43488b14035f2a3840bf
-- License: Creative Commons Attribution (CC BY)
+- Modelo: Rigged for UE4 - Spartan - free
+- Autor: Andy Woodhead
+- Fuente: https://sketchfab.com/3d-models/rigged-for-ue4-spartan-free-666f485199db43488b14035f2a3840bf
+- Licencia: Creative Commons Attribution (CC BY)
 
-The FBX contains the character as one textured skinned mesh with a humanoid
-skeleton. Helmet, chest harness and body are not independent interchangeable
-objects.
+## Modelo activo
 
-Sparta applies its own material palette at runtime. Users with access to
-Leonidas can choose a catalog theme or customize the principal cloth, secondary
-details and metal/shield colors. Their selection is stored by `persona_id`; the
-corporate default uses the blue and lime colors from the Maxikash logo. The
-editor preserves the original character texture and anatomy while recoloring
-the uniform. The helmet and chest harness remain part of the character because
-the active FBX welds those pieces to the body. Recoloring uses complete UV
-islands so cloth, leather, metal and skin do not contaminate one another. A
-helmet/chest visibility control must not be offered until a compatible modular
-body with real underlying anatomy exists. The original sword is hidden in favor
-of the custom Three.js spear.
+El activo principal es `leonidas-spartan-modular-v2.glb`. Conserva el
+esqueleto, animación, proporciones, texturas y apariencia del FBX anterior,
+pero separa seis partes:
 
-`leonidas-spartan-free.glb` and `leonidas-spartan.glb` remain as loading
-fallbacks only.
+- `LeonidasBody`: cuerpo estable, extremidades y faldón.
+- `LeonidasHelmet`: casco corintio abierto, con nasal y carrilleras.
+- `LeonidasChest`: carcasa completa del torso con pechera.
+- `LeonidasHeadUnderlay`: cabeza anatómica visible al retirar el casco.
+- `LeonidasTorsoUnderlay`: torso anatómico visible al retirar la pechera.
+- `LeonidasHair`: cabello corto independiente, visible solamente sin casco y
+  configurable por usuario.
 
-## Casco y pechera intercambiables
+El manifiesto `leonidas-modular-manifest.json` está habilitado. El cargador
+regresa automáticamente a `leonidas-spartan-rigged.fbx` si el GLB falta o no
+cumple el contrato.
 
-El cargador ya admite un reemplazo modular en
-`leonidas-spartan-modular-v2.glb`. La aplicación solo muestra los interruptores
-de casco y pechera cuando el archivo supera el contrato; si falta o es
-incompatible, vuelve automáticamente al FBX estable y no ofrece controles que
-puedan producir huecos negros o anatomía falsa.
+## Colores
 
-El modelo modular debe conservar la identidad, proporciones, esqueleto y
-animaciones de Leonidas, e incluir anatomía completa debajo de la armadura.
-Debe exponer como nodos diferentes:
+La paleta modular ya no intenta adivinar zonas a partir del color del atlas.
+Durante la construcciÃ³n, cada isla UV se asigna a un material semÃ¡ntico
+independiente:
 
-- `LeonidasBody`: cuerpo completo, rostro, cabello y torso real.
-- `LeonidasHelmet`: casco y penacho, sin partes del rostro.
-- `LeonidasChest`: pechera y correas, sin piel ni anatomía.
+- `primary`: tela interior y base del faldón.
+- `secondary`: paneles de cuero, correas y ribetes.
+- `metal`: casco, pechera, grebas, brazales y broches.
+- `original`: piel y anatomÃ­a; nunca recibe la paleta.
 
-Los nombres alternativos aceptados están en
-`leonidas-modular-manifest.json`. Es preferible agregar en `extras` de cada nodo
-la propiedad `leonidasPart` con `body`, `helmet` o `chest`.
+Los materiales de vestuario conservan la geometrÃ­a, las normales y el sombreado
+3D, pero reciben un color sÃ³lido independiente. AsÃ­ no existen pÃ­xeles
+compartidos capaces de pintar piel, rostro u otra prenda.
 
-Para recolorear un modelo modular sin contaminar la piel, cada material editable
-debe declarar en sus `extras` la propiedad `leonidasPalette` con uno de estos
-valores:
+La cabeza anatÃ³mica permanece activa debajo del casco. Las aberturas del casco
+muestran esa piel real; el material metÃ¡lico solo pertenece a la carcasa.
 
-- `primary`: faldón y telas principales.
-- `secondary`: cuero, correas y ribetes.
-- `metal`: casco, grebas, broches y otras piezas metálicas.
+## Reconstrucción y validación
 
-Las texturas de esos materiales deben tener base blanca o neutra para que el
-color elegido se multiplique conservando relieve y detalle. La piel no debe
-declarar `leonidasPalette`.
+`scripts/construir_leonidas_modular.py` reconstruye el GLB con Blender a partir
+de los activos locales. Antes de habilitar una nueva exportación:
 
-Flujo de activación:
+1. Ejecutar `node scripts/validar_leonidas_modular.mjs`.
+2. Revisar las cinco paletas.
+3. Revisar las combinaciones de casco, pechera y cabello, incluida la opción
+   completamente calva.
+4. Confirmar pose, animación, rostro, uniones de hombros y cintura.
 
-1. Exportar el GLB en metros, mirando al frente, con los pies en Y=0.
-2. Copiarlo como `leonidas-spartan-modular-v2.glb` en esta carpeta.
-3. Ejecutar `node scripts/validar_leonidas_modular.mjs`.
-4. Revisar visualmente rostro, pose, animaciones, casco, pechera y las cinco
-   paletas.
-5. Cambiar `enabled` a `true` en `leonidas-modular-manifest.json`.
-
-No debe activarse un modelo construido por superposición de personajes
-distintos: aunque tape los huecos, cambia el rostro, la anatomía y la pose.
+El archivo actual pasó la validación estructural y esas revisiones visuales.

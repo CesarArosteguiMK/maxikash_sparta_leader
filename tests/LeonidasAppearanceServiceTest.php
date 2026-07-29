@@ -40,17 +40,22 @@ $custom = LeonidasAppearanceService::normalizarSolicitud([
 ]);
 appearanceAssert($custom['color_principal'] === '#123ABC', 'Los colores personalizados deben normalizarse.');
 appearanceAssert(
-    $custom['casco_visible'] === true && $custom['pechera_visible'] === true,
-    'La armadura debe permanecer visible por defecto.'
+    $custom['casco_visible'] === true
+        && $custom['pechera_visible'] === true
+        && $custom['cabello_visible'] === true,
+    'La armadura y el cabello deben permanecer visibles por defecto.'
 );
 
 $withoutHelmet = LeonidasAppearanceService::normalizarSolicitud([
     'tema' => 'clasico',
     'casco_visible' => false,
     'pechera_visible' => true,
+    'cabello_visible' => false,
 ]);
 appearanceAssert(
-    $withoutHelmet['casco_visible'] === false && $withoutHelmet['pechera_visible'] === true,
+    $withoutHelmet['casco_visible'] === false
+        && $withoutHelmet['pechera_visible'] === true
+        && $withoutHelmet['cabello_visible'] === false,
     'La visibilidad de piezas modulares debe conservarse junto con un tema.'
 );
 
