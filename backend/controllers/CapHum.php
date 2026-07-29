@@ -10178,11 +10178,70 @@ class CapHum extends Controller
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar el avance.']);
             return;
         }
-        self::respuestaJSON(CapHumNotificacionDocumental::personasCampania(
-            (int)($_GET['id'] ?? 0),
+        $idCampania = (int)($_GET['id'] ?? 0);
+        $resultado = CapHumNotificacionDocumental::personasCampania(
+            $idCampania,
             (string)($_GET['estado'] ?? 'todos'),
             (string)($_GET['buscar'] ?? '')
-        ));
+        );
+        foreach (($resultado['datos'] ?? []) as $persona) {
+            if (($persona['estado_analisis_patrones'] ?? '') === 'pendiente') {
+                $this->iniciarWorkerPatronesNotificacionDocumental($idCampania);
+                break;
+            }
+        }
+        self::respuestaJSON($resultado);
+    }
+
+    public function reintentarAnalisisPatronesNotificacionDocumental()
+    {
+        if (!self::puedeAdministrarNotificacionesDocumentales()) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para reintentar esta lectura.']);
+            return;
+        }
+        $resultado = CapHumNotificacionDocumental::reiniciarAnalisisPatronesDocumento(
+            (int)($_POST['id_documento'] ?? 0)
+        );
+        if (!empty($resultado['success'])) {
+            $this->iniciarWorkerPatronesNotificacionDocumental(
+                (int)($resultado['datos']['id_campania'] ?? 0)
+            );
+        }
+        self::respuestaJSON($resultado);
+    }
+
+    private function iniciarWorkerPatronesNotificacionDocumental(int $idCampania): void
+    {
+        if ($idCampania <= 0 || !defined('RAIZ')) {
+            return;
+        }
+        $script = RAIZ . '/cronjobs/procesar_patrones_notificacion_documental.php';
+        if (!is_file($script)) {
+            return;
+        }
+        $php = PHP_BINARY;
+        if (PHP_OS_FAMILY === 'Windows') {
+            $candidato = rtrim((string)PHP_BINDIR, '\\/') . DIRECTORY_SEPARATOR . 'php.exe';
+            if (is_file($candidato)) {
+                $php = $candidato;
+            }
+            $comando = 'cmd.exe /c start "" /B '
+                . escapeshellarg($php) . ' '
+                . escapeshellarg($script) . ' '
+                . $idCampania
+                . ' >NUL 2>&1';
+            $proceso = @popen($comando, 'r');
+            if (is_resource($proceso)) {
+                @pclose($proceso);
+            }
+            return;
+        }
+        $comando = escapeshellarg($php) . ' '
+            . escapeshellarg($script) . ' '
+            . $idCampania
+            . ' >/dev/null 2>&1 &';
+        @exec($comando);
     }
 
     /**
@@ -10256,10 +10315,13 @@ class CapHum extends Controller
                 $nombreFinal,
                 $nombreOriginal,
                 $tamanio,
-                $sha256
+                $sha256,
+                null
             );
             if (empty($resultado['success']) || !empty($resultado['datos']['ya_entregado'])) {
                 @unlink($rutaFinal);
+            } elseif ((string)($pendiente['datos']['tipo'] ?? '') === CapHumNotificacionDocumental::TIPO_SEMANAS_COTIZADAS) {
+                $this->iniciarWorkerPatronesNotificacionDocumental($idCampania);
             }
             self::respuestaJSON($resultado);
         } catch (\Throwable $e) {
@@ -30394,6 +30456,7 @@ public function getEstadosMunicipiosMexico()
 
         // 1) Si hay puesto seleccionado: jefes por nivel (mismo departamento, nivel superior)
         if ($idPuesto) {
+            $datos = [];
             $porPuesto = CapHumDAO::getConsultaGestoresPorPuesto($idPuesto, $idArea);
             if ($porPuesto['success'] && !empty($porPuesto['datos'])) {
                 $datos = array_map(function ($row) {
@@ -30405,7 +30468,25 @@ public function getEstadosMunicipiosMexico()
                         'departamento' => $row['departamento'] ?? '',
                     ];
                 }, $porPuesto['datos']);
-                $datos = $deduplicarPorPersona($datos);
+            }
+
+            // El Director de la misma dirección puede ser jefe de cualquier
+            // área/departamento bajo esa dirección (por ejemplo, toda TI).
+            $directoresDireccion = CapHumDAO::getDirectoresDireccionPorPuesto((int) $idPuesto);
+            if ($directoresDireccion['success'] && !empty($directoresDireccion['datos'])) {
+                $datos = array_merge($datos, array_map(function ($row) {
+                    return [
+                        'id' => $row['id'],
+                        'nombre_completo' => $row['nombre_completo'] ?? '',
+                        'nombre_puesto' => $row['puesto'] ?? $row['nombre_puesto'] ?? '',
+                        'area' => $row['area'] ?? '',
+                        'departamento' => $row['departamento'] ?? '',
+                    ];
+                }, $directoresDireccion['datos']));
+            }
+
+            $datos = $deduplicarPorPersona($datos);
+            if (!empty($datos)) {
                 $datos = $agregarVacantesJefe($datos);
                 self::respuestaJSON(['success' => true, 'mensaje' => 'Jefes encontrados.', 'datos' => $datos]);
                 return;

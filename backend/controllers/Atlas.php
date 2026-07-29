@@ -1001,15 +1001,26 @@ class Atlas extends Controller
             $datos = $response['datos'];
             $filas = is_array($datos['filas'] ?? null) ? $datos['filas'] : [];
             $filtroEvidencias = trim((string)($_GET['evidencias'] ?? ''));
+            $filtroRutas = trim((string)($_GET['rutas'] ?? ''));
+            $filtrosLocalesAplicados = false;
             if (in_array($filtroEvidencias, ['con', 'sin', 'incompletas'], true)) {
                 $filas = $this->filtrarAsistenciasPorEvidencias($filas, $filtroEvidencias);
+                $filtrosLocalesAplicados = true;
+            } else {
+                $filtroEvidencias = '';
+            }
+            if (in_array($filtroRutas, ['con', 'sin'], true)) {
+                $filas = $this->filtrarAsistenciasPorRutas($filas, $filtroRutas);
+                $filtrosLocalesAplicados = true;
+            } else {
+                $filtroRutas = '';
+            }
+            if ($filtrosLocalesAplicados) {
                 $datos['filas'] = $filas;
                 $datos['resumen'] = $this->resumenAsistenciasFiltradas(
                     $filas,
                     is_array($datos['resumen'] ?? null) ? $datos['resumen'] : []
                 );
-            } else {
-                $filtroEvidencias = '';
             }
             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
@@ -1148,6 +1159,7 @@ class Atlas extends Controller
                 ['Fecha fin', $periodo['fecha_fin'] ?? ''],
                 ['Generado', $datos['generado_at'] ?? ''],
                 ['Filtro de evidencias', $this->etiquetaFiltroEvidencias($filtroEvidencias)],
+                ['Filtro de rutas', $this->etiquetaFiltroRutas($filtroRutas)],
                 ['Perímetro permitido (m)', $datos['perimetro_metros'] ?? ''],
                 ['Total de visitas', $resumen['total_visitas'] ?? 0],
                 ['Cumplidas', $resumen['cumplidas'] ?? 0],
@@ -1319,6 +1331,16 @@ class Atlas extends Controller
         ));
     }
 
+    private function filtrarAsistenciasPorRutas(array $filas, string $filtro): array
+    {
+        return array_values(array_filter(
+            $filas,
+            function ($fila) use ($filtro): bool {
+                return is_array($fila) && $this->estadoRutasAsistencia($fila) === $filtro;
+            }
+        ));
+    }
+
     private function estadoEvidenciasAsistencia(array $fila): string
     {
         $evidencias = is_array($fila['evidencias'] ?? null) ? $fila['evidencias'] : [];
@@ -1342,6 +1364,22 @@ class Atlas extends Controller
         }
 
         return 'con';
+    }
+
+    private function estadoRutasAsistencia(array $fila): string
+    {
+        if (is_array($fila['rutas'] ?? null)) {
+            return $fila['rutas'] !== [] ? 'con' : 'sin';
+        }
+
+        foreach (['total_rutas', 'rutas_total', 'rutas_generadas'] as $campo) {
+            if (array_key_exists($campo, $fila) && trim((string)$fila[$campo]) !== '') {
+                return (int)$fila[$campo] > 0 ? 'con' : 'sin';
+            }
+        }
+
+        $rutaSucursal = trim((string)($fila['ruta_sucursal_id'] ?? ''));
+        return $rutaSucursal !== '' && $rutaSucursal !== '0' ? 'con' : 'sin';
     }
 
     private function resumenAsistenciasFiltradas(array $filas, array $resumenOriginal): array
@@ -1414,6 +1452,14 @@ class Atlas extends Controller
             'con' => 'Con evidencias',
             'sin' => 'Sin evidencias',
             'incompletas' => 'Incompletas',
+        ][$filtro] ?? 'Todas';
+    }
+
+    private function etiquetaFiltroRutas(string $filtro): string
+    {
+        return [
+            'con' => 'Con rutas',
+            'sin' => 'Sin rutas',
         ][$filtro] ?? 'Todas';
     }
 

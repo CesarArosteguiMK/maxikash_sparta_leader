@@ -61,6 +61,11 @@ class CapHumNotificacionDocumental extends Model
                 archivo VARCHAR(255) NOT NULL,
                 tamanio_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
                 sha256 CHAR(64) NOT NULL,
+                patrones_vigentes TINYINT UNSIGNED NULL,
+                patrones_historial SMALLINT UNSIGNED NULL,
+                patrones_fuente VARCHAR(50) NULL,
+                patrones_analisis_json LONGTEXT NULL,
+                patrones_analizado_en DATETIME NULL,
                 cargado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (id),
                 UNIQUE KEY uq_rrhh_notif_entrega_persona (id_campania, id_persona),
@@ -69,6 +74,29 @@ class CapHumNotificacionDocumental extends Model
                 KEY idx_rrhh_notif_entrega_campania (id_campania, cargado_en)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
+        $columnasAnalisis = [
+            'patrones_vigentes' => 'TINYINT UNSIGNED NULL AFTER sha256',
+            'patrones_historial' => 'SMALLINT UNSIGNED NULL AFTER patrones_vigentes',
+            'patrones_fuente' => 'VARCHAR(50) NULL AFTER patrones_historial',
+            'patrones_analisis_json' => 'LONGTEXT NULL AFTER patrones_fuente',
+            'patrones_analizado_en' => 'DATETIME NULL AFTER patrones_analisis_json',
+        ];
+        foreach ($columnasAnalisis as $columna => $definicion) {
+            $existe = $db->queryOne("
+                SELECT 1
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = 'estado_cuenta'
+                  AND TABLE_NAME = 'rrhh_notificacion_documental_entrega'
+                  AND COLUMN_NAME = :columna
+                LIMIT 1
+            ", ['columna' => $columna]);
+            if (!$existe) {
+                $db->CRUD("
+                    ALTER TABLE estado_cuenta.rrhh_notificacion_documental_entrega
+                    ADD COLUMN {$columna} {$definicion}
+                ");
+            }
+        }
         $columnaAlcance = $db->queryOne("
             SELECT 1
             FROM information_schema.COLUMNS
@@ -609,6 +637,15 @@ class CapHumNotificacionDocumental extends Model
                     e.nombre_logico,
                     e.nombre_original,
                     e.archivo,
+                    e.patrones_vigentes,
+                    e.patrones_historial,
+                    e.patrones_fuente,
+                    CASE
+                        WHEN e.id IS NULL THEN NULL
+                        WHEN e.patrones_analizado_en IS NULL THEN 'pendiente'
+                        WHEN e.patrones_vigentes IS NULL THEN 'sin_lectura'
+                        ELSE 'analizado'
+                    END AS estado_analisis_patrones,
                     DATE_FORMAT(e.cargado_en, '%Y-%m-%d %H:%i') AS cargado_en
                 FROM estado_cuenta.rrhh_notificacion_documental_campania c
                 INNER JOIN estado_cuenta.persona p ON 1 = 1
@@ -746,7 +783,8 @@ class CapHumNotificacionDocumental extends Model
         string $archivo,
         string $nombreOriginal,
         int $tamanio,
-        string $sha256
+        string $sha256,
+        ?array $analisisPatrones = null
     ): array {
         try {
             self::asegurarTablas();
@@ -815,10 +853,14 @@ class CapHumNotificacionDocumental extends Model
                 $db->CRUD("
                     INSERT INTO estado_cuenta.rrhh_notificacion_documental_entrega
                         (id_campania, id_persona, id_documento_carga, nombre_logico,
-                         nombre_original, archivo, tamanio_bytes, sha256, cargado_en)
+                         nombre_original, archivo, tamanio_bytes, sha256,
+                         patrones_vigentes, patrones_historial, patrones_fuente,
+                         patrones_analisis_json, patrones_analizado_en, cargado_en)
                     VALUES
                         (:campania, :persona, :documento_carga, :nombre_logico,
-                         :nombre_original, :archivo, :tamanio, :sha256, NOW())
+                         :nombre_original, :archivo, :tamanio, :sha256,
+                         :patrones_vigentes, :patrones_historial, :patrones_fuente,
+                         :patrones_json, :patrones_analizado_en, NOW())
                 ", [
                     'campania' => $idCampania,
                     'persona' => $idPersona,
@@ -828,6 +870,19 @@ class CapHumNotificacionDocumental extends Model
                     'archivo' => $archivo,
                     'tamanio' => max(0, $tamanio),
                     'sha256' => strtolower($sha256),
+                    'patrones_vigentes' => isset($analisisPatrones['patrones_vigentes'])
+                        ? max(0, (int)$analisisPatrones['patrones_vigentes'])
+                        : null,
+                    'patrones_historial' => isset($analisisPatrones['patrones_historial'])
+                        ? max(0, (int)$analisisPatrones['patrones_historial'])
+                        : null,
+                    'patrones_fuente' => $analisisPatrones !== null
+                        ? mb_substr((string)($analisisPatrones['fuente_lectura'] ?? 'motor_v1_pdf_text_ocr'), 0, 50)
+                        : null,
+                    'patrones_json' => $analisisPatrones !== null
+                        ? json_encode($analisisPatrones, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                        : null,
+                    'patrones_analizado_en' => $analisisPatrones !== null ? date('Y-m-d H:i:s') : null,
                 ]);
                 $db->commit();
             } catch (\Throwable $e) {
@@ -845,5 +900,167 @@ class CapHumNotificacionDocumental extends Model
         } catch (\Throwable $e) {
             return self::resultado(false, 'No se pudo registrar la entrega documental.', null, $e->getMessage());
         }
+    }
+
+    public static function entregasPendientesAnalisisPatrones(int $idCampania, int $limite = 6): array
+    {
+        try {
+            self::asegurarTablas();
+            $limite = max(1, min(1000, $limite));
+            $db = new Database();
+            $rows = $db->queryAll("
+                SELECT e.id, e.archivo
+                FROM estado_cuenta.rrhh_notificacion_documental_entrega e
+                INNER JOIN estado_cuenta.rrhh_notificacion_documental_campania c
+                    ON c.id = e.id_campania
+                WHERE e.id_campania = :campania
+                  AND c.tipo = :tipo
+                  AND e.patrones_analizado_en IS NULL
+                ORDER BY e.id ASC
+                LIMIT {$limite}
+            ", [
+                'campania' => $idCampania,
+                'tipo' => self::TIPO_SEMANAS_COTIZADAS,
+            ]);
+            return self::resultado(true, 'Entregas pendientes encontradas.', $rows ?: []);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'No se pudieron consultar las lecturas pendientes.', [], $e->getMessage());
+        }
+    }
+
+    public static function guardarAnalisisPatronesEntrega(int $idEntrega, ?array $analisis): bool
+    {
+        self::asegurarTablas();
+        $db = new Database();
+        $vigentes = isset($analisis['patrones_vigentes'])
+            ? max(0, (int)$analisis['patrones_vigentes'])
+            : null;
+        $historial = isset($analisis['patrones_historial'])
+            ? max(0, (int)$analisis['patrones_historial'])
+            : null;
+        $fuente = $analisis !== null
+            ? mb_substr((string)($analisis['fuente_lectura'] ?? 'motor_v1_pdf_text_ocr'), 0, 50)
+            : 'motor_v1_sin_lectura';
+        $json = json_encode(
+            $analisis ?? [
+                'valido' => false,
+                'revision_manual' => true,
+                'mensaje' => 'No fue posible leer el PDF con el Motor V1.',
+            ],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+        $db->CRUD("
+            UPDATE estado_cuenta.rrhh_notificacion_documental_entrega
+            SET patrones_vigentes = :vigentes,
+                patrones_historial = :historial,
+                patrones_fuente = :fuente,
+                patrones_analisis_json = :analisis,
+                patrones_analizado_en = NOW()
+            WHERE id = :id
+            LIMIT 1
+        ", [
+            'vigentes' => $vigentes,
+            'historial' => $historial,
+            'fuente' => $fuente,
+            'analisis' => $json,
+            'id' => $idEntrega,
+        ]);
+        return true;
+    }
+
+    public static function reiniciarAnalisisPatronesDocumento(int $idDocumentoCarga): array
+    {
+        try {
+            self::asegurarTablas();
+            if ($idDocumentoCarga <= 0) {
+                return self::resultado(false, 'Documento no válido.');
+            }
+            $db = new Database();
+            $entrega = $db->queryOne("
+                SELECT e.id, e.id_campania
+                FROM estado_cuenta.rrhh_notificacion_documental_entrega e
+                INNER JOIN estado_cuenta.rrhh_notificacion_documental_campania c
+                    ON c.id = e.id_campania
+                WHERE e.id_documento_carga = :documento
+                  AND c.tipo = :tipo
+                  AND e.patrones_analizado_en IS NOT NULL
+                  AND e.patrones_vigentes IS NULL
+                LIMIT 1
+            ", [
+                'documento' => $idDocumentoCarga,
+                'tipo' => self::TIPO_SEMANAS_COTIZADAS,
+            ]);
+            if (!$entrega) {
+                return self::resultado(false, 'Esta entrega no requiere un reintento de lectura.');
+            }
+            $db->CRUD("
+                UPDATE estado_cuenta.rrhh_notificacion_documental_entrega
+                SET patrones_vigentes = NULL,
+                    patrones_historial = NULL,
+                    patrones_fuente = NULL,
+                    patrones_analisis_json = NULL,
+                    patrones_analizado_en = NULL
+                WHERE id = :id
+                LIMIT 1
+            ", ['id' => (int)$entrega['id']]);
+            return self::resultado(true, 'El PDF fue enviado nuevamente al Motor V1.', [
+                'id_campania' => (int)$entrega['id_campania'],
+            ]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'No se pudo reiniciar la lectura del documento.', null, $e->getMessage());
+        }
+    }
+
+    public static function analizarArchivoPatronesMotorV1(string $rutaPdf): ?array
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile) || !is_file($rutaPdf)) {
+            return null;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrl = trim((string)($config['doc_verificacion']['api_url'] ?? ''));
+        $apiKey = trim((string)($config['doc_verificacion']['api_key'] ?? ''));
+        if ($apiUrl === '' || $apiKey === '') {
+            return null;
+        }
+        $baseUrl = preg_replace('#/verificar/?\s*$#', '', $apiUrl);
+        $url = rtrim((string)$baseUrl, '/') . '/analizar-semanas-cotizadas';
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => [
+                'documento' => new \CURLFile($rutaPdf, 'application/pdf', basename($rutaPdf)),
+            ],
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_CONNECTTIMEOUT => 3,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        if ($body === false || $httpCode !== 200) {
+            return null;
+        }
+        $data = json_decode((string)$body, true);
+        return is_array($data) ? $data : null;
+    }
+
+    public static function contarEntregasPendientesAnalisisPatrones(int $idCampania): int
+    {
+        self::asegurarTablas();
+        $db = new Database();
+        $row = $db->queryOne("
+            SELECT COUNT(*) AS total
+            FROM estado_cuenta.rrhh_notificacion_documental_entrega e
+            INNER JOIN estado_cuenta.rrhh_notificacion_documental_campania c
+                ON c.id = e.id_campania
+            WHERE e.id_campania = :campania
+              AND c.tipo = :tipo
+              AND e.patrones_analizado_en IS NULL
+        ", [
+            'campania' => $idCampania,
+            'tipo' => self::TIPO_SEMANAS_COTIZADAS,
+        ]);
+        return (int)($row['total'] ?? 0);
     }
 }
