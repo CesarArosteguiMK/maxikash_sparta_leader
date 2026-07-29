@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>QA colores Leonidas</title>
+    <style>
+        html, body { margin: 0; min-height: 100%; background: #dfe6ef; font-family: Arial, sans-serif; }
+        #leonidasAssistant { width: 100vw; height: 100vh; }
+        [data-leonidas-canvas] { display: block; width: 100%; height: 100%; }
+        nav { position: fixed; z-index: 3; top: 12px; left: 12px; display: flex; gap: 8px; }
+        button { padding: 9px 14px; }
+    </style>
+</head>
+<body>
+<div id="leonidasAssistant">
+    <canvas data-leonidas-canvas></canvas>
+</div>
+<nav>
+    <button data-theme="corporativo">Corporativo</button>
+    <button data-theme="clasico">Clásico</button>
+    <button data-theme="nocturno">Nocturno</button>
+    <button data-theme="dorado">Dorado</button>
+    <button data-theme="bosque">Bosque</button>
+</nav>
+<script>
+    const palettes = {
+        corporativo: ['#0048B7', '#D2D854', '#D7E0EA'],
+        clasico: ['#A91E2C', '#6F4328', '#D8B37B'],
+        nocturno: ['#111827', '#4E68D8', '#AEBBC8'],
+        dorado: ['#70430D', '#EAB308', '#F5D57A'],
+        bosque: ['#14532D', '#8A5A24', '#C0A46B']
+    };
+    document.querySelectorAll('[data-theme]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const id = button.dataset.theme;
+            const colors = palettes[id];
+            document.getElementById('leonidasAssistant').dispatchEvent(
+                new CustomEvent('leonidas:appearance', {
+                    detail: {
+                        id,
+                        color_principal: colors[0],
+                        color_secundario: colors[1],
+                        color_metal: colors[2],
+                        casco_visible: true,
+                        pechera_visible: true
+                    }
+                })
+            );
+        });
+    });
+</script>
+<script type="module" src="/assets/js/leonidas-3d.js"></script>
+</body>
+</html>

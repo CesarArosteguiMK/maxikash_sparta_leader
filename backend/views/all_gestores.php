@@ -17251,6 +17251,11 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       const seleccionado = seleccionadoForzado || selectJefe.value || '';
       if (seleccionado && Array.from(selectJefe.options).some(option => String(option.value) === String(seleccionado))) {
         selectJefe.value = seleccionado;
+      } else if (seleccionadoForzado) {
+        // Una relación vigente puede cruzar departamentos. Mantenerla visible
+        // evita borrar o bloquear jerarquías existentes al editar otros datos.
+        ensureSelectOptionRrhh('rrhh_jefe_id', seleccionadoForzado, etiquetaSeleccionado || 'Jefe directo actual');
+        setSelectValue('rrhh_jefe_id', seleccionadoForzado);
       }
       selectJefe.disabled = opciones.length === 0;
       setRrhhHiddenText('rrhh_jefe_id', 'rrhh_jefe_directo_texto');
