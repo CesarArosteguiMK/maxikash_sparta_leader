@@ -3,6 +3,7 @@
 namespace controllers;
 
 use Core\Controller;
+use Core\Database;
 use Models\Atlas as AtlasDAO;
 
 class Atlas extends Controller
@@ -126,6 +127,61 @@ class Atlas extends Controller
             'GET',
             '/api/atlas/admin/expedientes/' . $creditoId
         ));
+    }
+
+    public function verEvidenciaExpediente()
+    {
+        $this->validarAccesoExpedientes(true);
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        $creditoId = (int)($_GET['credito_id'] ?? 0);
+        $evidenciaId = (int)($_GET['id'] ?? 0);
+        if ($creditoId <= 0 || $evidenciaId <= 0) {
+            http_response_code(400);
+            header('Content-Type: text/plain; charset=utf-8');
+            header('Cache-Control: no-store');
+            echo 'Identificadores de expediente o evidencia invalidos.';
+            exit;
+        }
+
+        $response = $this->atlasAdminApiBinaryRequest(
+            '/api/atlas/admin/expedientes/' . $creditoId
+            . '/evidencias/' . $evidenciaId
+            . '/contenido'
+        );
+        if (empty($response['success'])) {
+            $status = (int)($response['status'] ?? 502);
+            if ($status < 400 || $status > 599) {
+                $status = 502;
+            }
+            http_response_code($status);
+            header('Content-Type: text/plain; charset=utf-8');
+            header('Cache-Control: no-store');
+            echo $status === 404
+                ? 'La evidencia solicitada no esta disponible.'
+                : 'No se pudo cargar la evidencia del expediente.';
+            exit;
+        }
+
+        $content = (string)($response['contenido'] ?? '');
+        $contentType = str_replace(
+            ["\r", "\n"],
+            '',
+            (string)($response['content_type'] ?? 'application/octet-stream')
+        );
+        if ($contentType === '') {
+            $contentType = 'application/octet-stream';
+        }
+        header('Content-Type: ' . $contentType);
+        header('Content-Disposition: inline; filename="evidencia-expediente-' . $evidenciaId . '"');
+        header('Content-Length: ' . strlen($content));
+        header('Cache-Control: private, no-store, max-age=0');
+        header('Pragma: no-cache');
+        header('X-Content-Type-Options: nosniff');
+        echo $content;
+        exit;
     }
 
     public function registrarMovimientoExpediente()
@@ -824,12 +880,34 @@ class Atlas extends Controller
 
     public function getReporteAsistencias()
     {
-        $this->json($this->atlasAdminApiRequest(
+        $this->json($this->reporteAsistenciasApiResponse(
+            $this->reporteAsistenciasQuery()
+        ));
+    }
+
+    public function getRutasUsuarioSpartan()
+    {
+        $this->json($this->rutasUsuarioSpartanApiResponse(
+            $this->rutasUsuarioSpartanQuery()
+        ));
+    }
+
+    private function reporteAsistenciasApiResponse(array $query): array
+    {
+        $response = $this->atlasAdminApiRequest(
             'GET',
             '/api/atlas/admin/reportes/asistencias',
             null,
-            $this->reporteAsistenciasQuery()
-        ));
+            $query
+        );
+        if (!empty($response['success']) && is_array($response['datos'] ?? null)) {
+            $response['datos'] = $this->normalizarReporteAsistencias((array)$response['datos']);
+        } elseif (empty($response['success'])) {
+            $response['mensaje'] = 'No pudimos cargar el reporte en este momento. Intenta de nuevo mas tarde o avisanos para revisarlo.';
+            unset($response['error']);
+        }
+
+        return $response;
     }
 
     public function verEvidenciaAsistencia()
@@ -875,12 +953,7 @@ class Atlas extends Controller
 
         $tmp = null;
         try {
-            $response = $this->atlasAdminApiRequest(
-                'GET',
-                '/api/atlas/admin/reportes/asistencias',
-                null,
-                $this->reporteAsistenciasQuery()
-            );
+            $response = $this->reporteAsistenciasApiResponse($this->reporteAsistenciasQuery());
             if (empty($response['success']) || !is_array($response['datos'] ?? null)) {
                 throw new \RuntimeException((string)($response['mensaje'] ?? 'No se pudo consultar el reporte.'));
             }
@@ -915,6 +988,8 @@ class Atlas extends Controller
                 ['Divisional', 'divisional'],
                 ['Nombre de la agencia', 'agencia'],
                 ['Nombre del distribuidor', 'distribuidor'],
+                ['Visitas de la agencia en el periodo', 'visitas_agencia_total'],
+                ['Horas de visitas de la agencia', 'visitas_agencia_horarios'],
                 ['Estatus de la visita', 'estatus_visita'],
                 ['Dentro del perímetro', 'dentro_perimetro'],
                 ['Distancia al punto (m)', 'distancia_metros'],
@@ -938,6 +1013,17 @@ class Atlas extends Controller
                 foreach ($columns as $index => $column) {
                     $key = $column[1];
                     $value = $fila[$key] ?? '';
+                    if ($key === 'visitas_agencia_horarios' && is_array($value)) {
+                        $value = implode(' | ', array_values(array_filter(array_map(
+                            static function ($visita): string {
+                                if (!is_array($visita)) {
+                                    return trim((string)$visita);
+                                }
+                                return trim((string)($visita['etiqueta'] ?? ''));
+                            },
+                            $value
+                        ))));
+                    }
                     if ($key === 'gestiones_detalle' && is_array($value)) {
                         $detalleGestiones = [];
                         foreach ($value as $gestionDetalle) {
@@ -963,7 +1049,7 @@ class Atlas extends Controller
                         }
                         $value = implode(' | ', $detalleEvidencias);
                     }
-                    if (in_array($key, ['distancia_metros', 'latitud', 'longitud', 'total_evidencias', 'gestiones_realizadas', 'pendientes_por_gestionar'], true)
+                    if (in_array($key, ['distancia_metros', 'latitud', 'longitud', 'visitas_agencia_total', 'total_evidencias', 'gestiones_realizadas', 'pendientes_por_gestionar'], true)
                         && $value !== null
                         && $value !== '') {
                         $sheet->setCellValue($this->excelCell($index + 1, $rowNumber), (float)$value);
@@ -989,22 +1075,24 @@ class Atlas extends Controller
                 ->getBorders()->getAllBorders()
                 ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
                 ->getColor()->setRGB('D9E2EC');
-            $sheet->getStyle('S2:V' . $lastRow)->getAlignment()->setWrapText(true);
-            $sheet->getStyle('X2:X' . $lastRow)->getAlignment()->setWrapText(true);
-            $sheet->getStyle('O2:O' . $lastRow)->getNumberFormat()->setFormatCode('0');
-            $sheet->getStyle('Q2:R' . $lastRow)->getNumberFormat()->setFormatCode('0.0000000');
-            $sheet->getStyle('T2:T' . $lastRow)->getNumberFormat()->setFormatCode('0');
-            $sheet->getStyle('W2:W' . $lastRow)->getNumberFormat()->setFormatCode('0');
+            $sheet->getStyle('N2:N' . $lastRow)->getAlignment()->setWrapText(true);
+            $sheet->getStyle('U2:X' . $lastRow)->getAlignment()->setWrapText(true);
+            $sheet->getStyle('Z2:Z' . $lastRow)->getAlignment()->setWrapText(true);
+            $sheet->getStyle('M2:M' . $lastRow)->getNumberFormat()->setFormatCode('0');
+            $sheet->getStyle('Q2:Q' . $lastRow)->getNumberFormat()->setFormatCode('0');
+            $sheet->getStyle('S2:T' . $lastRow)->getNumberFormat()->setFormatCode('0.0000000');
+            $sheet->getStyle('V2:V' . $lastRow)->getNumberFormat()->setFormatCode('0');
             $sheet->getStyle('Y2:Y' . $lastRow)->getNumberFormat()->setFormatCode('0');
+            $sheet->getStyle('AA2:AA' . $lastRow)->getNumberFormat()->setFormatCode('0');
             $sheet->freezePane('A2');
             $sheet->setAutoFilter('A1:' . $lastCell);
 
             $widths = [
                 'A' => 12, 'B' => 16, 'C' => 15, 'D' => 25, 'E' => 14, 'F' => 24,
                 'G' => 28, 'H' => 22, 'I' => 18, 'J' => 22, 'K' => 32, 'L' => 30,
-                'M' => 22, 'N' => 20, 'O' => 21, 'P' => 22, 'Q' => 15, 'R' => 15,
-                'S' => 34, 'T' => 18, 'U' => 46, 'V' => 46, 'W' => 24, 'X' => 44,
-                'Y' => 28,
+                'M' => 24, 'N' => 48, 'O' => 22, 'P' => 20, 'Q' => 21, 'R' => 22,
+                'S' => 15, 'T' => 15, 'U' => 34, 'V' => 18, 'W' => 46, 'X' => 46,
+                'Y' => 24, 'Z' => 44, 'AA' => 28,
             ];
             foreach ($widths as $column => $width) {
                 $sheet->getColumnDimension($column)->setWidth($width);
@@ -1035,8 +1123,9 @@ class Atlas extends Controller
                 $summarySheet->setCellValue('B' . ($index + 1), $summaryRow[1]);
             }
             $summarySheet->getStyle('A1:A' . count($summaryRows))->getFont()->setBold(true);
+            $summarySheet->getStyle('B1:B' . count($summaryRows))->getAlignment()->setWrapText(true);
             $summarySheet->getColumnDimension('A')->setWidth(30);
-            $summarySheet->getColumnDimension('B')->setWidth(28);
+            $summarySheet->getColumnDimension('B')->setWidth(70);
             $spreadsheet->setActiveSheetIndex(0);
 
             $start = preg_replace('/[^0-9-]/', '', (string)($periodo['fecha_inicio'] ?? date('Y-m-d')));
@@ -1071,6 +1160,115 @@ class Atlas extends Controller
         }
     }
 
+    private function normalizarReporteAsistencias(array $datos): array
+    {
+        unset($datos['contratos_faltantes']);
+        $filas = is_array($datos['filas'] ?? null) ? $datos['filas'] : [];
+        if (!is_array($datos['filas'] ?? null)) {
+            $datos['filas'] = [];
+            return $datos;
+        }
+
+        $sinClaveSucursal = 0;
+        $grupos = [];
+        foreach ($filas as $index => $fila) {
+            if (!is_array($fila) || ($fila['es_visita'] ?? true) === false) {
+                continue;
+            }
+            $clave = $this->claveAgenciaAsistencia($fila, (int)$index, $sinClaveSucursal);
+            $hora = $this->etiquetaHoraVisitaAgencia($fila);
+            $grupos[$clave][] = $hora;
+        }
+
+        foreach ($grupos as &$visitas) {
+            usort($visitas, static function (array $a, array $b): int {
+                return strcmp((string)($a['orden'] ?? ''), (string)($b['orden'] ?? ''));
+            });
+        }
+        unset($visitas);
+
+        foreach ($filas as $index => &$fila) {
+            if (!is_array($fila)) {
+                continue;
+            }
+            $clave = $this->claveAgenciaAsistencia($fila, (int)$index);
+            $visitas = $grupos[$clave] ?? [];
+            $fila['visitas_agencia_total'] = count($visitas);
+            $fila['visitas_agencia_horarios'] = array_map(
+                static fn(array $visita): array => [
+                    'fecha' => $visita['fecha'] ?? '',
+                    'hora_inicio' => $visita['hora_inicio'] ?? '',
+                    'hora_fin' => $visita['hora_fin'] ?? '',
+                    'etiqueta' => $visita['etiqueta'] ?? '',
+                    'hora_disponible' => !empty($visita['hora_disponible']),
+                ],
+                $visitas
+            );
+        }
+        unset($fila);
+
+        $datos['filas'] = $filas;
+        return $datos;
+    }
+
+    private function claveAgenciaAsistencia(array $fila, int $index, ?int &$sinClaveSucursal = null): string
+    {
+        foreach (['fk_sucursal', 'ruta_sucursal_id'] as $campo) {
+            $valor = trim((string)($fila[$campo] ?? ''));
+            if ($valor !== '') {
+                return $campo . ':' . $valor;
+            }
+        }
+
+        if ($sinClaveSucursal !== null) {
+            $sinClaveSucursal++;
+        }
+        $agencia = mb_strtolower(trim((string)($fila['agencia'] ?? '')), 'UTF-8');
+        $distribuidor = mb_strtolower(trim((string)($fila['distribuidor'] ?? '')), 'UTF-8');
+        $claveNombre = trim($agencia . '|' . $distribuidor, '|');
+        return $claveNombre !== '' ? 'agencia:' . $claveNombre : 'fila:' . $index;
+    }
+
+    private function etiquetaHoraVisitaAgencia(array $fila): array
+    {
+        $fecha = trim((string)($fila['fecha'] ?? ''));
+        $horaInicio = $this->primerCampoTexto($fila, ['hora_llegada', 'hora_confirmacion_llegada', 'hora_gestion']);
+        $horaFin = $this->primerCampoTexto($fila, ['hora_salida', 'hora_termino_visita']);
+        $partes = [];
+        if ($fecha !== '') {
+            $partes[] = $fecha;
+        }
+        if ($horaInicio !== '' && $horaFin !== '') {
+            $partes[] = $horaInicio . '-' . $horaFin;
+        } elseif ($horaInicio !== '') {
+            $partes[] = $horaInicio;
+        } elseif ($horaFin !== '') {
+            $partes[] = 'Salida ' . $horaFin;
+        } else {
+            $partes[] = 'Hora no disponible';
+        }
+
+        return [
+            'fecha' => $fecha,
+            'hora_inicio' => $horaInicio,
+            'hora_fin' => $horaFin,
+            'etiqueta' => implode(' ', $partes),
+            'hora_disponible' => $horaInicio !== '' || $horaFin !== '',
+            'orden' => trim($fecha . ' ' . $horaInicio . ' ' . $horaFin),
+        ];
+    }
+
+    private function primerCampoTexto(array $fila, array $campos): string
+    {
+        foreach ($campos as $campo) {
+            $valor = trim((string)($fila[$campo] ?? ''));
+            if ($valor !== '') {
+                return $valor;
+            }
+        }
+        return '';
+    }
+
     private function filtrarAsistenciasPorEvidencias(array $filas, string $filtro): array
     {
         return array_values(array_filter(
@@ -1088,14 +1286,11 @@ class Atlas extends Controller
             && $fila['total_evidencias'] !== null
             ? max(0, (int)$fila['total_evidencias'])
             : count($evidencias);
-        $tieneEvidencias = $totalDeclarado > 0
-            || $evidencias !== []
-            || trim((string)($fila['evidencia'] ?? '')) !== '';
-        if (!$tieneEvidencias) {
+        if ($totalDeclarado === 0 && $evidencias === []) {
             return 'sin';
         }
 
-        if ($totalDeclarado > count($evidencias)) {
+        if ($evidencias === [] || $totalDeclarado > count($evidencias)) {
             return 'incompletas';
         }
         foreach ($evidencias as $evidencia) {
@@ -1139,17 +1334,38 @@ class Atlas extends Controller
                 } elseif ($estatus === 'Programada') {
                     $resumen['programadas']++;
                 }
-                if (isset($fila['pendientes_por_gestionar'])) {
-                    $resumen['pendientes_por_gestionar'] += (int)$fila['pendientes_por_gestionar'];
-                }
             }
             if (strpos($estatus, 'Fuera de ubicaci') === 0) {
                 $resumen['fuera_ubicacion']++;
             }
             $resumen['gestiones_realizadas'] += (int)($fila['gestiones_realizadas'] ?? 0);
         }
+        $resumen['pendientes_por_gestionar'] = $this->totalPendientesAsistencias($filas);
 
         return $resumen;
+    }
+
+    private function totalPendientesAsistencias(array $filas): int
+    {
+        $pendientesPorSucursal = [];
+        foreach ($filas as $index => $fila) {
+            if (!is_array($fila) || ($fila['es_visita'] ?? true) === false) {
+                continue;
+            }
+            if (!array_key_exists('pendientes_por_gestionar', $fila)
+                || $fila['pendientes_por_gestionar'] === null) {
+                continue;
+            }
+
+            $sucursal = trim((string)($fila['fk_sucursal'] ?? $fila['ruta_sucursal_id'] ?? ''));
+            $clave = $sucursal !== '' ? $sucursal : 'fila:' . $index;
+            $pendientesPorSucursal[$clave] = max(
+                (int)($pendientesPorSucursal[$clave] ?? 0),
+                max(0, (int)$fila['pendientes_por_gestionar'])
+            );
+        }
+
+        return array_sum($pendientesPorSucursal);
     }
 
     private function etiquetaFiltroEvidencias(string $filtro): string
@@ -1177,6 +1393,161 @@ class Atlas extends Controller
             }
         }
         return $query;
+    }
+
+    private function rutasUsuarioSpartanQuery(): array
+    {
+        $personaId = (int)($_GET['gestor_persona_id'] ?? $_GET['persona_id'] ?? 0);
+        $externalId = trim((string)($_GET['external_id'] ?? ''));
+        $userId = trim((string)($_GET['user_id'] ?? ''));
+
+        if ($externalId === '' && $personaId > 0) {
+            $externalId = $this->numeroEmpleadoPersona($personaId);
+        }
+
+        if ($externalId === '' && $userId === '') {
+            $personaSesion = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id'] ?? 0);
+            if ($personaSesion > 0) {
+                $personaId = $personaSesion;
+                $externalId = $this->numeroEmpleadoPersona($personaSesion);
+            }
+        }
+
+        $query = [];
+        if ($externalId !== '') {
+            $query['external_id'] = $externalId;
+        } elseif ($userId !== '') {
+            $query['user_id'] = $userId;
+        }
+
+        foreach (['fecha_inicio', 'fecha_fin'] as $key) {
+            $value = trim((string)($_GET[$key] ?? ''));
+            if ($value !== '') {
+                $query[$key] = $value;
+            }
+        }
+
+        $limit = (int)($_GET['limit'] ?? 100);
+        $query['limit'] = max(1, min(100, $limit > 0 ? $limit : 100));
+
+        return [
+            'query' => $query,
+            'usuario' => [
+                'persona_id' => $personaId > 0 ? $personaId : null,
+                'external_id' => $externalId !== '' ? $externalId : null,
+                'user_id' => $userId !== '' ? $userId : null,
+            ],
+        ];
+    }
+
+    private function rutasUsuarioSpartanApiResponse(array $contexto): array
+    {
+        $query = is_array($contexto['query'] ?? null) ? $contexto['query'] : [];
+        if (empty($query['external_id']) && empty($query['user_id'])) {
+            return [
+                'success' => false,
+                'status' => 400,
+                'mensaje' => 'No pudimos identificar al usuario para consultar sus rutas.',
+                'datos' => [
+                    'rutas' => [],
+                    'total' => 0,
+                ],
+            ];
+        }
+
+        $response = $this->atlasAppApiRequest(
+            'GET',
+            '/api/atlas/gestor/rutas',
+            null,
+            $query
+        );
+
+        if (!empty($response['success'])) {
+            $normalizado = $this->normalizarRutasSpartan($response['datos'] ?? null);
+            $normalizado['usuario'] = is_array($contexto['usuario'] ?? null) ? $contexto['usuario'] : [];
+            $response['datos'] = $normalizado;
+            return $response;
+        }
+
+        $response['mensaje'] = 'No pudimos cargar las rutas de este usuario en este momento.';
+        $response['datos'] = [
+            'rutas' => [],
+            'total' => 0,
+        ];
+        unset($response['error']);
+        return $response;
+    }
+
+    private function normalizarRutasSpartan($datos): array
+    {
+        $rutas = $this->extraerListaApiComercial($datos, ['rutas', 'items', 'filas', 'registros', 'data']);
+        $rutas = array_values(array_filter($rutas, 'is_array'));
+        foreach ($rutas as &$ruta) {
+            $visitas = [];
+            foreach (['sucursales', 'visitas', 'detalle_visitas'] as $key) {
+                if (is_array($ruta[$key] ?? null)) {
+                    $visitas = $ruta[$key];
+                    break;
+                }
+            }
+            if (!array_key_exists('total_visitas', $ruta)) {
+                $ruta['total_visitas'] = count(array_filter($visitas, 'is_array'));
+            }
+        }
+        unset($ruta);
+
+        $total = is_array($datos) && isset($datos['total']) ? (int)$datos['total'] : count($rutas);
+        return [
+            'rutas' => $rutas,
+            'total' => $total,
+        ];
+    }
+
+    private function extraerListaApiComercial($datos, array $keys): array
+    {
+        if (!is_array($datos)) {
+            return [];
+        }
+        if ($this->esLista($datos)) {
+            return $datos;
+        }
+        foreach ($keys as $key) {
+            if (isset($datos[$key]) && is_array($datos[$key])) {
+                return $this->esLista($datos[$key])
+                    ? $datos[$key]
+                    : $this->extraerListaApiComercial($datos[$key], $keys);
+            }
+        }
+        return [];
+    }
+
+    private function esLista(array $items): bool
+    {
+        $expected = 0;
+        foreach ($items as $key => $_value) {
+            if ($key !== $expected) {
+                return false;
+            }
+            $expected++;
+        }
+        return true;
+    }
+
+    private function numeroEmpleadoPersona(int $personaId): string
+    {
+        if ($personaId <= 0) {
+            return '';
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT TRIM(COALESCE(numero_empleado, '')) AS numero_empleado FROM persona WHERE id = :id LIMIT 1",
+                ['id' => $personaId]
+            );
+            return trim((string)($row['numero_empleado'] ?? ''));
+        } catch (\Throwable $e) {
+            return '';
+        }
     }
 
     public function sucursalesAsignadas()
@@ -1799,6 +2170,127 @@ class Atlas extends Controller
         ];
     }
 
+    private function atlasAppApiRequest(string $method, string $path, ?array $body = null, array $query = []): array
+    {
+        $authorization = $this->atlasAppAuthorizationHeader();
+        $adminApiKey = $this->atlasAdminApiKey();
+        if ($authorization === '' && $adminApiKey === '') {
+            return [
+                'success' => false,
+                'status' => 500,
+                'mensaje' => 'No hay credenciales configuradas para consultar API-COMERCIAL.',
+            ];
+        }
+
+        $base = getenv('ATLAS_APP_API_BASE');
+        if ($base === false || trim($base) === '') {
+            $base = 'https://api-comercial-601258367060.us-central1.run.app';
+        }
+        $url = rtrim($base, '/') . $path;
+        if ($query) {
+            $url .= (strpos($url, '?') === false ? '?' : '&') . http_build_query($query);
+        }
+
+        $headers = [
+            'Content-Type: application/json',
+            'Accept: application/json',
+        ];
+        if ($authorization !== '') {
+            $headers[] = 'Authorization: ' . $authorization;
+        }
+        if ($adminApiKey !== '') {
+            $headers[] = 'X-API-Key: ' . $adminApiKey;
+        }
+
+        $method = strtoupper($method);
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_TIMEOUT => 35,
+            CURLOPT_CONNECTTIMEOUT => 10,
+        ]);
+        if ($method !== 'GET') {
+            curl_setopt(
+                $ch,
+                CURLOPT_POSTFIELDS,
+                json_encode($body ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            );
+        }
+
+        $raw = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($raw === false || $error !== '') {
+            return [
+                'success' => false,
+                'status' => 502,
+                'mensaje' => 'No se pudo conectar con API-COMERCIAL.',
+                'error' => $error,
+            ];
+        }
+
+        $decoded = json_decode((string)$raw, true);
+        $success = $httpCode >= 200 && $httpCode < 300 && is_array($decoded) && ($decoded['success'] ?? true);
+        $mensaje = is_array($decoded)
+            ? (string)($decoded['message'] ?? $decoded['mensaje'] ?? '')
+            : '';
+        if (!$success && is_array($decoded)) {
+            $detail = $decoded['detail'] ?? $decoded['error'] ?? '';
+            if (is_array($detail)) {
+                $detail = implode(' | ', array_filter(array_map(
+                    static fn($item) => is_array($item)
+                        ? (string)($item['msg'] ?? json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))
+                        : (string)$item,
+                    $detail
+                )));
+            }
+            if (trim((string)$detail) !== '') {
+                $mensaje = (string)$detail;
+            }
+        }
+        if ($mensaje === '') {
+            $mensaje = $success ? 'Operacion completada.' : 'API-COMERCIAL devolvio un error.';
+        }
+
+        return [
+            'success' => $success,
+            'status' => $httpCode,
+            'mensaje' => $mensaje,
+            'datos' => is_array($decoded) ? ($decoded['data'] ?? $decoded['datos'] ?? null) : null,
+        ];
+    }
+
+    private function atlasAppAuthorizationHeader(): string
+    {
+        $raw = getenv('ATLAS_APP_AUTHORIZATION');
+        if ($raw !== false && trim((string)$raw) !== '') {
+            return $this->sanitizarAuthorizationHeader((string)$raw);
+        }
+        $token = getenv('ATLAS_APP_BEARER_TOKEN');
+        if ($token !== false && trim((string)$token) !== '') {
+            return $this->sanitizarAuthorizationHeader('Bearer ' . trim((string)$token));
+        }
+
+        $header = (string)($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
+        if ($header === '' && function_exists('apache_request_headers')) {
+            $headers = apache_request_headers();
+            if (is_array($headers)) {
+                $header = (string)($headers['Authorization'] ?? $headers['authorization'] ?? '');
+            }
+        }
+        return $this->sanitizarAuthorizationHeader($header);
+    }
+
+    private function sanitizarAuthorizationHeader(string $header): string
+    {
+        $header = trim(str_replace(["\r", "\n"], '', $header));
+        return stripos($header, 'Bearer ') === 0 ? $header : '';
+    }
+
     private function atlasAdminApiBinaryRequest(string $path): array
     {
         $adminApiKey = $this->atlasAdminApiKey();
@@ -1895,6 +2387,7 @@ class Atlas extends Controller
             return;
         }
         if ($json) {
+            http_response_code(403);
             $this->json([
                 'success' => false,
                 'status' => 403,
