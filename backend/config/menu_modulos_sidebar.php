@@ -145,6 +145,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Distribuidores', 'url' => '/Atlas/distribuidores', 'modulos' => [133]],
                     ['label' => 'Clasificaciones', 'url' => '/Atlas/clasificaciones', 'modulos' => [133]],
                     ['label' => 'Créditos en operación', 'url' => '/Atlas/creditosOperacion', 'modulos' => [139]],
+                    ['label' => 'Expedientes', 'url' => '/Atlas/expedientes', 'modulos' => [139]],
                     ['label' => 'Catálogos Comerciales', 'url' => '/Atlas/catalogosComerciales', 'modulos' => [134]],
                     ['label' => 'Notificaciones App', 'url' => '/Atlas/notificacionesApp', 'modulos' => [136]],
                     ['label' => 'Catálogo de sucursales', 'url' => '/Atlas/catalogoSucursales', 'modulos' => [102]],
