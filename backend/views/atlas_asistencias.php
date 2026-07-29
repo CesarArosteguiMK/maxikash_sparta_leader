@@ -78,6 +78,11 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .atlas-evidence-route-name { color:#22303e; font-size:.8rem; font-weight:900; line-height:1.25; }
         .atlas-evidence-route-badge { display:inline-flex; align-items:center; border-radius:999px; padding:.17rem .5rem; background:#e0f2fe; color:#0369a1; font-size:.65rem; font-weight:900; white-space:nowrap; }
         .atlas-evidence-route-detail { margin-top:.25rem; color:#64748b; font-size:.7rem; font-weight:700; }
+        .atlas-evidence-route-actions { display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; margin-top:.55rem; }
+        .atlas-evidence-route-map-state { margin-top:.65rem; }
+        .atlas-evidence-route-map-media { width:100%; min-height:13rem; aspect-ratio:640/430; border:1px solid #dbe4ef; border-radius:.45rem; overflow:hidden; background:#e2e8f0; display:grid; place-items:center; }
+        .atlas-evidence-route-map-media img { width:100%; height:100%; object-fit:contain; display:block; }
+        .atlas-evidence-route-map-footer { margin-top:.45rem; display:flex; justify-content:flex-end; }
         .atlas-attendance-page .select2-container { width:100% !important; }
         .atlas-attendance-page .select2-container .select2-selection--single { min-height:2.35rem; display:flex; align-items:center; border-color:#d9dee3; }
         .atlas-attendance-page .select2-container--default .select2-selection--single .select2-selection__rendered { padding-left:.75rem; color:#566a7f; }
@@ -459,14 +464,68 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         return fallback;
     };
 
+    const routesMaintenanceMessage = 'El servicio de consulta de rutas de usuarios se encuentra en mantenimiento, en breves se desplegara y podras ver de nuevo las rutas';
+    const routeMapUrl = (routeId) => `/Atlas/verMapaRutaAsistencia?ruta_id=${encodeURIComponent(routeId)}`;
+
+    const loadRouteMapPreview = (button) => {
+        const routeId = String(button?.dataset?.atlasRouteMapId || '').trim();
+        const card = button?.closest('.atlas-evidence-route-item');
+        const state = card?.querySelector('[data-atlas-route-map-state]');
+        if (!routeId || !state || state.dataset.loaded === '1' || state.dataset.loading === '1') return;
+
+        const url = routeMapUrl(routeId);
+        const originalHtml = button.innerHTML;
+        state.dataset.loading = '1';
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Mapa';
+        state.innerHTML = `
+            <div class="atlas-evidence-route-map-media">
+                <span class="spinner-border spinner-border-sm text-primary"></span>
+            </div>`;
+
+        const img = new Image();
+        img.alt = 'Mapa de ruta';
+        img.loading = 'lazy';
+        img.addEventListener('load', () => {
+            state.dataset.loaded = '1';
+            delete state.dataset.loading;
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+
+            const media = document.createElement('div');
+            media.className = 'atlas-evidence-route-map-media';
+            media.replaceChildren(img);
+
+            const footer = document.createElement('div');
+            footer.className = 'atlas-evidence-route-map-footer';
+
+            const link = document.createElement('a');
+            link.className = 'btn btn-sm btn-outline-primary';
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Abrir mapa';
+            footer.appendChild(link);
+
+            state.replaceChildren(media, footer);
+        }, { once: true });
+        img.addEventListener('error', () => {
+            delete state.dataset.loading;
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+            state.innerHTML = `<div class="alert alert-info mb-0 py-2">${routesMaintenanceMessage}</div>`;
+        }, { once: true });
+        img.src = url;
+    };
+
     const renderSpartanRoutes = (routes) => {
         if (!Array.isArray(routes) || !routes.length) {
             routesState.innerHTML = '<div class="atlas-evidence-empty py-3">Sin rutas generadas para este usuario en el periodo filtrado.</div>';
             return;
         }
         routesState.innerHTML = `<div class="atlas-evidence-route-list">${routes.map((route) => {
-            const id = routeField(route, ['id', 'ruta_id']);
-            const name = routeField(route, ['nombre_ruta', 'nombre'], id ? `Ruta #${id}` : 'Ruta sin nombre');
+            const routeId = String(routeField(route, ['id', 'ruta_id'], '') || '').trim();
+            const name = routeField(route, ['nombre_ruta', 'nombre'], routeId ? `Ruta #${routeId}` : 'Ruta sin nombre');
             const status = routeField(route, ['estatus', 'estado'], 'Sin estatus');
             const start = routeField(route, ['fecha_inicio', 'fecha_ruta'], '');
             const end = routeField(route, ['fecha_fin'], start);
@@ -487,6 +546,12 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                     <span class="atlas-evidence-route-badge">${escapeHtml(status)}</span>
                 </div>
                 ${branchList ? `<div class="atlas-evidence-route-detail">${escapeHtml(branchList)}</div>` : ''}
+                ${routeId ? `<div class="atlas-evidence-route-actions">
+                    <button type="button" class="btn btn-sm btn-label-primary" data-atlas-route-map-id="${escapeHtml(routeId)}">
+                        <i class="fa-solid fa-map-location-dot me-1"></i>Ver mapa
+                    </button>
+                </div>
+                <div class="atlas-evidence-route-map-state" data-atlas-route-map-state></div>` : ''}
             </article>`;
         }).join('')}</div>`;
     };
@@ -510,7 +575,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             const data = payload.datos || {};
             renderSpartanRoutes(data.rutas || []);
         } catch (error) {
-            routesState.innerHTML = '<div class="alert alert-info mb-0 py-2">El servicio de consulta de rutas de usuarios se encuentra en mantenimiento, en breves se desplegara y podras ver de nuevo las rutas</div>';
+            routesState.innerHTML = `<div class="alert alert-info mb-0 py-2">${routesMaintenanceMessage}</div>`;
         }
     };
 
@@ -993,6 +1058,11 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             if (!button) return;
             const row = visibleRows[Number(button.dataset.atlasEvidenceRow)];
             if (row) showEvidenceModal(row);
+        });
+        routesState.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-atlas-route-map-id]');
+            if (!button) return;
+            loadRouteMapPreview(button);
         });
         evidenceModalElement.addEventListener('hidden.bs.modal', () => {
             evidenceGrid.querySelectorAll('video, audio').forEach((media) => {

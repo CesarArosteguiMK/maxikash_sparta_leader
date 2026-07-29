@@ -109,6 +109,7 @@ if (!function_exists('getRutasModulos')) {
         $rutas['atlas/getreporteasistencias'] = [132];
         $rutas['atlas/descargarreporteasistencias'] = [132];
         $rutas['atlas/verevidenciaasistencia'] = [132];
+        $rutas['atlas/vermaparutaasistencia'] = [132];
         $rutas['atlas/getrutasusuariospartan'] = [132];
         $rutas['atlas/creditosoperacion'] = [139];
         $rutas['atlas/expedientes'] = [139];

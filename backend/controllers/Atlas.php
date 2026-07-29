@@ -945,6 +945,46 @@ class Atlas extends Controller
         exit;
     }
 
+    public function verMapaRutaAsistencia()
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        $rutaId = (int)($_GET['ruta_id'] ?? $_GET['id'] ?? 0);
+        if ($rutaId <= 0) {
+            http_response_code(400);
+            header('Content-Type: text/plain; charset=utf-8');
+            header('Cache-Control: no-store');
+            echo 'Identificador de ruta invalido.';
+            exit;
+        }
+
+        $response = $this->atlasAdminApiBinaryRequest(
+            '/api/atlas/admin/reportes/asistencias/rutas/' . $rutaId . '/mapa-estatico'
+        );
+        if (empty($response['success'])) {
+            $status = (int)($response['status'] ?? 502);
+            if ($status < 400 || $status > 599) {
+                $status = 502;
+            }
+            http_response_code($status);
+            header('Content-Type: text/plain; charset=utf-8');
+            header('Cache-Control: no-store');
+            echo 'No se pudo cargar el mapa de la ruta.';
+            exit;
+        }
+
+        $content = (string)($response['contenido'] ?? '');
+        header('Content-Type: ' . (string)($response['content_type'] ?? 'image/png'));
+        header('Content-Disposition: inline; filename="ruta-asistencia-' . $rutaId . '-mapa"');
+        header('Content-Length: ' . strlen($content));
+        header('Cache-Control: private, max-age=300');
+        header('X-Content-Type-Options: nosniff');
+        echo $content;
+        exit;
+    }
+
     public function descargarReporteAsistencias()
     {
         while (ob_get_level()) {
