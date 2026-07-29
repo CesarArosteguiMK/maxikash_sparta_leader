@@ -10193,6 +10193,24 @@ class CapHum extends Controller
         self::respuestaJSON($resultado);
     }
 
+    public function reintentarAnalisisPatronesNotificacionDocumental()
+    {
+        if (!self::puedeAdministrarNotificacionesDocumentales()) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para reintentar esta lectura.']);
+            return;
+        }
+        $resultado = CapHumNotificacionDocumental::reiniciarAnalisisPatronesDocumento(
+            (int)($_POST['id_documento'] ?? 0)
+        );
+        if (!empty($resultado['success'])) {
+            $this->iniciarWorkerPatronesNotificacionDocumental(
+                (int)($resultado['datos']['id_campania'] ?? 0)
+            );
+        }
+        self::respuestaJSON($resultado);
+    }
+
     private function iniciarWorkerPatronesNotificacionDocumental(int $idCampania): void
     {
         if ($idCampania <= 0 || !defined('RAIZ')) {
@@ -30438,6 +30456,7 @@ public function getEstadosMunicipiosMexico()
 
         // 1) Si hay puesto seleccionado: jefes por nivel (mismo departamento, nivel superior)
         if ($idPuesto) {
+            $datos = [];
             $porPuesto = CapHumDAO::getConsultaGestoresPorPuesto($idPuesto, $idArea);
             if ($porPuesto['success'] && !empty($porPuesto['datos'])) {
                 $datos = array_map(function ($row) {
@@ -30449,7 +30468,25 @@ public function getEstadosMunicipiosMexico()
                         'departamento' => $row['departamento'] ?? '',
                     ];
                 }, $porPuesto['datos']);
-                $datos = $deduplicarPorPersona($datos);
+            }
+
+            // El Director de la misma dirección puede ser jefe de cualquier
+            // área/departamento bajo esa dirección (por ejemplo, toda TI).
+            $directoresDireccion = CapHumDAO::getDirectoresDireccionPorPuesto((int) $idPuesto);
+            if ($directoresDireccion['success'] && !empty($directoresDireccion['datos'])) {
+                $datos = array_merge($datos, array_map(function ($row) {
+                    return [
+                        'id' => $row['id'],
+                        'nombre_completo' => $row['nombre_completo'] ?? '',
+                        'nombre_puesto' => $row['puesto'] ?? $row['nombre_puesto'] ?? '',
+                        'area' => $row['area'] ?? '',
+                        'departamento' => $row['departamento'] ?? '',
+                    ];
+                }, $directoresDireccion['datos']));
+            }
+
+            $datos = $deduplicarPorPersona($datos);
+            if (!empty($datos)) {
                 $datos = $agregarVacantesJefe($datos);
                 self::respuestaJSON(['success' => true, 'mensaje' => 'Jefes encontrados.', 'datos' => $datos]);
                 return;

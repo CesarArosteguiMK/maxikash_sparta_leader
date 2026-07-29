@@ -353,6 +353,11 @@ $tipoInicial = $tipos[0] ?? [
                                     data-ver-entrega="${Number(row.id_documento_carga || 0)}" data-nombre-entrega="${escapeHtml(row.nombre_logico || 'Documento')}">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
+                            ${row.estado_analisis_patrones === 'sin_lectura' ? `
+                            <button class="btn btn-outline-warning" type="button" title="Reintentar lectura" aria-label="Reintentar lectura"
+                                    data-reintentar-lectura="${Number(row.id_documento_carga || 0)}" data-nombre-entrega="${escapeHtml(row.nombre_logico || 'Documento')}">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </button>` : ''}
                             <button class="btn btn-outline-danger" type="button" title="Eliminar y solicitar de nuevo" aria-label="Eliminar y solicitar de nuevo"
                                     data-eliminar-entrega="${Number(row.id_documento_carga || 0)}" data-nombre-entrega="${escapeHtml(row.nombre_logico || 'Documento')}">
                                 <i class="fa-solid fa-trash"></i>
@@ -481,11 +486,17 @@ $tipoInicial = $tipos[0] ?? [
 
     $('#avanceCuerpo').addEventListener('click', async event => {
         const botonVer = event.target.closest('[data-ver-entrega]');
+        const botonReintentar = event.target.closest('[data-reintentar-lectura]');
         const botonEliminar = event.target.closest('[data-eliminar-entrega]');
-        const boton = botonVer || botonEliminar;
+        const boton = botonVer || botonReintentar || botonEliminar;
         if (!boton) return;
 
-        const idDocumento = Number(boton.dataset.verEntrega || boton.dataset.eliminarEntrega || 0);
+        const idDocumento = Number(
+            boton.dataset.verEntrega
+            || boton.dataset.reintentarLectura
+            || boton.dataset.eliminarEntrega
+            || 0
+        );
         if (!idDocumento) return;
         const nombre = boton.dataset.nombreEntrega || 'Documento';
 
@@ -494,6 +505,40 @@ $tipoInicial = $tipos[0] ?? [
                 boton.disabled = true;
                 const autorizado = await pedirAutorizacionDocumento(idDocumento, 'ver');
                 if (autorizado?.url) abrirDocumento(autorizado.url, nombre);
+                return;
+            }
+
+            if (botonReintentar) {
+                const confirmarReintento = window.Swal
+                    ? await Swal.fire({
+                        icon: 'question',
+                        title: 'Reintentar lectura',
+                        text: `El Motor V1 volverá a analizar "${nombre}" sin eliminar el PDF.`,
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, reintentar',
+                        cancelButtonText: 'Cancelar'
+                    })
+                    : {isConfirmed: window.confirm(`¿Reintentar la lectura de ${nombre}?`)};
+                if (!confirmarReintento.isConfirmed) return;
+
+                boton.disabled = true;
+                const formData = new FormData();
+                formData.append('id_documento', String(idDocumento));
+                const resultado = await json('/caphum/reintentarAnalisisPatronesNotificacionDocumental', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {'X-Requested-With': 'XMLHttpRequest'}
+                });
+                if (window.Swal) {
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Reintento iniciado',
+                        text: resultado.mensaje,
+                        timer: 1800,
+                        showConfirmButton: false
+                    });
+                }
+                await cargarAvance();
                 return;
             }
 

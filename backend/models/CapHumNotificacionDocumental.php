@@ -968,6 +968,49 @@ class CapHumNotificacionDocumental extends Model
         return true;
     }
 
+    public static function reiniciarAnalisisPatronesDocumento(int $idDocumentoCarga): array
+    {
+        try {
+            self::asegurarTablas();
+            if ($idDocumentoCarga <= 0) {
+                return self::resultado(false, 'Documento no válido.');
+            }
+            $db = new Database();
+            $entrega = $db->queryOne("
+                SELECT e.id, e.id_campania
+                FROM estado_cuenta.rrhh_notificacion_documental_entrega e
+                INNER JOIN estado_cuenta.rrhh_notificacion_documental_campania c
+                    ON c.id = e.id_campania
+                WHERE e.id_documento_carga = :documento
+                  AND c.tipo = :tipo
+                  AND e.patrones_analizado_en IS NOT NULL
+                  AND e.patrones_vigentes IS NULL
+                LIMIT 1
+            ", [
+                'documento' => $idDocumentoCarga,
+                'tipo' => self::TIPO_SEMANAS_COTIZADAS,
+            ]);
+            if (!$entrega) {
+                return self::resultado(false, 'Esta entrega no requiere un reintento de lectura.');
+            }
+            $db->CRUD("
+                UPDATE estado_cuenta.rrhh_notificacion_documental_entrega
+                SET patrones_vigentes = NULL,
+                    patrones_historial = NULL,
+                    patrones_fuente = NULL,
+                    patrones_analisis_json = NULL,
+                    patrones_analizado_en = NULL
+                WHERE id = :id
+                LIMIT 1
+            ", ['id' => (int)$entrega['id']]);
+            return self::resultado(true, 'El PDF fue enviado nuevamente al Motor V1.', [
+                'id_campania' => (int)$entrega['id_campania'],
+            ]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'No se pudo reiniciar la lectura del documento.', null, $e->getMessage());
+        }
+    }
+
     public static function analizarArchivoPatronesMotorV1(string $rutaPdf): ?array
     {
         $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');

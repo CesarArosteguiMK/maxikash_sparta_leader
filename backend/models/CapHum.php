@@ -8910,6 +8910,63 @@ class CapHum extends Model
         }
     }
 
+    /**
+     * Directores de la misma dirección organizacional que el puesto destino.
+     * Sirven como jefes elegibles transversales sin mezclar estructuras ajenas.
+     */
+    public static function getDirectoresDireccionPorPuesto(int $idPuesto): array
+    {
+        $predP = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
+        $query = <<<SQL
+        SELECT DISTINCT
+            p.id,
+            CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
+            pp.nombre AS puesto,
+            pp.nombre AS nombre_puesto,
+            pp.nivel,
+            d.nombre AS departamento,
+            dorg.nombre AS area
+        FROM persona p
+        INNER JOIN asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+        INNER JOIN puesto pp ON pp.id = ap.id_puesto AND pp.activo = 1
+        INNER JOIN departamento d ON d.id = pp.departamento_id
+        INNER JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+        INNER JOIN asigna_direcciones ad
+            ON ad.id_departamento_organizacional = dorg.id
+           AND COALESCE(ad.activo, 1) = 1
+        INNER JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
+        WHERE dir.id = (
+              SELECT ad_objetivo.id_direccion
+              FROM puesto objetivo
+              INNER JOIN departamento dep_objetivo ON dep_objetivo.id = objetivo.departamento_id
+              INNER JOIN asigna_direcciones ad_objetivo
+                  ON ad_objetivo.id_departamento_organizacional = dep_objetivo.id_departamento_organizacional
+                 AND COALESCE(ad_objetivo.activo, 1) = 1
+              WHERE objetivo.id = :id_puesto
+                AND COALESCE(objetivo.activo, 1) = 1
+              LIMIT 1
+          )
+          AND UPPER(TRIM(pp.nombre)) = 'DIRECTOR'
+          AND pp.nivel >= (
+              SELECT nivel FROM puesto WHERE id = :id_puesto_nivel
+          )
+          AND COALESCE(LOWER(TRIM(p.estatus)), 'activo') NOT IN ('baja', 'transito de baja')
+          AND {$predP}
+        ORDER BY pp.nivel ASC, nombre_completo
+        SQL;
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query, [
+                'id_puesto' => $idPuesto,
+                'id_puesto_nivel' => $idPuesto,
+            ]);
+            return self::resultado(true, 'Directores de la dirección encontrados.', $r);
+        } catch (Exception $e) {
+            return self::resultado(false, 'Error al obtener directores de la dirección.', null, $e->getMessage());
+        }
+    }
+
     public static function getPersonasOrganigrama($departamento, $id_persona)
     {
         try {
