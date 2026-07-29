@@ -1377,6 +1377,30 @@ class CapHum extends Controller
         return self::candidatoVisibleParaSesionSeleccionDatos($res['datos']);
     }
 
+    /**
+     * Determina si la sesión puede administrar el enlace y la notificación
+     * de documentos de un candidato. Crear una postulación y enviar su correo
+     * deben usar la misma regla para no generar enlaces que después no puedan
+     * enviarse al candidato.
+     */
+    private static function puedeGestionarPostulacionCandidato(array $candidato): bool
+    {
+        if ((int) ($_SESSION['usuario_id'] ?? 0) === 1) {
+            return true;
+        }
+
+        if (self::tieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH)) {
+            return true;
+        }
+
+        if (self::puedeValidarDocumentalCandidato($candidato)) {
+            return true;
+        }
+
+        return self::puedeValidarFinalCandidatos()
+            && self::estatusCandidatoEsValidacionFinal($candidato['estatus'] ?? '');
+    }
+
     private static function getDepartamentosGestionPersonal()
     {
         if (self::tieneAccesoTotalGestionPersonal()) {
@@ -16460,16 +16484,16 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, "Datos insuficientes.", null));
             return;
         }
-        if (!self::candidatoVisibleParaSesionSeleccion($id)) {
-            echo json_encode(self::respuesta(false, 'No tienes permiso para reenviar la postulacion de este candidato.', null));
-            return;
-        }
         $candidatoRes = CandidatosDAO::getById($id);
         if (!$candidatoRes['success'] || empty($candidatoRes['datos'])) {
             echo json_encode(self::respuesta(false, "Candidato no encontrado.", null));
             return;
         }
         $c = $candidatoRes['datos'];
+        if (!self::puedeGestionarPostulacionCandidato($c)) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para reenviar la postulacion de este candidato.', null));
+            return;
+        }
         $nombreCompleto = trim(implode(' ', [
             $c['nombres'] ?? '',
             $c['segundo_nombre'] ?? '',
@@ -16652,6 +16676,17 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, "ID de candidato requerido.", null));
             return;
         }
+
+        $candidatoRes = CandidatosDAO::getById($id);
+        if (!$candidatoRes['success'] || empty($candidatoRes['datos'])) {
+            echo json_encode(self::respuesta(false, 'Candidato no encontrado.', null));
+            return;
+        }
+        if (!self::puedeGestionarPostulacionCandidato($candidatoRes['datos'])) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para generar el enlace de este candidato.', null));
+            return;
+        }
+
         $res = CandidatosDAO::getOrCreateTokenDocumentos($id);
         if (!$res['success']) {
             echo json_encode($res);
@@ -16681,6 +16716,16 @@ class CapHum extends Controller
         $id = isset($body["id"]) ? (int) $body["id"] : 0;
         if ($id <= 0) {
             echo json_encode(self::respuesta(false, "ID de candidato requerido.", null));
+            return;
+        }
+
+        $candidatoRes = CandidatosDAO::getById($id);
+        if (!$candidatoRes['success'] || empty($candidatoRes['datos'])) {
+            echo json_encode(self::respuesta(false, 'Candidato no encontrado.', null));
+            return;
+        }
+        if (!self::puedeGestionarPostulacionCandidato($candidatoRes['datos'])) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para reactivar el enlace de este candidato.', null));
             return;
         }
 
@@ -31423,6 +31468,7 @@ public function getEstadosMunicipiosMexico()
             $servicio = new RrhhDocumentImportService();
             $servicio->limpiarLotesTemporalesExpirados();
             $usarCacheLote = (string) ($_POST['cache_lote'] ?? '1') !== '0';
+            $cacheSoloAnalisis = (string) ($_POST['cache_analisis'] ?? '0') === '1';
             $batchId = trim((string) ($_POST['batch_id'] ?? ''));
             $fuentes = $batchId !== '' ? $servicio->fuentesDesdeLoteTemporal($batchId) : [];
             if (empty($fuentes)) {
@@ -31445,6 +31491,9 @@ public function getEstadosMunicipiosMexico()
             }
 
             $resultado = $servicio->analizar($fuentes, $documentosManual);
+            if ($batchId === '' && $cacheSoloAnalisis) {
+                $batchId = $servicio->crearLoteTemporalSoloAnalisis();
+            }
             if ($batchId !== '') {
                 $servicio->guardarAnalisisLoteTemporal($batchId, $resultado, $documentosManual, ['tipo' => 'global']);
             }
@@ -31534,6 +31583,7 @@ public function getEstadosMunicipiosMexico()
             $servicio = new RrhhDocumentImportService();
             $servicio->limpiarLotesTemporalesExpirados();
             $usarCacheLote = (string) ($_POST['cache_lote'] ?? '1') !== '0';
+            $cacheSoloAnalisis = (string) ($_POST['cache_analisis'] ?? '0') === '1';
             $batchId = trim((string) ($_POST['batch_id'] ?? ''));
             $fuentes = $batchId !== '' ? $servicio->fuentesDesdeLoteTemporal($batchId) : [];
             if (empty($fuentes)) {
@@ -31556,6 +31606,9 @@ public function getEstadosMunicipiosMexico()
             }
 
             $resultado = $servicio->analizarParaPersona($fuentes, $persona, $documentosManual);
+            if ($batchId === '' && $cacheSoloAnalisis) {
+                $batchId = $servicio->crearLoteTemporalSoloAnalisis();
+            }
             if ($batchId !== '') {
                 $servicio->guardarAnalisisLoteTemporal($batchId, $resultado, $documentosManual, [
                     'tipo' => 'persona',

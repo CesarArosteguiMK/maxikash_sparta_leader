@@ -15,19 +15,25 @@ Flujo:
   3. En Python se descartan los id_credito que ya están en lista negra para esa semana
      (inicio_semana = martes del periodo, s2_exitoso = 1).
   4. Los que quedan van a S2 → cálculo → Excel.
-  5. El Excel se genera siempre (aunque queden 0 registros después de los filtros).
+  5. Si hubo candidatos, una salida final de 0 filas aborta la corrida para no
+     guardar ni enviar un Excel vacío ni avanzar el checkpoint de descargo.
   6. Regla de cuota objetivo para pagos de fin de semana:
      - Pago viernes, sábado o domingo → primero debe quedar cubierta la cuota del lunes siguiente.
      - Pago lunes a jueves → se conserva el lunes de la misma semana calendario.
      Solo el saldo posterior a cubrir por completo esa cuota puede considerarse para GC.
-  7. Reglas de salida del .xlsx (pipeline final):
+  7. Validación de Cartera con señal protegida:
+     - Si S2 entrega `extemporaneos` del día con cobertura suficiente en el lote,
+       se omiten los casos donde ese monto no cubre el saldo aplicable.
+     - Si la señal llega sistémicamente en cero, no se interpreta como rechazo:
+       se conserva el pipeline histórico y se emite una alerta diagnóstica.
+  8. Reglas de salida del .xlsx (pipeline final):
      - No exportar filas con STATUS CREDITO = ERROR.
      - Conjunto NO (MAXI APP — ¿SE CONECTÓ? = NO): conservar solo SALDO APLICABLE A GC entre 200 y 300 (incluyente).
      - Reintegrar todas las filas SI + las NO válidas.
      - Validación interna (no visible en Excel): ABS(ultimo_abono_efectivo) >= SALDO APLICABLE A GC.
        Si no alcanza, SALDO APLICABLE A GC = ABS(ultimo_abono_efectivo).
      - Filtro final: SALDO APLICABLE A GC > 200 (sin tope superior).
-  8. Columnas Maxi app (__SPARTA_SECRET_REDACTED__.ubicacion, idCliente = ID CLIENTE): ventana en calendario CDMX —
+  9. Columnas Maxi app (__SPARTA_SECRET_REDACTED__.ubicacion, idCliente = ID CLIENTE): ventana en calendario CDMX —
      vie–dom → lunes de esa semana hasta hoy CDMX; lun–jue → hoy CDMX y 4 días anteriores (5 días en total).
      Última conexión mostrada en hora CDMX (no depender del huso del servidor del script).
      ultimo_abono_efectivo va después de fecha_ultimo_abono_efectivo y antes de las columnas Maxi app.
@@ -359,14 +365,25 @@ def _guia_descargo_backup_path() -> str:
 
 
 def _leer_guia_descargo() -> dict | None:
-    orden = (_guia_descargo_path(), _guia_descargo_backup_path())
+    # Una regeneración debe reconstruir el mismo universo incremental de la
+    # corrida anterior. Por eso lee primero el checkpoint previo (.bak), pero
+    # no lo vuelve a confirmar al finalizar.
+    if REGENERAR_REPORTE:
+        orden = (_guia_descargo_backup_path(), _guia_descargo_path())
+    else:
+        orden = (_guia_descargo_path(), _guia_descargo_backup_path())
     for p in orden:
         if not os.path.isfile(p):
             continue
         try:
             with open(p, encoding="utf-8-sig") as f:
                 data = json.load(f)
-            if p != _guia_descargo_path():
+            if REGENERAR_REPORTE and p == _guia_descargo_backup_path():
+                log.warning(
+                    "Regeneración: se usó el checkpoint previo de descargo: %s",
+                    os.path.basename(p),
+                )
+            elif p != _guia_descargo_path():
                 log.warning(
                     "Guía descargo principal ausente o ilegible; se usó respaldo: %s",
                     os.path.basename(p),
@@ -1404,6 +1421,49 @@ def calcular_gc(ec, fecha_limite):
     return max(round(total_gc - pagado, 2), 0.0)
 
 
+def metricas_extemporaneos_fecha_negocio(
+    ec: dict,
+    fecha_negocio: date,
+) -> dict:
+    """
+    Resume la señal `extemporaneos` de S2 para la fecha de negocio.
+
+    La métrica se conserva como señal auxiliar. Nunca se interpreta un lote
+    completo en cero como rechazo, porque S2 no siempre publica esta
+    distribución para todos los cortes.
+    """
+    pagos = ec.get("datosPagos") or []
+    if not isinstance(pagos, list):
+        pagos = []
+
+    total = 0.0
+    pagos_fecha = 0
+    ids_vistos: set[str] = set()
+
+    for pago in pagos:
+        if not isinstance(pago, dict):
+            continue
+        if _parse_fecha_desde_mysql(pago.get("fechaValor")) != fecha_negocio:
+            continue
+
+        id_pago = str(pago.get("idPago") or "").strip()
+        if id_pago:
+            if id_pago in ids_vistos:
+                continue
+            ids_vistos.add(id_pago)
+
+        pagos_fecha += 1
+        try:
+            total += float(pago.get("extemporaneos") or 0)
+        except (TypeError, ValueError):
+            continue
+
+    return {
+        "total": round(total, 2),
+        "pagos_fecha": pagos_fecha,
+    }
+
+
 def calcular_saldo_a_favor(ec, lunes: date):
     saldos = ec.get("datosSaldos") or {}
     vencido = float(saldos.get("saldoTotalVencido") or 0)
@@ -1526,6 +1586,8 @@ def procesar_registro(row, fecha_corte_str, lunes: date, hoy: date, fecha_coment
         "DEUDA_GC": float(row["valor_real"] or 0),
         "SALDO_A_FAVOR": 0.0,
         "SALDO_APLICABLE_GC": 0.0,
+        "_EXTEMPORANEOS_S2_DIA": 0.0,
+        "_PAGOS_FECHA_VALOR_S2": 0,
         "FECHA_ULTIMO_ABONO_EFECTIVO": fecha_abono_efectivo_para_excel(row, hoy),
         "ULTIMO_ABONO_EFECTIVO": monto_abono_efectivo_para_excel(row.get("monto_abono_efectivo")),
         "COMENTARIOS": "",
@@ -1563,6 +1625,8 @@ def procesar_registro(row, fecha_corte_str, lunes: date, hoy: date, fecha_coment
         return None
 
     saldo_aplicable = round(min(sf, deuda_gc), 2)
+    metricas_ext = metricas_extemporaneos_fecha_negocio(ec, hoy)
+
     # calcular_saldo_a_favor solo devuelve un valor positivo cuando la cuota
     # objetivo indicada por `lunes` quedó completamente cubierta. Por eso un
     # reporte ejecutado sábado, domingo o lunes ya puede marcar el excedente
@@ -1574,6 +1638,8 @@ def procesar_registro(row, fecha_corte_str, lunes: date, hoy: date, fecha_coment
         "DEUDA_GC": deuda_gc,
         "SALDO_A_FAVOR": sf,
         "SALDO_APLICABLE_GC": saldo_aplicable,
+        "_EXTEMPORANEOS_S2_DIA": float(metricas_ext["total"]),
+        "_PAGOS_FECHA_VALOR_S2": int(metricas_ext["pagos_fecha"]),
     })
     base["COMENTARIOS"] = armar_comentarios_fila(comentario, base)
     return base
@@ -1670,6 +1736,70 @@ def _extraer_fecha_abono_excel(reg: dict) -> date | None:
     return None
 
 
+def aplicar_validacion_cartera_extemporaneos_lote(
+    registros: list[dict],
+    *,
+    min_positivos: int = 5,
+    cobertura_minima: float = 0.10,
+) -> tuple[list[dict], dict]:
+    """
+    Aplica la señal de Cartera solo cuando S2 la entregó de forma útil.
+
+    Un lote sistémicamente en cero se considera señal no disponible y conserva
+    el pipeline histórico. Cuando hay cobertura suficiente, se omiten las
+    filas cuyo monto extemporáneo del día no cubre el saldo aplicable.
+    """
+    candidatos = [
+        reg
+        for reg in registros
+        if _float_reg(reg, "SALDO_APLICABLE_GC") > 0
+        and int(reg.get("_PAGOS_FECHA_VALOR_S2") or 0) > 0
+    ]
+    positivos = [
+        reg
+        for reg in candidatos
+        if _float_reg(reg, "_EXTEMPORANEOS_S2_DIA") > 0.009
+    ]
+    requeridos = max(
+        int(min_positivos),
+        int((len(candidatos) * float(cobertura_minima)) + 0.999999),
+    )
+    senal_disponible = bool(candidatos) and len(positivos) >= requeridos
+
+    if not senal_disponible:
+        return list(registros), {
+            "modo": "fallback_pipeline_historico",
+            "candidatos": len(candidatos),
+            "positivos": len(positivos),
+            "positivos_requeridos": requeridos,
+            "excluidos": 0,
+            "final": len(registros),
+        }
+
+    salida: list[dict] = []
+    excluidos = 0
+    candidatos_obj = {id(reg) for reg in candidatos}
+    for reg in registros:
+        if id(reg) not in candidatos_obj:
+            salida.append(reg)
+            continue
+        monto_ext = _float_reg(reg, "_EXTEMPORANEOS_S2_DIA")
+        saldo_aplicable = _float_reg(reg, "SALDO_APLICABLE_GC")
+        if monto_ext + 0.009 < saldo_aplicable:
+            excluidos += 1
+            continue
+        salida.append(reg)
+
+    return salida, {
+        "modo": "validacion_cartera_activa",
+        "candidatos": len(candidatos),
+        "positivos": len(positivos),
+        "positivos_requeridos": requeridos,
+        "excluidos": excluidos,
+        "final": len(salida),
+    }
+
+
 def aplicar_pipeline_final_excel_gc(registros: list[dict], fecha_permitida: date) -> tuple[list[dict], dict]:
     """
     Reglas de negocio para el Excel final:
@@ -1751,6 +1881,20 @@ def aplicar_pipeline_final_excel_gc(registros: list[dict], fecha_permitida: date
         "final": len(sin_cuota_cubierta),
     }
     return sin_cuota_cubierta, stats
+
+
+def validar_salida_no_vacia(
+    total_antes_pipeline: int,
+    registros_finales: list[dict],
+) -> None:
+    """Impide publicar un Excel vacío cuando sí existieron candidatos."""
+    if total_antes_pipeline > 0 and not registros_finales:
+        raise RuntimeError(
+            "Protección anti-Excel vacío: "
+            f"{total_antes_pipeline:,} candidato(s) llegaron al pipeline "
+            "y 0 quedaron para el Excel. No se guardó, no se envió por correo "
+            "y no se confirmó el checkpoint de descargo."
+        )
 
 
 def etiquetas_reglas_desde_reg(reg: dict) -> list[str]:
@@ -2220,19 +2364,24 @@ def main() -> None:
                 lunes=lunes,
             )
             ult = rows_descargo[-1]
-            if NO_GUARDAR_GUIA_DESCARGO:
+            if NO_GUARDAR_GUIA_DESCARGO or REGENERAR_REPORTE:
+                motivo_guia = (
+                    "regeneración: se conserva el checkpoint ya confirmado"
+                    if REGENERAR_REPORTE
+                    else "modo prueba"
+                )
                 log.warning(
-                    "  guia_descargo.json NO actualizada (REPORTE_COBRANZA_NO_GUARDAR_GUIA_DESCARGO=1). "
-                    "La próxima corrida volverá a ver el mismo checkpoint."
+                    "  guia_descargo.json NO actualizada (%s).",
+                    motivo_guia,
                 )
                 print(
                     f"Descargo: {len(rows_descargo)} fila(s) fusionadas. "
-                    "Guía NO guardada (modo prueba).",
+                    f"Guía NO guardada ({motivo_guia}).",
                     flush=True,
                 )
                 notificar_google_chat(
                     f"🔀 **Descargo estatus-3**: **{len(rows_descargo):,}** fila(s) fusionadas — "
-                    "**guía no guardada** (prueba)."
+                    f"**guía no guardada** ({motivo_guia})."
                 )
             else:
                 checkpoint_descargo_pendiente = {
@@ -2263,6 +2412,29 @@ def main() -> None:
     fecha_ref_maxi_cdmx = datetime.now(TZ_CDMX).date()
     log.info("  Maxi app: fecha referencia CDMX (ventana) = %s", fecha_ref_maxi_cdmx)
     enriquecer_columnas_maxi_app(resultados, fecha_ref_maxi_cdmx)
+
+    total_antes_pipeline_excel = len(resultados)
+    resultados, st_cartera = aplicar_validacion_cartera_extemporaneos_lote(
+        resultados
+    )
+    log.info(
+        "  Señal Cartera S2: modo=%s · candidatos=%s · positivos=%s "
+        "(requeridos=%s) · excluidos=%s · continúan=%s",
+        st_cartera["modo"],
+        f"{st_cartera['candidatos']:,}",
+        f"{st_cartera['positivos']:,}",
+        f"{st_cartera['positivos_requeridos']:,}",
+        f"{st_cartera['excluidos']:,}",
+        f"{st_cartera['final']:,}",
+    )
+    notificar_google_chat(
+        "🛡️ **Validación Cartera con señal S2 protegida**\n"
+        f"- Modo: `{st_cartera['modo']}`\n"
+        f"- Señal positiva: **{st_cartera['positivos']:,}** de "
+        f"**{st_cartera['candidatos']:,}** candidato(s)\n"
+        f"- Excluidos por la regla: **{st_cartera['excluidos']:,}**\n"
+        f"- Continúan al pipeline histórico: **{st_cartera['final']:,}**"
+    )
 
     resultados, st_gc_excel = aplicar_pipeline_final_excel_gc(resultados, hoy)
     log.info(
@@ -2295,7 +2467,13 @@ def main() -> None:
             f"- Filas finales Excel: **{st_gc_excel['final']:,}**"
         )
 
-    # PASO 4: generar Excel unificado (siempre, aunque queden 0 registros)
+    # Protección transaccional: si sí hubo candidatos pero una regla deja el
+    # reporte completamente vacío, no guardar, no enviar y no avanzar el
+    # checkpoint de descargo. Es preferible detener la corrida para revisión
+    # que entregar un archivo vacío como si fuera correcto.
+    validar_salida_no_vacia(total_antes_pipeline_excel, resultados)
+
+    # PASO 4: generar Excel unificado.
     generar_excel(
         resultados,
         lunes,

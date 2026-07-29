@@ -4,6 +4,7 @@ namespace Models;
 
 use Core\Model;
 use Core\Database;
+use Core\DatabaseAWS;
 use Core\DatabaseLegacy;
 use Core\DatabaseSegundometro;
 use Core\UsuarioFantasmaReporteria;
@@ -796,6 +797,13 @@ class Adjudicacion extends Model
             $credito['bucket'] = '';
         }
 
+        // La factura de MaxiProd se relaciona de forma exacta por fk_oferta = ID de crédito.
+        // Es una consulta informativa: si MaxiProd no responde, la solicitud puede continuar.
+        $facturaMoto = $this->consultarMotoFacturadaMaxiProd($idCredito);
+        $credito['moto_factura'] = !empty($facturaMoto['success'])
+            ? ($facturaMoto['datos'] ?? null)
+            : null;
+
         // ── 3. Asignación activa en adjudicación ──────────────────────────────
         $asignacion = $this->db->queryOne(
             <<<SQL
@@ -825,6 +833,59 @@ class Adjudicacion extends Model
             'credito'        => $credito,
             'asignacion'     => $asignacion ?: null,
             'status_credito' => $credito['status_credito'],
+        ];
+    }
+
+    /**
+     * Consulta la unidad facturada en MaxiProd sin exponer datos fiscales ni del cliente.
+     * El vínculo es siempre datos_factura.fk_oferta = id de crédito.
+     */
+    public function consultarMotoFacturadaMaxiProd(int $idCredito): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'ID de crédito inválido.', 'datos' => null];
+        }
+
+        try {
+            // El segundo parámetro evita que un corte de AWS interrumpa el alta de la solicitud.
+            $dbFactura = new DatabaseAWS('maxi-prod', true);
+            $factura = $dbFactura->queryOne(
+                'SELECT id, fk_oferta, marca, modelo, noSerie, noMotor, anio, noFactura, descripcion
+                   FROM datos_factura
+                  WHERE fk_oferta = :id_credito
+                  ORDER BY id DESC
+                  LIMIT 1',
+                ['id_credito' => $idCredito]
+            );
+        } catch (\Throwable $e) {
+            error_log('[Adjudicacion::consultarMotoFacturadaMaxiProd] crédito=' . $idCredito . ' :: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'No fue posible consultar los datos de la motocicleta.', 'datos' => null];
+        }
+
+        if (!$factura) {
+            return ['success' => true, 'message' => 'No hay factura de motocicleta registrada para este crédito.', 'datos' => null];
+        }
+
+        $texto = static function ($valor): string {
+            return trim(preg_replace('/\s+/u', ' ', (string) $valor));
+        };
+        $numeroSerie = strtoupper(preg_replace('/\s+/u', '', $texto($factura['noSerie'] ?? '')));
+
+        return [
+            'success' => true,
+            'message' => 'Datos de motocicleta encontrados.',
+            'datos' => [
+                'id_factura' => (int) ($factura['id'] ?? 0),
+                'id_credito' => (int) ($factura['fk_oferta'] ?? $idCredito),
+                'coincidencia' => 'exacta_por_fk_oferta',
+                'marca' => $texto($factura['marca'] ?? ''),
+                'modelo' => $texto($factura['modelo'] ?? ''),
+                'anio' => $texto($factura['anio'] ?? ''),
+                'numero_serie' => $numeroSerie,
+                'numero_motor' => $texto($factura['noMotor'] ?? ''),
+                'numero_factura' => $texto($factura['noFactura'] ?? ''),
+                'descripcion' => $texto($factura['descripcion'] ?? ''),
+            ],
         ];
     }
 

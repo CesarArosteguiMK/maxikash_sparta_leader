@@ -14935,8 +14935,11 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   let fechaRecepcionExpedienteRrhh = '';
   let rrhhImportDocsFiles = [];
   let rrhhImportDocsAnalisis = null;
+  let rrhhImportDocsBatchesAnalizados = new Map();
   let rrhhImportPreviewUrl = '';
-  const RRHH_IMPORT_DOCS_MAX_FILES = 10;
+  // PHP admite 20 archivos por solicitud; usar ese lÃ­mite reduce a la mitad
+  // las tandas sin superar max_file_uploads.
+  const RRHH_IMPORT_DOCS_MAX_FILES = 20;
   const RRHH_IMPORT_DOCS_MAX_BYTES = 30 * 1024 * 1024;
   const RRHH_IMPORT_DOCS_MAX_ZIP_BYTES = 30 * 1024 * 1024;
   let abriendoCredencialRrhh = false;
@@ -16205,16 +16208,20 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
   function rrhhImportDocsFormData(options = {}) {
     const fd = new FormData();
-    const batchId = String(rrhhImportDocsAnalisis?.batch_id || '').trim();
+    const batchId = String(options.batchId ?? rrhhImportDocsAnalisis?.batch_id ?? '').trim();
     const usarBatch = options.usarBatch !== false;
     const cacheLote = options.cacheLote !== false;
+    const cacheAnalisis = options.cacheAnalisis === true;
+    const incluirArchivos = options.incluirArchivos === true || !batchId || !usarBatch;
     const files = Array.isArray(options.files) ? options.files : rrhhImportDocsFiles;
     const sourceOffset = Number(options.sourceOffset || 0);
     const manualesGlobales = options.manualesGlobales || null;
     fd.append('cache_lote', cacheLote ? '1' : '0');
+    if (cacheAnalisis) fd.append('cache_analisis', '1');
     if (batchId && usarBatch) {
       fd.append('batch_id', batchId);
-    } else if (files.length) {
+    }
+    if (files.length && incluirArchivos) {
       files.forEach(file => {
         fd.append('archivos[]', file, file.name);
         fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);
@@ -16367,6 +16374,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   function rrhhImportDocsSetFiles(fileList) {
     rrhhImportDocsFiles = Array.from(fileList || []);
     rrhhImportDocsAnalisis = null;
+    rrhhImportDocsBatchesAnalizados = new Map();
     rrhhImportDocsRenderResumen(null);
     rrhhImportDocsRenderTabla([]);
     const total = rrhhImportDocsFiles.length;
@@ -16637,7 +16645,8 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
             files: batch.files,
             sourceOffset: batch.sourceOffset,
             usarBatch: false,
-            cacheLote: false
+            cacheLote: batches.length === 1,
+            cacheAnalisis: batches.length > 1
           });
         } catch (error) {
           throw new Error(rrhhImportDocsMensajeErrorOperacion(error, {
@@ -16653,6 +16662,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         }
         if (batches.length === 1 && parcial.batch_id) {
           combinado.batch_id = parcial.batch_id;
+        }
+        if (batches.length > 1 && parcial.batch_id) {
+          rrhhImportDocsBatchesAnalizados.set(Number(batch.sourceOffset || 0), String(parcial.batch_id));
         }
         combinado.items.push(...rrhhImportDocsNormalizarItemsBatch(parcial.items || [], batch.sourceOffset));
         rrhhImportDocsSumarResumen(combinado.resumen, parcial.resumen || {});
@@ -16721,7 +16733,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
             parcial = await rrhhImportDocsEnviar('/caphum/importarDocumentosRrhh', {
               files: batch.files,
               sourceOffset: batch.sourceOffset,
-              usarBatch: false,
+              batchId: rrhhImportDocsBatchesAnalizados.get(Number(batch.sourceOffset || 0)) || '',
+              usarBatch: true,
+              incluirArchivos: true,
               cacheLote: false,
               manualesGlobales
             });
@@ -17237,6 +17251,11 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       const seleccionado = seleccionadoForzado || selectJefe.value || '';
       if (seleccionado && Array.from(selectJefe.options).some(option => String(option.value) === String(seleccionado))) {
         selectJefe.value = seleccionado;
+      } else if (seleccionadoForzado) {
+        // Una relación vigente puede cruzar departamentos. Mantenerla visible
+        // evita borrar o bloquear jerarquías existentes al editar otros datos.
+        ensureSelectOptionRrhh('rrhh_jefe_id', seleccionadoForzado, etiquetaSeleccionado || 'Jefe directo actual');
+        setSelectValue('rrhh_jefe_id', seleccionadoForzado);
       }
       selectJefe.disabled = opciones.length === 0;
       setRrhhHiddenText('rrhh_jefe_id', 'rrhh_jefe_directo_texto');
@@ -18181,9 +18200,30 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const sourceIndex = Number(select.getAttribute('data-rrhh-import-doc-type') || 0);
     const item = (rrhhImportDocsAnalisis.items || []).find(row => Number(row.source_index || 0) === sourceIndex);
     if (!item) return;
-    item.id_documento = Number(select.value || 0) || null;
-    item.documento_manual = Number(select.value || 0) > 0;
-    rrhhImportDocsAnalizar();
+    const idDocumento = Number(select.value || 0) || 0;
+    const catalogo = Array.isArray(rrhhImportDocsAnalisis.catalogo) ? rrhhImportDocsAnalisis.catalogo : [];
+    const documento = catalogo.find(doc => Number(doc.id || 0) === idDocumento) || null;
+    const teniaManual = !!item.documento_manual;
+    item.id_documento = idDocumento || null;
+    item.documento = documento ? String(documento.nombre || '') : '';
+    item.documento_clave = documento ? String(documento.clave || '') : '';
+    item.documento_manual = idDocumento > 0;
+    if (idDocumento > 0 && ['documento_no_reconocido', 'documento_sin_permiso'].includes(String(item.estado || ''))) {
+      item.estado = 'listo';
+      item.razon = 'Tipo seleccionado manualmente. Se validara al importar.';
+    } else if (!idDocumento && teniaManual) {
+      item.estado = 'documento_no_reconocido';
+      item.razon = 'Selecciona un tipo de documento para importarlo.';
+    }
+    rrhhImportDocsAnalisis.resumen = rrhhImportDocsResumenVacio();
+    (rrhhImportDocsAnalisis.items || []).forEach(row => {
+      const estado = String(row.estado || 'error');
+      rrhhImportDocsAnalisis.resumen[estado] = Number(rrhhImportDocsAnalisis.resumen[estado] || 0) + 1;
+      rrhhImportDocsAnalisis.resumen.total++;
+    });
+    rrhhImportDocsRenderResumen(rrhhImportDocsAnalisis.resumen);
+    rrhhImportDocsRenderTabla(rrhhImportDocsAnalisis.items || []);
+    if (btnRrhhImportImportar) btnRrhhImportImportar.disabled = Number(rrhhImportDocsAnalisis.resumen.listo || 0) <= 0;
   });
 
   rrhhImportDocsTabla?.addEventListener('click', function (event) {

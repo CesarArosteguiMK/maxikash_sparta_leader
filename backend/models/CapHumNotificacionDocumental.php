@@ -18,6 +18,7 @@ class CapHumNotificacionDocumental extends Model
     public const URL_IMSS_SEMANAS_COTIZADAS = 'https://serviciosdigitales.imss.gob.mx/semanascotizadas-web/usuarios/IngresoAsegurado';
 
     private static bool $tablasAseguradas = false;
+    private static bool $plantillaActivaExpedientesTablaAsegurada = false;
 
     public static function asegurarTablas(): void
     {
@@ -93,6 +94,35 @@ class CapHumNotificacionDocumental extends Model
         ");
 
         self::$tablasAseguradas = true;
+    }
+
+    /**
+     * Usa la misma fuente de plantilla activa que Expedientes RR.HH. para que
+     * los totales de las campañas no incluyan usuarios fuera de plantilla.
+     */
+    private static function asegurarPlantillaActivaExpedientes(Database $db): void
+    {
+        if (self::$plantillaActivaExpedientesTablaAsegurada) {
+            return;
+        }
+
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS estado_cuenta.rrhh_plantilla_activa (
+                curp VARCHAR(18) NOT NULL,
+                id_persona INT NOT NULL,
+                id_empresa INT NOT NULL,
+                origen VARCHAR(64) NOT NULL,
+                nombre_origen VARCHAR(255) NOT NULL,
+                activo TINYINT(1) NOT NULL DEFAULT 1,
+                fecha_sincronizacion DATETIME NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (curp),
+                KEY idx_rrhh_plantilla_activa_persona (id_persona, activo),
+                KEY idx_rrhh_plantilla_activa_empresa (id_empresa, activo)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        self::$plantillaActivaExpedientesTablaAsegurada = true;
     }
 
     public static function catalogoTipos(): array
@@ -215,9 +245,14 @@ class CapHumNotificacionDocumental extends Model
     private static function condicionPersonaElegible(string $alias = 'p', string $aliasPais = 'pa'): string
     {
         return "
-            LOWER(TRIM(COALESCE({$alias}.estatus, 'activo'))) NOT IN ('baja', 'transito de baja', 'inactivo')
+            {$alias}.estatus = 'Activo'
             AND COALESCE({$alias}.es_externo, 0) = 0
-            AND NULLIF(TRIM(COALESCE({$alias}.user_name, '')), '') IS NOT NULL
+            AND EXISTS (
+                SELECT 1
+                FROM estado_cuenta.rrhh_plantilla_activa pla_elegible
+                WHERE pla_elegible.id_persona = {$alias}.id
+                  AND pla_elegible.activo = 1
+            )
             AND LOWER(TRIM(COALESCE({$aliasPais}.codigo_iso, 'mx'))) = LOWER(TRIM(c.codigo_pais))
         ";
     }
@@ -240,6 +275,7 @@ class CapHumNotificacionDocumental extends Model
                 $params['buscar'] = '%' . mb_substr($buscar, 0, 80) . '%';
             }
             $db = new Database();
+            self::asegurarPlantillaActivaExpedientes($db);
             $rows = $db->queryAll("
                 SELECT
                     p.id AS id_persona,
@@ -249,9 +285,14 @@ class CapHumNotificacionDocumental extends Model
                     TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre
                 FROM estado_cuenta.persona p
                 LEFT JOIN estado_cuenta.paises pa ON pa.id = p.id_pais
-                WHERE LOWER(TRIM(COALESCE(p.estatus, 'activo'))) NOT IN ('baja', 'transito de baja', 'inactivo')
+                WHERE p.estatus = 'Activo'
                   AND COALESCE(p.es_externo, 0) = 0
-                  AND NULLIF(TRIM(COALESCE(p.user_name, '')), '') IS NOT NULL
+                  AND EXISTS (
+                      SELECT 1
+                      FROM estado_cuenta.rrhh_plantilla_activa pla_elegible
+                      WHERE pla_elegible.id_persona = p.id
+                        AND pla_elegible.activo = 1
+                  )
                   AND LOWER(TRIM(COALESCE(pa.codigo_iso, 'mx'))) = 'mx'
                   {$filtro}
                 ORDER BY nombre ASC
@@ -421,6 +462,7 @@ class CapHumNotificacionDocumental extends Model
         try {
             self::asegurarTablas();
             $db = new Database();
+            self::asegurarPlantillaActivaExpedientes($db);
             $condicion = self::condicionPersonaElegible();
             $rows = $db->queryAll("
                 SELECT
@@ -458,6 +500,67 @@ class CapHumNotificacionDocumental extends Model
                 GROUP BY c.id
                 ORDER BY c.anio DESC, c.semestre DESC, c.id DESC
             ");
+            $empresasBase = [
+                'maxikash' => [
+                    'clave' => 'maxikash',
+                    'nombre' => 'MaxiKash',
+                    'total_personas' => 0,
+                    'entregados' => 0,
+                    'pendientes' => 0,
+                ],
+                'furia_motos' => [
+                    'clave' => 'furia_motos',
+                    'nombre' => 'Furia Motos',
+                    'total_personas' => 0,
+                    'entregados' => 0,
+                    'pendientes' => 0,
+                ],
+            ];
+            foreach ($rows as &$campania) {
+                $porEmpresa = $empresasBase;
+                $idCampania = (int)($campania['id'] ?? 0);
+                $desglose = $db->queryAll("
+                    SELECT
+                        CASE
+                            WHEN LOWER(COALESCE(emp.nombre_comercial, '')) LIKE '%furia%' THEN 'furia_motos'
+                            ELSE 'maxikash'
+                        END AS clave,
+                        COUNT(DISTINCT p.id) AS total_personas,
+                        COUNT(DISTINCT e.id_persona) AS entregados,
+                        GREATEST(COUNT(DISTINCT p.id) - COUNT(DISTINCT e.id_persona), 0) AS pendientes
+                    FROM estado_cuenta.rrhh_notificacion_documental_campania c
+                    INNER JOIN estado_cuenta.persona p ON 1 = 1
+                    LEFT JOIN estado_cuenta.paises pa ON pa.id = p.id_pais
+                    INNER JOIN (
+                        SELECT id_persona, MIN(id_empresa) AS id_empresa
+                        FROM estado_cuenta.rrhh_plantilla_activa
+                        WHERE activo = 1
+                        GROUP BY id_persona
+                    ) pla ON pla.id_persona = p.id
+                    LEFT JOIN estado_cuenta.rrhh_empresas emp ON emp.id = pla.id_empresa
+                    LEFT JOIN estado_cuenta.rrhh_notificacion_documental_entrega e
+                        ON e.id_campania = c.id AND e.id_persona = p.id
+                    WHERE c.id = {$idCampania}
+                      AND {$condicion}
+                      AND (
+                          c.alcance = 'todos'
+                          OR EXISTS (
+                              SELECT 1
+                              FROM estado_cuenta.rrhh_notificacion_documental_destinatario td
+                              WHERE td.id_campania = c.id AND td.id_persona = p.id
+                          )
+                      )
+                    GROUP BY clave
+                ");
+                foreach ($desglose ?: [] as $empresa) {
+                    $clave = (string)($empresa['clave'] ?? 'maxikash');
+                    $porEmpresa[$clave]['total_personas'] = (int)($empresa['total_personas'] ?? 0);
+                    $porEmpresa[$clave]['entregados'] = (int)($empresa['entregados'] ?? 0);
+                    $porEmpresa[$clave]['pendientes'] = (int)($empresa['pendientes'] ?? 0);
+                }
+                $campania['por_empresa'] = array_values($porEmpresa);
+            }
+            unset($campania);
             return self::resultado(true, 'Campañas encontradas.', $rows ?: []);
         } catch (\Throwable $e) {
             return self::resultado(false, 'No se pudieron consultar las campañas.', [], $e->getMessage());
@@ -491,6 +594,7 @@ class CapHumNotificacionDocumental extends Model
             }
 
             $db = new Database();
+            self::asegurarPlantillaActivaExpedientes($db);
             $condicion = self::condicionPersonaElegible();
             $rows = $db->queryAll("
                 SELECT
@@ -534,6 +638,7 @@ class CapHumNotificacionDocumental extends Model
 
     private static function obtenerPersonaElegible(Database $db, int $idPersona, string $codigoPais): ?array
     {
+        self::asegurarPlantillaActivaExpedientes($db);
         return $db->queryOne("
             SELECT
                 p.id,
@@ -544,9 +649,14 @@ class CapHumNotificacionDocumental extends Model
             FROM estado_cuenta.persona p
             LEFT JOIN estado_cuenta.paises pa ON pa.id = p.id_pais
             WHERE p.id = :id
-              AND LOWER(TRIM(COALESCE(p.estatus, 'activo'))) NOT IN ('baja', 'transito de baja', 'inactivo')
+              AND p.estatus = 'Activo'
               AND COALESCE(p.es_externo, 0) = 0
-              AND NULLIF(TRIM(COALESCE(p.user_name, '')), '') IS NOT NULL
+              AND EXISTS (
+                  SELECT 1
+                  FROM estado_cuenta.rrhh_plantilla_activa pla_elegible
+                  WHERE pla_elegible.id_persona = p.id
+                    AND pla_elegible.activo = 1
+              )
               AND LOWER(TRIM(COALESCE(pa.codigo_iso, 'mx'))) = LOWER(TRIM(:pais))
             LIMIT 1
         ", ['id' => $idPersona, 'pais' => $codigoPais]);

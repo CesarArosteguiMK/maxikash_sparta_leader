@@ -5,6 +5,7 @@ namespace Controllers;
 use Core\Controller;
 use Services\LeonidasAccessService;
 use Services\LeonidasAgentService;
+use Services\LeonidasAppearanceService;
 use Services\LeonidasAttachmentService;
 use Services\LeonidasAssistantService;
 use Services\LeonidasMediaService;
@@ -15,6 +16,72 @@ use Services\LeonidasTtsService;
 
 class Leonidas extends Controller
 {
+    public function obtenerApariencia(): void
+    {
+        try {
+            $actor = $this->exigirAccesoLeonidas();
+            $this->payloadJson();
+            self::respuestaJSON([
+                'success' => true,
+                'respuesta' => (new LeonidasAppearanceService())->obtener((int) $actor['actor_id']),
+            ]);
+        } catch (\InvalidArgumentException $error) {
+            http_response_code(422);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\DomainException $error) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\Throwable $error) {
+            error_log('[Leonidas] Consulta de apariencia fallida: ' . $error->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'error' => 'No se pudo consultar el vestuario de Leonidas.']);
+        }
+    }
+
+    public function guardarApariencia(): void
+    {
+        try {
+            $actor = $this->exigirAccesoLeonidas();
+            $payload = $this->payloadJson();
+            self::respuestaJSON([
+                'success' => true,
+                'respuesta' => (new LeonidasAppearanceService())->guardar((int) $actor['actor_id'], $payload),
+            ]);
+        } catch (\InvalidArgumentException $error) {
+            http_response_code(422);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\DomainException $error) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\Throwable $error) {
+            error_log('[Leonidas] Guardado de apariencia fallido: ' . $error->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'error' => 'No se pudo guardar el vestuario de Leonidas.']);
+        }
+    }
+
+    public function restablecerApariencia(): void
+    {
+        try {
+            $actor = $this->exigirAccesoLeonidas();
+            $this->payloadJson();
+            self::respuestaJSON([
+                'success' => true,
+                'respuesta' => (new LeonidasAppearanceService())->restablecer((int) $actor['actor_id']),
+            ]);
+        } catch (\InvalidArgumentException $error) {
+            http_response_code(422);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\DomainException $error) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'error' => $error->getMessage()]);
+        } catch (\Throwable $error) {
+            error_log('[Leonidas] Restablecimiento de apariencia fallido: ' . $error->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'error' => 'No se pudo restablecer el vestuario de Leonidas.']);
+        }
+    }
+
     public function conversar(): void
     {
         $this->exigirAccesoLeonidas();

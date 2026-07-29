@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 import unittest
 from copy import deepcopy
 from datetime import date, timedelta
+from pathlib import Path
 from unittest.mock import patch
 
 
@@ -204,6 +206,99 @@ class PipelineRegresionTest(unittest.TestCase):
         salida, stats = rc.aplicar_pipeline_final_excel_gc([fila], date(2026, 7, 25))
         self.assertEqual(salida, [])
         self.assertEqual(stats["excl_cuota_siguiente_cubierta"], 1)
+
+
+class ValidacionCarteraProtegidaTest(unittest.TestCase):
+    @staticmethod
+    def fila(extemporaneos: float, credito: int = 1) -> dict:
+        return {
+            "ID_CREDITO": credito,
+            "SALDO_APLICABLE_GC": 250.0,
+            "_EXTEMPORANEOS_S2_DIA": extemporaneos,
+            "_PAGOS_FECHA_VALOR_S2": 1,
+        }
+
+    def test_activa_la_regla_cuando_s2_entrega_senal_suficiente(self) -> None:
+        filas = [self.fila(250.0) for _ in range(364)]
+        filas.extend(self.fila(0.0) for _ in range(49))
+        salida, stats = rc.aplicar_validacion_cartera_extemporaneos_lote(filas)
+        self.assertEqual(stats["modo"], "validacion_cartera_activa")
+        self.assertEqual(stats["excluidos"], 49)
+        self.assertEqual(len(salida), 364)
+
+    def test_lote_sistemicamente_en_cero_usa_pipeline_historico(self) -> None:
+        filas = [self.fila(0.0) for _ in range(2_978)]
+        salida, stats = rc.aplicar_validacion_cartera_extemporaneos_lote(filas)
+        self.assertEqual(stats["modo"], "fallback_pipeline_historico")
+        self.assertEqual(stats["excluidos"], 0)
+        self.assertEqual(len(salida), 2_978)
+
+    def test_un_credito_rechazado_se_revalua_y_puede_entrar_despues(self) -> None:
+        primera_corrida = [self.fila(250.0, credito) for credito in range(1, 10)]
+        primera_corrida.append(self.fila(0.0, 999))
+        salida_primera, stats_primera = (
+            rc.aplicar_validacion_cartera_extemporaneos_lote(primera_corrida)
+        )
+        self.assertEqual(stats_primera["modo"], "validacion_cartera_activa")
+        self.assertNotIn(999, {fila["ID_CREDITO"] for fila in salida_primera})
+
+        siguiente_corrida = [
+            self.fila(250.0, credito) for credito in range(1, 10)
+        ]
+        siguiente_corrida.append(self.fila(250.0, 999))
+        salida_siguiente, stats_siguiente = (
+            rc.aplicar_validacion_cartera_extemporaneos_lote(siguiente_corrida)
+        )
+        self.assertEqual(stats_siguiente["modo"], "validacion_cartera_activa")
+        self.assertIn(999, {fila["ID_CREDITO"] for fila in salida_siguiente})
+
+    def test_suma_solo_extemporaneos_de_la_fecha_de_negocio(self) -> None:
+        ec = {
+            "datosPagos": [
+                {"idPago": 1, "fechaValor": "2026-07-28", "extemporaneos": 125},
+                {"idPago": 2, "fechaValor": "2026-07-28", "extemporaneos": 125},
+                {"idPago": 3, "fechaValor": "2026-07-27", "extemporaneos": 999},
+            ]
+        }
+        metricas = rc.metricas_extemporaneos_fecha_negocio(
+            ec,
+            date(2026, 7, 28),
+        )
+        self.assertEqual(metricas["total"], 250.0)
+        self.assertEqual(metricas["pagos_fecha"], 2)
+
+
+class RegeneracionDescargoTest(unittest.TestCase):
+    def test_regeneracion_lee_checkpoint_previo_sin_reconfirmarlo(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            principal = Path(tmp) / "guia_descargo.json"
+            respaldo = Path(tmp) / "guia_descargo.json.bak"
+            principal.write_text('{"ultimo_id_tabla": 103}', encoding="utf-8")
+            respaldo.write_text('{"ultimo_id_tabla": 0}', encoding="utf-8")
+
+            with patch.object(
+                rc, "_guia_descargo_path", return_value=str(principal)
+            ), patch.object(
+                rc, "_guia_descargo_backup_path", return_value=str(respaldo)
+            ), patch.object(
+                rc, "REGENERAR_REPORTE", True
+            ):
+                guia = rc._leer_guia_descargo()
+
+        self.assertIsNotNone(guia)
+        self.assertEqual(guia["ultimo_id_tabla"], 0)
+
+
+class ProteccionExcelVacioTest(unittest.TestCase):
+    def test_aborta_si_hubo_candidatos_y_la_salida_queda_vacia(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "anti-Excel vacío"):
+            rc.validar_salida_no_vacia(2_993, [])
+
+    def test_permite_una_salida_no_vacia(self) -> None:
+        rc.validar_salida_no_vacia(2_993, [{"ID_CREDITO": 123}])
+
+    def test_permite_cero_cuando_no_hubo_candidatos(self) -> None:
+        rc.validar_salida_no_vacia(0, [])
 
 
 if __name__ == "__main__":

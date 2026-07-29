@@ -1,0 +1,38 @@
+{
+  "version": 24,
+  "enabled": true,
+  "asset": "/assets/models/leonidas/leonidas-spartan-modular-v2.glb",
+  "requiredParts": [
+    "body",
+    "helmet",
+    "chest",
+    "headUnderlay",
+    "torsoUnderlay",
+    "hair"
+  ],
+  "parts": {
+    "body": [
+      "LeonidasBody",
+      "Body"
+    ],
+    "helmet": [
+      "LeonidasHelmet",
+      "Helmet"
+    ],
+    "chest": [
+      "LeonidasChest",
+      "Chest",
+      "ChestHarness"
+    ],
+    "headUnderlay": [
+      "LeonidasHeadUnderlay"
+    ],
+    "torsoUnderlay": [
+      "LeonidasTorsoUnderlay"
+    ],
+    "hair": [
+      "LeonidasHair",
+      "Hair"
+    ]
+  }
+}
