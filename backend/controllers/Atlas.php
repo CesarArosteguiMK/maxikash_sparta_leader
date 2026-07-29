@@ -1405,7 +1405,7 @@ class Atlas extends Controller
             $externalId = $this->numeroEmpleadoPersona($personaId);
         }
 
-        if ($externalId === '' && $userId === '') {
+        if ($personaId <= 0 && $externalId === '' && $userId === '') {
             $personaSesion = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id'] ?? 0);
             if ($personaSesion > 0) {
                 $personaId = $personaSesion;
@@ -1414,9 +1414,13 @@ class Atlas extends Controller
         }
 
         $query = [];
+        if ($personaId > 0) {
+            $query['gestor_persona_id'] = $personaId;
+        }
         if ($externalId !== '') {
             $query['external_id'] = $externalId;
-        } elseif ($userId !== '') {
+        }
+        if ($userId !== '') {
             $query['user_id'] = $userId;
         }
 
@@ -1443,7 +1447,7 @@ class Atlas extends Controller
     private function rutasUsuarioSpartanApiResponse(array $contexto): array
     {
         $query = is_array($contexto['query'] ?? null) ? $contexto['query'] : [];
-        if (empty($query['external_id']) && empty($query['user_id'])) {
+        if (empty($query['gestor_persona_id']) && empty($query['external_id']) && empty($query['user_id'])) {
             return [
                 'success' => false,
                 'status' => 400,
@@ -1455,9 +1459,9 @@ class Atlas extends Controller
             ];
         }
 
-        $response = $this->atlasAppApiRequest(
+        $response = $this->atlasAdminApiRequest(
             'GET',
-            '/api/atlas/gestor/rutas',
+            '/api/atlas/admin/reportes/asistencias/rutas',
             null,
             $query
         );
@@ -1469,7 +1473,7 @@ class Atlas extends Controller
             return $response;
         }
 
-        $response['mensaje'] = 'No pudimos cargar las rutas de este usuario en este momento.';
+        $response['mensaje'] = 'El servicio de consulta de rutas de usuarios se encuentra en mantenimiento, en breves se desplegara y podras ver de nuevo las rutas';
         $response['datos'] = [
             'rutas' => [],
             'total' => 0,

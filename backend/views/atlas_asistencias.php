@@ -502,8 +502,6 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         routesState.innerHTML = '<div class="atlas-evidence-empty py-3"><span class="spinner-border spinner-border-sm me-2"></span>Consultando rutas en Spartan...</div>';
         try {
             const headers = { Accept: 'application/json' };
-            const token = window.localStorage ? String(localStorage.getItem('api_token') || '').trim() : '';
-            if (token) headers.Authorization = `Bearer ${token}`;
             const response = await fetch(`/Atlas/getRutasUsuarioSpartan?${params.toString()}`, { headers });
             const payload = await response.json();
             if (!response.ok || !payload.success) {
@@ -512,7 +510,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             const data = payload.datos || {};
             renderSpartanRoutes(data.rutas || []);
         } catch (error) {
-            routesState.innerHTML = '<div class="alert alert-warning mb-0 py-2">No pudimos cargar las rutas de este usuario en este momento. Si necesitas revisar este detalle, avísanos y lo validamos.</div>';
+            routesState.innerHTML = '<div class="alert alert-info mb-0 py-2">El servicio de consulta de rutas de usuarios se encuentra en mantenimiento, en breves se desplegara y podras ver de nuevo las rutas</div>';
         }
     };
 
@@ -708,14 +706,10 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 : completedManagements + pendingManagements;
             const declaredEvidenceCount = Math.max(0, Number(row.total_evidencias) || 0);
             const evidenceCount = Math.max(declaredEvidenceCount, evidences.length);
-            const evidenceButton = evidences.length > 0
-                ? `<button type="button" class="atlas-attendance-evidence-button" data-atlas-evidence-row="${rowIndex}" title="Ver ${number(evidenceCount)} evidencia(s)" aria-label="Ver evidencias">
-                    <i class="fa-solid fa-eye"></i>
-                    <span class="atlas-attendance-evidence-count">${number(evidenceCount)}</span>
-                </button>`
-                : `<button type="button" class="atlas-attendance-evidence-button" disabled title="${evidenceCount > 0 ? 'Evidencia sin detalle disponible' : 'Sin evidencias'}" aria-label="${evidenceCount > 0 ? 'Evidencia sin detalle disponible' : 'Sin evidencias'}">
-                    <i class="fa-solid fa-eye-slash"></i>
-                </button>`;
+            const evidenceButton = `<button type="button" class="atlas-attendance-evidence-button" data-atlas-evidence-row="${rowIndex}" title="Ver ${number(evidenceCount)} evidencia(s)" aria-label="Ver evidencias">
+                <i class="fa-solid fa-eye"></i>
+                <span class="atlas-attendance-evidence-count">${number(evidenceCount)}</span>
+            </button>`;
             return `<tr data-atlas-row="${rowIndex}">
                 <td>
                     <div class="atlas-attendance-main">${escapeHtml(row.fecha || '')}</div>
