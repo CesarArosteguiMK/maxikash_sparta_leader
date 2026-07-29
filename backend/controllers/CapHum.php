@@ -6760,6 +6760,9 @@ class CapHum extends Controller
                 const idGestor = document.getElementById('edit_id')?.value;
                 const motivo = document.getElementById('motivoBaja')?.value || '';
                 const descripcion = document.getElementById('motivoBajaDescripcion')?.value || '';
+                const limiteArchivoBaja = 15 * 1024 * 1024;
+                const limiteTotalBaja = 35 * 1024 * 1024;
+                const totalArchivosBaja = archivosSeleccionados.reduce((total, archivo) => total + (archivo.size || 0), 0);
 
                 if (!idGestor || !motivo || !descripcion.trim()) {
                     Swal.fire({
@@ -6770,10 +6773,29 @@ class CapHum extends Controller
                     return;
                 }
 
+                const archivoDemasiadoGrande = archivosSeleccionados.find((archivo) => (archivo.size || 0) > limiteArchivoBaja);
+                if (archivoDemasiadoGrande) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Archivo demasiado grande',
+                        text: 'El PDF "' + archivoDemasiadoGrande.name + '" supera el máximo permitido de 15 MB.'
+                    });
+                    return;
+                }
+
+                if (totalArchivosBaja > limiteTotalBaja) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Archivos demasiado grandes',
+                        text: 'El total de documentos supera 35 MB. Reduce el tamaño de los PDF e inténtalo nuevamente.'
+                    });
+                    return;
+                }
+
                 Swal.fire({
                     icon: 'question',
                     title: '¿Iniciar trámite de baja?',
-                    html: '<div class="text-start">La persona quedará bloqueada para cartera, asignaciones y acceso al sistema.<br><br>La baja definitiva, vacante y reasignaciones se harán al completar los documentos requeridos.</div>',
+                    html: '<div class="text-start">La persona quedará bloqueada para cartera, asignaciones y acceso al sistema.<br><br>La Baja parcial, la vacante y las reasignaciones se registrarán al cargar la Renuncia o el Aviso de rescisión.</div>',
                     showCancelButton: true,
                     confirmButtonText: 'Sí, iniciar trámite',
                     cancelButtonText: 'Cancelar',
@@ -6799,7 +6821,39 @@ class CapHum extends Controller
                         method: 'POST',
                         body: formData
                     })
-                    .then((response) => response.json())
+                    .then(async (response) => {
+                        const texto = await response.text();
+                        let data = null;
+
+                        try {
+                            data = JSON.parse(texto);
+                        } catch (errorJson) {
+                            // PHP puede anteponer una advertencia HTML cuando el POST excede
+                            // el límite del servidor. Recuperamos únicamente el JSON final.
+                            const inicioJson = texto.lastIndexOf('{"success"');
+                            const finJson = texto.lastIndexOf('}');
+                            if (inicioJson >= 0 && finJson > inicioJson) {
+                                try {
+                                    data = JSON.parse(texto.slice(inicioJson, finJson + 1));
+                                } catch (errorJsonFinal) {
+                                    data = null;
+                                }
+                            }
+                        }
+
+                        if (!data) {
+                            const excedioLimite = /POST Content-Length|post_max_size|upload_max_filesize/i.test(texto);
+                            throw new Error(excedioLimite
+                                ? 'Los documentos exceden el tamaño permitido por el servidor. Reduce el tamaño de los PDF e inténtalo nuevamente.'
+                                : 'El servidor no pudo procesar la baja. Actualiza la página e inténtalo nuevamente.');
+                        }
+
+                        if (!response.ok && data.success !== true) {
+                            throw new Error(data.message || 'No se pudo iniciar el trámite de baja.');
+                        }
+
+                        return data;
+                    })
                     .then((data) => {
                         if (!data.success) {
                             throw new Error(data.message || 'No se pudo iniciar el trámite de baja.');
@@ -6858,11 +6912,11 @@ class CapHum extends Controller
 
                 if (dialogo) dialogo.classList.toggle('modo-final', enTransito);
                 if (shell) shell.classList.toggle('modo-final', enTransito);
-                if (titulo) titulo.textContent = enTransito ? 'Completar baja definitiva' : 'Iniciar trámite de baja';
+                if (titulo) titulo.textContent = enTransito ? 'Registrar baja parcial' : 'Iniciar trámite de baja';
                 if (mensaje) {
                     mensaje.innerHTML = enTransito
-                        ? '<strong>Tránsito de baja activo.</strong> Para concluir debes decidir si queda Vacante o tendrá Sustituto y adjuntar el PDF de Renuncia o Aviso de rescisión.'
-                        : '<strong>Trámite pendiente.</strong> La persona quedará fuera de cartera, asignaciones y acceso al sistema. Aún no será una baja definitiva: podrás cancelarlo si el proceso no se completa.';
+                        ? '<strong>Tránsito de baja activo.</strong> Para registrar la baja parcial debes decidir si queda Vacante o tendrá Sustituto y adjuntar el PDF de Renuncia o Aviso de rescisión. El expediente continuará pendiente hasta alcanzar la Baja completa.'
+                        : '<strong>Trámite pendiente.</strong> La persona quedará fuera de cartera, asignaciones y acceso al sistema. Aún no será una Baja parcial: podrás cancelar el trámite si el proceso no se completa.';
                     mensaje.className = 'alert small ' + (enTransito ? 'alert-danger' : 'alert-warning');
                 }
                 if (motivo) motivo.disabled = enTransito;
@@ -6960,10 +7014,10 @@ class CapHum extends Controller
 
                 Swal.fire({
                     icon: 'warning',
-                    title: '¿Completar baja definitiva?',
-                    text: 'Esta acción cerrará el trámite y cambiará el estatus de la persona a Baja.',
+                    title: '¿Registrar baja parcial?',
+                    text: 'Esta acción dará de baja operativamente a la persona y enviará el expediente a Control de bajas. Todavía quedará pendiente completar la documentación final.',
                     showCancelButton: true,
-                    confirmButtonText: 'Completar baja',
+                    confirmButtonText: 'Registrar baja parcial',
                     cancelButtonText: 'Cancelar',
                     reverseButtons: true
                 }).then(function (result) {
@@ -6978,22 +7032,22 @@ class CapHum extends Controller
                     formData.append('tipo_documento_final', tipoDocumento);
                     formData.append('archivoFinalBaja', archivo);
                     const boton = document.getElementById('btnFinalizarBaja');
-                    if (boton) { boton.disabled = true; boton.textContent = 'Completando...'; }
+                    if (boton) { boton.disabled = true; boton.textContent = 'Registrando...'; }
                     fetch('/CapHum/finalizarBaja', { method: 'POST', body: formData })
                     .then(function (response) { return response.json(); })
                     .then(function (data) {
                         if (!data.success) throw new Error(data.message || 'No se pudo completar la baja.');
-                        Swal.fire({ icon: 'success', title: 'Baja completada', text: data.message || 'La baja quedó registrada correctamente.' }).then(function () {
+                        Swal.fire({ icon: 'success', title: 'Baja parcial registrada', text: data.message || 'La baja parcial quedó registrada y ya está disponible en Control de bajas.' }).then(function () {
                             $('#modalBajas').modal('hide');
                             if (typeof getUsuarios === 'function') getUsuarios();
                             if (typeof getBajas === 'function') getBajas();
                         });
                     })
                     .catch(function (error) {
-                        Swal.fire({ icon: 'error', title: 'No se pudo completar la baja', text: error.message || 'Ocurrió un error al finalizar el trámite.' });
+                        Swal.fire({ icon: 'error', title: 'No se pudo registrar la baja parcial', text: error.message || 'Ocurrió un error al procesar el trámite.' });
                     })
                     .finally(function () {
-                        if (boton) { boton.disabled = false; boton.textContent = 'Completar baja'; }
+                        if (boton) { boton.disabled = false; boton.textContent = 'Registrar baja parcial'; }
                     });
                 });
             }
@@ -12611,15 +12665,15 @@ class CapHum extends Controller
                     if ((docsCount || comps.length) && !expedienteVerifApiInconsistente(v) && hayComparacionesEvaluables(v)) {
                         htmlV2 += "<div class=\"d-grid mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-abrir-analisis-cruzado-v2\"><i class=\"fa fa-external-link-alt me-1\"></i>Ver análisis cruzado</button></div>";
                     }
-                    if (alertas.length || (Array.isArray(v.recomendaciones) && v.recomendaciones.length)) {
+                    var observacionesV2 = resumirAlertasDocumentales(alertas.concat(Array.isArray(v.recomendaciones) ? v.recomendaciones : []));
+                    if (observacionesV2.length) {
                         htmlV2 += "<div class=\"mt-2 pt-2 border-top\"><span class=\"text-muted d-block mb-1\"><strong>Observaciones</strong></span><ul class=\"mb-0 ps-3\">";
-                        alertas.forEach(function(a) {
+                        observacionesV2.forEach(function(a) {
                             var esAviso = esObservacionAvisoMotorV2(a, v);
                             var clase = esAviso ? "text-warning fw-semibold" : "text-danger fw-semibold";
                             var etiqueta = esAviso ? "Aviso" : "Alerta";
                             htmlV2 += "<li class=\"" + clase + "\"><strong>" + etiqueta + ":</strong> " + escHtmlComparaciones(a) + "</li>";
                         });
-                        (Array.isArray(v.recomendaciones) ? v.recomendaciones : []).slice(0, 3).forEach(function(a) { htmlV2 += "<li class=\"text-muted\">" + escHtmlComparaciones(a) + "</li>"; });
                         htmlV2 += "</ul></div>";
                     } else if (comps.length) {
                         htmlV2 += "<div class=\"text-success mt-2 pt-2 border-top\"><i class=\"fa fa-check-circle me-1\"></i>Sin alertas criticas detectadas.</div>";
@@ -12709,6 +12763,50 @@ class CapHum extends Controller
                     .trim();
             }
 
+            function resumirAlertasDocumentales(entradas) {
+                var normalizadas = (Array.isArray(entradas) ? entradas : []).map(function(entrada) {
+                    return normalizarTextoDocModalGlobal(entrada);
+                }).filter(Boolean);
+                var hayCurpEquivocado = normalizadas.some(function(texto) {
+                    var clave = claveDocModalGlobal(texto);
+                    return (clave.indexOf("SUBIDO COMO CURP") !== -1 || clave.indexOf("ESPERABA CURP") !== -1)
+                        && (clave.indexOf("CARTA DE NO ADEUDO") !== -1 || clave.indexOf("NO CORRESPONDE") !== -1);
+                });
+                var cartaSinNombre = false;
+                var cartaSinFirma = false;
+                var salida = [];
+                var vistos = {};
+
+                normalizadas.forEach(function(texto) {
+                    var clave = claveDocModalGlobal(texto);
+                    var esCartaNoAdeudo = clave.indexOf("CARTA DE NO ADEUDO") !== -1
+                        || clave.indexOf("FONACOT") !== -1
+                        || clave.indexOf("INFONAVIT") !== -1;
+                    if (esCartaNoAdeudo) {
+                        if (clave.indexOf("NOMBRE") !== -1 && (clave.indexOf("FALTA") !== -1 || clave.indexOf("NO TIENE") !== -1 || clave.indexOf("NO SE LEE") !== -1 || clave.indexOf("VACIA") !== -1 || clave.indexOf("INCOMPLETA") !== -1)) cartaSinNombre = true;
+                        if (clave.indexOf("FIRMA") !== -1 && (clave.indexOf("FALTA") !== -1 || clave.indexOf("NO TIENE") !== -1 || clave.indexOf("NO SE DETECTO") !== -1 || clave.indexOf("VACIA") !== -1 || clave.indexOf("INCOMPLETA") !== -1)) cartaSinFirma = true;
+                        if (cartaSinNombre || cartaSinFirma || clave.indexOf("REQUIERE REVISION") !== -1) return;
+                    }
+                    if (hayCurpEquivocado && (clave.indexOf("CURP APORTA") !== -1 || clave.indexOf("SUBIDO COMO CURP") !== -1 || clave.indexOf("ESPERABA CURP") !== -1)) return;
+                    var textoUsuario = textoUsuarioAnalisisDocumental(texto);
+                    var claveSalida = claveDocModalGlobal(textoUsuario);
+                    if (claveSalida && !vistos[claveSalida]) {
+                        vistos[claveSalida] = true;
+                        salida.push(textoUsuario);
+                    }
+                });
+                if (hayCurpEquivocado) {
+                    salida.unshift("CURP: el archivo corresponde a una carta de no adeudo. Cargue la constancia CURP del RENAPO.");
+                }
+                if (cartaSinNombre || cartaSinFirma) {
+                    var faltantesCarta = [];
+                    if (cartaSinNombre) faltantesCarta.push("nombre");
+                    if (cartaSinFirma) faltantesCarta.push("firma");
+                    salida.push("Hoja de retencion FONACOT/INFONAVIT: la carta de no adeudo esta incompleta; falta " + faltantesCarta.join(" y ") + ".");
+                }
+                return salida.slice(0, 5);
+            }
+
             function escHtmlComparaciones(s) {
                 var t = textoUsuarioAnalisisDocumental(normalizarTextoDocModalGlobal(s));
                 return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -12784,6 +12882,9 @@ class CapHum extends Controller
                 var t = normalizarTextoDocModalGlobal(s);
                 var k = claveDocModalGlobal(t);
                 if (!t) return "";
+                if ((k.indexOf("SUBIDO COMO CURP") !== -1 || k.indexOf("ESPERABA CURP") !== -1) && k.indexOf("CARTA DE NO ADEUDO") !== -1) {
+                    return "CURP: el archivo corresponde a una carta de no adeudo. Cargue la constancia CURP del RENAPO.";
+                }
                 var sinPrefijo = t.replace(/^\s*No se puede cargar este documento:\s*/i, "").trim();
                 var tipoEsperado = sinPrefijo.match(/este archivo parece\s+(.+?),\s*pero se esperaba\s+(.+?)(?:\.|$)/i);
                 if (tipoEsperado) {
@@ -14232,6 +14333,103 @@ class CapHum extends Controller
                 ejecutarVerificacionExpedienteCandidatoPost(idC, false, btn);
             }
 
+            function renderDocumentoExtraGestor(bloque, documento) {
+                if (!bloque) return;
+                if (!documento || !documento.id) {
+                    bloque.classList.add("d-none");
+                    bloque.innerHTML = "";
+                    return;
+                }
+                var esc = function(valor) {
+                    return String(valor === null || valor === undefined ? "" : valor)
+                        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;");
+                };
+                var nombre = esc(documento.nombre_archivo || "Carta de compromiso del Gestor");
+                var fecha = documento.fecha_carga ? new Date(documento.fecha_carga).toLocaleDateString("es-MX") : "";
+                var disponible = String(documento.archivo_disponible == null ? "1" : documento.archivo_disponible) !== "0";
+                var alertas = Array.isArray(documento.alertas_carta) ? documento.alertas_carta.filter(function(a) { return String(a || "").trim() !== ""; }) : [];
+                var modal = document.getElementById("modalDocumentacionCandidato");
+                var idCandidato = modal && modal.dataset.idCandidato ? parseInt(modal.dataset.idCandidato, 10) : 0;
+                var candidato = idCandidato ? obtenerCandidatoLocalPorId(idCandidato) : null;
+                var estatus = candidato && candidato.estatus ? String(candidato.estatus) : "";
+                var puedeGestionar = !!(candidato && candidato.puede_validar_documental)
+                    && estatus !== "Pendiente de validacion final"
+                    && estatus !== "Ingreso programado";
+                var validado = parseInt(documento.validado, 10) === 1;
+                var btnAbrir = disponible
+                    ? "<button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-ver-doc-extra-gestor\" data-url=\"/caphum/verDocumentoCandidato/" + encodeURIComponent(String(documento.id)) + "\" data-title=\"Carta de compromiso del Gestor\" title=\"Abrir carta\"><i class=\"fa fa-eye\"></i></button>"
+                    : "<span class=\"btn btn-sm btn-outline-secondary disabled\" title=\"El PDF no esta disponible\"><i class=\"fa fa-eye-slash\"></i></span>";
+                var btnValidar = validado
+                    ? "<span class=\"btn btn-sm btn-success disabled\" title=\"Carta aprobada\"><i class=\"fa fa-check-circle\"></i></span>"
+                    : "<button type=\"button\" class=\"btn btn-sm btn-outline-success btn-validar-doc-extra-gestor\" data-id=\"" + encodeURIComponent(String(documento.id)) + "\"" + ((!puedeGestionar || !disponible) ? " disabled" : "") + " title=\"Aprobar carta\"><i class=\"fa fa-check\"></i></button>";
+                var btnEliminar = validado
+                    ? "<span class=\"btn btn-sm btn-outline-secondary disabled\" title=\"Retire la aprobacion antes de eliminar\"><i class=\"fa fa-trash\"></i></span>"
+                    : "<button type=\"button\" class=\"btn btn-sm btn-outline-danger btn-eliminar-doc-extra-gestor\" data-id=\"" + encodeURIComponent(String(documento.id)) + "\"" + (!puedeGestionar ? " disabled" : "") + " title=\"Eliminar carta\"><i class=\"fa fa-trash\"></i></button>";
+                var html = "<div class=\"border-top pt-3\">" +
+                    "<div class=\"d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2\">" +
+                    "<div><strong><i class=\"fa fa-file-signature me-1 text-primary\"></i>Documento adicional</strong><span class=\"badge bg-info text-dark ms-2\">Carta compromiso del Gestor</span></div>" +
+                    "<div class=\"d-flex flex-wrap gap-1 align-items-center\">" + btnAbrir + btnValidar + btnEliminar + "</div></div>" +
+                    "<div class=\"border rounded bg-light p-3 small\"><strong>" + nombre + "</strong>" + (fecha ? "<div class=\"text-muted mt-1\">Cargada: " + esc(fecha) + "</div>" : "") + "</div>";
+                if (alertas.length) {
+                    html += "<div class=\"alert alert-warning small mt-2 mb-0\"><strong><i class=\"fa fa-exclamation-triangle me-1\"></i>Observaciones de la carta</strong><ul class=\"mb-0 mt-1 ps-3\">" +
+                        alertas.map(function(alerta) { return "<li>" + esc(alerta) + "</li>"; }).join("") + "</ul></div>";
+                }
+                bloque.innerHTML = html + "</div>";
+                bloque.classList.remove("d-none");
+                var btn = bloque.querySelector(".btn-ver-doc-extra-gestor");
+                if (btn) {
+                    btn.addEventListener("click", function() {
+                        abrirVisorDocumentoCandidato(btn.getAttribute("data-url") || "", btn.getAttribute("data-title") || "Carta de compromiso del Gestor");
+                    });
+                }
+                var btnValidarCarta = bloque.querySelector(".btn-validar-doc-extra-gestor");
+                if (btnValidarCarta) {
+                    btnValidarCarta.addEventListener("click", function() {
+                        var idDoc = parseInt(btnValidarCarta.getAttribute("data-id"), 10);
+                        if (!idDoc) return;
+                        btnValidarCarta.disabled = true;
+                        fetch("/caphum/validarDocumentoCandidato", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" }, body: "id=" + encodeURIComponent(String(idDoc)) + "&validado=1" })
+                            .then(function(r) { return r.json(); })
+                            .then(function(res) {
+                                if (!res.success) throw new Error(res.mensaje || "No se pudo aprobar la carta.");
+                                if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Carta aprobada", text: "La carta de compromiso del Gestor fue aprobada.", timer: 1800, showConfirmButton: false });
+                                cargarDocumentosModal(idCandidato, { forceRefresh: true });
+                                if (typeof getCandidatos === "function") getCandidatos();
+                            })
+                            .catch(function(error) {
+                                btnValidarCarta.disabled = false;
+                                if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: error.message || "No se pudo aprobar la carta." });
+                            });
+                    });
+                }
+                var btnEliminarCarta = bloque.querySelector(".btn-eliminar-doc-extra-gestor");
+                if (btnEliminarCarta) {
+                    btnEliminarCarta.addEventListener("click", function() {
+                        var idDoc = parseInt(btnEliminarCarta.getAttribute("data-id"), 10);
+                        if (!idDoc) return;
+                        var pedirMotivo = function(motivo) {
+                            if (motivo && String(motivo).trim()) eliminarDocYRecargarModal(idDoc, idCandidato, String(motivo).trim());
+                        };
+                        if (typeof Swal !== "undefined") {
+                            Swal.fire({
+                                title: "Eliminar carta de compromiso",
+                                text: "Indique el motivo que recibira el candidato por correo.",
+                                input: "textarea",
+                                inputPlaceholder: "Ej. La carta debe incluir nombre, fecha y firma.",
+                                inputAttributes: { rows: "4" },
+                                icon: "warning",
+                                showCancelButton: true,
+                                confirmButtonText: "Eliminar y notificar",
+                                cancelButtonText: "Cancelar",
+                                inputValidator: function(valor) { return valor && String(valor).trim() ? undefined : "Debe escribir un motivo"; }
+                            }).then(function(resultado) { if (resultado.isConfirmed) pedirMotivo(resultado.value); });
+                        } else {
+                            pedirMotivo(prompt("Motivo para el candidato (obligatorio):", ""));
+                        }
+                    });
+                }
+            }
+
             function cargarDocumentosModal(idCandidato, opts) {
                 opts = opts || {};
                 if (docModalFetchInFlight) {
@@ -14258,6 +14456,7 @@ class CapHum extends Controller
                 var bloqueSueldo = document.getElementById("modalDocumentacionCandidatoSueldo");
                 var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
                 var bloqueAccionesProceso = document.getElementById("modalDocumentacionCandidatoAccionesProceso");
+                var bloqueExtraGestor = document.getElementById("modalDocumentacionCandidatoExtraGestor");
                 var listaTieneContenidoPrevio = !!(lista && lista.children && lista.children.length > 0);
                 var mostrarLoaderPrincipal = !opts.fromPoll && !listaTieneContenidoPrevio;
                 if (cargando && mostrarLoaderPrincipal) {
@@ -14328,6 +14527,7 @@ class CapHum extends Controller
                     var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
                     var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;
                     var sueldoDoc = (res.datos && res.datos.sueldo) ? res.datos.sueldo : null;
+                    var documentoExtraGestor = (res.datos && res.datos.documento_extra_gestor) ? res.datos.documento_extra_gestor : null;
                     if (lista && docs.length > 0) {
                         var escBasico = function(s) {
                             return String(s === null || s === undefined ? "" : s)
@@ -14366,6 +14566,7 @@ class CapHum extends Controller
                     }
 
                     renderListaDocumentos(lista, cargando, vacio, docs, verif, idCandidato);
+                    renderDocumentoExtraGestor(bloqueExtraGestor, documentoExtraGestor);
                     renderMetricasDoc(bloqueMetricas, metricas);
                     renderSueldoCandidatoCard(bloqueSueldo, sueldoDoc, idCandidato);
                     renderAccionesProcesoCandidato(bloqueAccionesProceso, metricas, idCandidato);
@@ -14426,6 +14627,7 @@ class CapHum extends Controller
                         if (bloqueSueldo) { bloqueSueldo.classList.add("d-none"); bloqueSueldo.innerHTML = ""; }
                         if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
                         if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
+                        if (bloqueExtraGestor) { bloqueExtraGestor.classList.add("d-none"); bloqueExtraGestor.innerHTML = ""; }
                     }
                 }).finally(function() {
                     docModalFetchInFlight = false;
@@ -14517,10 +14719,12 @@ class CapHum extends Controller
                 var bloqueSueldo = document.getElementById("modalDocumentacionCandidatoSueldo");
                 var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
                 var bloqueAccionesProceso = document.getElementById("modalDocumentacionCandidatoAccionesProceso");
+                var bloqueExtraGestor = document.getElementById("modalDocumentacionCandidatoExtraGestor");
                 var lista = document.getElementById("modalDocumentacionCandidatoLista");
                 var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
                 var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
                 guardarAnalisisCruzadoCandidatoHtml("");
+                if (bloqueExtraGestor) { bloqueExtraGestor.classList.add("d-none"); bloqueExtraGestor.innerHTML = ""; }
                 if (modal) {
                     modal.dataset.nombreCandidato = (nombreCandidato != null && nombreCandidato !== undefined) ? String(nombreCandidato) : "";
                     modal.dataset.idCandidato = String(idCandidato);
@@ -17758,15 +17962,28 @@ class CapHum extends Controller
 
     private function candidatoTieneCartaCompromisoGestor(int $idCandidato): bool
     {
+        return !empty($this->obtenerEstadoCartaCompromisoGestorCandidato($idCandidato)['cargada']);
+    }
+
+    /**
+     * La carta es un requisito adicional: no se suma a las métricas de los
+     * diez documentos, pero debe existir y estar aprobada antes de continuar.
+     *
+     * @return array{cargada: bool, aprobada: bool}
+     */
+    private function obtenerEstadoCartaCompromisoGestorCandidato(int $idCandidato): array
+    {
         $resDocs = CandidatosDAO::getDocumentosCandidato($idCandidato);
         $docs = ($resDocs['success'] && is_array($resDocs['datos'] ?? null)) ? $resDocs['datos'] : [];
         foreach ($docs as $doc) {
-            $tipo = $this->normalizarTipoDocumentoCandidatoMetricas((string) ($doc['tipo_documento'] ?? ''));
-            if (strpos($tipo, 'CARTA COMPROMISO GESTOR') !== false || strpos($tipo, 'CARTA DE COMPROMISO DEL GESTOR') !== false) {
-                return true;
+            if ($this->numeroTipoDocumentoCandidatoMetricas((string) ($doc['tipo_documento'] ?? '')) === 11) {
+                return [
+                    'cargada' => true,
+                    'aprobada' => (int) ($doc['validado'] ?? 0) === 1,
+                ];
             }
         }
-        return false;
+        return ['cargada' => false, 'aprobada' => false];
     }
 
     private function personaTieneCartaCompromisoGestor(int $idPersona): bool
@@ -18584,7 +18801,9 @@ class CapHum extends Controller
         }
 
         $cacheDir = defined('RAIZ') ? (RAIZ . '/storage/cache') : (__DIR__ . '/../storage/cache');
-        $cacheKey = 'doc_candidato_v6_' . $id_candidato;
+        // La respuesta ahora separa la carta extra del Gestor de los diez documentos.
+        // Cambiar la versión evita reutilizar una lista anterior durante el TTL.
+        $cacheKey = 'doc_candidato_v8_' . $id_candidato;
         $ttl = 45;
         $cacheControl = strtolower((string) ($_SERVER['HTTP_CACHE_CONTROL'] ?? ''));
         $skipCache = isset($_GET['_'])
@@ -18620,7 +18839,22 @@ class CapHum extends Controller
         }
 
         $data = CandidatosDAO::getDocumentosYVerificacion($id_candidato);
-        $documentos = $data['documentos'] ?? [];
+        $documentosTodos = $data['documentos'] ?? [];
+        $candidatoRes = CandidatosDAO::getById($id_candidato);
+        $candidato = (!empty($candidatoRes['success']) && !empty($candidatoRes['datos']))
+            ? $candidatoRes['datos']
+            : [];
+        $documentos = [];
+        $cartaCompromisoGestor = null;
+        foreach ($documentosTodos as $documento) {
+            if ($this->numeroTipoDocumentoCandidatoMetricas($documento['tipo_documento'] ?? '') === 11) {
+                if ($cartaCompromisoGestor === null) {
+                    $cartaCompromisoGestor = $documento;
+                }
+                continue;
+            }
+            $documentos[] = $documento;
+        }
         $verificacion = $data['verificacion'] ?? null;
         $sueldoDoc = $data['sueldo'] ?? ['bruto' => '', 'neto' => ''];
         if (is_array($verificacion)) {
@@ -18637,6 +18871,15 @@ class CapHum extends Controller
         }
 
         $payload = ['documentos' => $documentos, 'sueldo' => $sueldoDoc];
+        if ($cartaCompromisoGestor !== null
+            && $this->candidatoRequiereCartaCompromisoGestor($candidato)
+            // La carta debe poder aprobarse aun si los diez documentos base ya
+            // cambiaron al candidato a "Validado". Solo deja de mostrarse al
+            // entrar realmente a validación final.
+            && !self::estatusCandidatoEsValidacionFinal($candidato['estatus'] ?? '')
+        ) {
+            $payload['documento_extra_gestor'] = $this->prepararCartaCompromisoGestorModal($cartaCompromisoGestor);
+        }
         if ($verificacion !== null) {
             $payload['verificacion_expediente'] = $verificacion;
         }
@@ -18674,8 +18917,6 @@ class CapHum extends Controller
             'porcentaje' => $totalRequeridos > 0 ? min(100, (int) round(($totalActual / $totalRequeridos) * 100)) : 0,
             'expediente_completo' => $expedienteCompleto,
         ];
-        $conteoValidados = CandidatosDAO::contarValidados($id_candidato);
-        $payload['metricas']['validados'] = (int) ($conteoValidados['validados'] ?? 0);
         $payload['metricas'] = $this->calcularMetricasDocumentosCandidato($documentos, $id_candidato);
 
         if (!empty($payload['metricas']['expediente_completo']) && $this->docVerifProcesoEnCursoVencido($verificacion, 180)) {
@@ -18691,8 +18932,6 @@ class CapHum extends Controller
         }
 
         if (!empty($payload['metricas']['expediente_completo']) && $this->docVerifDebeAutoEncolarExpediente($verificacion)) {
-            $candidatoRes = CandidatosDAO::getById($id_candidato);
-            $candidato = ($candidatoRes['success'] ?? false) && !empty($candidatoRes['datos']) ? $candidatoRes['datos'] : [];
             $nombreCandidatoRegistro = $this->nombreCompletoCandidatoRegistro($candidato);
             $payloadCache = $this->expedientePayloadDesdeCacheDocumentos($documentos, $nombreCandidatoRegistro, $this->docVerificacionIniSoloIdentificacion());
             // El dictamen final debe salir del Motor V2 con los PDFs completos; no usar cache parcial de lecturas rapidas.
@@ -19568,6 +19807,7 @@ class CapHum extends Controller
         $doc = $res['datos'];
         $idCand = (int) ($doc['id_candidato'] ?? 0);
         $tipoDoc = trim((string) ($doc['tipo_documento'] ?? ''));
+        $esCartaCompromisoExtra = $this->numeroTipoDocumentoCandidatoMetricas($tipoDoc) === 11;
         $nombreArch = trim((string) ($doc['nombre_archivo'] ?? ''));
         $idUsuarioRrhh = (int) ($_SESSION['usuario_id'] ?? 0);
         $estatusAntesRechazo = '';
@@ -19581,7 +19821,9 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'No tienes permiso para eliminar documentos de este candidato.'));
             return;
         }
-        $rechazoEnFlujoFinal = $puedeFinalEliminar && in_array($estatusAntesRechazo, ['Pendiente de validacion final', 'Ingreso programado'], true);
+        $rechazoEnFlujoFinal = !$esCartaCompromisoExtra
+            && $puedeFinalEliminar
+            && in_array($estatusAntesRechazo, ['Pendiente de validacion final', 'Ingreso programado'], true);
 
         $logRes = CandidatosDAO::registrarEliminacionDocumentoCandidato(
             $idCand,
@@ -19604,8 +19846,10 @@ class CapHum extends Controller
             @unlink($path);
         }
         if ($idCand > 0) {
-            CandidatosDAO::updateVerificacionExpediente($idCand, null);
-            CandidatosDAO::updateEstatus($idCand, $rechazoEnFlujoFinal ? 'Pendiente de validacion final' : 'Por evaluar');
+            if (!$esCartaCompromisoExtra) {
+                CandidatosDAO::updateVerificacionExpediente($idCand, null);
+                CandidatosDAO::updateEstatus($idCand, $rechazoEnFlujoFinal ? 'Pendiente de validacion final' : 'Por evaluar');
+            }
             CandidatosDAO::invalidateDocumentacionCache($idCand);
         }
 
@@ -19657,6 +19901,9 @@ class CapHum extends Controller
                     is_string($fechaEnvioCand) ? $fechaEnvioCand : null,
                     $diasHabilesCfg
                 );
+                $textoAccionRequerida = $esCartaCompromisoExtra
+                    ? 'Para continuar con tu proceso, descarga nuevamente la carta de compromiso del Gestor, escribe tu nombre, fecha y firma, y vuelve a subirla desde el enlace.'
+                    : $textoPlazoRestante;
                 $ahoraDel = self::ahoraMexicoCiudad();
                 $refPlazoDel = self::parseFechaHoraMexicoCiudad(is_string($fechaEnvioCand) ? $fechaEnvioCand : null) ?? $ahoraDel;
                 $limiteDelInst = self::documentacionLimiteFinDesdeReferencia($refPlazoDel, $diasHabilesCfg);
@@ -19715,7 +19962,7 @@ class CapHum extends Controller
                     . ($nombreArch !== '' ? ' — archivo: <em>' . htmlspecialchars($nombreArch) . '</em>' : '') . '</p>
               <p style="margin:0 0 8px 0; color:#2d3748; font-size: 15px; line-height: 1.6;"><strong>Motivo indicado por Capital Humano:</strong></p>
               <div style="margin:0 0 24px 0; padding:12px 14px; background:#f7fafc; border-left:4px solid #2c5282; font-size:15px; line-height:1.6; color:#1a202c;">' . $htmlCom . '</div>
-              <p style="margin:0 0 12px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">' . $textoPlazoRestante . '</p>
+              <p style="margin:0 0 12px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">' . $textoAccionRequerida . '</p>
               ' . $bloqueBtnDoc . '
               <p style="margin:0 0 24px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Si tiene algún problema con la carga, contáctenos en <a href="mailto:' . htmlspecialchars($contacto) . '" style="color:#2c5282; text-decoration:none;">' . htmlspecialchars($contacto) . '</a>.</p>
               <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top: 28px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
@@ -19782,6 +20029,7 @@ class CapHum extends Controller
         }
         $doc = $res['datos'];
         $idCand = (int) ($doc['id_candidato'] ?? 0);
+        $esCartaCompromisoExtra = $this->numeroTipoDocumentoCandidatoMetricas($doc['tipo_documento'] ?? '') === 11;
         $estatusActual = '';
         $candidatoDatos = [];
         if ($idCand > 0) {
@@ -19805,7 +20053,9 @@ class CapHum extends Controller
         }
         $conteo = CandidatosDAO::contarValidados($idCand);
         $requeridos = 10;
-        $todosValidados = ($conteo['total'] >= $requeridos && $conteo['validados'] >= $requeridos);
+        // La carta de compromiso es adicional y no participa en el flujo de los diez documentos base.
+        $todosValidados = !$esCartaCompromisoExtra
+            && ($conteo['total'] >= $requeridos && $conteo['validados'] >= $requeridos);
         if ($todosValidados) {
             CandidatosDAO::registrarBitacoraCandidatoUnaVez(
                 $idCand,
@@ -19816,13 +20066,14 @@ class CapHum extends Controller
                 (int) ($_SESSION['usuario_id'] ?? 0)
             );
             CandidatosDAO::updateEstatus($idCand, $enFlujoFinal ? ($estatusActual === 'Ingreso programado' ? 'Ingreso programado' : 'Pendiente de validacion final') : 'Validado');
-        } else {
+        } elseif (!$esCartaCompromisoExtra) {
             CandidatosDAO::updateEstatus($idCand, $enFlujoFinal ? 'Pendiente de validacion final' : 'Por evaluar');
         }
         CandidatosDAO::invalidateDocumentacionCache($idCand);
         echo json_encode(self::respuesta(true, $upd['mensaje'], [
             'validado' => $nuevoValor,
             'todos_validados' => $todosValidados,
+            'documento_adicional' => $esCartaCompromisoExtra,
             'validados' => $conteo['validados'],
             'total' => $conteo['total'],
         ]));
@@ -19898,6 +20149,17 @@ class CapHum extends Controller
         if ((int) ($conteo['total'] ?? 0) < $requeridos || (int) ($conteo['validados'] ?? 0) < $requeridos) {
             echo json_encode(self::respuesta(false, 'Primero deben estar validados todos los documentos requeridos.'));
             return;
+        }
+        if ($this->candidatoRequiereCartaCompromisoGestor($candidatoRes['datos'])) {
+            $estadoCarta = $this->obtenerEstadoCartaCompromisoGestorCandidato($id_candidato);
+            if (empty($estadoCarta['cargada'])) {
+                echo json_encode(self::respuesta(false, 'Falta la carta de compromiso del Gestor. Debe solicitarse y cargarse nuevamente antes de continuar.'));
+                return;
+            }
+            if (empty($estadoCarta['aprobada'])) {
+                echo json_encode(self::respuesta(false, 'La carta de compromiso del Gestor debe ser aprobada antes de continuar a validación final.'));
+                return;
+            }
         }
         $guardarSueldo = CandidatosDAO::guardarSueldosDocumentacion(
             $id_candidato,
@@ -21459,7 +21721,7 @@ class CapHum extends Controller
         if (strpos($tipo, 'SEGURIDAD SOCIAL') !== false || strpos($tipo, 'NSS') !== false || strpos($tipo, 'IMSS') !== false) return 8;
         if (strpos($tipo, 'RETENCION') !== false || strpos($tipo, 'FONACOT') !== false || strpos($tipo, 'INFONAVIT') !== false) return 9;
         if (strpos($tipo, 'ESTADO DE CUENTA') !== false) return 10;
-        if (strpos($tipo, 'CARTA COMPROMISO') !== false && strpos($tipo, 'GESTOR') !== false) return 11;
+        if (strpos($tipo, 'CARTA') !== false && strpos($tipo, 'COMPROMISO') !== false && strpos($tipo, 'GESTOR') !== false) return 11;
         return 0;
     }
 
@@ -21479,7 +21741,7 @@ class CapHum extends Controller
         if (strpos($nombre, 'NSS') !== false || strpos($nombre, 'SEGURIDAD SOCIAL') !== false || strpos($nombre, 'IMSS') !== false) return 8;
         if (strpos($nombre, 'RETENCION') !== false || strpos($nombre, 'FONACOT') !== false || strpos($nombre, 'INFONAVIT') !== false) return 9;
         if (strpos($nombre, 'ESTADO DE CUENTA') !== false || strpos($nombre, 'CUENTA BANCARIA') !== false) return 10;
-        if (strpos($nombre, 'CARTA COMPROMISO') !== false && strpos($nombre, 'GESTOR') !== false) return 11;
+        if (strpos($nombre, 'CARTA') !== false && strpos($nombre, 'COMPROMISO') !== false && strpos($nombre, 'GESTOR') !== false) return 11;
         return 0;
     }
 
@@ -22153,7 +22415,9 @@ class CapHum extends Controller
         $clavesUnicas = [];
         foreach ($documentos as $doc) {
             $numero = $this->numeroTipoDocumentoCandidatoMetricas($doc['tipo_documento'] ?? '');
-            if ($numero > 0) {
+            // La carta del gestor es un anexo operativo: no forma parte de las
+            // diez evidencias ni de su validacion documental normal.
+            if ($numero >= 1 && $numero <= 10) {
                 $clavesUnicas[$numero] = true;
             }
         }
@@ -22177,13 +22441,58 @@ class CapHum extends Controller
 
         $validadosVisibles = 0;
         foreach ($documentos as $doc) {
-            if ((int) ($doc['validado'] ?? 0) === 1) {
+            $numero = $this->numeroTipoDocumentoCandidatoMetricas($doc['tipo_documento'] ?? '');
+            if ($numero >= 1 && $numero <= 10 && (int) ($doc['validado'] ?? 0) === 1) {
                 $validadosVisibles++;
             }
         }
         $metricas['validados'] = $validadosVisibles;
 
         return $metricas;
+    }
+
+    /**
+     * Prepara la carta para la seccion adicional del expediente. Solo expone
+     * observaciones reales del analisis de la carta, no mensajes tecnicos.
+     */
+    private function prepararCartaCompromisoGestorModal(array $documento): array
+    {
+        $calidad = $documento['verificacion_calidad'] ?? null;
+        if (!is_array($calidad) && !empty($documento['verificacion_calidad_json'])) {
+            $decoded = json_decode((string) $documento['verificacion_calidad_json'], true);
+            $calidad = is_array($decoded) ? $decoded : [];
+        }
+        if (!is_array($calidad)) {
+            $calidad = [];
+        }
+
+        $alertas = [];
+        foreach (['alertas', 'notas', 'observaciones'] as $campo) {
+            foreach ((array) ($calidad[$campo] ?? []) as $alerta) {
+                $alerta = trim(is_scalar($alerta) ? (string) $alerta : '');
+                if ($alerta === '' || strcasecmp($alerta, 'Documento guardado.') === 0) {
+                    continue;
+                }
+                $alertas[] = $alerta;
+            }
+        }
+        foreach ([
+            'carta_en_blanco' => 'La carta se detecto sin datos capturados.',
+            'nombre_y_firma_lleno' => 'No se detecto el nombre completo del gestor en la carta.',
+            'fecha_detectada' => 'No se detecto la fecha en la carta.',
+            'firma_detectada' => 'No se detecto la firma en la carta.',
+        ] as $campo => $mensaje) {
+            $debeAlertar = $campo === 'carta_en_blanco'
+                ? (($calidad[$campo] ?? null) === true)
+                : (array_key_exists($campo, $calidad) && $calidad[$campo] === false);
+            if ($debeAlertar) {
+                $alertas[] = $mensaje;
+            }
+        }
+
+        $documento['alertas_carta'] = array_values(array_unique(array_slice($alertas, 0, 8)));
+        unset($documento['verificacion_fiscal_json'], $documento['verificacion_calidad_json']);
+        return $documento;
     }
 
     /**
@@ -24473,13 +24782,17 @@ class CapHum extends Controller
             ];
         }
 
-        // La carta se revisa también en servidor: solo un rechazo explícito del
-        // motor (por ejemplo, formato vacío) impide guardarla.
+        // Los documentos más propensos a confundirse se revisan antes de guardar.
+        // Solo un rechazo explícito del motor impide la carga; una falla técnica
+        // continúa a revisión manual para no bloquear al candidato por el servicio.
         $prechecksContenido = [];
-        if (isset($archivosParaGuardar[11])) {
-            $prechecksContenido[11] = $this->verificarContenidoDocumentoCandidatoAntesDeGuardar(
-                11,
-                (string) ($archivosParaGuardar[11]['tmp_name'] ?? '')
+        foreach ([4, 9, 11] as $tipoPrecheck) {
+            if (!isset($archivosParaGuardar[$tipoPrecheck])) {
+                continue;
+            }
+            $prechecksContenido[$tipoPrecheck] = $this->verificarContenidoDocumentoCandidatoAntesDeGuardar(
+                $tipoPrecheck,
+                (string) ($archivosParaGuardar[$tipoPrecheck]['tmp_name'] ?? '')
             );
         }
 
@@ -25732,6 +26045,7 @@ class CapHum extends Controller
 
             // Variable global para almacenar el rango de fechas seleccionado
             let rangoFechasBajas = null;
+            let etapaBajaFiltro = 'todas';
 
             const getBajas = (opts = {}) => {
                 const showLoader = opts.showLoader !== false;
@@ -25762,6 +26076,9 @@ class CapHum extends Controller
                 if (rangoFechasBajas) {
                     params.fecha_inicio = rangoFechasBajas.inicio;
                     params.fecha_fin = rangoFechasBajas.fin;
+                }
+                if (etapaBajaFiltro !== 'todas') {
+                    params.etapa_baja = etapaBajaFiltro;
                 }
 
                 // Enviar como JSON usando fetch directamente
@@ -25850,6 +26167,13 @@ class CapHum extends Controller
                             ? `<span class="gestion-personal-code-value">${escaparAttr(codigoContpac)}</span>`
                             : '<span class="gestion-personal-code-value">Sin id</span>';
                         const externalId = String(p.external_id || '').trim();
+                        const esBajaCompleta = String(p.estatus_tramite || '').toLowerCase() === 'baja completa';
+                        const etiquetaBaja = esBajaCompleta ? 'Baja completa' : 'Baja parcial';
+                        const colorBaja = esBajaCompleta ? '#198754' : '#d97706';
+                        const iconoBaja = esBajaCompleta ? 'fa-check-circle' : 'fa-hourglass-half';
+                        const fechaEtapaBaja = esBajaCompleta
+                            ? (p.fecha_baja_completa || p.fecha_baja_parcial || p.fecha_baja)
+                            : (p.fecha_baja_parcial || p.fecha_baja);
                         const avisoReingresoBaja = p.reingreso_en_proceso
                             ? `<div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
                                     <i class="fa fa-rotate-left me-1"></i>
@@ -25892,13 +26216,16 @@ class CapHum extends Controller
                                 </div>
                             `.trim(),
                             estatus: `
-                                <div class="fw-semibold d-flex align-items-center gap-2" style="color: #dc3545 !important;">
-                                    <span class="bajas-easter-ghost-trigger" style="cursor:pointer;display:inline-flex;align-items:center;" title="Mant&eacute;n pulsado 1,5 s"> <i class="fa fa-ban" style="color: #dc3545 !important;"></i></span>
-                                    <span style="color: #dc3545 !important;">Baja</span>
+                                <div class="fw-semibold d-flex align-items-center gap-2" style="color: ${colorBaja} !important;">
+                                    <span class="bajas-easter-ghost-trigger" style="cursor:pointer;display:inline-flex;align-items:center;" title="Mant&eacute;n pulsado 1,5 s"><i class="fa ${iconoBaja}" style="color: ${colorBaja} !important;"></i></span>
+                                    <span style="color: ${colorBaja} !important;">${etiquetaBaja}</span>
                                 </div>
+                                ${esBajaCompleta
+                                    ? '<div class="small text-success mt-1">Expediente final completado</div>'
+                                    : '<div class="small text-warning mt-1">Documentación final pendiente</div>'}
                                 <div class="text-muted small d-flex align-items-center gap-2 mt-1">
                                     <i class="fa fa-calendar" style="font-size: 0.85em; color: #666;"></i>
-                                    <span>${p.fecha_baja ? new Date(p.fecha_baja).toLocaleDateString('es-MX') : 'N/A'}</span>
+                                    <span>${fechaEtapaBaja ? new Date(fechaEtapaBaja).toLocaleDateString('es-MX') : 'N/A'}</span>
                                 </div>
                                 <div class="text-muted small d-flex align-items-center gap-2 mt-1">
                                     <i class="fa fa-file-alt" style="font-size: 0.85em; color: #666;"></i>
@@ -25925,7 +26252,7 @@ class CapHum extends Controller
                                     ${window.tiposDocumentoBajaPermitidos && Object.keys(window.tiposDocumentoBajaPermitidos).length > 0 ? `<button class="btn btn-sm btn-info control-bajas-action-btn" onclick="cargarDocumentoBaja(this)"
                                         data-id-persona="${p.id ?? ''}"
                                         data-registro-baja="${p.registro_baja ?? ''}"
-                                        data-estatus="Baja"
+                                        data-estatus="${etiquetaBaja}"
                                         data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}"
                                         title="Cargar documento" aria-label="Cargar documento">
                                         <i class="fa fa-file"></i>
@@ -25969,6 +26296,9 @@ class CapHum extends Controller
             function limpiarFiltroBajas() {
                 // Limpiar la variable global
                 rangoFechasBajas = null;
+                etapaBajaFiltro = 'todas';
+                const filtroEtapa = document.getElementById('filtroEtapaBajas');
+                if (filtroEtapa) filtroEtapa.value = 'todas';
 
                 // Limpiar el input de flatpickr
                 const flatpickrInput = document.getElementById('flatpickr-range-bajas');
@@ -25997,12 +26327,16 @@ class CapHum extends Controller
                     params.fecha_inicio = rangoFechasBajas.inicio;
                     params.fecha_fin = rangoFechasBajas.fin;
                 }
+                if (etapaBajaFiltro !== 'todas') {
+                    params.etapa_baja = etapaBajaFiltro;
+                }
 
                 // Construir URL con parámetros
                 let url = '/caphum/descargarBajasExcel';
                 const queryParams = new URLSearchParams();
                 if (params.fecha_inicio) queryParams.append('fecha_inicio', params.fecha_inicio);
                 if (params.fecha_fin) queryParams.append('fecha_fin', params.fecha_fin);
+                if (params.etapa_baja) queryParams.append('etapa_baja', params.etapa_baja);
 
                 if (queryParams.toString()) {
                     url += '?' + queryParams.toString();
@@ -26100,6 +26434,15 @@ class CapHum extends Controller
                 const btnDescargar = document.getElementById('btnDescargarBajas');
                 if (btnDescargar) {
                     btnDescargar.addEventListener('click', descargarBajasExcel);
+                }
+
+                const filtroEtapa = document.getElementById('filtroEtapaBajas');
+                if (filtroEtapa) {
+                    filtroEtapa.value = etapaBajaFiltro;
+                    filtroEtapa.addEventListener('change', function () {
+                        etapaBajaFiltro = this.value || 'todas';
+                        getBajas();
+                    });
                 }
 
                 // Inicializar DataTable con las nuevas columnas
@@ -26488,10 +26831,15 @@ class CapHum extends Controller
                         .then(res => res.json())
                         .then(resp => {
                             if (resp.success) {
+                                const etapaActual = resp.datos && resp.datos.etapa_baja
+                                    ? resp.datos.etapa_baja.estatus_tramite
+                                    : null;
                                 Swal.fire({
                                     icon: 'success',
                                     title: 'Archivo eliminado',
-                                    text: 'El archivo ha sido eliminado correctamente',
+                                    text: etapaActual === 'Baja parcial'
+                                        ? 'El archivo fue eliminado. El expediente queda nuevamente como Baja parcial.'
+                                        : 'El archivo ha sido eliminado correctamente',
                                     timer: 2000,
                                     showConfirmButton: false
                                 });
@@ -26508,6 +26856,7 @@ class CapHum extends Controller
                                         </tr>
                                     `;
                                 }
+                                getBajas({ showLoader: false });
                             } else {
                                 Swal.fire({
                                     icon: 'error',
@@ -26621,10 +26970,15 @@ class CapHum extends Controller
                     Swal.close();
 
                     if (resp.success) {
+                        const etapaActual = resp.datos && resp.datos.etapa_baja
+                            ? resp.datos.etapa_baja.estatus_tramite
+                            : null;
                         Swal.fire({
                             icon: 'success',
-                            title: 'Archivos subidos',
-                            text: 'Se subieron ' + archivosSeleccionados.length + ' archivo(s) correctamente',
+                            title: etapaActual === 'Baja completa' ? 'Baja completa' : 'Archivos subidos',
+                            text: etapaActual === 'Baja completa'
+                                ? 'El expediente ya cuenta con el Comprobante de pago de finiquito. La baja quedó completa.'
+                                : 'Se subieron ' + archivosSeleccionados.length + ' archivo(s) correctamente',
                             timer: 2000,
                             showConfirmButton: false
                         });
@@ -26636,6 +26990,7 @@ class CapHum extends Controller
 
                         // Recargar lista de archivos
                         cargarArchivosExistentes(registroBaja, tipoDocumento);
+                        getBajas({ showLoader: false });
                     } else {
                         Swal.fire({
                             icon: 'error',
@@ -28035,6 +28390,15 @@ class CapHum extends Controller
             $input = json_decode(file_get_contents("php://input"), true);
             $fecha_inicio = $input['fecha_inicio'] ?? null;
             $fecha_fin = $input['fecha_fin'] ?? null;
+            $etapaBaja = strtolower(trim((string)($input['etapa_baja'] ?? 'todas')));
+            if (!in_array($etapaBaja, ['todas', 'baja_parcial', 'baja_completa'], true)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'La etapa de baja seleccionada no es válida.',
+                    'datos' => []
+                ]);
+                return;
+            }
 
             // Validar formato de fechas si se proporcionan
             if ($fecha_inicio && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_inicio)) {
@@ -28053,7 +28417,7 @@ class CapHum extends Controller
                 return;
             }
 
-            $resultado = CapHumDAO::getConsultaBajas($fecha_inicio, $fecha_fin);
+            $resultado = CapHumDAO::getConsultaBajas($fecha_inicio, $fecha_fin, $etapaBaja);
 
             // Verificar si hubo error en el DAO
             if (!$resultado) {
@@ -28098,6 +28462,9 @@ class CapHum extends Controller
                         'registro_baja' => $p['registro_baja'] ?? '',
                         'motivo' => $p['motivo'] ?? '',
                         'descripcion' => $p['descripcion'] ?? '',
+                        'estatus_tramite' => $p['estatus_tramite'] ?? 'Baja parcial',
+                        'fecha_baja_parcial' => $p['fecha_baja_parcial'] ?? $p['fecha_baja'] ?? '',
+                        'fecha_baja_completa' => $p['fecha_baja_completa'] ?? null,
                         'user_name' => $p['user_name'] ?? '',
                         'id_candidato_reingreso' => $p['id_candidato_reingreso'] ?? null,
                         'estatus_candidato_reingreso' => $p['estatus_candidato_reingreso'] ?? '',
@@ -28138,6 +28505,10 @@ class CapHum extends Controller
             // Obtener parámetros de fecha del GET
             $fecha_inicio = $_GET['fecha_inicio'] ?? null;
             $fecha_fin = $_GET['fecha_fin'] ?? null;
+            $etapaBaja = strtolower(trim((string)($_GET['etapa_baja'] ?? 'todas')));
+            if (!in_array($etapaBaja, ['todas', 'baja_parcial', 'baja_completa'], true)) {
+                die('La etapa de baja seleccionada no es válida');
+            }
 
             // Validar formato de fechas si se proporcionan
             if ($fecha_inicio && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_inicio)) {
@@ -28149,7 +28520,7 @@ class CapHum extends Controller
             }
 
             // Obtener las bajas con los mismos filtros
-            $resultado = CapHumDAO::getConsultaBajas($fecha_inicio, $fecha_fin);
+            $resultado = CapHumDAO::getConsultaBajas($fecha_inicio, $fecha_fin, $etapaBaja);
 
             // Verificar si hubo error
             if (!$resultado || !isset($resultado['success']) || !$resultado['success']) {
@@ -28186,6 +28557,7 @@ class CapHum extends Controller
                     'nombre_completo' => $nombreCompleto,
                     'departamento' => $baja['departamento'] ?? 'N/A',
                     'nombre_puesto' => $baja['nombre_puesto'] ?? 'N/A',
+                    'estatus_tramite' => $baja['estatus_tramite'] ?? 'Baja parcial',
                     'fecha_baja' => $fechaBaja,
                     'registro_baja' => $baja['registro_baja'] ?? '',
                     'motivo' => $baja['motivo'] ?? 'N/A',
@@ -28201,6 +28573,7 @@ class CapHum extends Controller
                 \PHPSpreadsheet::ColumnaExcel('nombre_completo', 'NOMBRE COMPLETO'),
                 \PHPSpreadsheet::ColumnaExcel('departamento', 'DEPARTAMENTO'),
                 \PHPSpreadsheet::ColumnaExcel('nombre_puesto', 'PUESTO'),
+                \PHPSpreadsheet::ColumnaExcel('estatus_tramite', 'ETAPA DE BAJA'),
                 \PHPSpreadsheet::ColumnaExcel('fecha_baja', 'FECHA DE BAJA'),
                 \PHPSpreadsheet::ColumnaExcel('registro_baja', 'REGISTRO DE BAJA'),
                 \PHPSpreadsheet::ColumnaExcel('motivo', 'MOTIVO'),
@@ -28210,6 +28583,9 @@ class CapHum extends Controller
 
             // Generar nombre del archivo
             $nombreArchivo = 'Bajas';
+            if ($etapaBaja !== 'todas') {
+                $nombreArchivo .= '_' . ($etapaBaja === 'baja_completa' ? 'completas' : 'parciales');
+            }
             if ($fecha_inicio && $fecha_fin) {
                 $nombreArchivo .= '_' . $fecha_inicio . '_a_' . $fecha_fin;
             } elseif ($fecha_inicio) {
@@ -30741,14 +31117,44 @@ public function getEstadosMunicipiosMexico()
     public function registrarBaja()
     {
         header('Content-Type: application/json; charset=utf-8');
+        $nivelBufferInicial = ob_get_level();
+        ob_start();
+        $responder = static function (array $payload, int $codigoHttp = 200) use ($nivelBufferInicial): void {
+            while (ob_get_level() > $nivelBufferInicial) {
+                ob_end_clean();
+            }
+            http_response_code($codigoHttp);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+            exit;
+        };
+
+        try {
+            $convertirLimiteBytes = static function (string $valor): int {
+                $valor = trim($valor);
+                if ($valor === '') return 0;
+                $unidad = strtolower(substr($valor, -1));
+                $numero = (float)$valor;
+                if ($unidad === 'g') return (int)($numero * 1024 * 1024 * 1024);
+                if ($unidad === 'm') return (int)($numero * 1024 * 1024);
+                if ($unidad === 'k') return (int)($numero * 1024);
+                return (int)$numero;
+            };
+            $longitudSolicitud = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+            $limitePost = $convertirLimiteBytes((string)ini_get('post_max_size'));
+            if ($limitePost > 0 && $longitudSolicitud > $limitePost) {
+                $responder([
+                    'success' => false,
+                    'message' => 'Los documentos exceden el tamaño permitido por el servidor. Reduce el tamaño de los PDF e inténtalo nuevamente.'
+                ], 413);
+            }
 
         // âš ï¸ Al usar FormData NO se usa php://input
         if (!self::puedeAccionGestion(self::MODULO_GESTION_DAR_BAJA)) {
-            echo json_encode([
+            $responder([
                 'success' => false,
                 'message' => 'No tienes permiso para dar de baja usuarios. Requiere el permiso especial Capital Humano > Dar de baja; Control de Bajas solo permite consultar el panel.'
-            ]);
-            return;
+            ], 403);
         }
 
         $idGestor    = $_POST['idGestor'] ?? null;
@@ -30757,27 +31163,24 @@ public function getEstadosMunicipiosMexico()
 
         //  Validaciones obligatorias
         if (empty($idGestor)) {
-            echo json_encode([
+            $responder([
                 'success' => false,
                 'message' => 'ID del gestor es obligatorio'
-            ]);
-            return;
+            ], 422);
         }
 
         if (empty($motivo)) {
-            echo json_encode([
+            $responder([
                 'success' => false,
                 'message' => 'El motivo de baja es obligatorio'
-            ]);
-            return;
+            ], 422);
         }
 
-        if (empty(trim($descripcion))) {
-            echo json_encode([
+        if (trim((string)$descripcion) === '') {
+            $responder([
                 'success' => false,
                 'message' => 'La descripción de la baja es obligatoria'
-            ]);
-            return;
+            ], 422);
         }
 
         // ðŸ“Ž MANEJO DE MÃšLTIPLES PDFs (MIME real, nombre seguro, 0755)
@@ -30814,8 +31217,15 @@ public function getEstadosMunicipiosMexico()
             'descripcion' => $descripcion,
             'archivos'    => $rutasPDF, // ï¿½Ë† ahora es un arreglo
             'fecha_baja'  => (new DateTime('now', new DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'),
-            'usuario_baja' => $_SESSION['usuario_id'],
+            'usuario_baja' => self::usuarioSesionId(),
         ];
+
+        if ($data['usuario_baja'] < 1) {
+            $responder([
+                'success' => false,
+                'message' => 'La sesión no permite identificar al usuario que realiza la baja. Actualiza la página e inicia sesión nuevamente.'
+            ], 401);
+        }
 
         $contextoJefeBaja = $this->obtenerContextoNotificacionJefeBaja((int)$idGestor);
 
@@ -30824,28 +31234,34 @@ public function getEstadosMunicipiosMexico()
 
         if ($resultado['success']) {
             $notificacionJefe = $this->notificarJefeDirectoMovimientoBaja($contextoJefeBaja, 'inicio_baja');
-            echo json_encode([
+            $responder([
                 'success' => true,
                 'datos' => array_merge((array)($resultado['datos'] ?? []), ['notificacion_jefe' => $notificacionJefe]),
                 'message' => $resultado['mensaje'] ?? 'Trámite de baja iniciado correctamente.'
             ]);
         } else {
-            echo json_encode([
+            $responder([
                 'success' => false,
                 'message' => $resultado['mensaje'] ?? 'Error al iniciar el trámite de baja',
                 'error'   => $resultado['error'] ?? null
-            ]);
+            ], 422);
         }
-        exit;
+        } catch (\Throwable $e) {
+            error_log('CapHum::registrarBaja -> ' . $e->getMessage());
+            $responder([
+                'success' => false,
+                'message' => 'No se pudo iniciar el trámite de baja. Actualiza la página e inténtalo nuevamente.'
+            ], 500);
+        }
     }
 
-    /** Completa una baja que ya se encuentra en tránsito. */
+    /** Convierte un tránsito de baja en Baja parcial y ejecuta el cierre operativo. */
     public function finalizarBaja()
     {
         header('Content-Type: application/json; charset=utf-8');
 
         if (!self::puedeAccionGestion(self::MODULO_GESTION_DAR_BAJA)) {
-            echo json_encode(['success' => false, 'message' => 'No tienes permiso para completar bajas.']);
+            echo json_encode(['success' => false, 'message' => 'No tienes permiso para registrar bajas parciales.']);
             exit;
         }
 
@@ -30907,14 +31323,14 @@ public function getEstadosMunicipiosMexico()
             @unlink($directorio . $nombreFinal);
         }
         $notificacionJefe = !empty($resultado['success'])
-            ? $this->notificarJefeDirectoMovimientoBaja($contextoJefeBaja, 'baja_finalizada', ['modo_reasignacion' => $modo])
+            ? $this->notificarJefeDirectoMovimientoBaja($contextoJefeBaja, 'baja_parcial', ['modo_reasignacion' => $modo])
             : null;
         echo json_encode([
             'success' => (bool)($resultado['success'] ?? false),
             'datos' => !empty($resultado['success'])
                 ? array_merge((array)($resultado['datos'] ?? []), ['notificacion_jefe' => $notificacionJefe])
                 : ($resultado['datos'] ?? null),
-            'message' => $resultado['mensaje'] ?? ($resultado['success'] ? 'Baja completada.' : 'No se pudo completar la baja.'),
+            'message' => $resultado['mensaje'] ?? ($resultado['success'] ? 'Baja parcial registrada.' : 'No se pudo registrar la baja parcial.'),
             'error' => $resultado['error'] ?? null,
         ]);
         exit;
@@ -30973,9 +31389,17 @@ public function getEstadosMunicipiosMexico()
                 . (!empty($cambios) ? '. Cambios: ' . implode(', ', $cambios) . '.' : '.');
             $tipo = 'rrhh_movimiento_gestion';
         } else {
-            $mensaje = $esInicio
-                ? 'Se inició un trámite de baja para ' . $nombrePersona . '.'
-                : 'La baja de ' . $nombrePersona . ' fue finalizada' . (($extra['modo_reasignacion'] ?? '') === 'sustituto' ? ' con sustituto asignado.' : ' y la posición quedó como vacante.');
+            if ($esInicio) {
+                $mensaje = 'Se inició un trámite de baja para ' . $nombrePersona . '.';
+            } elseif ($evento === 'baja_completa') {
+                $mensaje = 'La baja de ' . $nombrePersona . ' alcanzó el estatus Baja completa.';
+            } else {
+                $mensaje = 'Se registró la Baja parcial de ' . $nombrePersona
+                    . (($extra['modo_reasignacion'] ?? '') === 'sustituto'
+                        ? ' con sustituto asignado.'
+                        : ' y la posición quedó como vacante.')
+                    . ' El expediente final continúa pendiente.';
+            }
             $tipo = 'rrhh_movimiento_baja';
         }
         try {
@@ -31275,7 +31699,12 @@ public function getEstadosMunicipiosMexico()
             }
 
             // Guardar en base de datos
-            $resultado = CapHumDAO::guardarDocumentosBaja($registro_baja, $idDocumento, $archivosGuardados);
+            $resultado = CapHumDAO::guardarDocumentosBaja(
+                $registro_baja,
+                $idDocumento,
+                $archivosGuardados,
+                self::usuarioSesionId()
+            );
             self::respuestaJSON($resultado);
 
         } catch (\Exception $e) {
@@ -31319,7 +31748,7 @@ public function getEstadosMunicipiosMexico()
                 return;
             }
 
-            $resultado = CapHumDAO::eliminarDocumentoBaja($id_documento);
+            $resultado = CapHumDAO::eliminarDocumentoBaja($id_documento, self::usuarioSesionId());
             self::respuestaJSON($resultado);
 
         } catch (\Exception $e) {
@@ -32100,7 +32529,12 @@ public function getEstadosMunicipiosMexico()
                 return;
             }
 
-            $resultado = CapHumDAO::guardarDocumentosPersona($id_persona, $id_documento, $archivosGuardados);
+            $resultado = CapHumDAO::guardarDocumentosPersona(
+                $id_persona,
+                $id_documento,
+                $archivosGuardados,
+                self::usuarioSesionId()
+            );
             self::respuestaJSON($resultado);
         } catch (\Exception $e) {
             self::respuestaJSON([
@@ -32164,7 +32598,7 @@ public function getEstadosMunicipiosMexico()
                 }
             }
 
-            $resultado = CapHumDAO::eliminarDocumentoPersona($id_documento);
+            $resultado = CapHumDAO::eliminarDocumentoPersona($id_documento, self::usuarioSesionId());
             if ($doc && self::esDocumentoSensibleRrhh((int)($doc['id_documento'] ?? 0))) {
                 $this->auditarDocumentoSensibleRrhh($doc, 'eliminar', ($resultado['success'] ?? false) ? 'autorizado' : 'fallido');
             }

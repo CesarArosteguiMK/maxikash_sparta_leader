@@ -627,6 +627,7 @@
     let colaboradores = [];
     let paginaActual = 1;
     let importFiles = [];
+    let importArchivosOmitidos = [];
     let importAnalisis = null;
     let importBatchesAnalizados = new Map();
     let importAnalisisVersion = 0;
@@ -1426,6 +1427,11 @@
         return /\.zip\b/i.test(texto) || /zip/i.test(String(file?.type || ''));
     }
 
+    function importEsArchivoPermitido(file) {
+        const ruta = String(file?.webkitRelativePath || file?.name || '').trim();
+        return /\.(pdf|fad|zip)$/i.test(ruta);
+    }
+
     function importSeleccionTieneZip() {
         return importFiles.some(importEsZip);
     }
@@ -1459,7 +1465,9 @@
 
     function importSetFiles(fileList) {
         importAnalisisVersion++;
-        importFiles = Array.from(fileList || []);
+        const seleccion = Array.from(fileList || []);
+        importArchivosOmitidos = seleccion.filter(file => !importEsArchivoPermitido(file));
+        importFiles = seleccion.filter(importEsArchivoPermitido);
         importAnalisis = null;
         importBatchesAnalizados = new Map();
         importRenderResumen(null);
@@ -1467,10 +1475,20 @@
         const total = importFiles.length;
         const peso = importFiles.reduce((sum, file) => sum + (file.size || 0), 0);
         const pesoMb = peso / 1024 / 1024;
+        const detalleOmitidos = importArchivosOmitidos.length
+            ? ` Se omitieron ${importArchivosOmitidos.length} archivo(s) no compatible(s).`
+            : '';
         els.importSeleccionResumen.textContent = total
-            ? `${total} archivo(s) seleccionado(s), ${pesoMb.toFixed(1)} MB.`
-            : 'No se han seleccionado archivos.';
+            ? `${total} archivo(s) seleccionado(s), ${pesoMb.toFixed(1)} MB.${detalleOmitidos}`
+            : (importArchivosOmitidos.length
+                ? `No se encontraron PDF, FAD o ZIP para analizar. Se omitieron ${importArchivosOmitidos.length} archivo(s) no compatible(s).`
+                : 'No se han seleccionado archivos.');
         els.importBtnImportar.disabled = true;
+        if (!total && importArchivosOmitidos.length) {
+            els.importTabla.innerHTML = '<tr><td colspan="6" class="text-center text-warning py-4">La carpeta no contiene PDF, FAD o ZIP para importar. Los archivos de imagen y otros formatos se omitieron.</td></tr>';
+            Swal.fire('Archivos no compatibles', 'Solo se pueden importar archivos PDF, FAD o ZIP. No se envio ningun archivo al servidor.', 'warning');
+            return;
+        }
         if (total > 0) {
             const limiteMb = Math.floor(IMPORT_MAX_BYTES_PER_REQUEST / 1024 / 1024);
             if (importTieneZipGrande(importFiles)) {

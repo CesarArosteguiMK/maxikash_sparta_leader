@@ -39,6 +39,9 @@ class MotosAdjudicadas extends Model
     /** @var null|bool tabla que conserva el origen remoto y la copia local de evidencias de la app */
     private static $adjEvidenciaRespaldoTablaOk = null;
 
+    /** @var null|bool columna de la copia privada de evidencias */
+    private static $adjEvidenciaRespaldoRutaPrivadaCol = null;
+
     /** M?ximo de consultas REPUVE nuevas (POST a Nubarium) por usuario y d?a natural CDMX. */
     private const REPUVE_CONSULTAS_MAX_DIA = 5;
 
@@ -5208,9 +5211,8 @@ SQL;
     }
 
     /**
-     * Conserva las dos referencias de una evidencia de la app: la copia local
-     * para sobrevivir a un 404 remoto y la URL origen para recuperar la copia
-     * local si llegara a faltar. La URL origen nunca se expone a la vista.
+     * Conserva el origen remoto, la copia publica de trabajo y una copia privada
+     * no publicada. La URL origen nunca se expone a la vista.
      */
     private function guardarRespaldoEvidenciaDictumApp(
         int $idEvidencia,
@@ -5219,7 +5221,7 @@ SQL;
         string $urlOrigen,
         string $urlRespaldo
     ): void {
-        if ($idEvidencia <= 0 || $idOperacion <= 0 || trim($urlOrigen) === '' || trim($urlRespaldo) === '') {
+        if ($idEvidencia <= 0 || $idOperacion <= 0 || trim($urlRespaldo) === '') {
             return;
         }
         if (!$this->asegurarTablaRespaldoEvidencia()) {
@@ -5236,39 +5238,90 @@ SQL;
             : sparta_uploads_resolve_relative(substr($ruta, $posicionUploads + strlen('/uploads/')));
         $tamano = ($rutaLocal && is_file($rutaLocal)) ? (int) filesize($rutaLocal) : null;
         $sha256 = ($rutaLocal && is_file($rutaLocal)) ? (string) hash_file('sha256', $rutaLocal) : null;
+        $rutaRespaldoPrivado = $rutaLocal
+            ? $this->copiarRespaldoPrivadoEvidenciaDictumApp($idOperacion, $rutaLocal)
+            : null;
         $ahora = $this->fechaHoraCdmx();
 
         try {
+            $columnas = 'id_evidencia, id_operacion, slot, url_origen, url_respaldo, sha256, tamano_bytes, fecha_respaldo, created_at, updated_at';
+            $valores = ':id_evidencia, :id_operacion, :slot, :url_origen, :url_respaldo, :sha256, :tamano_bytes, :fecha_respaldo, :created_at, :updated_at';
+            $actualizaRutaPrivada = '';
+            $parametros = [
+                'id_evidencia' => $idEvidencia,
+                'id_operacion' => $idOperacion,
+                'slot' => $slot,
+                'url_origen' => trim($urlOrigen),
+                'url_respaldo' => trim($urlRespaldo),
+                'sha256' => $sha256,
+                'tamano_bytes' => $tamano,
+                'fecha_respaldo' => $ahora,
+                'created_at' => $ahora,
+                'updated_at' => $ahora,
+            ];
+            if (self::$adjEvidenciaRespaldoRutaPrivadaCol === true) {
+                $columnas .= ', ruta_respaldo_privado';
+                $valores .= ', :ruta_respaldo_privado';
+                $actualizaRutaPrivada = ', ruta_respaldo_privado = COALESCE(VALUES(ruta_respaldo_privado), ruta_respaldo_privado)';
+                $parametros['ruta_respaldo_privado'] = $rutaRespaldoPrivado;
+            }
+
             $this->db->CRUD(
-                "INSERT INTO adj_evidencia_respaldo
-                    (id_evidencia, id_operacion, slot, url_origen, url_respaldo, sha256, tamano_bytes, fecha_respaldo, created_at, updated_at)
-                 VALUES
-                    (:id_evidencia, :id_operacion, :slot, :url_origen, :url_respaldo, :sha256, :tamano_bytes, :fecha_respaldo, :created_at, :updated_at)
+                "INSERT INTO adj_evidencia_respaldo ({$columnas})
+                 VALUES ({$valores})
                  ON DUPLICATE KEY UPDATE
                     id_operacion = VALUES(id_operacion),
                     slot = VALUES(slot),
-                    url_origen = VALUES(url_origen),
+                    url_origen = COALESCE(NULLIF(VALUES(url_origen), ''), url_origen),
                     url_respaldo = VALUES(url_respaldo),
                     sha256 = VALUES(sha256),
                     tamano_bytes = VALUES(tamano_bytes),
                     fecha_respaldo = VALUES(fecha_respaldo),
-                    updated_at = VALUES(updated_at)",
-                [
-                    'id_evidencia' => $idEvidencia,
-                    'id_operacion' => $idOperacion,
-                    'slot' => $slot,
-                    'url_origen' => trim($urlOrigen),
-                    'url_respaldo' => trim($urlRespaldo),
-                    'sha256' => $sha256,
-                    'tamano_bytes' => $tamano,
-                    'fecha_respaldo' => $ahora,
-                    'created_at' => $ahora,
-                    'updated_at' => $ahora,
-                ]
+                    updated_at = VALUES(updated_at){$actualizaRutaPrivada}",
+                $parametros
             );
         } catch (\Throwable $e) {
             // No se bloquea la evidencia si el registro de respaldo falla.
         }
+    }
+
+    /** Copia una evidencia ya validada a una ubicacion fuera de public/uploads. */
+    private function copiarRespaldoPrivadoEvidenciaDictumApp(int $idOperacion, string $rutaLocal): ?string
+    {
+        if ($idOperacion <= 0 || !is_file($rutaLocal)) {
+            return null;
+        }
+        if (!function_exists('sparta_evidencias_respaldo_join')) {
+            require_once dirname(__DIR__) . '/core/UploadsPaths.php';
+        }
+
+        $nombre = basename($rutaLocal);
+        if ($nombre === '' || strpos($nombre, '..') !== false) {
+            return null;
+        }
+        $rutaRelativa = 'operaciones/' . $idOperacion . '/' . $nombre;
+        $destino = sparta_evidencias_respaldo_join($rutaRelativa);
+        $directorio = dirname($destino);
+        if (!is_dir($directorio) && !mkdir($directorio, 0750, true) && !is_dir($directorio)) {
+            return null;
+        }
+
+        if (is_file($destino)
+            && filesize($destino) === filesize($rutaLocal)
+            && hash_file('sha256', $destino) === hash_file('sha256', $rutaLocal)) {
+            return $rutaRelativa;
+        }
+
+        $temporal = $destino . '.tmp-' . substr(hash('sha256', $rutaLocal . microtime(true)), 0, 12);
+        if (!@copy($rutaLocal, $temporal)) {
+            return null;
+        }
+        if (!@rename($temporal, $destino)) {
+            @unlink($temporal);
+            return null;
+        }
+
+        return $rutaRelativa;
     }
 
     private function asegurarTablaRespaldoEvidencia(): bool
@@ -5286,6 +5339,7 @@ SQL;
                     slot VARCHAR(100) NOT NULL,
                     url_origen MEDIUMTEXT NULL,
                     url_respaldo VARCHAR(1024) NULL,
+                    ruta_respaldo_privado VARCHAR(1024) NULL,
                     sha256 CHAR(64) NULL,
                     tamano_bytes BIGINT UNSIGNED NULL,
                     fecha_respaldo DATETIME NULL,
@@ -5296,8 +5350,15 @@ SQL;
                     KEY ix_adj_evidencia_respaldo_operacion_slot (id_operacion, slot)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
             );
+            $columna = $this->db->queryOne("SHOW COLUMNS FROM adj_evidencia_respaldo LIKE 'ruta_respaldo_privado'");
+            if (!$columna) {
+                $this->db->CRUD('ALTER TABLE adj_evidencia_respaldo ADD COLUMN ruta_respaldo_privado VARCHAR(1024) NULL AFTER url_respaldo');
+                $columna = $this->db->queryOne("SHOW COLUMNS FROM adj_evidencia_respaldo LIKE 'ruta_respaldo_privado'");
+            }
+            self::$adjEvidenciaRespaldoRutaPrivadaCol = (bool) $columna;
             self::$adjEvidenciaRespaldoTablaOk = true;
         } catch (\Throwable $e) {
+            self::$adjEvidenciaRespaldoRutaPrivadaCol = false;
             self::$adjEvidenciaRespaldoTablaOk = false;
         }
 
@@ -8306,7 +8367,7 @@ EOSQL;
 
         if (!$this->asegurarTablaRespaldoEvidencia()) {
             return $this->db->queryOne(
-                'SELECT id, url, tipo, slot
+                'SELECT id, id_operacion, url, tipo, slot
                  FROM adj_evidencia
                  WHERE id = :id
                  LIMIT 1',
@@ -8314,17 +8375,47 @@ EOSQL;
             ) ?: null;
         }
 
-        return $this->db->queryOne(
-            "SELECT e.id, e.url, e.tipo, e.slot, r.url_respaldo,
+        $rutaRespaldoPrivado = self::$adjEvidenciaRespaldoRutaPrivadaCol === true
+            ? 'r.ruta_respaldo_privado'
+            : 'NULL AS ruta_respaldo_privado';
+
+        $evidencia = $this->db->queryOne(
+            "SELECT e.id, e.id_operacion, e.url, e.tipo, e.slot, r.url_respaldo, {$rutaRespaldoPrivado},
                     COALESCE(NULLIF(r.url_origen, ''),
                         CASE WHEN e.url LIKE 'https://firebasestorage.googleapis.com/%' THEN e.url ELSE NULL END
                     ) AS url_origen
              FROM adj_evidencia e
              LEFT JOIN adj_evidencia_respaldo r ON r.id_evidencia = e.id
-             WHERE e.id = :id
+            WHERE e.id = :id
              LIMIT 1",
             ['id' => $idEvidencia]
         ) ?: null;
+
+        // Evidencias ya almacenadas antes de este cambio se protegen al primer
+        // acceso, sin tener que volver a pedir el archivo a Firebase.
+        if ($evidencia
+            && self::$adjEvidenciaRespaldoRutaPrivadaCol === true
+            && trim((string) ($evidencia['ruta_respaldo_privado'] ?? '')) === ''
+            && trim((string) ($evidencia['url'] ?? '')) !== '') {
+            $this->guardarRespaldoEvidenciaDictumApp(
+                (int) $evidencia['id'],
+                (int) $evidencia['id_operacion'],
+                (string) $evidencia['slot'],
+                (string) ($evidencia['url_origen'] ?? ''),
+                (string) $evidencia['url']
+            );
+            $evidencia['ruta_respaldo_privado'] = null;
+            $ruta = (string) (parse_url((string) $evidencia['url'], PHP_URL_PATH) ?: $evidencia['url']);
+            $uploadsPos = stripos(str_replace('\\', '/', $ruta), '/uploads/');
+            if ($uploadsPos !== false && function_exists('sparta_uploads_resolve_relative')) {
+                $local = sparta_uploads_resolve_relative(substr($ruta, $uploadsPos + strlen('/uploads/')));
+                if ($local && is_file($local)) {
+                    $evidencia['ruta_respaldo_privado'] = 'operaciones/' . (int) $evidencia['id_operacion'] . '/' . basename($local);
+                }
+            }
+        }
+
+        return $evidencia;
     }
 
     public function obtenerDetallesRapidosPorCreditos(array $idsCredito): array

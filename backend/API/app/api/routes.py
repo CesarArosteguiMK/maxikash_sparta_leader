@@ -2712,7 +2712,8 @@ def _respuesta_alibaba_curp(res: Dict[str, Any]) -> Dict[str, Any]:
     errores = _ai_errores(res)
     fecha = campos.get("fecha_emision") or campos.get("fecha_expedicion")
     meses = _ai_meses_desde(fecha)
-    valido = _ai_es_doc(res, "curp") and not errores
+    parece_curp = _ai_es_doc(res, "curp")
+    valido = parece_curp and not errores
     curp_raw = campos.get("curp")
     return {
         # El modelo visual puede confundir un caracter en CURP y aun parecer valido
@@ -2726,10 +2727,16 @@ def _respuesta_alibaba_curp(res: Dict[str, Any]) -> Dict[str, Any]:
         "es_reciente": None if meses is None else meses <= 2,
         "meses_antiguedad": meses,
         "fecha_emision": fecha,
-        "parece_curp": _ai_es_doc(res, "curp"),
-        "revision_manual": bool(_ai_advertencias(res)) and not errores,
-        "rechazado": bool(errores),
-        "motivo_rechazo": f"{_doc_ai_provider_tag()}_validacion_rapida" if errores else None,
+        "parece_curp": parece_curp,
+        # Un archivo identificado claramente como otro documento no debe pasar
+        # como revisión manual: se rechaza antes de almacenarlo como CURP.
+        "revision_manual": bool(_ai_advertencias(res)) and parece_curp and not errores,
+        "rechazado": bool(errores) or not parece_curp,
+        "motivo_rechazo": (
+            f"{_doc_ai_provider_tag()}_documento_no_curp"
+            if not parece_curp
+            else (f"{_doc_ai_provider_tag()}_validacion_rapida" if errores else None)
+        ),
         **_ai_metadata(res),
     }
 

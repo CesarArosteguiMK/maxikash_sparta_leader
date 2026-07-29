@@ -69,6 +69,27 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .atlas-expedientes-detail-item { border-bottom:1px solid #e2e8f0; padding:.4rem 0 .65rem; min-width:0; }
         .atlas-expedientes-detail-label { color:#94a3b8; font-size:.65rem; font-weight:900; text-transform:uppercase; }
         .atlas-expedientes-detail-value { color:#22303e; font-size:.8rem; font-weight:900; margin-top:.15rem; overflow-wrap:anywhere; }
+        .atlas-expedientes-evidence-section { margin-bottom:1.25rem; padding-bottom:1.25rem; border-bottom:1px solid #e2e8f0; }
+        .atlas-expedientes-evidence-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.75rem; }
+        .atlas-expedientes-evidence-title { display:flex; align-items:center; gap:.5rem; margin:0; color:#22303e; font-size:.9rem; font-weight:900; }
+        .atlas-expedientes-evidence-title i { color:#2563eb; }
+        .atlas-expedientes-evidence-count { display:inline-flex; align-items:center; justify-content:center; min-width:1.75rem; height:1.5rem; padding:0 .45rem; border-radius:999px; background:#e0e7ff; color:#3730a3; font-size:.68rem; font-weight:900; }
+        .atlas-expedientes-evidence-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(14rem, 1fr)); gap:.75rem; }
+        .atlas-expedientes-evidence-item { min-width:0; overflow:hidden; border:1px solid #dbe4ef; border-radius:.45rem; background:#fff; }
+        .atlas-expedientes-evidence-media { position:relative; display:grid; place-items:center; width:100%; aspect-ratio:4/3; overflow:hidden; background:#f1f5f9; color:#64748b; text-decoration:none; }
+        .atlas-expedientes-evidence-media img { width:100%; height:100%; object-fit:contain; transition:transform .18s ease; }
+        .atlas-expedientes-evidence-media:hover img { transform:scale(1.02); }
+        .atlas-expedientes-evidence-fallback { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:.45rem; padding:1rem; color:#64748b; text-align:center; font-size:.74rem; font-weight:800; }
+        .atlas-expedientes-evidence-fallback i { color:#d97706; font-size:1.4rem; }
+        .atlas-expedientes-evidence-media.is-unavailable img { display:none; }
+        .atlas-expedientes-evidence-media.is-unavailable .atlas-expedientes-evidence-fallback { display:flex; }
+        .atlas-expedientes-evidence-body { padding:.7rem .75rem .75rem; }
+        .atlas-expedientes-evidence-name { color:#22303e; font-size:.8rem; font-weight:900; line-height:1.25; overflow-wrap:anywhere; }
+        .atlas-expedientes-evidence-meta { display:flex; align-items:flex-start; gap:.4rem; margin-top:.35rem; color:#64748b; font-size:.68rem; font-weight:700; line-height:1.25; }
+        .atlas-expedientes-evidence-meta i { width:.8rem; margin-top:.08rem; color:#94a3b8; text-align:center; }
+        .atlas-expedientes-evidence-open { margin-top:.65rem; }
+        .atlas-expedientes-evidence-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.5rem; min-height:8rem; padding:1.25rem; border:1px dashed #cbd5e1; border-radius:.45rem; background:#f8fafc; color:#64748b; text-align:center; font-size:.78rem; font-weight:800; }
+        .atlas-expedientes-evidence-empty i { color:#94a3b8; font-size:1.5rem; }
         @media (max-width: 1399.98px) {
             .atlas-expedientes-filters { grid-template-columns:repeat(3, minmax(10rem, 1fr)); }
             .atlas-expedientes-metrics { grid-template-columns:repeat(3, minmax(9rem, 1fr)); }
@@ -76,7 +97,8 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         @media (max-width: 767.98px) {
             .atlas-expedientes-filters,
             .atlas-expedientes-metrics,
-            .atlas-expedientes-detail-grid { grid-template-columns:1fr; }
+            .atlas-expedientes-detail-grid,
+            .atlas-expedientes-evidence-grid { grid-template-columns:1fr; }
             .atlas-expedientes-filter-actions,
             .atlas-expedientes-filter-actions .btn { width:100%; }
             .atlas-expedientes-filter-actions .btn { flex:1; }
@@ -267,6 +289,9 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     let detailModal = null;
     let saving = false;
     let lastError = '';
+    let loadingRequests = 0;
+    let loadingAlertOpen = false;
+    let pendingTableError = '';
 
     const escapeHtml = (value) => String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -337,6 +362,40 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 timer: 1800,
                 showConfirmButton: false,
             });
+        }
+    };
+
+    const showExpedientesLoading = () => {
+        loadingRequests++;
+        if (loadingRequests > 1) return;
+        loadingAlertOpen = true;
+        if (typeof showWait === 'function') {
+            showWait('Consultando expedientes...');
+            return;
+        }
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Procesando su petici\u00f3n',
+                text: 'Consultando expedientes...',
+                imageUrl: '/assets/img/wait.svg',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+            });
+        }
+    };
+
+    const hideExpedientesLoading = () => {
+        loadingRequests = Math.max(0, loadingRequests - 1);
+        if (loadingRequests > 0) return;
+        if (loadingAlertOpen && typeof Swal !== 'undefined' && Swal.isVisible()) {
+            Swal.close();
+        }
+        loadingAlertOpen = false;
+        if (pendingTableError) {
+            const message = pendingTableError;
+            pendingTableError = '';
+            showError(message);
         }
     };
 
@@ -425,7 +484,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
 
     const loadDataTable = () => {
         table = window.jQuery('#atlasExpedientesTable').DataTable({
-            processing: true,
+            processing: false,
             serverSide: true,
             responsive: false,
             autoWidth: false,
@@ -449,6 +508,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 if (stageSelect.value) params.set('etapa', stageSelect.value);
                 if (request.search?.value) params.set('search', request.search.value);
                 refreshButton.disabled = true;
+                showExpedientesLoading();
                 try {
                     const response = await fetch(`/Atlas/getExpedientes?${params.toString()}`, {
                         headers: { Accept: 'application/json' },
@@ -464,6 +524,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                     document.getElementById('atlasExpedientesMeta').textContent =
                         `${number(pagination.total_filtrados)} expediente(s) en el periodo`;
                     lastError = '';
+                    pendingTableError = '';
                     callback({
                         draw: request.draw,
                         data: Array.isArray(data.filas) ? data.filas : [],
@@ -477,10 +538,11 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                     const message = error.message || 'No se pudieron consultar los expedientes.';
                     if (message !== lastError) {
                         lastError = message;
-                        showError(message);
+                        pendingTableError = message;
                     }
                 } finally {
                     refreshButton.disabled = false;
+                    hideExpedientesLoading();
                 }
             },
             columns: [
@@ -541,7 +603,6 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 },
             ],
             language: {
-                processing: 'Consultando expedientes...',
                 emptyTable: 'No hay expedientes para los filtros seleccionados',
                 info: 'Mostrando de _START_ a _END_ de _TOTAL_ expedientes',
                 infoEmpty: 'Sin expedientes para mostrar',
@@ -649,7 +710,113 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             <div class="atlas-expedientes-detail-value">${escapeHtml(value ?? 'Sin dato')}</div>
         </div>`;
 
-    const renderDetail = (data) => {
+    const positiveInteger = (value) => {
+        const parsed = Number(value);
+        return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+    };
+
+    const evidenceChannelLabel = (value) => {
+        const label = String(value || '').trim().replace(/[_-]+/g, ' ');
+        return label ? label.charAt(0).toUpperCase() + label.slice(1) : 'Canal sin dato';
+    };
+
+    const renderEvidenceGallery = (data, requestedCreditId) => {
+        const evidences = Array.isArray(data.evidencias)
+            ? data.evidencias.filter((evidence) => evidence && typeof evidence === 'object')
+            : [];
+        const declaredTotal = Number(data.total_evidencias);
+        const total = Number.isInteger(declaredTotal) && declaredTotal >= 0
+            ? Math.max(declaredTotal, evidences.length)
+            : evidences.length;
+        const creditId = positiveInteger(data.expediente?.credito_id) || positiveInteger(requestedCreditId);
+        const cards = evidences.map((evidence, index) => {
+            const context = evidence.contexto && typeof evidence.contexto === 'object'
+                ? evidence.contexto
+                : {};
+            const evidenceId = positiveInteger(evidence.id);
+            const available = [true, 1, '1', 'true'].includes(evidence.disponible);
+            const mimeType = String(evidence.mime_type || '').toLowerCase();
+            const evidenceType = String(evidence.tipo || '').toLowerCase();
+            const isPhoto = mimeType.startsWith('image/')
+                || ['imagen', 'image', 'foto'].includes(evidenceType);
+            const source = creditId && evidenceId && available && isPhoto
+                ? `/Atlas/verEvidenciaExpediente?credito_id=${creditId}&id=${evidenceId}`
+                : '';
+            const name = String(evidence.nombre || `Evidencia ${index + 1}`);
+            const evidenceDate = context.fecha_gestion
+                || evidence.fecha_gestion
+                || evidence.fecha_hora
+                || '';
+            const gestor = String(context.gestor || evidence.gestor || 'Gestor sin dato');
+            const channel = evidenceChannelLabel(context.canal_gestion || evidence.canal_gestion);
+            const comment = String(context.comentario || evidence.comentario || '').trim();
+            const fallback = `
+                <div class="atlas-expedientes-evidence-fallback">
+                    <i class="fa-solid fa-image"></i>
+                    <span>${source ? 'No se pudo cargar la vista previa.' : 'Evidencia no disponible.'}</span>
+                </div>`;
+            const media = source
+                ? `<a class="atlas-expedientes-evidence-media" href="${source}" target="_blank"
+                        rel="noopener noreferrer" aria-label="Abrir ${escapeHtml(name)} en tama&ntilde;o completo">
+                        <img src="${source}" alt="${escapeHtml(name)}" loading="lazy" decoding="async"
+                             data-exp-evidence-image>
+                        ${fallback}
+                    </a>`
+                : `<div class="atlas-expedientes-evidence-media is-unavailable">${fallback}</div>`;
+
+            return `<article class="atlas-expedientes-evidence-item">
+                ${media}
+                <div class="atlas-expedientes-evidence-body">
+                    <div class="atlas-expedientes-evidence-name">${escapeHtml(name)}</div>
+                    <div class="atlas-expedientes-evidence-meta">
+                        <i class="fa-regular fa-calendar"></i>
+                        <span>${escapeHtml(evidenceDate ? dateTime(evidenceDate) : 'Fecha sin dato')}</span>
+                    </div>
+                    <div class="atlas-expedientes-evidence-meta">
+                        <i class="fa-solid fa-user"></i>
+                        <span>${escapeHtml(gestor)}</span>
+                    </div>
+                    <div class="atlas-expedientes-evidence-meta">
+                        <i class="fa-solid fa-route"></i>
+                        <span>${escapeHtml(channel)}</span>
+                    </div>
+                    ${comment ? `<div class="atlas-expedientes-evidence-meta">
+                        <i class="fa-regular fa-comment"></i>
+                        <span>${escapeHtml(comment)}</span>
+                    </div>` : ''}
+                    ${source ? `<a class="btn btn-sm btn-label-primary atlas-expedientes-evidence-open"
+                            href="${source}" target="_blank" rel="noopener noreferrer">
+                            <i class="fa-solid fa-up-right-from-square me-2"></i>Abrir imagen
+                        </a>` : ''}
+                </div>
+            </article>`;
+        }).join('');
+
+        return `<section class="atlas-expedientes-evidence-section" aria-label="Evidencias fotograficas">
+            <div class="atlas-expedientes-evidence-head">
+                <h3 class="atlas-expedientes-evidence-title">
+                    <i class="fa-solid fa-images"></i>Evidencias fotogr&aacute;ficas
+                </h3>
+                <span class="atlas-expedientes-evidence-count">${number(total)}</span>
+            </div>
+            ${cards
+                ? `<div class="atlas-expedientes-evidence-grid">${cards}</div>`
+                : `<div class="atlas-expedientes-evidence-empty">
+                    <i class="fa-solid fa-image"></i>
+                    <span>Este expediente no tiene evidencias fotogr&aacute;ficas registradas.</span>
+                </div>`}
+        </section>`;
+    };
+
+    const bindEvidenceImageFallbacks = (container) => {
+        container.querySelectorAll('[data-exp-evidence-image]').forEach((image) => {
+            image.addEventListener('error', () => {
+                image.closest('.atlas-expedientes-evidence-media')?.classList.add('is-unavailable');
+            }, { once: true });
+        });
+    };
+
+    const renderDetail = (data, requestedCreditId) => {
         const expediente = data.expediente || {};
         const history = Array.isArray(data.bitacora) ? data.bitacora : [];
         const events = history.length
@@ -678,9 +845,10 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 </article>`).join('')
             : '<div class="alert alert-secondary mb-0">El expediente aun no tiene movimientos registrados.</div>';
 
+        const detailContent = document.getElementById('atlasExpedientesDetailContent');
         document.getElementById('atlasExpedientesDetailMeta').textContent =
             `Credito #${expediente.numero_credito || expediente.credito_id || ''}`;
-        document.getElementById('atlasExpedientesDetailContent').innerHTML = `
+        detailContent.innerHTML = `
             <div class="atlas-expedientes-detail-grid">
                 ${detailItem('ID credito', expediente.credito_id)}
                 ${detailItem('ID cliente', expediente.cliente_id)}
@@ -695,8 +863,10 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                     <div class="atlas-expedientes-detail-value">${statusBadge(expediente.estatus)}</div>
                 </div>
             </div>
+            ${renderEvidenceGallery(data, requestedCreditId)}
             <h3 class="h6 fw-bold mb-3">Bitacora de movimientos</h3>
             <div class="atlas-expedientes-timeline">${events}</div>`;
+        bindEvidenceImageFallbacks(detailContent);
     };
 
     const openDetail = async (creditId) => {
@@ -712,7 +882,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             if (!response.ok || !payload.success) {
                 throw new Error(payload.mensaje || 'No se pudo consultar el expediente.');
             }
-            renderDetail(payload.datos || {});
+            renderDetail(payload.datos || {}, creditId);
         } catch (error) {
             document.getElementById('atlasExpedientesDetailContent').innerHTML =
                 `<div class="alert alert-danger mb-0">${escapeHtml(error.message || 'No se pudo consultar el expediente.')}</div>`;
