@@ -101,15 +101,19 @@ if (!configuredAsset) {
         } else if (
             Number(found.helmet.node.extras?.leonidasHelmetVisorFaces || 0) <= 0
         ) {
-            fail('helmet no contiene la visera cerrada independiente');
+            fail('helmet no contiene el fondo oscuro de la cavidad');
+        } else if (
+            Number(found.helmet.node.extras?.leonidasHelmetOriginalFaces || 0) < 1000
+        ) {
+            fail('helmet no conserva la geometria esculpida de alta densidad');
         } else if (!materialNames.has('leonidasvisormaterial')) {
-            fail('falta el material negro independiente de la visera');
+            fail('falta el material mate del fondo interior');
         } else if (
             Number(found.helmet.node.extras?.leonidasHelmetCrestFaces || 0) <= 0
             || !materialNames.has('leonidascrestred')
             || !materialNames.has('leonidascrestdark')
         ) {
-            fail('helmet no contiene la melena roja segmentada');
+            fail('helmet no contiene el penacho rojo segmentado');
         } else if (
             !String(found.chest.node.extras?.leonidasChestSemanticFaces || '')
                 .includes('original=')
