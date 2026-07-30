@@ -108,8 +108,8 @@ def _texto_ocr_imagen(image_png_bytes: bytes) -> Optional[str]:
     return None
 
 
-def _texto_ocr_imagen_ligero(image_png_bytes: bytes, max_ancho: int = 1700) -> Optional[str]:
-    """OCR rapido sin Paddle para validaciones documentales de bajo costo."""
+def texto_ocr_tesseract_ligero(image_png_bytes: bytes, max_ancho: int = 1700) -> Optional[str]:
+    """OCR rápido exclusivamente con Tesseract; nunca carga motores pesados."""
     if TESSERACT_AVAILABLE:
         try:
             _configurar_tesseract()
@@ -126,6 +126,14 @@ def _texto_ocr_imagen_ligero(image_png_bytes: bytes, max_ancho: int = 1700) -> O
                     return texto.strip()
         except Exception:
             pass
+    return None
+
+
+def _texto_ocr_imagen_ligero(image_png_bytes: bytes, max_ancho: int = 1700) -> Optional[str]:
+    """OCR rápido sin Paddle para validaciones documentales de bajo costo."""
+    texto_tesseract = texto_ocr_tesseract_ligero(image_png_bytes, max_ancho=max_ancho)
+    if texto_tesseract:
+        return texto_tesseract
     try:
         engine = _get_rapidocr_dc()
         if engine is not None:

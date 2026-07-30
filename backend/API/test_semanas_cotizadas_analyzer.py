@@ -1,5 +1,6 @@
 import fitz
 
+import app.services.semanas_cotizadas_analyzer as analyzer
 from app.services.semanas_cotizadas_analyzer import analizar_semanas_cotizadas
 
 
@@ -50,3 +51,24 @@ def test_marca_pagina_error_portal_como_documento_incorrecto():
     assert resultado["clasificacion"] == "documento_incorrecto"
     assert resultado["codigo_resultado"] == "error_portal_imss"
     assert resultado["patrones_vigentes"] is None
+
+
+def test_pdf_solo_imagen_sin_tesseract_no_se_queda_procesando(monkeypatch):
+    origen = fitz.open()
+    pagina = origen.new_page(width=612, height=792)
+    pagina.insert_text((70, 120), "Access denied - Error 17")
+    imagen = pagina.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False).tobytes("png")
+    origen.close()
+
+    documento = fitz.open()
+    pagina_imagen = documento.new_page(width=612, height=792)
+    pagina_imagen.insert_image(pagina_imagen.rect, stream=imagen)
+    contenido = documento.tobytes()
+    documento.close()
+
+    monkeypatch.setattr(analyzer, "texto_ocr_tesseract_ligero", lambda _imagen: None)
+    resultado = analyzer.analizar_semanas_cotizadas(contenido)
+
+    assert resultado["valido"] is False
+    assert resultado["clasificacion"] == "documento_incorrecto"
+    assert resultado["codigo_resultado"] == "pdf_solo_imagen"

@@ -10230,13 +10230,42 @@ class CapHum extends Controller
             (int)($_POST['id_documento'] ?? 0)
         );
         if (!empty($resultado['success'])) {
-            $workerLanzado = $this->iniciarWorkerPatronesNotificacionDocumental(
-                (int)($resultado['datos']['id_campania'] ?? 0)
-            );
-            $resultado['datos']['worker_lanzado'] = $workerLanzado;
-            $resultado['mensaje'] = $workerLanzado
-                ? 'El PDF fue enviado nuevamente al Motor V1.'
-                : 'El PDF quedó pendiente, pero el Motor V1 no está disponible o no pudo iniciarse.';
+            $idEntrega = (int)($resultado['datos']['id_entrega'] ?? 0);
+            $archivo = basename((string)($resultado['datos']['archivo'] ?? ''));
+            $ruta = $archivo !== '' ? sparta_uploads_join('documentos', $archivo) : '';
+            $procesado = false;
+            $motivo = '';
+
+            if ($ruta === '' || !is_file($ruta)) {
+                $motivo = 'El PDF no está disponible físicamente en este servidor.';
+            } elseif (!CapHumNotificacionDocumental::motorV1PatronesDisponible()) {
+                $motivo = 'El Motor V1 no está disponible.';
+            } else {
+                $analisis = CapHumNotificacionDocumental::analizarArchivoPatronesMotorV1($ruta);
+                if (is_array($analisis)) {
+                    CapHumNotificacionDocumental::guardarAnalisisPatronesEntrega($idEntrega, $analisis);
+                    $procesado = true;
+                } else {
+                    $motivo = 'El Motor V1 no devolvió un resultado dentro del tiempo permitido.';
+                    CapHumNotificacionDocumental::guardarAnalisisPatronesEntrega($idEntrega, [
+                        'valido' => false,
+                        'revision_manual' => false,
+                        'patrones_vigentes' => null,
+                        'patrones_historial' => 0,
+                        'patrones' => [],
+                        'motor_ia' => 'motor_v1',
+                        'fuente_lectura' => 'motor_v1_reintento_fallido',
+                        'clasificacion' => 'error_lectura',
+                        'codigo_resultado' => 'reintento_sin_respuesta',
+                        'mensaje' => $motivo,
+                    ]);
+                }
+            }
+
+            $resultado['datos']['procesado'] = $procesado;
+            $resultado['mensaje'] = $procesado
+                ? 'Reintento completado. El nuevo resultado ya fue guardado.'
+                : $motivo;
         }
         self::respuestaJSON($resultado);
     }

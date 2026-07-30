@@ -1014,7 +1014,7 @@ class CapHumNotificacionDocumental extends Model
             }
             $db = new Database();
             $entrega = $db->queryOne("
-                SELECT e.id, e.id_campania
+                SELECT e.id, e.id_campania, e.archivo
                 FROM estado_cuenta.rrhh_notificacion_documental_entrega e
                 INNER JOIN estado_cuenta.rrhh_notificacion_documental_campania c
                     ON c.id = e.id_campania
@@ -1030,18 +1030,10 @@ class CapHumNotificacionDocumental extends Model
             if (!$entrega) {
                 return self::resultado(false, 'Esta entrega no requiere un reintento de lectura.');
             }
-            $db->CRUD("
-                UPDATE estado_cuenta.rrhh_notificacion_documental_entrega
-                SET patrones_vigentes = NULL,
-                    patrones_historial = NULL,
-                    patrones_fuente = NULL,
-                    patrones_analisis_json = NULL,
-                    patrones_analizado_en = NULL
-                WHERE id = :id
-                LIMIT 1
-            ", ['id' => (int)$entrega['id']]);
-            return self::resultado(true, 'El PDF fue enviado nuevamente al Motor V1.', [
+            return self::resultado(true, 'El PDF está listo para reanalizarse.', [
+                'id_entrega' => (int)$entrega['id'],
                 'id_campania' => (int)$entrega['id_campania'],
+                'archivo' => basename((string)($entrega['archivo'] ?? '')),
             ]);
         } catch (\Throwable $e) {
             return self::resultado(false, 'No se pudo reiniciar la lectura del documento.', null, $e->getMessage());

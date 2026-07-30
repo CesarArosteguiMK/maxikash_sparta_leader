@@ -577,6 +577,15 @@ $tipoInicial = $tipos[0] ?? [
                 if (!confirmarReintento.isConfirmed) return;
 
                 boton.disabled = true;
+                if (window.Swal) {
+                    Swal.fire({
+                        title: 'Reanalizando PDF',
+                        text: 'El Motor V1 está leyendo nuevamente este documento.',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+                }
                 const formData = new FormData();
                 formData.append('id_documento', String(idDocumento));
                 const resultado = await json('/caphum/reintentarAnalisisPatronesNotificacionDocumental', {
@@ -585,11 +594,11 @@ $tipoInicial = $tipos[0] ?? [
                     headers: {'X-Requested-With': 'XMLHttpRequest'}
                 });
                 await cargarAvance();
-                if (resultado.datos?.worker_lanzado === false) {
+                if (resultado.datos?.procesado !== true) {
                     if (window.Swal) {
                         await Swal.fire({
                             icon: 'error',
-                            title: 'Motor V1 no disponible',
+                            title: 'El reintento no se completó',
                             text: resultado.mensaje
                         });
                     } else {
@@ -600,7 +609,7 @@ $tipoInicial = $tipos[0] ?? [
                 if (window.Swal) {
                     await Swal.fire({
                         icon: 'success',
-                        title: 'Reintento iniciado',
+                        title: 'Reintento completado',
                         text: resultado.mensaje,
                         timer: 1800,
                         showConfirmButton: false
