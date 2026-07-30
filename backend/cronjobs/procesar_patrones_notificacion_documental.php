@@ -76,9 +76,9 @@ try {
                     'patrones' => [],
                     'motor_ia' => 'motor_v1',
                     'fuente_lectura' => 'motor_v1_timeout',
-                    'clasificacion' => 'revision_manual',
+                    'clasificacion' => 'error_lectura',
                     'codigo_resultado' => 'tiempo_lectura_agotado',
-                    'mensaje' => 'El Motor V1 no pudo terminar la lectura dentro del tiempo permitido; requiere revisión manual.',
+                    'mensaje' => 'El Motor V1 no pudo terminar la lectura dentro del tiempo permitido.',
                 ]);
                 continue;
             }

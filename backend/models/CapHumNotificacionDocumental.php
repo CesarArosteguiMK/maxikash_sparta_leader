@@ -684,12 +684,22 @@ class CapHumNotificacionDocumental extends Model
                         // Compatibilidad con lecturas generadas antes de que
                         // existiera la clasificación explícita.
                         $row['estado_analisis_patrones'] = 'documento_incorrecto';
+                    } else {
+                        $row['estado_analisis_patrones'] = 'error_lectura';
                     }
                     $row['mensaje_analisis_patrones'] = mb_substr(
                         trim((string)($analisis['mensaje'] ?? '')),
                         0,
                         350
                     );
+                } elseif (($row['estado_analisis_patrones'] ?? '') === 'sin_lectura') {
+                    // Resultado legado incompleto: no debe mostrarse como una
+                    // revisión humana solicitada, sino como un error del motor.
+                    $row['estado_analisis_patrones'] = 'error_lectura';
+                }
+                if (($row['estado_analisis_patrones'] ?? '') === 'error_lectura'
+                    && $row['mensaje_analisis_patrones'] === '') {
+                    $row['mensaje_analisis_patrones'] = 'El Motor V1 no pudo determinar el contenido del PDF.';
                 }
                 unset($row['patrones_analisis_json']);
             }
