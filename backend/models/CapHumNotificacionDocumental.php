@@ -1005,6 +1005,24 @@ class CapHumNotificacionDocumental extends Model
         return true;
     }
 
+    public static function obtenerAnalisisPatronesEntrega(int $idEntrega): ?array
+    {
+        if ($idEntrega <= 0) {
+            return null;
+        }
+        self::asegurarTablas();
+        $db = new Database();
+        $row = $db->queryOne("
+            SELECT patrones_analisis_json
+            FROM estado_cuenta.rrhh_notificacion_documental_entrega
+            WHERE id = :id
+              AND patrones_analizado_en IS NOT NULL
+            LIMIT 1
+        ", ['id' => $idEntrega]);
+        $analisis = json_decode((string)($row['patrones_analisis_json'] ?? ''), true);
+        return is_array($analisis) ? $analisis : null;
+    }
+
     public static function reiniciarAnalisisPatronesDocumento(int $idDocumentoCarga): array
     {
         try {

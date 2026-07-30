@@ -10258,7 +10258,14 @@ class CapHum extends Controller
 
                 if (is_array($analisis)) {
                     CapHumNotificacionDocumental::guardarAnalisisPatronesEntrega($idEntrega, $analisis);
-                    $procesado = true;
+                    $analisisGuardado = CapHumNotificacionDocumental::obtenerAnalisisPatronesEntrega($idEntrega);
+                    if (is_array($analisisGuardado)) {
+                        $analisis = $analisisGuardado;
+                        $procesado = true;
+                    } else {
+                        $analisis = null;
+                        $motivo = 'El Motor V1 terminó, pero no se pudo confirmar el resultado guardado.';
+                    }
                 } else {
                     $detalleLocal = trim((string)($ejecucionLocal['error'] ?? ''));
                     $motivo = $detalleLocal !== ''
