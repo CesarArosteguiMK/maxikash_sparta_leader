@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>QA casco y equipo de Leónidas</title>
+    <style>
+        * { box-sizing: border-box; }
+        html, body { margin: 0; min-height: 100%; background: #dce2ea; }
+        body { display: grid; place-items: center; padding: 24px; font-family: Arial, sans-serif; }
+        #leonidasAssistant {
+            position: relative; width: 680px; height: 860px; overflow: hidden;
+            border-radius: 24px;
+            background: radial-gradient(circle at 50% 25%, #4e6d94 0%, #263f63 36%, #15243b 100%);
+        }
+        [data-leonidas-canvas] { width: 100%; height: 100%; display: block; }
+        .label {
+            position: absolute; z-index: 2; top: 18px; left: 18px;
+            padding: 8px 12px; border-radius: 999px;
+            color: white; background: rgba(10, 20, 38, .74); font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div id="leonidasAssistant" class="is-appearance-preview-live">
+        <div class="label">Casco activo · equipo oculto · v57</div>
+        <canvas data-leonidas-canvas></canvas>
+    </div>
+    <script>
+        document.getElementById('leonidasAssistant')._leonidasAppearance = {
+            id: 'clasico',
+            color_principal: '#A91E2C',
+            color_secundario: '#6F4328',
+            color_metal: '#D8B37B',
+            casco_visible: true,
+            pechera_visible: true,
+            cabello_visible: true,
+            escudo_visible: false,
+            lanza_visible: false
+        };
+    </script>
+    <script type="module" src="/assets/js/leonidas-3d.js?v=57"></script>
+</body>
+</html>
