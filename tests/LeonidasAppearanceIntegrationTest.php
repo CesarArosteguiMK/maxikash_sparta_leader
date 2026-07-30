@@ -39,10 +39,14 @@ appearanceIntegrationAssert(
 );
 appearanceIntegrationAssert(
     str_contains($view, 'data-leonidas-appearance-model')
+        && str_contains($view, 'Arrastra para girar')
         && str_contains($appearanceJs, 'attachLiveModel')
         && str_contains($appearanceJs, 'detachLiveModel')
-        && str_contains($threeJs, 'is-appearance-preview-live'),
-    'La vista previa debe reutilizar el mismo modelo 3D y devolverlo al cerrar el editor.'
+        && str_contains($threeJs, 'is-appearance-preview-live')
+        && str_contains($threeJs, "canvas.addEventListener('pointerdown'")
+        && str_contains($threeJs, "canvas.addEventListener('pointermove'")
+        && str_contains($threeJs, 'previewRotationTarget'),
+    'La vista previa debe reutilizar el modelo 3D, permitir girarlo y devolverlo al cerrar el editor.'
 );
 appearanceIntegrationAssert(
     str_contains($threeJs, "root.addEventListener('leonidas:appearance'")
@@ -64,9 +68,24 @@ appearanceIntegrationAssert(
         && str_contains($builder, 'LeonidasPrimary')
         && str_contains($builder, 'LeonidasSecondary')
         && str_contains($builder, 'LeonidasMetal')
-        && str_contains($builder, 'open_helmet_face')
-        && str_contains($threeJs, 'modularParts.headUnderlay.visible = true'),
-    'Los colores deben usar materiales semanticos y el casco debe mostrar el rostro real.'
+        && str_contains($builder, 'finish_sculpted_helmet')
+        && str_contains($builder, 'LeonidasVisorMaterial')
+        && str_contains($builder, 'LeonidasCrestRed')
+        && str_contains($builder, 'leonidasHelmetOriginalFaces')
+        && str_contains($builder, 'leonidasHelmetScale')
+        && str_contains($builder, 'leonidasHelmetLift')
+        && str_contains($builder, 'leonidasHelmetCrestFaces')
+        && str_contains($builder, 'LeonidasHelmetPatina')
+        && str_contains($builder, 'LeonidasHelmetHighlight')
+        && str_contains($builder, 'assign_chest_semantic_materials')
+        && !str_contains($builder, "modifier.operation = 'DIFFERENCE'")
+        && str_contains($threeJs, 'leonidasRoughnessOffset')
+        && str_contains($threeJs, 'leonidasTone')
+        && str_contains(
+            $threeJs,
+            'modularParts.headUnderlay.visible = !currentAppearance.casco_visible'
+        ),
+    'Los colores deben usar materiales semanticos y el casco debe ocultar el rostro tras una visera propia.'
 );
 appearanceIntegrationAssert(
     str_contains($threeJs, '|| region === RIG_REGION.chest')

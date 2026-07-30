@@ -122,6 +122,9 @@ if (root && canvas) {
         let patrolX = 0;
         let deliveryWalk = null;
         const frontalRotation = -0.28;
+        let previewRotationTarget = 0;
+        let previewPointerId = null;
+        let previewPointerX = 0;
 
         function normalizeHex(value, fallback) {
             const color = String(value || '').trim().toUpperCase();
@@ -216,9 +219,9 @@ if (root && canvas) {
             modularParts.helmet.visible = currentAppearance.casco_visible;
             modularParts.chest.visible = currentAppearance.pechera_visible;
             if (modularParts.headUnderlay) {
-                // La cabeza anatómica debe permanecer debajo del casco. Así,
-                // las aberturas muestran piel real y nunca el color del metal.
-                modularParts.headUnderlay.visible = true;
+                // El casco cerrado usa una cavidad oscura propia. Ocultar la
+                // cabeza evita que la piel atraviese el fondo del visor.
+                modularParts.headUnderlay.visible = !currentAppearance.casco_visible;
             }
             if (modularParts.torsoUnderlay) {
                 modularParts.torsoUnderlay.visible = !currentAppearance.pechera_visible;
@@ -263,8 +266,25 @@ if (root && canvas) {
                     const style = palette[role];
                     if (!style || !material.color) return;
                     material.color.setHex(style.color);
+                    const tone = Number(
+                        material.userData?.leonidasTone || 1
+                    );
+                    if (Number.isFinite(tone) && tone !== 1) {
+                        material.color.multiplyScalar(tone);
+                    }
                     material.metalness = style.metalness;
-                    material.roughness = style.roughness;
+                    const roughnessOffset = Number(
+                        material.userData?.leonidasRoughnessOffset || 0
+                    );
+                    material.roughness = THREE.MathUtils.clamp(
+                        style.roughness + (
+                            Number.isFinite(roughnessOffset)
+                                ? roughnessOffset
+                                : 0
+                        ),
+                        0.08,
+                        0.92
+                    );
                     material.needsUpdate = true;
                 });
             });
@@ -481,7 +501,16 @@ if (root && canvas) {
             }
             patrolX = THREE.MathUtils.damp(patrolX, patrolTarget, walkingTarget > 0 ? 12 : 7, delta);
             if (activeModel) {
-                activeModel.rotation.y = THREE.MathUtils.damp(activeModel.rotation.y, facingTarget, 5.2, delta);
+                const desiredRotation = root.classList.contains('is-appearance-preview-live')
+                    ? frontalRotation + previewRotationTarget
+                    : facingTarget;
+                activeModel.rotation.y = THREE.MathUtils.damp(
+                    activeModel.rotation.y,
+                    desiredRotation,
+                    previewPointerId === null ? 8.5 : 18,
+                    delta
+                );
+                root.dataset.leonidasPreviewRotation = previewRotationTarget.toFixed(3);
             }
 
             // Idle is deliberately vertical only. The old side-to-side movement made
@@ -1344,7 +1373,60 @@ if (root && canvas) {
             }));
         };
 
-        root.addEventListener('leonidas:preview-layout', resize);
+        const finishPreviewRotation = (event) => {
+            if (
+                event
+                && previewPointerId !== null
+                && event.pointerId !== previewPointerId
+            ) return;
+            if (
+                previewPointerId !== null
+                && canvas.hasPointerCapture?.(previewPointerId)
+            ) {
+                canvas.releasePointerCapture(previewPointerId);
+            }
+            previewPointerId = null;
+            canvas.classList.remove('is-dragging');
+        };
+
+        canvas.setAttribute('aria-label', 'Gira a Leónidas arrastrando');
+        canvas.setAttribute('title', 'Arrastra para girar a Leónidas');
+        canvas.addEventListener('pointerdown', (event) => {
+            if (!root.classList.contains('is-appearance-preview-live')) return;
+            previewPointerId = event.pointerId;
+            previewPointerX = event.clientX;
+            canvas.setPointerCapture?.(event.pointerId);
+            canvas.classList.add('is-dragging');
+            event.preventDefault();
+        });
+        canvas.addEventListener('pointermove', (event) => {
+            if (
+                previewPointerId === null
+                || event.pointerId !== previewPointerId
+            ) return;
+            const deltaX = event.clientX - previewPointerX;
+            previewPointerX = event.clientX;
+            previewRotationTarget += deltaX * 0.012;
+            if (previewRotationTarget > Math.PI) previewRotationTarget -= Math.PI * 2;
+            if (previewRotationTarget < -Math.PI) previewRotationTarget += Math.PI * 2;
+            event.preventDefault();
+        });
+        canvas.addEventListener('pointerup', finishPreviewRotation);
+        canvas.addEventListener('pointercancel', finishPreviewRotation);
+        canvas.addEventListener('lostpointercapture', finishPreviewRotation);
+        canvas.addEventListener('dblclick', () => {
+            if (root.classList.contains('is-appearance-preview-live')) {
+                previewRotationTarget = 0;
+            }
+        });
+
+        root.addEventListener('leonidas:preview-layout', () => {
+            if (!root.classList.contains('is-appearance-preview-live')) {
+                finishPreviewRotation();
+                previewRotationTarget = 0;
+            }
+            resize();
+        });
 
         root.addEventListener('leonidas:appearance', (event) => {
             currentAppearance = normalizeAppearance(event.detail || root._leonidasAppearance);

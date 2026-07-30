@@ -321,8 +321,19 @@ $tipoInicial = $tipos[0] ?? [
             }
             return '<span class="badge rounded-pill text-bg-light border text-warning mt-1"><i class="fa-solid fa-spinner fa-spin me-1"></i>En cola del Motor V1</span>';
         }
-        if (estado === 'sin_lectura') {
-            return '<span class="badge rounded-pill text-bg-secondary mt-1"><i class="fa-solid fa-eye-low-vision me-1"></i>Revisión manual</span>';
+        if (estado === 'sin_lectura' || estado === 'error_lectura') {
+            const motivo = row.mensaje_analisis_patrones
+                || 'El Motor V1 no pudo determinar el contenido del PDF.';
+            return `<span class="badge rounded-pill text-bg-danger mt-1" title="${escapeHtml(motivo)}">
+                <i class="fa-solid fa-triangle-exclamation me-1"></i>Error de lectura
+            </span><small class="d-block text-danger mt-1">${escapeHtml(motivo)}</small>`;
+        }
+        if (estado === 'documento_incorrecto') {
+            const motivo = row.mensaje_analisis_patrones
+                || 'El archivo no corresponde al documento solicitado.';
+            return `<span class="badge rounded-pill text-bg-danger mt-1" title="${escapeHtml(motivo)}">
+                <i class="fa-solid fa-file-circle-xmark me-1"></i>Documento incorrecto
+            </span><small class="d-block text-danger mt-1">${escapeHtml(motivo)}</small>`;
         }
         const cantidad = Number(row.patrones_vigentes || 0);
         const clase = cantidad >= 2 ? 'text-bg-danger' : (cantidad === 1 ? 'text-bg-primary' : 'text-bg-warning');
@@ -345,7 +356,15 @@ $tipoInicial = $tipos[0] ?? [
     const cargarAvance = async ({silencioso = false} = {}) => {
         if (!campaniaAvance) return;
         detenerActualizacionAvance();
-        if (consultaAvanceEnCurso) return;
+        if (consultaAvanceEnCurso) {
+            if (silencioso) return;
+            // Una acción explícita (reintento, filtro o búsqueda) no puede ser
+            // descartada por el refresco automático. Espera a que termine la
+            // consulta anterior y vuelve a leer el estado confirmado en BD.
+            while (consultaAvanceEnCurso) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+        }
         consultaAvanceEnCurso = true;
         const cuerpo = $('#avanceCuerpo');
         const modal = $('#modalAvanceCampania');
@@ -377,7 +396,7 @@ $tipoInicial = $tipos[0] ?? [
                                     data-ver-entrega="${Number(row.id_documento_carga || 0)}" data-nombre-entrega="${escapeHtml(row.nombre_logico || 'Documento')}">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
-                            ${row.estado_analisis_patrones === 'sin_lectura' ? `
+                            ${['sin_lectura', 'error_lectura'].includes(row.estado_analisis_patrones) ? `
                             <button class="btn btn-outline-warning" type="button" title="Reintentar lectura" aria-label="Reintentar lectura"
                                     data-reintentar-lectura="${Number(row.id_documento_carga || 0)}" data-nombre-entrega="${escapeHtml(row.nombre_logico || 'Documento')}">
                                 <i class="fa-solid fa-rotate-right"></i>
@@ -566,6 +585,15 @@ $tipoInicial = $tipos[0] ?? [
                 if (!confirmarReintento.isConfirmed) return;
 
                 boton.disabled = true;
+                if (window.Swal) {
+                    Swal.fire({
+                        title: 'Reanalizando PDF',
+                        text: 'El Motor V1 está leyendo nuevamente este documento.',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+                }
                 const formData = new FormData();
                 formData.append('id_documento', String(idDocumento));
                 const resultado = await json('/caphum/reintentarAnalisisPatronesNotificacionDocumental', {
@@ -573,16 +601,28 @@ $tipoInicial = $tipos[0] ?? [
                     body: formData,
                     headers: {'X-Requested-With': 'XMLHttpRequest'}
                 });
+                await cargarAvance();
+                if (resultado.datos?.procesado !== true) {
+                    if (window.Swal) {
+                        await Swal.fire({
+                            icon: 'error',
+                            title: 'El reintento no se completó',
+                            text: resultado.mensaje
+                        });
+                    } else {
+                        alert(resultado.mensaje);
+                    }
+                    return;
+                }
                 if (window.Swal) {
                     await Swal.fire({
                         icon: 'success',
-                        title: 'Reintento iniciado',
+                        title: 'Reintento completado',
                         text: resultado.mensaje,
                         timer: 1800,
                         showConfirmButton: false
                     });
                 }
-                await cargarAvance();
                 return;
             }
 

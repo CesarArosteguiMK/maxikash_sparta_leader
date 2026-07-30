@@ -69,6 +69,9 @@ if (!configuredAsset) {
                 .map((material) => normalized(material.extras?.leonidasPalette))
                 .filter(Boolean)
         );
+        const materialNames = new Set(
+            (document.materials || []).map((material) => normalized(material.name))
+        );
         const missing = required.filter((role) => !found[role]);
         if (missing.length) {
             fail(`faltan piezas independientes: ${missing.join(', ')}`);
@@ -96,9 +99,41 @@ if (!configuredAsset) {
         ) {
             fail('body no declara la separacion semantica de piel y vestuario');
         } else if (
-            Number(found.helmet.node.extras?.leonidasHelmetOpeningFaces || 0) <= 0
+            Number(found.helmet.node.extras?.leonidasHelmetVisorFaces || 0) <= 0
         ) {
-            fail('helmet no contiene aberturas para mostrar el rostro anatomico');
+            fail('helmet no contiene el fondo oscuro de la cavidad');
+        } else if (
+            Number(found.helmet.node.extras?.leonidasHelmetOriginalFaces || 0) < 1000
+        ) {
+            fail('helmet no conserva la geometria esculpida de alta densidad');
+        } else if (
+            Number(found.helmet.node.extras?.leonidasHelmetOpeningCutters || 0) > 0
+        ) {
+            fail('helmet contiene cortadores destructivos que pueden perforar la nuca');
+        } else if (
+            Number(found.helmet.node.extras?.leonidasHelmetScale || 0) < 0.89
+            || Number(found.helmet.node.extras?.leonidasHelmetScale || 0) > 0.93
+            || Number(found.helmet.node.extras?.leonidasHelmetLift || 0) <= 0
+        ) {
+            fail('helmet no declara la escala y elevacion ergonomicas');
+        } else if (!materialNames.has('leonidasvisormaterial')) {
+            fail('falta el material mate del fondo interior');
+        } else if (
+            !materialNames.has('leonidashelmetpatina')
+            || !materialNames.has('leonidashelmethighlight')
+        ) {
+            fail('helmet no contiene contraste de patina y metal resaltado');
+        } else if (
+            Number(found.helmet.node.extras?.leonidasHelmetCrestFaces || 0) <= 0
+            || !materialNames.has('leonidascrestred')
+            || !materialNames.has('leonidascrestdark')
+        ) {
+            fail('helmet no contiene el penacho rojo segmentado');
+        } else if (
+            !String(found.chest.node.extras?.leonidasChestSemanticFaces || '')
+                .includes('original=')
+        ) {
+            fail('chest no separa la piel original de la pechera metalica');
         } else {
             console.log(
                 `Leonidas modular: OK - ${required.map((role) => `${role}=${found[role].node.name}`).join(', ')}`

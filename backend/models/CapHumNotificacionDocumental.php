@@ -640,6 +640,7 @@ class CapHumNotificacionDocumental extends Model
                     e.patrones_vigentes,
                     e.patrones_historial,
                     e.patrones_fuente,
+                    e.patrones_analisis_json,
                     CASE
                         WHEN e.id IS NULL THEN NULL
                         WHEN e.patrones_analizado_en IS NULL THEN 'pendiente'
@@ -667,6 +668,42 @@ class CapHumNotificacionDocumental extends Model
                 ORDER BY (e.id IS NULL) DESC, nombre ASC
                 LIMIT 1000
             ", $params);
+            foreach ($rows as &$row) {
+                $row['mensaje_analisis_patrones'] = '';
+                $analisis = json_decode((string)($row['patrones_analisis_json'] ?? ''), true);
+                if (($row['estado_analisis_patrones'] ?? '') === 'sin_lectura'
+                    && is_array($analisis)
+                    && array_key_exists('valido', $analisis)
+                    && $analisis['valido'] === false) {
+                    $clasificacion = (string)($analisis['clasificacion'] ?? '');
+                    if ($clasificacion === 'documento_incorrecto'
+                        || (string)($analisis['codigo_resultado'] ?? '') === 'error_portal_imss') {
+                        $row['estado_analisis_patrones'] = 'documento_incorrecto';
+                    } elseif (!empty($analisis['mensaje'])
+                        && stripos((string)$analisis['mensaje'], 'no se reconoci') !== false) {
+                        // Compatibilidad con lecturas generadas antes de que
+                        // existiera la clasificación explícita.
+                        $row['estado_analisis_patrones'] = 'documento_incorrecto';
+                    } else {
+                        $row['estado_analisis_patrones'] = 'error_lectura';
+                    }
+                    $row['mensaje_analisis_patrones'] = mb_substr(
+                        trim((string)($analisis['mensaje'] ?? '')),
+                        0,
+                        350
+                    );
+                } elseif (($row['estado_analisis_patrones'] ?? '') === 'sin_lectura') {
+                    // Resultado legado incompleto: no debe mostrarse como una
+                    // revisión humana solicitada, sino como un error del motor.
+                    $row['estado_analisis_patrones'] = 'error_lectura';
+                }
+                if (($row['estado_analisis_patrones'] ?? '') === 'error_lectura'
+                    && $row['mensaje_analisis_patrones'] === '') {
+                    $row['mensaje_analisis_patrones'] = 'El Motor V1 no pudo determinar el contenido del PDF.';
+                }
+                unset($row['patrones_analisis_json']);
+            }
+            unset($row);
             return self::resultado(true, 'Personas encontradas.', $rows ?: []);
         } catch (\Throwable $e) {
             return self::resultado(false, 'No se pudo consultar el avance de la campaña.', [], $e->getMessage());
@@ -968,6 +1005,24 @@ class CapHumNotificacionDocumental extends Model
         return true;
     }
 
+    public static function obtenerAnalisisPatronesEntrega(int $idEntrega): ?array
+    {
+        if ($idEntrega <= 0) {
+            return null;
+        }
+        self::asegurarTablas();
+        $db = new Database();
+        $row = $db->queryOne("
+            SELECT patrones_analisis_json
+            FROM estado_cuenta.rrhh_notificacion_documental_entrega
+            WHERE id = :id
+              AND patrones_analizado_en IS NOT NULL
+            LIMIT 1
+        ", ['id' => $idEntrega]);
+        $analisis = json_decode((string)($row['patrones_analisis_json'] ?? ''), true);
+        return is_array($analisis) ? $analisis : null;
+    }
+
     public static function reiniciarAnalisisPatronesDocumento(int $idDocumentoCarga): array
     {
         try {
@@ -977,7 +1032,7 @@ class CapHumNotificacionDocumental extends Model
             }
             $db = new Database();
             $entrega = $db->queryOne("
-                SELECT e.id, e.id_campania
+                SELECT e.id, e.id_campania, e.archivo
                 FROM estado_cuenta.rrhh_notificacion_documental_entrega e
                 INNER JOIN estado_cuenta.rrhh_notificacion_documental_campania c
                     ON c.id = e.id_campania
@@ -993,18 +1048,10 @@ class CapHumNotificacionDocumental extends Model
             if (!$entrega) {
                 return self::resultado(false, 'Esta entrega no requiere un reintento de lectura.');
             }
-            $db->CRUD("
-                UPDATE estado_cuenta.rrhh_notificacion_documental_entrega
-                SET patrones_vigentes = NULL,
-                    patrones_historial = NULL,
-                    patrones_fuente = NULL,
-                    patrones_analisis_json = NULL,
-                    patrones_analizado_en = NULL
-                WHERE id = :id
-                LIMIT 1
-            ", ['id' => (int)$entrega['id']]);
-            return self::resultado(true, 'El PDF fue enviado nuevamente al Motor V1.', [
+            return self::resultado(true, 'El PDF está listo para reanalizarse.', [
+                'id_entrega' => (int)$entrega['id'],
                 'id_campania' => (int)$entrega['id_campania'],
+                'archivo' => basename((string)($entrega['archivo'] ?? '')),
             ]);
         } catch (\Throwable $e) {
             return self::resultado(false, 'No se pudo reiniciar la lectura del documento.', null, $e->getMessage());
@@ -1043,6 +1090,94 @@ class CapHumNotificacionDocumental extends Model
         }
         $data = json_decode((string)$body, true);
         return is_array($data) ? $data : null;
+    }
+
+    public static function analizarArchivoPatronesMotorV1Cli(string $rutaPdf): array
+    {
+        $inicio = microtime(true);
+        $apiDir = defined('RAIZ') ? (RAIZ . '/API') : (__DIR__ . '/../API');
+        $script = $apiDir . '/scripts/analizar_semanas_cotizadas_cli.py';
+        if (!is_file($rutaPdf) || !is_file($script)) {
+            return [
+                'success' => false,
+                'analisis' => null,
+                'motor' => 'cli_local',
+                'duracion_ms' => (int)round((microtime(true) - $inicio) * 1000),
+                'error' => 'No se encontró el PDF o el analizador local.',
+            ];
+        }
+
+        $candidatos = [];
+        if (PHP_OS_FAMILY === 'Windows') {
+            $candidatos[] = $apiDir . '/tools/PythonPortable/python.exe';
+            $candidatos[] = $apiDir . '/venv/Scripts/python.exe';
+        } else {
+            $candidatos[] = $apiDir . '/venv/bin/python';
+            $candidatos[] = '/usr/bin/python3';
+        }
+        $archivoPython = $apiDir . '/launcher/PYTHON_EXE.txt';
+        if (is_file($archivoPython)) {
+            foreach (file($archivoPython, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $linea) {
+                $linea = trim($linea);
+                if ($linea !== '' && strpos($linea, '#') !== 0) {
+                    array_unshift($candidatos, $linea);
+                    break;
+                }
+            }
+        }
+        $python = '';
+        foreach (array_unique($candidatos) as $candidato) {
+            if (is_file($candidato)) {
+                $python = $candidato;
+                break;
+            }
+        }
+        if ($python === '') {
+            return [
+                'success' => false,
+                'analisis' => null,
+                'motor' => 'cli_local',
+                'duracion_ms' => (int)round((microtime(true) - $inicio) * 1000),
+                'error' => 'No se encontró el Python local del Motor V1.',
+            ];
+        }
+
+        $descriptor = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+        $proceso = @proc_open([$python, $script, $rutaPdf], $descriptor, $pipes, $apiDir);
+        if (!is_resource($proceso)) {
+            return [
+                'success' => false,
+                'analisis' => null,
+                'motor' => 'cli_local',
+                'duracion_ms' => (int)round((microtime(true) - $inicio) * 1000),
+                'error' => 'No se pudo iniciar el Python local.',
+            ];
+        }
+        fclose($pipes[0]);
+        $salida = stream_get_contents($pipes[1]);
+        $errorSalida = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $codigo = proc_close($proceso);
+        $data = json_decode(trim((string)$salida), true);
+        $analisis = is_array($data['analisis'] ?? null) ? $data['analisis'] : null;
+        $error = trim((string)($data['error'] ?? ''));
+        if ($error === '' && ($codigo !== 0 || $analisis === null)) {
+            $error = trim((string)$errorSalida);
+        }
+
+        return [
+            'success' => $codigo === 0 && $analisis !== null,
+            'analisis' => $analisis,
+            'motor' => 'cli_local',
+            'duracion_ms' => (int)round((microtime(true) - $inicio) * 1000),
+            'error' => mb_substr($error, 0, 500),
+            'python' => basename($python),
+        ];
     }
 
     public static function motorV1PatronesDisponible(): bool

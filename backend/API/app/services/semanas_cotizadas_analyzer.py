@@ -8,7 +8,10 @@ from typing import Any, Dict, List
 
 import fitz
 
-from app.services.document_crosscheck import texto_de_pdf_con_ocr
+from app.services.document_crosscheck import (
+    pdf_paginas_a_png_bytes,
+    texto_ocr_tesseract_ligero,
+)
 
 
 def _normalizar(texto: str) -> str:
@@ -96,13 +99,41 @@ def _registros_desde_geometria(pdf_bytes: bytes) -> List[Dict[str, Any]]:
     return registros
 
 
+def _texto_pdf_rapido(pdf_bytes: bytes, max_paginas: int = 20) -> tuple[str, str]:
+    """Extrae texto sin inicializar motores OCR pesados.
+
+    Las constancias normales traen capa de texto. Para PDF de imagen se usa
+    Tesseract/RapidOCR ligero en pocas páginas, suficiente para reconocer una
+    constancia o una página de error sin exceder el timeout del worker.
+    """
+    documento = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        texto_nativo = "\n".join(
+            pagina.get_text()
+            for indice, pagina in enumerate(documento)
+            if indice < max_paginas
+        )
+    finally:
+        documento.close()
+    if texto_nativo.strip():
+        return texto_nativo, "motor_v1_pdf_texto"
+
+    textos_ocr: List[str] = []
+    imagenes = pdf_paginas_a_png_bytes(pdf_bytes, dpi=170, max_paginas=3)
+    for imagen in imagenes:
+        texto = texto_ocr_tesseract_ligero(imagen)
+        if texto and texto.strip():
+            textos_ocr.append(texto.strip())
+    return "\n".join(textos_ocr), "motor_v1_ocr_ligero"
+
+
 def analizar_semanas_cotizadas(pdf_bytes: bytes) -> Dict[str, Any]:
     """Cuenta patrones vigentes a partir de los bloques oficiales del IMSS.
 
     Primero usa la capa de texto del PDF. RapidOCR/Tesseract solo interviene
     como respaldo cuando el archivo es una digitalización sin texto.
     """
-    texto_original = texto_de_pdf_con_ocr(pdf_bytes, max_paginas=20)
+    texto_original, fuente_lectura = _texto_pdf_rapido(pdf_bytes, max_paginas=20)
     texto = _normalizar(texto_original)
     es_constancia = (
         "CONSTANCIA DE SEMANAS COTIZADAS" in texto
@@ -110,6 +141,12 @@ def analizar_semanas_cotizadas(pdf_bytes: bytes) -> Dict[str, Any]:
         and "FECHA DE BAJA" in texto
     )
     if not es_constancia:
+        texto_detectado = bool(texto.strip())
+        es_error_portal = (
+            ("ACCESS DENIED" in texto and "ERROR 17" in texto)
+            or "THIS REQUEST WAS BLOCKED BY OUR SECURITY SERVICE" in texto
+            or ("SERVICIOSDIGITALES.IMSS.GOB.MX" in texto and "POWERED BY IMPERVA" in texto)
+        )
         return {
             "valido": False,
             "revision_manual": True,
@@ -117,8 +154,22 @@ def analizar_semanas_cotizadas(pdf_bytes: bytes) -> Dict[str, Any]:
             "patrones_historial": 0,
             "patrones": [],
             "motor_ia": "motor_v1",
-            "fuente_lectura": "motor_v1_pdf_text_ocr",
-            "mensaje": "No se reconoció una constancia de semanas cotizadas del IMSS.",
+            "fuente_lectura": fuente_lectura,
+            "clasificacion": "documento_incorrecto",
+            "codigo_resultado": (
+                "error_portal_imss"
+                if es_error_portal
+                else ("documento_no_reconocido" if texto_detectado else "pdf_solo_imagen")
+            ),
+            "mensaje": (
+                "El PDF contiene una página de error del portal del IMSS, no la constancia de semanas cotizadas."
+                if es_error_portal
+                else (
+                    "El archivo no corresponde a una constancia de semanas cotizadas del IMSS."
+                    if texto_detectado
+                    else "El PDF está compuesto solo por una imagen y no corresponde al formato digital esperado."
+                )
+            ),
         }
 
     patrones = _registros_desde_geometria(pdf_bytes)
@@ -144,7 +195,7 @@ def analizar_semanas_cotizadas(pdf_bytes: bytes) -> Dict[str, Any]:
         "patrones_historial": len(patrones),
         "patrones": patrones,
         "motor_ia": "motor_v1",
-        "fuente_lectura": "motor_v1_pdf_text_ocr",
+        "fuente_lectura": fuente_lectura,
         "mensaje": (
             f"Motor V1 detectó {len(vigentes)} patrón vigente"
             + ("" if len(vigentes) == 1 else "es")
