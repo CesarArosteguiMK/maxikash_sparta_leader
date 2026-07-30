@@ -25,7 +25,7 @@ if ($idCampania <= 0) {
 $db = new Database();
 $nombreLock = 'rrhh_patrones_campania_' . $idCampania;
 $lock = $db->queryOne(
-    'SELECT GET_LOCK(:nombre, 0) AS adquirido',
+    'SELECT GET_LOCK(:nombre, 3) AS adquirido',
     ['nombre' => $nombreLock]
 );
 if ((int)($lock['adquirido'] ?? 0) !== 1) {
@@ -33,13 +33,27 @@ if ((int)($lock['adquirido'] ?? 0) !== 1) {
 }
 
 try {
-    $pendientes = CapHumNotificacionDocumental::entregasPendientesAnalisisPatrones(
-        $idCampania,
-        1000
-    );
-    if (!empty($pendientes['success'])) {
+    if (!CapHumNotificacionDocumental::motorV1PatronesDisponible()) {
+        throw new RuntimeException('Motor V1 no disponible.');
+    }
+    $intentados = [];
+    $consultasSinTrabajo = 0;
+    while ($consultasSinTrabajo < 2) {
+        $pendientes = CapHumNotificacionDocumental::entregasPendientesAnalisisPatrones(
+            $idCampania,
+            1000
+        );
+        if (empty($pendientes['success'])) {
+            break;
+        }
+
+        $trabajoDisponible = false;
         foreach (($pendientes['datos'] ?? []) as $entrega) {
             $idEntrega = (int)($entrega['id'] ?? 0);
+            if ($idEntrega <= 0 || isset($intentados[$idEntrega])) {
+                continue;
+            }
+            $intentados[$idEntrega] = true;
             $archivo = basename((string)($entrega['archivo'] ?? ''));
             $ruta = $archivo !== '' ? sparta_uploads_join('documentos', $archivo) : '';
             if ($ruta === '' || !is_file($ruta)) {
@@ -48,11 +62,26 @@ try {
                 // La ausencia local nunca debe convertirse en un dictamen.
                 continue;
             }
+            $trabajoDisponible = true;
             $analisis = CapHumNotificacionDocumental::analizarArchivoPatronesMotorV1($ruta);
             if ($analisis === null) {
-                break;
+                // Un PDF o una caída transitoria de la API no debe bloquear el
+                // resto de la campaña. Queda pendiente para el siguiente worker.
+                continue;
             }
             CapHumNotificacionDocumental::guardarAnalisisPatronesEntrega($idEntrega, $analisis);
+        }
+
+        if ($trabajoDisponible) {
+            $consultasSinTrabajo = 0;
+            continue;
+        }
+
+        // Ventana corta para absorber documentos cargados mientras este worker
+        // ya tenía el candado. Así no dependen de abrir el modal para reactivarse.
+        $consultasSinTrabajo++;
+        if ($consultasSinTrabajo < 2) {
+            usleep(500000);
         }
     }
 } catch (Throwable $e) {
