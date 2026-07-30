@@ -1937,7 +1937,7 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                                 <div class="leonidas-appearance-gear" data-leonidas-gear-controls hidden>
                                     <div>
                                         <h6>Piezas visibles</h6>
-                                        <p>Combina armadura y cabello del modelo validado.</p>
+                                        <p>Combina armadura, cabello y equipo del modelo validado.</p>
                                     </div>
                                     <label>
                                         <span><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i>Casco</span>
@@ -1953,6 +1953,16 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                                         <span><i class="fa-solid fa-scissors" aria-hidden="true"></i>Cabello</span>
                                         <input type="checkbox" role="switch" checked
                                                data-leonidas-part="cabello_visible">
+                                    </label>
+                                    <label>
+                                        <span><i class="fa-solid fa-shield" aria-hidden="true"></i>Escudo</span>
+                                        <input type="checkbox" role="switch" checked
+                                               data-leonidas-part="escudo_visible">
+                                    </label>
+                                    <label>
+                                        <span><i class="fa-solid fa-wand-sparkles" aria-hidden="true"></i>Lanza</span>
+                                        <input type="checkbox" role="switch" checked
+                                               data-leonidas-part="lanza_visible">
                                     </label>
                                 </div>
                                 <p class="leonidas-appearance-note" data-leonidas-gear-note>
