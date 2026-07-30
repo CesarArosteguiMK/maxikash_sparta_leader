@@ -321,12 +321,12 @@ $tipoInicial = $tipos[0] ?? [
             }
             return '<span class="badge rounded-pill text-bg-light border text-warning mt-1"><i class="fa-solid fa-spinner fa-spin me-1"></i>En cola del Motor V1</span>';
         }
-        if (estado === 'sin_lectura') {
+        if (estado === 'sin_lectura' || estado === 'error_lectura') {
             const motivo = row.mensaje_analisis_patrones
                 || 'El Motor V1 no pudo determinar el contenido del PDF.';
-            return `<span class="badge rounded-pill text-bg-secondary mt-1" title="${escapeHtml(motivo)}">
-                <i class="fa-solid fa-eye-low-vision me-1"></i>Revisión manual
-            </span><small class="d-block text-muted mt-1">${escapeHtml(motivo)}</small>`;
+            return `<span class="badge rounded-pill text-bg-danger mt-1" title="${escapeHtml(motivo)}">
+                <i class="fa-solid fa-triangle-exclamation me-1"></i>Error de lectura
+            </span><small class="d-block text-danger mt-1">${escapeHtml(motivo)}</small>`;
         }
         if (estado === 'documento_incorrecto') {
             const motivo = row.mensaje_analisis_patrones
@@ -388,7 +388,7 @@ $tipoInicial = $tipos[0] ?? [
                                     data-ver-entrega="${Number(row.id_documento_carga || 0)}" data-nombre-entrega="${escapeHtml(row.nombre_logico || 'Documento')}">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
-                            ${row.estado_analisis_patrones === 'sin_lectura' ? `
+                            ${['sin_lectura', 'error_lectura'].includes(row.estado_analisis_patrones) ? `
                             <button class="btn btn-outline-warning" type="button" title="Reintentar lectura" aria-label="Reintentar lectura"
                                     data-reintentar-lectura="${Number(row.id_documento_carga || 0)}" data-nombre-entrega="${escapeHtml(row.nombre_logico || 'Documento')}">
                                 <i class="fa-solid fa-rotate-right"></i>
@@ -584,6 +584,19 @@ $tipoInicial = $tipos[0] ?? [
                     body: formData,
                     headers: {'X-Requested-With': 'XMLHttpRequest'}
                 });
+                await cargarAvance();
+                if (resultado.datos?.worker_lanzado === false) {
+                    if (window.Swal) {
+                        await Swal.fire({
+                            icon: 'error',
+                            title: 'Motor V1 no disponible',
+                            text: resultado.mensaje
+                        });
+                    } else {
+                        alert(resultado.mensaje);
+                    }
+                    return;
+                }
                 if (window.Swal) {
                     await Swal.fire({
                         icon: 'success',
@@ -593,7 +606,6 @@ $tipoInicial = $tipos[0] ?? [
                         showConfirmButton: false
                     });
                 }
-                await cargarAvance();
                 return;
             }
 

@@ -10230,9 +10230,13 @@ class CapHum extends Controller
             (int)($_POST['id_documento'] ?? 0)
         );
         if (!empty($resultado['success'])) {
-            $this->iniciarWorkerPatronesNotificacionDocumental(
+            $workerLanzado = $this->iniciarWorkerPatronesNotificacionDocumental(
                 (int)($resultado['datos']['id_campania'] ?? 0)
             );
+            $resultado['datos']['worker_lanzado'] = $workerLanzado;
+            $resultado['mensaje'] = $workerLanzado
+                ? 'El PDF fue enviado nuevamente al Motor V1.'
+                : 'El PDF quedó pendiente, pero el Motor V1 no está disponible o no pudo iniciarse.';
         }
         self::respuestaJSON($resultado);
     }
