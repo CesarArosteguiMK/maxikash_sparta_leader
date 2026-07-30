@@ -14,7 +14,8 @@ esqueleto, animación, proporciones, texturas y apariencia del FBX anterior,
 pero separa seis partes:
 
 - `LeonidasBody`: cuerpo estable, extremidades y faldón.
-- `LeonidasHelmet`: casco cerrado, con visor negro en forma de T.
+- `LeonidasHelmet`: casco cerrado con visor negro integrado en su curvatura y
+  penacho rojo continuo, volumétrico y anclado a la cúpula.
 - `LeonidasChest`: carcasa del torso con separación de piel y pechera.
 - `LeonidasHeadUnderlay`: cabeza anatómica visible al retirar el casco.
 - `LeonidasTorsoUnderlay`: torso anatómico visible al retirar la pechera.
@@ -41,9 +42,12 @@ sombreado 3D, pero reciben un color sólido independiente. Así no existen
 píxeles compartidos capaces de pintar piel, rostro u otra prenda.
 
 La cabeza anatómica permanece activa debajo del casco, pero la carcasa es
-cerrada y no se recorta alrededor del rostro. Una pieza negra independiente
-forma el visor en T: nunca recibe los colores del metal y evita que la cara
-quede expuesta o parezca pintada. La pechera conserva en el material original
+cerrada y no se recorta alrededor del rostro. El visor negro en T sigue la
+curvatura frontal, nunca recibe los colores del metal y evita que la cara quede
+expuesta o parezca pintada. Sus bandas están subdivididas y adheridas a la
+superficie para que no floten ni sobresalgan al girar. El penacho forma una
+melena continua cerrada, anclada a la cúpula y alternada en dos tonos rojos para
+sugerir fibras sin agujas separadas. La pechera conserva en el material original
 las islas que corresponden a piel, y el calzado completo se clasifica por sus
 huesos de pie y dedos para impedir punteras beige.
 

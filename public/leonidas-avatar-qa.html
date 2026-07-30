@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>QA Leonidas v25</title>
+    <title>QA Leónidas v35</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -13,12 +13,10 @@
             place-items: center;
             background: #e9edf3;
             font: 14px system-ui, sans-serif;
-            color: #18304f;
         }
-        .qa { display: flex; gap: 24px; align-items: flex-start; }
         #leonidasAssistant {
-            width: 380px;
-            height: 700px;
+            width: 440px;
+            height: 760px;
             position: relative;
             overflow: hidden;
             border-radius: 20px;
@@ -28,71 +26,38 @@
             box-shadow: 0 18px 50px #25364d35;
         }
         [data-leonidas-canvas] { width: 100%; height: 100%; display: block; }
-        .controls {
-            width: 290px;
-            padding: 18px;
-            border-radius: 16px;
+        output {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            padding: 8px 12px;
+            border-radius: 8px;
             background: white;
-            box-shadow: 0 12px 35px #25364d24;
+            color: #18304f;
         }
-        button {
-            width: 100%;
-            margin: 5px 0;
-            padding: 10px 12px;
-            border: 1px solid #ccd7e6;
-            border-radius: 10px;
-            background: #f8fafc;
-            cursor: pointer;
-            text-align: left;
-        }
-        pre { white-space: pre-wrap; font-size: 11px; color: #607087; }
     </style>
 </head>
 <body>
-<main class="qa">
-    <section id="leonidasAssistant" class="is-appearance-preview-live">
-        <canvas data-leonidas-canvas></canvas>
-    </section>
-    <aside class="controls">
-        <strong>Leonidas v25</strong>
-        <button data-preset="corporativo">Corporativo</button>
-        <button data-preset="clasico">Espartano clásico</button>
-        <button data-preset="nocturno">Azul nocturno</button>
-        <button data-action="helmet">Alternar casco</button>
-        <button data-action="chest">Alternar pechera</button>
-        <button data-action="hair">Alternar cabello</button>
-        <pre id="status">Cargando…</pre>
-    </aside>
-</main>
+<section id="leonidasAssistant" class="is-appearance-preview-live">
+    <canvas data-leonidas-canvas></canvas>
+</section>
+<output>Giro: <span id="rotation">0.000</span></output>
 <script>
     const root = document.getElementById('leonidasAssistant');
-    const status = document.getElementById('status');
-    const presets = {
-        corporativo: { id: 'corporativo', color_primario: '#0048B7', color_secundario: '#D2D854', color_metal: '#D7E0EA' },
-        clasico: { id: 'clasico', color_primario: '#A91E2C', color_secundario: '#6F4328', color_metal: '#D8B37B' },
-        nocturno: { id: 'nocturno', color_primario: '#111827', color_secundario: '#4E68D8', color_metal: '#AEBBC8' }
-    };
-    let appearance = {
-        ...presets.corporativo,
+    root._leonidasAppearance = {
+        id: 'clasico',
+        color_primario: '#A91E2C',
+        color_secundario: '#6F4328',
+        color_metal: '#D8B37B',
         casco_visible: true,
         pechera_visible: true,
         cabello_visible: true
     };
-    function apply(next) {
-        appearance = { ...appearance, ...next };
-        root._leonidasAppearance = appearance;
-        root.dispatchEvent(new CustomEvent('leonidas:appearance', { detail: appearance }));
-        status.textContent = JSON.stringify(appearance, null, 2) + '\n\nmodelo=' + (root.dataset.leonidasModel || 'cargando');
-    }
-    document.querySelectorAll('[data-preset]').forEach((button) => {
-        button.addEventListener('click', () => apply(presets[button.dataset.preset]));
-    });
-    document.querySelector('[data-action="helmet"]').addEventListener('click', () => apply({ casco_visible: !appearance.casco_visible }));
-    document.querySelector('[data-action="chest"]').addEventListener('click', () => apply({ pechera_visible: !appearance.pechera_visible }));
-    document.querySelector('[data-action="hair"]').addEventListener('click', () => apply({ cabello_visible: !appearance.cabello_visible }));
-    root.addEventListener('leonidas:model-ready', () => apply({}));
-    root._leonidasAppearance = appearance;
+    const rotation = document.getElementById('rotation');
+    setInterval(() => {
+        rotation.textContent = root.dataset.leonidasPreviewRotation || '0.000';
+    }, 80);
 </script>
-<script type="module" src="/assets/js/leonidas-3d.js?v=qa-visor-25"></script>
+<script type="module" src="/assets/js/leonidas-3d.js?v=qa-visor-35"></script>
 </body>
 </html>

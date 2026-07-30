@@ -39,10 +39,14 @@ appearanceIntegrationAssert(
 );
 appearanceIntegrationAssert(
     str_contains($view, 'data-leonidas-appearance-model')
+        && str_contains($view, 'Arrastra para girar')
         && str_contains($appearanceJs, 'attachLiveModel')
         && str_contains($appearanceJs, 'detachLiveModel')
-        && str_contains($threeJs, 'is-appearance-preview-live'),
-    'La vista previa debe reutilizar el mismo modelo 3D y devolverlo al cerrar el editor.'
+        && str_contains($threeJs, 'is-appearance-preview-live')
+        && str_contains($threeJs, "canvas.addEventListener('pointerdown'")
+        && str_contains($threeJs, "canvas.addEventListener('pointermove'")
+        && str_contains($threeJs, 'previewRotationTarget'),
+    'La vista previa debe reutilizar el modelo 3D, permitir girarlo y devolverlo al cerrar el editor.'
 );
 appearanceIntegrationAssert(
     str_contains($threeJs, "root.addEventListener('leonidas:appearance'")
@@ -66,6 +70,8 @@ appearanceIntegrationAssert(
         && str_contains($builder, 'LeonidasMetal')
         && str_contains($builder, 'add_helmet_visor')
         && str_contains($builder, 'LeonidasVisorMaterial')
+        && str_contains($builder, 'LeonidasCrestRed')
+        && str_contains($builder, 'leonidasHelmetCrestFaces')
         && str_contains($builder, 'assign_chest_semantic_materials')
         && str_contains($threeJs, 'modularParts.headUnderlay.visible = true'),
     'Los colores deben usar materiales semanticos y el casco debe ocultar el rostro tras una visera propia.'
