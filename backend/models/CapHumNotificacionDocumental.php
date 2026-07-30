@@ -640,6 +640,7 @@ class CapHumNotificacionDocumental extends Model
                     e.patrones_vigentes,
                     e.patrones_historial,
                     e.patrones_fuente,
+                    e.patrones_analisis_json,
                     CASE
                         WHEN e.id IS NULL THEN NULL
                         WHEN e.patrones_analizado_en IS NULL THEN 'pendiente'
@@ -667,6 +668,32 @@ class CapHumNotificacionDocumental extends Model
                 ORDER BY (e.id IS NULL) DESC, nombre ASC
                 LIMIT 1000
             ", $params);
+            foreach ($rows ?: [] as &$row) {
+                $row['mensaje_analisis_patrones'] = '';
+                $analisis = json_decode((string)($row['patrones_analisis_json'] ?? ''), true);
+                if (($row['estado_analisis_patrones'] ?? '') === 'sin_lectura'
+                    && is_array($analisis)
+                    && array_key_exists('valido', $analisis)
+                    && $analisis['valido'] === false) {
+                    $clasificacion = (string)($analisis['clasificacion'] ?? '');
+                    if ($clasificacion === 'documento_incorrecto'
+                        || (string)($analisis['codigo_resultado'] ?? '') === 'error_portal_imss') {
+                        $row['estado_analisis_patrones'] = 'documento_incorrecto';
+                    } elseif (!empty($analisis['mensaje'])
+                        && stripos((string)$analisis['mensaje'], 'no se reconoci') !== false) {
+                        // Compatibilidad con lecturas generadas antes de que
+                        // existiera la clasificación explícita.
+                        $row['estado_analisis_patrones'] = 'documento_incorrecto';
+                    }
+                    $row['mensaje_analisis_patrones'] = mb_substr(
+                        trim((string)($analisis['mensaje'] ?? '')),
+                        0,
+                        350
+                    );
+                }
+                unset($row['patrones_analisis_json']);
+            }
+            unset($row);
             return self::resultado(true, 'Personas encontradas.', $rows ?: []);
         } catch (\Throwable $e) {
             return self::resultado(false, 'No se pudo consultar el avance de la campaña.', [], $e->getMessage());

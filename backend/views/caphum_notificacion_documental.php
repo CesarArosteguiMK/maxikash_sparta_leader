@@ -324,6 +324,13 @@ $tipoInicial = $tipos[0] ?? [
         if (estado === 'sin_lectura') {
             return '<span class="badge rounded-pill text-bg-secondary mt-1"><i class="fa-solid fa-eye-low-vision me-1"></i>Revisión manual</span>';
         }
+        if (estado === 'documento_incorrecto') {
+            const motivo = row.mensaje_analisis_patrones
+                || 'El archivo no corresponde al documento solicitado.';
+            return `<span class="badge rounded-pill text-bg-danger mt-1" title="${escapeHtml(motivo)}">
+                <i class="fa-solid fa-file-circle-xmark me-1"></i>Documento incorrecto
+            </span><small class="d-block text-danger mt-1">${escapeHtml(motivo)}</small>`;
+        }
         const cantidad = Number(row.patrones_vigentes || 0);
         const clase = cantidad >= 2 ? 'text-bg-danger' : (cantidad === 1 ? 'text-bg-primary' : 'text-bg-warning');
         const historial = Number(row.patrones_historial || 0);
