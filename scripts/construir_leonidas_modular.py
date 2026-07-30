@@ -1427,12 +1427,123 @@ def build_clean_helmet(obj):
 
 def finish_sculpted_helmet(obj):
     """Conserva el casco esculpido y añade sólo interior y penacho."""
+    source_minimum, source_maximum = mesh_vertex_bounds(obj)
+    source_size = source_maximum - source_minimum
+    source_center = (source_minimum + source_maximum) * 0.5
+    inverse = obj.matrix_world.inverted()
+
+    # El casco de origen era aproximadamente un 9 % demasiado grande para la
+    # cabeza reconstruida. Se reduce alrededor de su propio centro y se eleva
+    # ligeramente para liberar la unión con cuello y pechera.
+    helmet_scale = 0.91
+    helmet_lift = source_size.z * 0.024
+    for vertex in obj.data.vertices:
+        world = obj.matrix_world @ vertex.co
+        world = source_center + (world - source_center) * helmet_scale
+        world.z += helmet_lift
+        vertex.co = inverse @ world
+    obj.data.update()
+
     minimum, maximum = mesh_vertex_bounds(obj)
     size = maximum - minimum
     center_x = (minimum.x + maximum.x) * 0.5
     half_width = size.x * 0.5
-    inverse = obj.matrix_world.inverted()
     original_faces = len(obj.data.polygons)
+
+    def mirror_outline(points):
+        return tuple((-x_ratio, z_ratio) for x_ratio, z_ratio in reversed(points))
+
+    def boolean_opening(name, outline):
+        """Corta una ranura real a través de la carcasa esculpida."""
+        cutter_mesh = bpy.data.meshes.new(f'{name}Mesh')
+        y_front = minimum.y - size.y * 0.80
+        y_back = maximum.y + size.y * 0.80
+        front = [
+            (
+                center_x + half_width * x_ratio,
+                y_front,
+                minimum.z + size.z * z_ratio,
+            )
+            for x_ratio, z_ratio in outline
+        ]
+        back = [
+            (
+                center_x + half_width * x_ratio,
+                y_back,
+                minimum.z + size.z * z_ratio,
+            )
+            for x_ratio, z_ratio in outline
+        ]
+        count = len(outline)
+        faces = [
+            tuple(reversed(range(count))),
+            tuple(range(count, count * 2)),
+        ]
+        for index in range(count):
+            following = (index + 1) % count
+            faces.append((
+                index,
+                following,
+                count + following,
+                count + index,
+            ))
+        cutter_mesh.from_pydata(front + back, [], faces)
+        cutter_mesh.update()
+        cutter = bpy.data.objects.new(name, cutter_mesh)
+        bpy.context.scene.collection.objects.link(cutter)
+
+        bpy.context.view_layer.objects.active = obj
+        obj.select_set(True)
+        cutter.select_set(False)
+        modifier = obj.modifiers.new(
+            name=f'{name}Boolean',
+            type='BOOLEAN',
+        )
+        modifier.operation = 'DIFFERENCE'
+        modifier.solver = 'EXACT'
+        modifier.object = cutter
+        while obj.modifiers.find(modifier.name) > 0:
+            bpy.ops.object.modifier_move_up(modifier=modifier.name)
+        bpy.ops.object.modifier_apply(modifier=modifier.name)
+        bpy.data.objects.remove(cutter, do_unlink=True)
+
+    # Ranuras diagonales de ojos y aperturas laterales en cuña. El protector
+    # nasal central permanece como metal real, no como rectángulo dibujado.
+    right_eye = (
+        (0.105, 0.645),
+        (0.620, 0.610),
+        (0.570, 0.545),
+        (0.105, 0.570),
+    )
+    right_lower = (
+        (0.110, 0.565),
+        (0.435, 0.535),
+        (0.305, 0.245),
+        (0.120, 0.205),
+    )
+    boolean_opening('LeonidasRightEyeOpening', right_eye)
+    boolean_opening(
+        'LeonidasLeftEyeOpening',
+        mirror_outline(right_eye),
+    )
+    boolean_opening('LeonidasRightLowerOpening', right_lower)
+    boolean_opening(
+        'LeonidasLeftLowerOpening',
+        mirror_outline(right_lower),
+    )
+
+    # Un bisel pequeño recoge luz en los cortes nuevos y elimina bordes
+    # filosos sin suavizar en exceso el modelado original.
+    bpy.context.view_layer.objects.active = obj
+    bevel = obj.modifiers.new(name='LeonidasHelmetEdgeBevel', type='BEVEL')
+    bevel.width = size.x * 0.0065
+    bevel.segments = 2
+    bevel.limit_method = 'ANGLE'
+    bevel.angle_limit = radians(24)
+    while obj.modifiers.find(bevel.name) > 0:
+        bpy.ops.object.modifier_move_up(modifier=bevel.name)
+    bpy.ops.object.modifier_apply(modifier=bevel.name)
+    bevel_width = size.x * 0.0065
 
     visor = bpy.data.materials.new('LeonidasVisorMaterial')
     visor.use_nodes = True
@@ -1448,6 +1559,28 @@ def finish_sculpted_helmet(obj):
     visor_shader.inputs['Roughness'].default_value = 0.92
     obj.data.materials.append(visor)
     visor_index = len(obj.data.materials) - 1
+
+    patina = create_palette_material(
+        'LeonidasHelmetPatina',
+        'metal',
+        metalness=0.44,
+        roughness=0.56,
+    )
+    patina['leonidasTone'] = 0.70
+    patina['leonidasRoughnessOffset'] = 0.12
+    obj.data.materials.append(patina)
+    patina_index = len(obj.data.materials) - 1
+
+    highlight = create_palette_material(
+        'LeonidasHelmetHighlight',
+        'metal',
+        metalness=0.66,
+        roughness=0.30,
+    )
+    highlight['leonidasTone'] = 1.05
+    highlight['leonidasRoughnessOffset'] = -0.10
+    obj.data.materials.append(highlight)
+    highlight_index = len(obj.data.materials) - 1
 
     crest_materials = []
     for name, color in (
@@ -1468,6 +1601,23 @@ def finish_sculpted_helmet(obj):
     mesh = bmesh.new()
     mesh.from_mesh(obj.data)
     old_vertex_count = len(mesh.verts)
+
+    # La base inferior recibe pátina y el protector nasal una respuesta de luz
+    # más limpia. Son materiales del mismo canal metal, por lo que respetan
+    # cualquier color escogido por el usuario.
+    for face in mesh.faces:
+        world = obj.matrix_world @ face.calc_center_median()
+        x_ratio = (world.x - center_x) / max(half_width, 0.0001)
+        z_ratio = (world.z - minimum.z) / max(size.z, 0.0001)
+        y_ratio = (world.y - minimum.y) / max(size.y, 0.0001)
+        if z_ratio < 0.17:
+            face.material_index = patina_index
+        elif (
+            y_ratio < 0.46
+            and abs(x_ratio) < 0.13
+            and 0.22 < z_ratio < 0.69
+        ):
+            face.material_index = highlight_index
 
     # Fondo mate profundo detrás de las aberturas originales. No cubre ni
     # sustituye la máscara: sólo evita que se vea piel o el fondo del modal.
@@ -1550,7 +1700,7 @@ def finish_sculpted_helmet(obj):
     # no aparecen púas, tarjetas flotantes ni el aspecto de una escoba.
     plume_rings = []
     for progress, arch, base_y, base_z, rail_height in profile:
-        plume_half_width = half_width * (0.21 + 0.055 * arch)
+        plume_half_width = half_width * (0.27 + 0.060 * arch)
         top_half_width = plume_half_width * 0.50
         top_z = base_z + rail_height + size.z * (
             0.080 + 0.340 * arch
@@ -1619,19 +1769,33 @@ def finish_sculpted_helmet(obj):
     mesh.to_mesh(obj.data)
     mesh.free()
 
-    new_vertex_indices = list(range(old_vertex_count, len(obj.data.vertices)))
-    head_group = obj.vertex_groups.get('mixamorig:Head')
-    if head_group is None:
-        head_group = obj.vertex_groups.new(name='mixamorig:Head')
-    head_group.add(new_vertex_indices, 1.0, 'REPLACE')
+    # Casco, bisel, interior y penacho son rígidos con respecto a la cabeza.
+    # Reasignar todos los vértices evita que los cortes booleanos introduzcan
+    # influencias incompletas o deformaciones al reproducir la animación.
+    for group in list(obj.vertex_groups):
+        obj.vertex_groups.remove(group)
+    head_group = obj.vertex_groups.new(name='mixamorig:Head')
+    head_group.add(
+        [vertex.index for vertex in obj.data.vertices],
+        1.0,
+        'REPLACE',
+    )
 
     obj['leonidasHelmetOriginalFaces'] = original_faces
     obj['leonidasHelmetVisorFaces'] = 1
     obj['leonidasHelmetCrestFaces'] = crest_faces
+    obj['leonidasHelmetOpeningCutters'] = 4
+    obj['leonidasHelmetScale'] = helmet_scale
+    obj['leonidasHelmetLift'] = helmet_lift
+    obj['leonidasHelmetBevelWidth'] = bevel_width
     print('LEONIDAS_SCULPTED_HELMET', {
         'original_faces': original_faces,
         'visor_faces': 1,
         'crest_faces': crest_faces,
+        'opening_cutters': 4,
+        'scale': helmet_scale,
+        'lift': helmet_lift,
+        'bevel_width': bevel_width,
     })
 
 
