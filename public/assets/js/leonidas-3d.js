@@ -219,9 +219,9 @@ if (root && canvas) {
             modularParts.helmet.visible = currentAppearance.casco_visible;
             modularParts.chest.visible = currentAppearance.pechera_visible;
             if (modularParts.headUnderlay) {
-                // La cabeza permanece lista debajo del casco cerrado para
-                // aparecer de inmediato cuando el usuario lo retire.
-                modularParts.headUnderlay.visible = true;
+                // El casco cerrado usa una cavidad oscura propia. Ocultar la
+                // cabeza evita que la piel atraviese el fondo del visor.
+                modularParts.headUnderlay.visible = !currentAppearance.casco_visible;
             }
             if (modularParts.torsoUnderlay) {
                 modularParts.torsoUnderlay.visible = !currentAppearance.pechera_visible;

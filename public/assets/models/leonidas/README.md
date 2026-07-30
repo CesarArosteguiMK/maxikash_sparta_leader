@@ -14,8 +14,9 @@ esqueleto, animación, proporciones, texturas y apariencia del FBX anterior,
 pero separa seis partes:
 
 - `LeonidasBody`: cuerpo estable, extremidades y faldón.
-- `LeonidasHelmet`: casco cerrado con visor negro integrado en su curvatura y
-  penacho rojo continuo, volumétrico y anclado a la cúpula.
+- `LeonidasHelmet`: casco esculpido original de alta densidad, conservado sin
+  recortes ni máscaras procedurales, con cámara interior oscura y penacho rojo
+  volumétrico anclado a la cúpula.
 - `LeonidasChest`: carcasa del torso con separación de piel y pechera.
 - `LeonidasHeadUnderlay`: cabeza anatómica visible al retirar el casco.
 - `LeonidasTorsoUnderlay`: torso anatómico visible al retirar la pechera.
@@ -41,15 +42,18 @@ Los materiales de vestuario conservan la geometría, las normales y el
 sombreado 3D, pero reciben un color sólido independiente. Así no existen
 píxeles compartidos capaces de pintar piel, rostro u otra prenda.
 
-La cabeza anatómica permanece activa debajo del casco, pero la carcasa es
-cerrada y no se recorta alrededor del rostro. El visor negro en T sigue la
-curvatura frontal, nunca recibe los colores del metal y evita que la cara quede
-expuesta o parezca pintada. Sus bandas están subdivididas y adheridas a la
-superficie para que no floten ni sobresalgan al girar. El penacho forma una
-melena continua cerrada, anclada a la cúpula y alternada en dos tonos rojos para
-sugerir fibras sin agujas separadas. La pechera conserva en el material original
-las islas que corresponden a piel, y el calzado completo se clasifica por sus
-huesos de pie y dedos para impedir punteras beige.
+Cuando el casco está puesto, la cabeza anatómica se oculta para impedir que la
+piel atraviese la abertura. Se conserva íntegra la geometría esculpida del
+casco original: su curvatura, protector nasal, ranuras, normales y sombreado.
+Detrás de las aberturas se coloca únicamente una cámara mate profunda. Al
+retirar el casco reaparecen la cabeza y el cabello configurado por el usuario.
+
+El penacho utiliza una base baja pegada a la cúpula y una malla continua de
+crin en tres rojos próximos. La silueta es continua y conserva cambios de tono
+sin convertirse en púas, tarjetas flotantes ni una escoba rígida. La pechera
+conserva en el material original las islas que corresponden a piel, y el
+calzado completo se clasifica por sus huesos de pie y dedos para impedir
+punteras beige.
 
 ## Reconstrucción y validación
 
@@ -62,5 +66,6 @@ de los activos locales. Antes de habilitar una nueva exportación:
    completamente calva.
 4. Confirmar pose, animación, rostro, uniones de hombros, cintura y calzado.
 
-La validación estructural exige un visor independiente, materiales semánticos
-completos y separación explícita entre piel original y pechera metálica.
+La validación estructural exige conservar la malla esculpida de alta densidad,
+un fondo interior oscuro, penacho continuo, materiales semánticos completos y
+separación explícita entre piel original y pechera metálica.

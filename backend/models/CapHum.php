@@ -10606,58 +10606,24 @@ class CapHum extends Model
             return;
         }
 
-        $columnaEstatus = $db->queryOne("
-            SHOW COLUMNS FROM estado_cuenta.baja_persona LIKE 'estatus_tramite'
-        ");
-        if (!$columnaEstatus) {
-            $db->CRUD("
-                ALTER TABLE estado_cuenta.baja_persona
-                ADD COLUMN estatus_tramite VARCHAR(30) NOT NULL DEFAULT 'Baja parcial'
-                AFTER usuario_baja
-            ");
-        } elseif (strcasecmp(trim((string)($columnaEstatus['Default'] ?? '')), 'Baja parcial') !== 0) {
-            $db->CRUD("
-                ALTER TABLE estado_cuenta.baja_persona
-                ALTER COLUMN estatus_tramite SET DEFAULT 'Baja parcial'
-            ");
-        }
-
-        $columnaFecha = $db->queryOne("
-            SHOW COLUMNS FROM estado_cuenta.baja_persona LIKE 'fecha_transito'
-        ");
-        if (!$columnaFecha) {
-            $db->CRUD("
-                ALTER TABLE estado_cuenta.baja_persona
-                ADD COLUMN fecha_transito DATETIME NULL
-                AFTER fecha_baja
-            ");
-        }
-
-        $columnasSeguimiento = [
-            'estatus_anterior' => "VARCHAR(30) NULL AFTER estatus_tramite",
-            'despachos_activos_previos' => "INT NOT NULL DEFAULT 0 AFTER estatus_anterior",
-            'fecha_cancelacion' => "DATETIME NULL AFTER fecha_transito",
-            'usuario_cancelacion' => "INT NULL AFTER fecha_cancelacion",
-            'fecha_finalizacion' => "DATETIME NULL AFTER usuario_cancelacion",
-            'usuario_finalizacion' => "INT NULL AFTER fecha_finalizacion",
-            'tipo_documento_final' => "VARCHAR(50) NULL AFTER usuario_finalizacion",
-            'fecha_baja_completa' => "DATETIME NULL AFTER tipo_documento_final",
-            'usuario_baja_completa' => "INT NULL AFTER fecha_baja_completa",
+        // No ejecutar ALTER/UPDATE desde una solicitud de usuario. Un permiso
+        // de esquema insuficiente o un bloqueo de tabla no debe impedir bajas.
+        $requeridas = [
+            'estatus_tramite', 'fecha_transito', 'estatus_anterior',
+            'despachos_activos_previos', 'fecha_cancelacion', 'usuario_cancelacion',
+            'fecha_finalizacion', 'usuario_finalizacion', 'tipo_documento_final',
+            'fecha_baja_completa', 'usuario_baja_completa',
         ];
-        foreach ($columnasSeguimiento as $nombreColumna => $definicionColumna) {
-            $columna = $db->queryOne("SHOW COLUMNS FROM estado_cuenta.baja_persona LIKE '" . $nombreColumna . "'");
-            if (!$columna) {
-                $db->CRUD("ALTER TABLE estado_cuenta.baja_persona ADD COLUMN " . $nombreColumna . " " . $definicionColumna);
-            }
+        $columnas = $db->queryAll('SHOW COLUMNS FROM estado_cuenta.baja_persona');
+        $existentes = array_map(static function (array $columna): string {
+            return (string) ($columna['Field'] ?? '');
+        }, $columnas);
+        $faltantes = array_values(array_diff($requeridas, $existentes));
+        if (!empty($faltantes)) {
+            throw new \RuntimeException(
+                'El esquema de bajas está pendiente de migración: faltan ' . implode(', ', $faltantes) . '.'
+            );
         }
-
-        $db->CRUD("
-            UPDATE estado_cuenta.baja_persona
-            SET estatus_tramite = 'Baja parcial'
-            WHERE estatus_tramite IS NULL
-               OR TRIM(estatus_tramite) = ''
-               OR LOWER(TRIM(estatus_tramite)) = 'finalizada'
-        ");
 
         $columnasVerificadas = true;
     }
@@ -10786,15 +10752,20 @@ class CapHum extends Model
                 'id_baja' => $idBaja,
                 'estatus_tramite' => 'Transito',
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             if ($db) {
                 try {
                     $db->rollback();
-                } catch (\Exception $rollbackError) {
+                } catch (\Throwable $rollbackError) {
                 }
             }
 
-            return self::resultado(false, 'Error al iniciar el trámite de baja.', null, $e->getMessage());
+            $mensaje = $e instanceof \RuntimeException
+                && str_starts_with($e->getMessage(), 'El esquema de bajas está pendiente de migración:')
+                ? 'No se puede iniciar el trámite porque falta actualizar el esquema de bajas. Contacta a soporte técnico.'
+                : 'Error al iniciar el trámite de baja.';
+
+            return self::resultado(false, $mensaje, null, $e->getMessage());
         }
     }
 
