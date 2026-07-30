@@ -185,6 +185,8 @@ $tipoInicial = $tipos[0] ?? [
     let campaniaAvance = null;
     let timerBusqueda = null;
     let timerDestinatarios = null;
+    let timerActualizacionAvance = null;
+    let consultaAvanceEnCurso = false;
     const destinatarios = new Map();
 
     const json = async (url, options = {}) => {
@@ -333,15 +335,31 @@ $tipoInicial = $tipos[0] ?? [
         </span>`;
     };
 
-    const cargarAvance = async () => {
+    const detenerActualizacionAvance = () => {
+        if (timerActualizacionAvance) {
+            clearTimeout(timerActualizacionAvance);
+            timerActualizacionAvance = null;
+        }
+    };
+
+    const cargarAvance = async ({silencioso = false} = {}) => {
         if (!campaniaAvance) return;
+        detenerActualizacionAvance();
+        if (consultaAvanceEnCurso) return;
+        consultaAvanceEnCurso = true;
         const cuerpo = $('#avanceCuerpo');
-        cuerpo.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span>Cargando...</td></tr>';
+        const modal = $('#modalAvanceCampania');
+        const cuerpoModal = modal.querySelector('.modal-body');
+        const posicionScroll = silencioso && cuerpoModal ? cuerpoModal.scrollTop : null;
+        if (!silencioso) {
+            cuerpo.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span>Cargando...</td></tr>';
+        }
         try {
             const params = new URLSearchParams({
                 id: campaniaAvance.id,
                 estado: $('#avanceEstado').value,
-                buscar: $('#avanceBuscar').value.trim()
+                buscar: $('#avanceBuscar').value.trim(),
+                solo_estado: silencioso ? '1' : '0'
             });
             const rows = (await json('/caphum/getPersonasCampaniaNotificacionDocumental?' + params)).datos || [];
             $('#avanceResumen').textContent = `${rows.length} resultado(s)`;
@@ -371,8 +389,28 @@ $tipoInicial = $tipos[0] ?? [
                         </div>` : '-'}</td>
                 </tr>`;
             }).join('') : '<tr><td colspan="5" class="text-center text-muted py-4">No hay resultados.</td></tr>';
+            if (posicionScroll !== null && cuerpoModal) {
+                cuerpoModal.scrollTop = posicionScroll;
+            }
+
+            const hayLecturasPendientes = rows.some(row =>
+                row.estado_entrega === 'Entregado'
+                && row.estado_analisis_patrones === 'pendiente'
+                && row.archivo_disponible_nodo !== false
+                && row.worker_lanzado_nodo !== false
+            );
+            if (hayLecturasPendientes && modal.classList.contains('show')) {
+                timerActualizacionAvance = setTimeout(
+                    () => cargarAvance({silencioso: true}),
+                    4000
+                );
+            }
         } catch (error) {
-            cuerpo.innerHTML = `<tr><td colspan="5"><div class="alert alert-danger mb-0">${escapeHtml(error.message)}</div></td></tr>`;
+            if (!silencioso) {
+                cuerpo.innerHTML = `<tr><td colspan="5"><div class="alert alert-danger mb-0">${escapeHtml(error.message)}</div></td></tr>`;
+            }
+        } finally {
+            consultaAvanceEnCurso = false;
         }
     };
 
@@ -674,6 +712,7 @@ $tipoInicial = $tipos[0] ?? [
         clearTimeout(timerBusqueda);
         timerBusqueda = setTimeout(cargarAvance, 350);
     });
+    $('#modalAvanceCampania').addEventListener('hidden.bs.modal', detenerActualizacionAvance);
     actualizarTexto();
     cambiarAlcance();
     cargarCampanias();
