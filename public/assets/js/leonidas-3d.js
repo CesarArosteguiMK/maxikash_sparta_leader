@@ -145,7 +145,13 @@ if (root && canvas) {
                     && value?.pechera_visible !== '0',
                 cabello_visible: value?.cabello_visible !== false
                     && value?.cabello_visible !== 0
-                    && value?.cabello_visible !== '0'
+                    && value?.cabello_visible !== '0',
+                escudo_visible: value?.escudo_visible !== false
+                    && value?.escudo_visible !== 0
+                    && value?.escudo_visible !== '0',
+                lanza_visible: value?.lanza_visible !== false
+                    && value?.lanza_visible !== 0
+                    && value?.lanza_visible !== '0'
             };
         }
 
@@ -219,9 +225,9 @@ if (root && canvas) {
             modularParts.helmet.visible = currentAppearance.casco_visible;
             modularParts.chest.visible = currentAppearance.pechera_visible;
             if (modularParts.headUnderlay) {
-                // El casco cerrado usa una cavidad oscura propia. Ocultar la
-                // cabeza evita que la piel atraviese el fondo del visor.
-                modularParts.headUnderlay.visible = !currentAppearance.casco_visible;
+                // El casco modular es abierto: el rostro conserva siempre su
+                // material de piel y nunca hereda el color del metal.
+                modularParts.headUnderlay.visible = true;
             }
             if (modularParts.torsoUnderlay) {
                 modularParts.torsoUnderlay.visible = !currentAppearance.pechera_visible;
@@ -229,6 +235,12 @@ if (root && canvas) {
             if (modularParts.hair) {
                 modularParts.hair.visible = !currentAppearance.casco_visible
                     && currentAppearance.cabello_visible;
+            }
+            if (modularParts.shield) {
+                modularParts.shield.visible = currentAppearance.escudo_visible;
+            }
+            if (modularParts.spear) {
+                modularParts.spear.visible = currentAppearance.lanza_visible;
             }
         };
 
@@ -558,6 +570,28 @@ if (root && canvas) {
                     applyOpenFingers(rightFingerBones, walkWeight * 0.98);
                     applyOpenFingers(leftFingerBones, walkWeight * 0.98);
                     offsetAnimatedBone(pelvis, 0, 0, Math.sin(walkPhase) * 0.035 * walkWeight);
+                }
+
+                // Una flexión mínima evita la postura rígida de brazos
+                // completamente rectos. Se reduce durante gestos y caminata
+                // para no competir con sus poses específicas.
+                const idleElbowWeight = Math.max(
+                    0,
+                    1 - Math.max(interaction, walkWeight)
+                );
+                if (idleElbowWeight > 0.001) {
+                    offsetAnimatedBone(
+                        shieldForeArm,
+                        0,
+                        0,
+                        -0.085 * idleElbowWeight
+                    );
+                    offsetAnimatedBone(
+                        swordForeArm,
+                        0,
+                        0,
+                        0.085 * idleElbowWeight
+                    );
                 }
             }
             root.dataset.leonidasMotion = victoryWeight > 0.08
@@ -1309,7 +1343,21 @@ if (root && canvas) {
             }
 
             model.updateMatrixWorld(true);
-            const box = new THREE.Box3().setFromObject(model);
+            const box = new THREE.Box3();
+            if (modularParts?.body) {
+                // El equipamiento de mano no debe reducir al personaje ni
+                // desplazar su centro. El encuadre se calcula con la anatomía.
+                [
+                    modularParts.body,
+                    modularParts.helmet,
+                    modularParts.chest,
+                    modularParts.headUnderlay,
+                    modularParts.torsoUnderlay,
+                    modularParts.hair
+                ].filter(Boolean).forEach((part) => box.expandByObject(part));
+            } else {
+                box.setFromObject(model);
+            }
             const size = box.getSize(new THREE.Vector3());
             const center = box.getCenter(new THREE.Vector3());
             const scale = characterHeight / Math.max(size.y, 0.01);
@@ -1368,7 +1416,9 @@ if (root && canvas) {
                     validated: Boolean(modularParts),
                     helmet: Boolean(modularParts?.helmet),
                     chest: Boolean(modularParts?.chest),
-                    hair: Boolean(modularParts?.hair)
+                    hair: Boolean(modularParts?.hair),
+                    shield: Boolean(modularParts?.shield),
+                    spear: Boolean(modularParts?.spear)
                 }
             }));
         };

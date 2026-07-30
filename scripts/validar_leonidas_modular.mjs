@@ -99,9 +99,9 @@ if (!configuredAsset) {
         ) {
             fail('body no declara la separacion semantica de piel y vestuario');
         } else if (
-            Number(found.helmet.node.extras?.leonidasHelmetVisorFaces || 0) <= 0
+            found.helmet.node.extras?.leonidasHelmetOpenFace !== true
         ) {
-            fail('helmet no contiene el fondo oscuro de la cavidad');
+            fail('helmet no declara el frente abierto que conserva el rostro');
         } else if (
             Number(found.helmet.node.extras?.leonidasHelmetOriginalFaces || 0) < 1000
         ) {
@@ -111,18 +111,18 @@ if (!configuredAsset) {
         ) {
             fail('helmet contiene cortadores destructivos que pueden perforar la nuca');
         } else if (
+            Number(found.helmet.node.extras?.leonidasHelmetFrontReliefRemoved || 0) <= 0
+            || Number(found.helmet.node.extras?.leonidasHelmetPanelFaces || 0) < 15
+            || Number(found.helmet.node.extras?.leonidasHelmetDomeFaces || 0) < 300
+            || found.helmet.node.extras?.leonidasHelmetFaceOpening !== 'protected-anatomy'
+        ) {
+            fail('helmet no completa la carcasa abierta alrededor del rostro anatomico');
+        } else if (
             Number(found.helmet.node.extras?.leonidasHelmetScale || 0) < 0.89
             || Number(found.helmet.node.extras?.leonidasHelmetScale || 0) > 0.93
             || Number(found.helmet.node.extras?.leonidasHelmetLift || 0) <= 0
         ) {
             fail('helmet no declara la escala y elevacion ergonomicas');
-        } else if (!materialNames.has('leonidasvisormaterial')) {
-            fail('falta el material mate del fondo interior');
-        } else if (
-            !materialNames.has('leonidashelmetpatina')
-            || !materialNames.has('leonidashelmethighlight')
-        ) {
-            fail('helmet no contiene contraste de patina y metal resaltado');
         } else if (
             Number(found.helmet.node.extras?.leonidasHelmetCrestFaces || 0) <= 0
             || !materialNames.has('leonidascrestred')
@@ -134,6 +134,23 @@ if (!configuredAsset) {
                 .includes('original=')
         ) {
             fail('chest no separa la piel original de la pechera metalica');
+        } else if (
+            found.shield.node.extras?.leonidasProcedural !== true
+            || Number(found.shield.node.extras?.leonidasShieldRivets || 0) < 16
+            || Number(found.shield.node.extras?.leonidasShieldCircuitRoutes || 0) < 16
+            || found.shield.node.extras?.leonidasShieldEmblem !== 'corporate-interlock'
+            || found.shield.node.extras?.leonidasShieldRearGrip !== true
+            || !materialNames.has('leonidasshieldcircuitglow')
+        ) {
+            fail('shield no contiene la construccion procedural corporativa completa');
+        } else if (
+            found.spear.node.extras?.leonidasProcedural !== true
+            || found.spear.node.extras?.leonidasSpearBlade !== 'faceted-forged-steel'
+            || found.spear.node.extras?.leonidasSpearShaft !== 'procedural-dark-wood'
+            || !materialNames.has('leonidasspearwood')
+            || !materialNames.has('leonidasspearmetal')
+        ) {
+            fail('spear no contiene asta, hoja y metales procedurales');
         } else {
             console.log(
                 `Leonidas modular: OK - ${required.map((role) => `${role}=${found[role].node.name}`).join(', ')}`

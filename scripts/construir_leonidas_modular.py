@@ -6,6 +6,7 @@ pechera. El resultado debe revisarse visualmente antes de habilitarse.
 """
 
 import os
+import sys
 from math import cos, pi, radians, sin
 
 import bmesh
@@ -15,6 +16,13 @@ from mathutils import Matrix, Vector
 
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+SCRIPT_ROOT = os.path.dirname(__file__)
+if SCRIPT_ROOT not in sys.path:
+    sys.path.insert(0, SCRIPT_ROOT)
+
+from leonidas_equipment import build_corporate_shield, build_spartan_spear
+
+
 MODEL_ROOT = os.path.join(PROJECT_ROOT, 'public', 'assets', 'models', 'leonidas')
 OUTPUT_PATH = os.path.join(MODEL_ROOT, 'leonidas-spartan-modular-v2.glb')
 
@@ -1524,29 +1532,248 @@ def finish_sculpted_helmet(obj):
         ):
             face.material_index = highlight_index
 
-    # Fondo mate profundo detrás de las aberturas originales. No cubre ni
-    # sustituye la máscara: sólo evita que se vea piel o el fondo del modal.
-    cavity_y = minimum.y + size.y * 0.24
-    cavity_outline = (
-        (-0.58, 0.26),
-        (-0.72, 0.43),
-        (-0.66, 0.69),
-        (0.66, 0.69),
-        (0.72, 0.43),
-        (0.58, 0.26),
-    )
-    cavity_vertices = [
-        mesh.verts.new(inverse @ Vector((
-            center_x + half_width * x_ratio,
-            cavity_y,
-            minimum.z + size.z * z_ratio,
-        )))
-        for x_ratio, z_ratio in cavity_outline
+    # Se retira exclusivamente el relieve frontal heredado. Era una cara
+    # humana estampada en metal (cejas, nariz y boca), no un visor corintio.
+    # El límite de profundidad impide que la operación alcance laterales,
+    # cúpula posterior o nuca.
+    front_relief_faces = []
+    for face in list(mesh.faces):
+        world = obj.matrix_world @ face.calc_center_median()
+        x_ratio = abs(world.x - center_x) / max(half_width, 0.0001)
+        y_ratio = (world.y - minimum.y) / max(size.y, 0.0001)
+        z_ratio = (world.z - minimum.z) / max(size.z, 0.0001)
+        if (
+            x_ratio < 1.05
+            and y_ratio < 0.56
+            and 0.08 < z_ratio < 0.79
+        ):
+            front_relief_faces.append(face)
+    if front_relief_faces:
+        bmesh.ops.delete(
+            mesh,
+            geom=front_relief_faces,
+            context='FACES',
+        )
+
+    # El recorte puede dejar triángulos aislados de la antigua nariz o boca.
+    # Se conserva sólo el componente conectado principal de la carcasa.
+    pending_faces = set(mesh.faces)
+    shell_components = []
+    while pending_faces:
+        seed = pending_faces.pop()
+        component = {seed}
+        frontier = [seed]
+        while frontier:
+            current_face = frontier.pop()
+            for edge in current_face.edges:
+                for linked_face in edge.link_faces:
+                    if linked_face in pending_faces:
+                        pending_faces.remove(linked_face)
+                        component.add(linked_face)
+                        frontier.append(linked_face)
+        shell_components.append(component)
+    detached_relief_faces = [
+        face
+        for component in shell_components
+        if len(component) < 24
+        for face in component
     ]
-    cavity_face = mesh.faces.new(cavity_vertices)
-    cavity_face.material_index = visor_index
+    if detached_relief_faces:
+        bmesh.ops.delete(
+            mesh,
+            geom=detached_relief_faces,
+            context='FACES',
+        )
+
+    # El frente queda abierto: la anatomía real permanece visible dentro de
+    # la cúpula y nunca recibe el material del casco.
+    panel_front_y = minimum.y - size.y * 0.018
+    panel_faces = 0
+
+    def curved_panel_y(x_ratio, z_ratio):
+        return (
+            panel_front_y
+            + size.y * 0.052 * pow(abs(x_ratio), 1.70)
+            + size.y * 0.010 * pow(abs(z_ratio - 0.50), 1.35)
+        )
+
+    def add_curved_panel(points, material_index=0, depth_ratio=0.026):
+        """Crea una placa curva cerrada sin el facetado radial del prototipo."""
+        nonlocal panel_faces
+        front_vertices = []
+        back_vertices = []
+        front_world = []
+        back_world = []
+        for x_ratio, z_ratio in points:
+            y = curved_panel_y(x_ratio, z_ratio)
+            front_point = Vector((
+                center_x + half_width * x_ratio,
+                y,
+                minimum.z + size.z * z_ratio,
+            ))
+            back_point = Vector((
+                front_point.x,
+                y + size.y * (
+                    depth_ratio + 0.010 * abs(x_ratio)
+                ),
+                front_point.z,
+            ))
+            front_world.append(front_point)
+            back_world.append(back_point)
+            front_vertices.append(mesh.verts.new(inverse @ front_point))
+            back_vertices.append(mesh.verts.new(inverse @ back_point))
+
+        count = len(points)
+        front = mesh.faces.new(list(reversed(front_vertices)))
+        front.material_index = material_index
+        back = mesh.faces.new(back_vertices)
+        back.material_index = material_index
+        panel_faces += 2
+        for index in range(count):
+            following = (index + 1) % count
+            side = mesh.faces.new([
+                front_vertices[index],
+                front_vertices[following],
+                back_vertices[following],
+                back_vertices[index],
+            ])
+            side.material_index = material_index
+            panel_faces += 1
+
+    def mirror_panel(points):
+        return tuple(
+            (-x_ratio, z_ratio)
+            for x_ratio, z_ratio in reversed(points)
+        )
+
+    # El frente se compone como una montura continua: ceja fina, nasal angosto
+    # y carrilleras laterales. La cara nunca se convierte en metal.
+    right_brow = (
+        (0.00, 0.76),
+        (0.38, 0.72),
+        (0.78, 0.67),
+        (0.84, 0.62),
+        (0.70, 0.59),
+        (0.31, 0.63),
+        (0.00, 0.67),
+    )
+    right_cheek = (
+        (0.67, 0.59),
+        (0.84, 0.61),
+        (0.91, 0.54),
+        (0.90, 0.41),
+        (0.62, 0.14),
+        (0.48, 0.19),
+        (0.58, 0.42),
+    )
+    nasal_guard = (
+        (-0.075, 0.70),
+        (0.075, 0.70),
+        (0.080, 0.43),
+        (0.12, 0.30),
+        (0.00, 0.18),
+        (-0.12, 0.30),
+        (-0.080, 0.43),
+    )
+    right_eye_rim = (
+        (0.10, 0.66),
+        (0.31, 0.62),
+        (0.70, 0.58),
+        (0.72, 0.55),
+        (0.30, 0.58),
+        (0.10, 0.62),
+    )
 
     # Base metálica continua que integra el penacho con la cúpula.
+    # La carcasa original queda demasiado retrasada después de retirar el
+    # relieve facial. Estas placas completan únicamente corona, sienes y
+    # mejillas laterales: enmarcan la cabeza como casco real sin cubrir ojos,
+    # nariz, boca, barba ni aplicar metal sobre la anatomía.
+    # Frente corintio externo. La anatomía continúa detrás con su material de
+    # piel original; las ranuras oscuras y las placas metálicas pertenecen
+    # exclusivamente al objeto casco.
+    # La cúpula define por sí misma el arco de la frente. No se superponen
+    # cejas ni marcos negros: en pruebas visuales producían una cruz artificial
+    # sobre el rostro y rompían el sombreado continuo del casco.
+    add_curved_panel(right_cheek, patina_index, depth_ratio=0.038)
+    add_curved_panel(
+        mirror_panel(right_cheek),
+        patina_index,
+        depth_ratio=0.038,
+    )
+    # Se omite el nasal frontal: el modelo anatómico tiene una nariz y barba
+    # más prominentes que la cabeza original y una pieza central terminaba
+    # flotando sobre la piel. El casco queda abierto y sin recolorear el rostro.
+
+    dome_faces = 0
+    dome_rings = []
+    dome_segments = 40
+    dome_latitudes = 14
+    # La cabeza anatómica es más ancha que la antigua cara estampada del FBX.
+    # La cúpula se dimensiona alrededor de esa anatomía: cubre cráneo, sienes
+    # y nuca sin convertirse en una pequeña tapa debajo del penacho.
+    dome_center_y = minimum.y + size.y * 0.56
+    dome_center_z = minimum.z + size.z * 0.58
+    dome_radius_x = half_width * 1.28
+    dome_radius_y = size.y * 0.62
+    dome_radius_z = size.z * 0.48
+    dome_top = mesh.verts.new(inverse @ Vector((
+        center_x,
+        dome_center_y,
+        dome_center_z + dome_radius_z,
+    )))
+    for latitude in range(1, dome_latitudes + 1):
+        theta = 2.08 * latitude / dome_latitudes
+        ring = []
+        for segment in range(dome_segments):
+            phi = -pi + 2.0 * pi * segment / dome_segments
+            ring.append(mesh.verts.new(inverse @ Vector((
+                center_x + dome_radius_x * sin(theta) * sin(phi),
+                dome_center_y - dome_radius_y * sin(theta) * cos(phi),
+                dome_center_z + dome_radius_z * cos(theta),
+            ))))
+        dome_rings.append(ring)
+
+    first_ring = dome_rings[0]
+    for segment in range(dome_segments):
+        following = (segment + 1) % dome_segments
+        face = mesh.faces.new([
+            dome_top,
+            first_ring[following],
+            first_ring[segment],
+        ])
+        face.material_index = highlight_index
+        face.smooth = True
+        dome_faces += 1
+
+    for latitude in range(dome_latitudes - 1):
+        current = dome_rings[latitude]
+        following_ring = dome_rings[latitude + 1]
+        theta_mid = 2.08 * (latitude + 1.5) / dome_latitudes
+        for segment in range(dome_segments):
+            following = (segment + 1) % dome_segments
+            phi = -pi + 2.0 * pi * (segment + 0.5) / dome_segments
+            # Abertura frontal más contenida. La cúpula continúa sobre frente
+            # y sienes para que el interruptor muestre un casco completo, no
+            # un penacho suspendido.
+            if abs(phi) < 0.40 and theta_mid > 0.92:
+                continue
+            face = mesh.faces.new([
+                current[segment],
+                current[following],
+                following_ring[following],
+                following_ring[segment],
+            ])
+            face.material_index = (
+                patina_index
+                if theta_mid > 1.62
+                else highlight_index
+                if theta_mid < 0.78
+                else 0
+            )
+            face.smooth = True
+            dome_faces += 1
+
     crest_sections = 49
     profile = []
     rail_rings = []
@@ -1601,74 +1828,124 @@ def finish_sculpted_helmet(obj):
             face.smooth = True
             crest_faces += 1
 
-    # Crin continua con volumen. Las secciones comparten bordes, por lo que
-    # no aparecen púas, tarjetas flotantes ni el aspecto de una escoba.
+    # Crin continua con sección arqueada. La base es estrecha, la parte alta
+    # se abre como abanico y el último tercio cae hacia atrás. Así el frente
+    # deja de ser un rectángulo y el perfil deja de parecer una escoba rígida.
+    plume_cross_segments = 12
     plume_rings = []
     for progress, arch, base_y, base_z, rail_height in profile:
-        plume_half_width = half_width * (0.27 + 0.060 * arch)
-        top_half_width = plume_half_width * 0.50
-        top_z = base_z + rail_height + size.z * (
-            0.080 + 0.340 * arch
+        tail = max((progress - 0.70) / 0.30, 0.0)
+        front_taper = min(progress / 0.10, 1.0)
+        rear_taper = min((1.0 - progress) / 0.22, 1.0)
+        end_taper = max(min(front_taper, rear_taper), 0.04)
+        width_taper = 0.34 + 0.66 * pow(end_taper, 0.65)
+        bottom_half_width = (
+            half_width * (0.24 + 0.035 * arch) * width_taper
         )
-        top_y = base_y + size.y * 0.065 * arch * (
-            0.45 + 0.55 * progress
+        top_half_width = (
+            half_width * (0.49 + 0.085 * arch) * width_taper
         )
-        plume_rings.append([
-            mesh.verts.new(inverse @ Vector((
-                center_x - plume_half_width,
-                base_y,
-                base_z + rail_height * 0.45,
-            ))),
-            mesh.verts.new(inverse @ Vector((
-                center_x + plume_half_width,
-                base_y,
-                base_z + rail_height * 0.45,
-            ))),
-            mesh.verts.new(inverse @ Vector((
-                center_x - top_half_width,
-                top_y,
-                top_z,
-            ))),
-            mesh.verts.new(inverse @ Vector((
-                center_x + top_half_width,
-                top_y,
-                top_z,
-            ))),
-        ])
+        plume_height = (
+            size.z
+            * (0.105 + 0.335 * arch)
+            * (0.18 + 0.82 * end_taper)
+        )
+        tail_y = size.y * (0.30 * tail * tail)
+        tail_drop = size.z * (0.24 * tail * tail)
+        ring = []
+        for cross in range(plume_cross_segments + 1):
+            cross_ratio = -1.0 + 2.0 * cross / plume_cross_segments
+            fiber_ridge = (
+                0.010
+                * sin(pi * cross_ratio * plume_cross_segments)
+                * end_taper
+            )
+            rounded_edge = 0.16 * pow(abs(cross_ratio), 1.55)
+            bottom_world = Vector((
+                center_x + bottom_half_width * cross_ratio,
+                base_y + tail_y,
+                base_z + rail_height * 0.46 - tail_drop * 0.42,
+            ))
+            top_world = Vector((
+                center_x + top_half_width * cross_ratio,
+                base_y
+                + size.y * 0.055 * arch * (0.45 + 0.55 * progress)
+                + tail_y,
+                base_z
+                + rail_height
+                + plume_height * (1.0 - rounded_edge + fiber_ridge)
+                - tail_drop,
+            ))
+            ring.append((
+                mesh.verts.new(inverse @ bottom_world),
+                mesh.verts.new(inverse @ top_world),
+            ))
+        plume_rings.append(ring)
 
     for section in range(crest_sections - 1):
         current = plume_rings[section]
         following = plume_rings[section + 1]
-        material_index = crest_materials[0]
-        if section % 9 == 0:
-            material_index = crest_materials[2]
-        elif section % 4 == 0:
-            material_index = crest_materials[1]
-        for indices in (
-            (0, 1, 1, 0),
-            (2, 3, 3, 2),
-            (0, 2, 2, 0),
-            (1, 3, 3, 1),
-        ):
-            face = mesh.faces.new([
-                current[indices[0]],
-                current[indices[1]],
-                following[indices[2]],
-                following[indices[3]],
+        for cross in range(plume_cross_segments):
+            material_index = crest_materials[0]
+            if cross % 5 == 2:
+                material_index = crest_materials[2]
+            elif cross % 3 == 0:
+                material_index = crest_materials[1]
+            bottom = mesh.faces.new([
+                current[cross][0],
+                following[cross][0],
+                following[cross + 1][0],
+                current[cross + 1][0],
             ])
-            face.material_index = material_index
-            face.smooth = True
+            bottom.material_index = crest_materials[1]
+            bottom.smooth = True
+            top = mesh.faces.new([
+                current[cross][1],
+                current[cross + 1][1],
+                following[cross + 1][1],
+                following[cross][1],
+            ])
+            top.material_index = material_index
+            top.smooth = True
+            crest_faces += 2
+
+        for cross in (0, plume_cross_segments):
+            side = mesh.faces.new([
+                current[cross][0],
+                current[cross][1],
+                following[cross][1],
+                following[cross][0],
+            ])
+            if section % 8 in (0, 1):
+                side.material_index = crest_materials[2]
+            elif section % 4 == 0:
+                side.material_index = crest_materials[1]
+            else:
+                side.material_index = crest_materials[0]
+            side.smooth = True
             crest_faces += 1
 
     for ring, reverse in (
         (plume_rings[0], False),
         (plume_rings[-1], True),
     ):
-        order = (0, 1, 3, 2) if not reverse else (2, 3, 1, 0)
-        face = mesh.faces.new([ring[index] for index in order])
-        face.material_index = crest_materials[1]
-        face.smooth = True
-        crest_faces += 1
+        for cross in range(plume_cross_segments):
+            vertices = [
+                ring[cross][0],
+                ring[cross + 1][0],
+                ring[cross + 1][1],
+                ring[cross][1],
+            ]
+            if reverse:
+                vertices.reverse()
+            face = mesh.faces.new(vertices)
+            face.material_index = (
+                crest_materials[2]
+                if cross % 4 == 1
+                else crest_materials[0]
+            )
+            face.smooth = True
+            crest_faces += 1
 
     bmesh.ops.recalc_face_normals(mesh, faces=list(mesh.faces))
     mesh.to_mesh(obj.data)
@@ -1687,13 +1964,25 @@ def finish_sculpted_helmet(obj):
     )
 
     obj['leonidasHelmetOriginalFaces'] = original_faces
-    obj['leonidasHelmetVisorFaces'] = 1
+    obj['leonidasHelmetOpenFace'] = True
+    obj['leonidasHelmetVisorFaces'] = 0
+    obj['leonidasHelmetFrontReliefRemoved'] = len(front_relief_faces)
+    obj['leonidasHelmetDetachedReliefRemoved'] = len(
+        detached_relief_faces
+    )
+    obj['leonidasHelmetPanelFaces'] = panel_faces
+    obj['leonidasHelmetDomeFaces'] = dome_faces
+    obj['leonidasHelmetFaceOpening'] = 'protected-anatomy'
     obj['leonidasHelmetCrestFaces'] = crest_faces
     obj['leonidasHelmetScale'] = helmet_scale
     obj['leonidasHelmetLift'] = helmet_lift
     print('LEONIDAS_SCULPTED_HELMET', {
         'original_faces': original_faces,
-        'visor_faces': 1,
+        'open_face': True,
+        'visor_faces': 0,
+        'front_relief_removed': len(front_relief_faces),
+        'detached_relief_removed': len(detached_relief_faces),
+        'panel_faces': panel_faces,
         'crest_faces': crest_faces,
         'scale': helmet_scale,
         'lift': helmet_lift,
@@ -2263,6 +2552,24 @@ def rigid_bind(obj, group_name):
     )
 
 
+def precompensate_rigid_pose(obj, armature, bone_name, seconds=0.45):
+    """Conserva la orientación diseñada al evaluar la pose nativa inicial."""
+    action = armature.animation_data.action if armature.animation_data else None
+    start_frame = action.frame_range[0] if action else 1.0
+    fps = bpy.context.scene.render.fps / bpy.context.scene.render.fps_base
+    target_frame = start_frame + seconds * fps
+    previous_frame = bpy.context.scene.frame_current
+    bpy.context.scene.frame_set(int(target_frame), subframe=target_frame % 1.0)
+    pose_bone = armature.pose.bones[bone_name]
+    rest_bone = armature.data.bones[bone_name]
+    deformation = pose_bone.matrix @ rest_bone.matrix_local.inverted()
+    inverse = deformation.inverted()
+    for vertex in obj.data.vertices:
+        vertex.co = inverse @ vertex.co
+    bpy.context.scene.frame_set(previous_frame)
+    obj['leonidasPoseCompensationSeconds'] = seconds
+
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
 bpy.ops.wm.fbx_import(
@@ -2382,8 +2689,37 @@ expand_underlay(torso_underlay, center_z=0.9, x_scale=1.035, z_scale=1.0)
 rigid_bind(head_underlay, 'mixamorig:Head')
 rigid_bind(hair, 'mixamorig:Head')
 rigid_bind(torso_underlay, 'mixamorig:Spine1')
+shield = build_corporate_shield(
+    current_mesh.matrix_world,
+    create_palette_material,
+)
+spear = build_spartan_spear(
+    current_mesh.matrix_world,
+    create_palette_material,
+)
+precompensate_rigid_pose(
+    shield,
+    current_armature,
+    'mixamorig:LeftHand',
+)
+precompensate_rigid_pose(
+    spear,
+    current_armature,
+    'mixamorig:RightHand',
+)
+rigid_bind(shield, 'mixamorig:LeftHand')
+rigid_bind(spear, 'mixamorig:RightHand')
 
-for obj in (body, helmet, chest, head_underlay, torso_underlay, hair):
+for obj in (
+    body,
+    helmet,
+    chest,
+    head_underlay,
+    torso_underlay,
+    hair,
+    shield,
+    spear,
+):
     attach_to_current_rig(obj, current_mesh, current_armature)
 
 remove_names = {
@@ -2400,7 +2736,17 @@ current_armature.name = 'LeonidasRig'
 current_armature['leonidasRig'] = True
 for obj in bpy.context.scene.objects:
     obj.select_set(False)
-for obj in (current_armature, body, helmet, chest, head_underlay, torso_underlay, hair):
+for obj in (
+    current_armature,
+    body,
+    helmet,
+    chest,
+    head_underlay,
+    torso_underlay,
+    hair,
+    shield,
+    spear,
+):
     obj.hide_viewport = False
     obj.hide_render = False
     obj.select_set(True)
@@ -2426,5 +2772,7 @@ print(
         'head_underlay_faces': len(head_underlay.data.polygons),
         'torso_underlay_faces': len(torso_underlay.data.polygons),
         'hair_faces': len(hair.data.polygons),
+        'shield_faces': len(shield.data.polygons),
+        'spear_faces': len(spear.data.polygons),
     },
 )

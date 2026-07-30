@@ -1,5 +1,5 @@
 {
-  "version": 50,
+  "version": 57,
   "enabled": true,
   "asset": "/assets/models/leonidas/leonidas-spartan-modular-v2.glb",
   "requiredParts": [
@@ -8,7 +8,9 @@
     "chest",
     "headUnderlay",
     "torsoUnderlay",
-    "hair"
+    "hair",
+    "shield",
+    "spear"
   ],
   "parts": {
     "body": [
@@ -33,6 +35,14 @@
     "hair": [
       "LeonidasHair",
       "Hair"
+    ],
+    "shield": [
+      "LeonidasShield",
+      "Shield"
+    ],
+    "spear": [
+      "LeonidasSpear",
+      "Spear"
     ]
   }
 }
