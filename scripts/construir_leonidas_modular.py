@@ -1450,101 +1450,6 @@ def finish_sculpted_helmet(obj):
     half_width = size.x * 0.5
     original_faces = len(obj.data.polygons)
 
-    def mirror_outline(points):
-        return tuple((-x_ratio, z_ratio) for x_ratio, z_ratio in reversed(points))
-
-    def boolean_opening(name, outline):
-        """Corta una ranura real a través de la carcasa esculpida."""
-        cutter_mesh = bpy.data.meshes.new(f'{name}Mesh')
-        y_front = minimum.y - size.y * 0.80
-        y_back = maximum.y + size.y * 0.80
-        front = [
-            (
-                center_x + half_width * x_ratio,
-                y_front,
-                minimum.z + size.z * z_ratio,
-            )
-            for x_ratio, z_ratio in outline
-        ]
-        back = [
-            (
-                center_x + half_width * x_ratio,
-                y_back,
-                minimum.z + size.z * z_ratio,
-            )
-            for x_ratio, z_ratio in outline
-        ]
-        count = len(outline)
-        faces = [
-            tuple(reversed(range(count))),
-            tuple(range(count, count * 2)),
-        ]
-        for index in range(count):
-            following = (index + 1) % count
-            faces.append((
-                index,
-                following,
-                count + following,
-                count + index,
-            ))
-        cutter_mesh.from_pydata(front + back, [], faces)
-        cutter_mesh.update()
-        cutter = bpy.data.objects.new(name, cutter_mesh)
-        bpy.context.scene.collection.objects.link(cutter)
-
-        bpy.context.view_layer.objects.active = obj
-        obj.select_set(True)
-        cutter.select_set(False)
-        modifier = obj.modifiers.new(
-            name=f'{name}Boolean',
-            type='BOOLEAN',
-        )
-        modifier.operation = 'DIFFERENCE'
-        modifier.solver = 'EXACT'
-        modifier.object = cutter
-        while obj.modifiers.find(modifier.name) > 0:
-            bpy.ops.object.modifier_move_up(modifier=modifier.name)
-        bpy.ops.object.modifier_apply(modifier=modifier.name)
-        bpy.data.objects.remove(cutter, do_unlink=True)
-
-    # Ranuras diagonales de ojos y aperturas laterales en cuña. El protector
-    # nasal central permanece como metal real, no como rectángulo dibujado.
-    right_eye = (
-        (0.105, 0.645),
-        (0.620, 0.610),
-        (0.570, 0.545),
-        (0.105, 0.570),
-    )
-    right_lower = (
-        (0.110, 0.565),
-        (0.435, 0.535),
-        (0.305, 0.245),
-        (0.120, 0.205),
-    )
-    boolean_opening('LeonidasRightEyeOpening', right_eye)
-    boolean_opening(
-        'LeonidasLeftEyeOpening',
-        mirror_outline(right_eye),
-    )
-    boolean_opening('LeonidasRightLowerOpening', right_lower)
-    boolean_opening(
-        'LeonidasLeftLowerOpening',
-        mirror_outline(right_lower),
-    )
-
-    # Un bisel pequeño recoge luz en los cortes nuevos y elimina bordes
-    # filosos sin suavizar en exceso el modelado original.
-    bpy.context.view_layer.objects.active = obj
-    bevel = obj.modifiers.new(name='LeonidasHelmetEdgeBevel', type='BEVEL')
-    bevel.width = size.x * 0.0065
-    bevel.segments = 2
-    bevel.limit_method = 'ANGLE'
-    bevel.angle_limit = radians(24)
-    while obj.modifiers.find(bevel.name) > 0:
-        bpy.ops.object.modifier_move_up(modifier=bevel.name)
-    bpy.ops.object.modifier_apply(modifier=bevel.name)
-    bevel_width = size.x * 0.0065
-
     visor = bpy.data.materials.new('LeonidasVisorMaterial')
     visor.use_nodes = True
     visor.use_backface_culling = False
@@ -1769,9 +1674,9 @@ def finish_sculpted_helmet(obj):
     mesh.to_mesh(obj.data)
     mesh.free()
 
-    # Casco, bisel, interior y penacho son rígidos con respecto a la cabeza.
-    # Reasignar todos los vértices evita que los cortes booleanos introduzcan
-    # influencias incompletas o deformaciones al reproducir la animación.
+    # Casco, interior y penacho son rígidos con respecto a la cabeza.
+    # Reasignar todos los vértices evita deformaciones al reproducir la
+    # animación y conserva íntegra la carcasa esculpida.
     for group in list(obj.vertex_groups):
         obj.vertex_groups.remove(group)
     head_group = obj.vertex_groups.new(name='mixamorig:Head')
@@ -1784,18 +1689,14 @@ def finish_sculpted_helmet(obj):
     obj['leonidasHelmetOriginalFaces'] = original_faces
     obj['leonidasHelmetVisorFaces'] = 1
     obj['leonidasHelmetCrestFaces'] = crest_faces
-    obj['leonidasHelmetOpeningCutters'] = 4
     obj['leonidasHelmetScale'] = helmet_scale
     obj['leonidasHelmetLift'] = helmet_lift
-    obj['leonidasHelmetBevelWidth'] = bevel_width
     print('LEONIDAS_SCULPTED_HELMET', {
         'original_faces': original_faces,
         'visor_faces': 1,
         'crest_faces': crest_faces,
-        'opening_cutters': 4,
         'scale': helmet_scale,
         'lift': helmet_lift,
-        'bevel_width': bevel_width,
     })
 
 

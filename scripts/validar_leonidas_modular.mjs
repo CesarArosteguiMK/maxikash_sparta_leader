@@ -106,8 +106,23 @@ if (!configuredAsset) {
             Number(found.helmet.node.extras?.leonidasHelmetOriginalFaces || 0) < 1000
         ) {
             fail('helmet no conserva la geometria esculpida de alta densidad');
+        } else if (
+            Number(found.helmet.node.extras?.leonidasHelmetOpeningCutters || 0) > 0
+        ) {
+            fail('helmet contiene cortadores destructivos que pueden perforar la nuca');
+        } else if (
+            Number(found.helmet.node.extras?.leonidasHelmetScale || 0) < 0.89
+            || Number(found.helmet.node.extras?.leonidasHelmetScale || 0) > 0.93
+            || Number(found.helmet.node.extras?.leonidasHelmetLift || 0) <= 0
+        ) {
+            fail('helmet no declara la escala y elevacion ergonomicas');
         } else if (!materialNames.has('leonidasvisormaterial')) {
             fail('falta el material mate del fondo interior');
+        } else if (
+            !materialNames.has('leonidashelmetpatina')
+            || !materialNames.has('leonidashelmethighlight')
+        ) {
+            fail('helmet no contiene contraste de patina y metal resaltado');
         } else if (
             Number(found.helmet.node.extras?.leonidasHelmetCrestFaces || 0) <= 0
             || !materialNames.has('leonidascrestred')

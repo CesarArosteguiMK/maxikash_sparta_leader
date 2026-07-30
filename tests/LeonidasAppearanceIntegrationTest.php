@@ -72,8 +72,15 @@ appearanceIntegrationAssert(
         && str_contains($builder, 'LeonidasVisorMaterial')
         && str_contains($builder, 'LeonidasCrestRed')
         && str_contains($builder, 'leonidasHelmetOriginalFaces')
+        && str_contains($builder, 'leonidasHelmetScale')
+        && str_contains($builder, 'leonidasHelmetLift')
         && str_contains($builder, 'leonidasHelmetCrestFaces')
+        && str_contains($builder, 'LeonidasHelmetPatina')
+        && str_contains($builder, 'LeonidasHelmetHighlight')
         && str_contains($builder, 'assign_chest_semantic_materials')
+        && !str_contains($builder, "modifier.operation = 'DIFFERENCE'")
+        && str_contains($threeJs, 'leonidasRoughnessOffset')
+        && str_contains($threeJs, 'leonidasTone')
         && str_contains(
             $threeJs,
             'modularParts.headUnderlay.visible = !currentAppearance.casco_visible'
