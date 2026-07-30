@@ -8644,7 +8644,13 @@ class CapHum extends Model
         return (int)($row['id_empresa'] ?? 0);
     }
 
-    private static function agregarJefasFuriaMotoSiAplica(Database $db, array $rows, ?int $idPuesto = null, ?int $idDepartamento = null): array
+    private static function agregarJefasFuriaMotoSiAplica(
+        Database $db,
+        array $rows,
+        ?int $idPuesto = null,
+        ?int $idDepartamento = null,
+        ?int $idAreaObjetivo = null
+    ): array
     {
         $idEmpresa = self::obtenerEmpresaDepartamentoJefe($db, $idPuesto, $idDepartamento);
         if ($idEmpresa !== 2) {
@@ -8661,26 +8667,47 @@ class CapHum extends Model
 
         $predPer = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('per');
         $extra = $db->queryAll("
-            SELECT
+            SELECT DISTINCT
                 per.id,
                 CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom) AS nombre_completo,
                 COALESCE(MIN(pu.nombre), '') AS nombre_puesto,
-                COALESCE(MIN(pu.nombre), '') AS puesto
+                COALESCE(MIN(pu.nombre), '') AS puesto,
+                COALESCE(MIN(dorg.nombre), '') AS area,
+                COALESCE(MIN(dep.nombre), '') AS departamento
             FROM estado_cuenta.persona per
             LEFT JOIN estado_cuenta.asigna_puesto ap
                    ON ap.id_persona = per.id
                   AND COALESCE(ap.activo, 1) = 1
             LEFT JOIN estado_cuenta.puesto pu ON pu.id = ap.id_puesto
+            LEFT JOIN estado_cuenta.departamento dep ON dep.id = pu.departamento_id
+            LEFT JOIN estado_cuenta.departamento_organizacional dorg
+                   ON dorg.id = dep.id_departamento_organizacional
             WHERE LOWER(TRIM(COALESCE(per.estatus, ''))) NOT IN ('baja', 'transito de baja')
               AND {$predPer}
+              AND (
+                    :id_area_objetivo IS NULL
+                    OR dorg.id = :id_area_objetivo
+                    OR EXISTS (
+                        SELECT 1
+                        FROM estado_cuenta.privilegios_departamento pd
+                        INNER JOIN estado_cuenta.puesto pu_perm ON pu_perm.id = pd.idPuesto
+                        INNER JOIN estado_cuenta.departamento dep_perm ON dep_perm.id = pu_perm.departamento_id
+                        WHERE pd.idPersona = per.id
+                          AND dep_perm.id_departamento_organizacional = :id_area_permiso
+                    )
+              )
               AND (
                     UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'ZAIRA YAEL TORRES DIAZ'
                  OR UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'IRMA NALLELY AGUILAR ISLAS'
                     OR UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'MONICA GABRIELA GARRIDO ORTEGA'
+                    OR UPPER(TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))) = 'JOSE EDUARDO DE JESUS VELAZCO'
               )
             GROUP BY per.id, per.nombres, per.segundo_nombre, per.apellidop, per.apellidom
             ORDER BY nombre_completo ASC
-        ");
+        ", [
+            'id_area_objetivo' => $idAreaObjetivo,
+            'id_area_permiso' => $idAreaObjetivo,
+        ]);
 
         foreach ($extra as $row) {
             $id = (int)($row['id'] ?? 0);
@@ -8899,11 +8926,9 @@ class CapHum extends Model
                 'id_area_nula' => $idArea,
                 'id_area' => $idArea,
             ]);
-            // Las jefas especiales de Furia son un respaldo histórico. En el editor
-            // RR.HH. se requiere coincidencia estricta de área/departamento/puesto.
-            if ($idArea === null) {
-                $r = self::agregarJefasFuriaMotoSiAplica($db, $r, (int)$id_puesto, null);
-            }
+            // Los jefes seleccionados de Furia se limitan al área actual o a los
+            // permisos explícitos que el usuario tenga sobre esa área.
+            $r = self::agregarJefasFuriaMotoSiAplica($db, $r, (int)$id_puesto, null, $idArea);
             return self::resultado(true, 'Jefes encontrados.', $r);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener jefes.', null, $e->getMessage());
