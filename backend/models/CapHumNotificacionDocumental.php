@@ -1074,6 +1074,94 @@ class CapHumNotificacionDocumental extends Model
         return is_array($data) ? $data : null;
     }
 
+    public static function analizarArchivoPatronesMotorV1Cli(string $rutaPdf): array
+    {
+        $inicio = microtime(true);
+        $apiDir = defined('RAIZ') ? (RAIZ . '/API') : (__DIR__ . '/../API');
+        $script = $apiDir . '/scripts/analizar_semanas_cotizadas_cli.py';
+        if (!is_file($rutaPdf) || !is_file($script)) {
+            return [
+                'success' => false,
+                'analisis' => null,
+                'motor' => 'cli_local',
+                'duracion_ms' => (int)round((microtime(true) - $inicio) * 1000),
+                'error' => 'No se encontró el PDF o el analizador local.',
+            ];
+        }
+
+        $candidatos = [];
+        if (PHP_OS_FAMILY === 'Windows') {
+            $candidatos[] = $apiDir . '/tools/PythonPortable/python.exe';
+            $candidatos[] = $apiDir . '/venv/Scripts/python.exe';
+        } else {
+            $candidatos[] = $apiDir . '/venv/bin/python';
+            $candidatos[] = '/usr/bin/python3';
+        }
+        $archivoPython = $apiDir . '/launcher/PYTHON_EXE.txt';
+        if (is_file($archivoPython)) {
+            foreach (file($archivoPython, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $linea) {
+                $linea = trim($linea);
+                if ($linea !== '' && strpos($linea, '#') !== 0) {
+                    array_unshift($candidatos, $linea);
+                    break;
+                }
+            }
+        }
+        $python = '';
+        foreach (array_unique($candidatos) as $candidato) {
+            if (is_file($candidato)) {
+                $python = $candidato;
+                break;
+            }
+        }
+        if ($python === '') {
+            return [
+                'success' => false,
+                'analisis' => null,
+                'motor' => 'cli_local',
+                'duracion_ms' => (int)round((microtime(true) - $inicio) * 1000),
+                'error' => 'No se encontró el Python local del Motor V1.',
+            ];
+        }
+
+        $descriptor = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+        $proceso = @proc_open([$python, $script, $rutaPdf], $descriptor, $pipes, $apiDir);
+        if (!is_resource($proceso)) {
+            return [
+                'success' => false,
+                'analisis' => null,
+                'motor' => 'cli_local',
+                'duracion_ms' => (int)round((microtime(true) - $inicio) * 1000),
+                'error' => 'No se pudo iniciar el Python local.',
+            ];
+        }
+        fclose($pipes[0]);
+        $salida = stream_get_contents($pipes[1]);
+        $errorSalida = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $codigo = proc_close($proceso);
+        $data = json_decode(trim((string)$salida), true);
+        $analisis = is_array($data['analisis'] ?? null) ? $data['analisis'] : null;
+        $error = trim((string)($data['error'] ?? ''));
+        if ($error === '' && ($codigo !== 0 || $analisis === null)) {
+            $error = trim((string)$errorSalida);
+        }
+
+        return [
+            'success' => $codigo === 0 && $analisis !== null,
+            'analisis' => $analisis,
+            'motor' => 'cli_local',
+            'duracion_ms' => (int)round((microtime(true) - $inicio) * 1000),
+            'error' => mb_substr($error, 0, 500),
+            'python' => basename($python),
+        ];
+    }
+
     public static function motorV1PatronesDisponible(): bool
     {
         $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
