@@ -140,7 +140,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     <?php if (!$atlasApiReady): ?>
         <div class="alert alert-warning d-flex align-items-center gap-2" role="alert">
             <i class="fa-solid fa-triangle-exclamation"></i>
-            <span>El reporte no está disponible por ahora. Si necesitas consultarlo, avísanos y lo revisamos.</span>
+            <span>El servicio para reportes se encuentra en mantenimiento, en breves desplegamos y podras volver a utilizarlo con normalidad..</span>
         </div>
     <?php endif; ?>
 
@@ -308,7 +308,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 <section class="atlas-evidence-routes" aria-label="Rutas Spartan del usuario seleccionado">
                     <div class="atlas-evidence-routes-head">
                         <h3 class="atlas-evidence-routes-title">
-                            <i class="fa-solid fa-route me-2 text-primary"></i>Rutas generadas en Spartan
+                            <i class="fa-solid fa-route me-2 text-primary"></i>Rutas generadas por el usuario
                         </h3>
                         <span class="atlas-evidence-routes-meta" id="atlasAttendanceRoutesMeta"></span>
                     </div>
