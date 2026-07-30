@@ -43,10 +43,18 @@ sombreado 3D, pero reciben un color sólido independiente. Así no existen
 píxeles compartidos capaces de pintar piel, rostro u otra prenda.
 
 Cuando el casco está puesto, la cabeza anatómica se oculta para impedir que la
-piel atraviese la abertura. Se conserva íntegra la geometría esculpida del
-casco original: su curvatura, protector nasal, ranuras, normales y sombreado.
-Detrás de las aberturas se coloca únicamente una cámara mate profunda. Al
-retirar el casco reaparecen la cabeza y el cabello configurado por el usuario.
+piel atraviese la abertura. Se conserva la base esculpida del casco original:
+su curvatura, protector nasal, ranuras, normales y sombreado. No se practican
+cortes booleanos que puedan atravesar la nuca: detrás de las aberturas
+originales solamente se coloca una cámara mate profunda. Al retirar el casco
+reaparecen la cabeza y el cabello configurado por el usuario.
+
+La pieza se reduce al 91 % alrededor de su propio centro y se eleva ligeramente
+para mantener proporción con la cabeza y liberar el cuello. Las aberturas y sus
+bordes se conservan de la escultura original, evitando parches planos,
+perforaciones traseras y cambios destructivos de topología. La base inferior
+usa una pátina más oscura y el protector nasal un acabado más definido; ambos
+siguen respetando el color de metal elegido.
 
 El penacho utiliza una base baja pegada a la cúpula y una malla continua de
 crin en tres rojos próximos. La silueta es continua y conserva cambios de tono
@@ -67,5 +75,7 @@ de los activos locales. Antes de habilitar una nueva exportación:
 4. Confirmar pose, animación, rostro, uniones de hombros, cintura y calzado.
 
 La validación estructural exige conservar la malla esculpida de alta densidad,
-un fondo interior oscuro, penacho continuo, materiales semánticos completos y
-separación explícita entre piel original y pechera metálica.
+escala y elevación declaradas, contraste de metal, fondo interior oscuro,
+penacho continuo, materiales semánticos completos y separación explícita entre
+piel original y pechera. La revisión visual debe confirmar también que la
+carcasa posterior permanece sólida.
