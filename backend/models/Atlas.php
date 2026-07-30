@@ -4464,7 +4464,7 @@ class Atlas extends Model
                     $totalEliminaciones++;
                     $ultimaEliminacion = $ultimaEliminacion ?: ($evento['fecha_evento_fmt'] ?? null);
                 }
-                if (in_array(($evento['evento'] ?? ''), ['carga', 'recarga', 'carga_inicial'], true)) {
+                if (in_array(($evento['evento'] ?? ''), ['carga', 'recarga', 'reajuste_masivo', 'carga_inicial'], true)) {
                     $ultimaCarga = $ultimaCarga ?: ($evento['fecha_evento_fmt'] ?? null);
                 }
             }
@@ -5696,7 +5696,541 @@ class Atlas extends Model
         return ['success' => true, 'mensaje' => 'Los creditos de la ruta se calculan automaticamente por sucursal.'];
     }
 
-    public static function importarPresupuestoMensual(int $anio, int $mes, string $archivoOriginal, array $filas, int $usuarioId = 0): array
+    public static function analizarReajustePresupuestoMensual(int $anio, int $mes, array $filas): array
+    {
+        if ($anio < 2000 || $mes < 1 || $mes > 12) {
+            return ['success' => false, 'mensaje' => 'Selecciona un ano y mes validos.'];
+        }
+        if (!$filas) {
+            return ['success' => false, 'mensaje' => 'El Excel no contiene registros.'];
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarPresupuestosAtlas($db);
+            self::asegurarColumnasPasoSucursal($db);
+            self::asegurarResponsablesPersonaAtlas($db);
+            $presupuesto = $db->queryOne("
+                SELECT *
+                FROM atlas_presupuestos_mensuales
+                WHERE anio = :anio
+                  AND mes = :mes
+                  AND activo = 1
+                LIMIT 1
+            ", ['anio' => $anio, 'mes' => $mes]);
+            $presupuestoId = (int)($presupuesto['id'] ?? 0);
+
+            $detallesActuales = $presupuestoId > 0
+                ? ($db->queryAll("
+                    SELECT
+                        d.*,
+                        COALESCE(cls.nombre, '') AS clasificacion
+                    FROM atlas_presupuesto_sucursal_detalle d
+                    LEFT JOIN atlas_catalogo_clasificaciones cls ON cls.id = d.clasificacion_id
+                    WHERE d.presupuesto_id = :presupuesto_id
+                      AND d.activo = 1
+                    ORDER BY d.fk_sucursal ASC
+                ", ['presupuesto_id' => $presupuestoId]) ?: [])
+                : [];
+            $actualesPorFk = [];
+            foreach ($detallesActuales as $detalleActual) {
+                $fkActual = (int)($detalleActual['fk_sucursal'] ?? 0);
+                if ($fkActual > 0) {
+                    $actualesPorFk[$fkActual] = $detalleActual;
+                }
+            }
+
+            $sucursalesEsperadas = self::getSucursalesTemplatePresupuestoDesdeDb($db);
+            if (!$sucursalesEsperadas) {
+                return [
+                    'success' => false,
+                    'mensaje' => 'No se pudo consultar el catalogo de sucursales para preparar el comparativo.',
+                ];
+            }
+            $esperadasPorFk = [];
+            foreach ($sucursalesEsperadas as $sucursalEsperada) {
+                $fkEsperada = (int)($sucursalEsperada['fk_sucursal'] ?? 0);
+                if ($fkEsperada > 0) {
+                    $esperadasPorFk[$fkEsperada] = $sucursalEsperada;
+                }
+            }
+            $sucursalesObligatorias = $presupuestoId > 0
+                ? $actualesPorFk
+                : $esperadasPorFk;
+
+            $filasUnicas = [];
+            $duplicadas = [];
+            $extras = [];
+            $omitidasInvalidas = 0;
+            $filasInvalidas = [];
+            foreach ($filas as $indice => $fila) {
+                $excelRow = (int)($fila['_excel_row'] ?? ($indice + 2));
+                $fkSucursal = (int)($fila['fk_sucursal'] ?? 0);
+                if ($fkSucursal <= 0) {
+                    $omitidasInvalidas++;
+                    $filasInvalidas[] = [
+                        'fila' => $excelRow,
+                        'pk_sucursal' => self::strVal($fila['fk_sucursal'] ?? ''),
+                    ];
+                    continue;
+                }
+                if (isset($filasUnicas[$fkSucursal])) {
+                    $duplicadas[] = [
+                        'fila' => $excelRow,
+                        'fk_sucursal' => $fkSucursal,
+                        'sucursal' => self::strVal($fila['sucursal'] ?? ''),
+                    ];
+                }
+                if (!isset($esperadasPorFk[$fkSucursal])) {
+                    $extras[] = [
+                        'fila' => $excelRow,
+                        'fk_sucursal' => $fkSucursal,
+                        'sucursal' => self::strVal($fila['sucursal'] ?? ''),
+                        'distribuidor' => self::strVal($fila['distribuidor'] ?? ''),
+                    ];
+                    continue;
+                }
+                $filasUnicas[$fkSucursal] = $fila;
+            }
+            ksort($filasUnicas, SORT_NUMERIC);
+
+            $faltantesPorFk = [];
+            foreach ($sucursalesObligatorias as $fkEsperada => $sucursalEsperada) {
+                if (!isset($filasUnicas[$fkEsperada])) {
+                    $faltantesPorFk[$fkEsperada] = [
+                        'fk_sucursal' => $fkEsperada,
+                        'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? ''),
+                        'distribuidor' => self::strVal($sucursalEsperada['distribuidor'] ?? ''),
+                    ];
+                }
+            }
+            $faltantes = array_values($faltantesPorFk);
+
+            $clasificacionesPorNombre = self::getClasificacionesAtlasPorNombre($db);
+            $personasPorNombre = self::getPersonasPresupuestoPorNombre($db);
+            $erroresAsignacion = [];
+            $erroresClasificacion = [];
+            $erroresPresupuesto = [];
+            $erroresOperacion = [];
+            $comparativo = [];
+            $objetivoHuella = [];
+            $sinCambios = 0;
+            $reasignaciones = 0;
+            $ajustesPresupuesto = 0;
+            $ajustesClasificacion = 0;
+            $ajustesDatosSucursal = 0;
+            $altas = 0;
+            $totalesAntes = [
+                'sucursales' => count($actualesPorFk),
+                'creditos' => 0.0,
+                'cash' => 0.0,
+            ];
+            foreach ($actualesPorFk as $detalleActual) {
+                $totalesAntes['creditos'] += self::decimalPresupuesto($detalleActual['meta_creditos'] ?? 0);
+                $totalesAntes['cash'] += self::decimalPresupuesto($detalleActual['meta_cash'] ?? 0);
+            }
+            $totalesDespues = [
+                'sucursales' => count($filasUnicas),
+                'creditos' => 0.0,
+                'cash' => 0.0,
+            ];
+
+            foreach ($filasUnicas as $fkSucursal => $fila) {
+                $excelRow = (int)($fila['_excel_row'] ?? 0);
+                $sucursalEsperada = $esperadasPorFk[$fkSucursal] ?? [];
+                $asesorExcel = self::strVal($fila['asesor'] ?? '');
+                $asesorPersonaId = null;
+                $asesorNombre = $asesorExcel;
+                $firmaAsesor = self::firmaNombrePersonaPresupuesto($asesorExcel);
+                $coincidencias = $firmaAsesor !== '' ? ($personasPorNombre[$firmaAsesor] ?? []) : [];
+                if ($asesorExcel === '' || count($coincidencias) !== 1) {
+                    $erroresAsignacion[] = [
+                        'fila' => $excelRow,
+                        'fk_sucursal' => $fkSucursal,
+                        'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? $fila['sucursal'] ?? ''),
+                        'asesor_excel' => $asesorExcel,
+                        'falla' => $asesorExcel === ''
+                            ? 'El Excel no trae responsable para esta sucursal.'
+                            : (count($coincidencias) > 1
+                                ? 'El responsable coincide con mas de una persona.'
+                                : 'No se encontro al responsable en el catalogo de personas.'),
+                    ];
+                } else {
+                    $asesorPersonaId = (int)$coincidencias[0]['id'];
+                    $asesorNombre = self::strVal($coincidencias[0]['nombre'] ?? $asesorExcel);
+                }
+
+                $clasificacionExcel = self::strVal($fila['clasificacion'] ?? '');
+                $clasificacionId = null;
+                $clasificacionNombre = '';
+                if ($clasificacionExcel !== '') {
+                    $clasificacionKey = self::normalizarNombreCatalogoParaComparar($clasificacionExcel);
+                    $clasificacion = $clasificacionesPorNombre[$clasificacionKey] ?? null;
+                    if (!$clasificacion) {
+                        $erroresClasificacion[] = [
+                            'fila' => $excelRow,
+                            'fk_sucursal' => $fkSucursal,
+                            'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? $fila['sucursal'] ?? ''),
+                            'clasificacion_excel' => $clasificacionExcel,
+                            'falla' => 'La clasificacion no existe en el catalogo principal.',
+                        ];
+                        $clasificacionNombre = $clasificacionExcel;
+                    } else {
+                        $clasificacionId = (int)$clasificacion['id'];
+                        $clasificacionNombre = self::strVal($clasificacion['nombre'] ?? $clasificacionExcel);
+                    }
+                }
+
+                $metaCreditos = self::decimalPresupuesto($fila['meta_creditos'] ?? 0);
+                $metaCash = self::decimalPresupuesto($fila['meta_cash'] ?? 0);
+                $presupuestoBase = self::nullableDecimalPresupuesto($fila['comisiona_a_partir_de'] ?? null);
+                $valoresPresupuestoValidos = self::valorPresupuestoEsNumerico($fila['meta_creditos'] ?? null)
+                    && self::valorPresupuestoEsNumerico($fila['meta_cash'] ?? null)
+                    && self::valorPresupuestoEsNumerico($fila['comisiona_a_partir_de'] ?? null);
+                if (
+                    !$valoresPresupuestoValidos
+                    || $metaCreditos < 0
+                    || $metaCash < 0
+                    || ($presupuestoBase !== null && $presupuestoBase < 0)
+                ) {
+                    $erroresPresupuesto[] = [
+                        'fila' => $excelRow,
+                        'fk_sucursal' => $fkSucursal,
+                        'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? $fila['sucursal'] ?? ''),
+                        'falla' => 'Creditos, cash y presupuesto base deben ser valores mayores o iguales a cero.',
+                    ];
+                }
+
+                $validacionDistribuidor = self::validarPresupuestoSucursalDistribuidorOperativo(
+                    $db,
+                    $fkSucursal,
+                    $metaCreditos,
+                    $metaCash
+                );
+                if (empty($validacionDistribuidor['success'])) {
+                    $erroresOperacion[] = [
+                        'fila' => $excelRow,
+                        'fk_sucursal' => $fkSucursal,
+                        'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? $fila['sucursal'] ?? ''),
+                        'falla' => self::strVal($validacionDistribuidor['mensaje'] ?? 'La sucursal no admite presupuesto en este momento.'),
+                    ];
+                }
+
+                $anteriorRaw = $actualesPorFk[$fkSucursal] ?? null;
+                $anterior = $anteriorRaw ? [
+                    'sucursal' => self::strVal($anteriorRaw['sucursal'] ?? ''),
+                    'distribuidor' => self::strVal($anteriorRaw['distribuidor'] ?? ''),
+                    'responsable' => self::strVal($anteriorRaw['asesor'] ?? ''),
+                    'responsable_persona_id' => self::nullableInt($anteriorRaw['asesor_persona_id'] ?? null),
+                    'creditos' => self::decimalPresupuesto($anteriorRaw['meta_creditos'] ?? 0),
+                    'cash' => self::decimalPresupuesto($anteriorRaw['meta_cash'] ?? 0),
+                    'presupuesto_base' => self::nullableDecimalPresupuesto($anteriorRaw['comisiona_a_partir_de'] ?? null),
+                    'clasificacion' => self::strVal($anteriorRaw['clasificacion'] ?? ''),
+                    'clasificacion_id' => self::nullableInt($anteriorRaw['clasificacion_id'] ?? null),
+                ] : null;
+                $despues = [
+                    'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? $fila['sucursal'] ?? ''),
+                    'distribuidor' => self::strVal($sucursalEsperada['distribuidor'] ?? $fila['distribuidor'] ?? ''),
+                    'responsable' => $asesorNombre,
+                    'responsable_persona_id' => $asesorPersonaId,
+                    'creditos' => $metaCreditos,
+                    'cash' => $metaCash,
+                    'presupuesto_base' => $presupuestoBase,
+                    'clasificacion' => $clasificacionNombre,
+                    'clasificacion_id' => $clasificacionId,
+                ];
+                $campos = [];
+                if (!$anterior) {
+                    $campos[] = 'alta';
+                    $altas++;
+                } else {
+                    if (
+                        $anterior['sucursal'] !== $despues['sucursal']
+                        || $anterior['distribuidor'] !== $despues['distribuidor']
+                    ) {
+                        $campos[] = 'datos_sucursal';
+                        $ajustesDatosSucursal++;
+                    }
+                    if (
+                        self::nullableInt($anterior['responsable_persona_id'] ?? null) !== self::nullableInt($asesorPersonaId)
+                        || self::firmaNombrePersonaPresupuesto($anterior['responsable'] ?? '') !== self::firmaNombrePersonaPresupuesto($asesorNombre)
+                    ) {
+                        $campos[] = 'responsable';
+                        $reasignaciones++;
+                    }
+                    $cambioCreditos = abs((float)$anterior['creditos'] - $metaCreditos) > 0.0001;
+                    $cambioCash = abs((float)$anterior['cash'] - $metaCash) > 0.0001;
+                    $baseAnterior = $anterior['presupuesto_base'];
+                    $cambioBase = ($baseAnterior === null) !== ($presupuestoBase === null)
+                        || ($baseAnterior !== null && $presupuestoBase !== null && abs((float)$baseAnterior - $presupuestoBase) > 0.0001);
+                    if ($cambioCreditos) {
+                        $campos[] = 'creditos';
+                    }
+                    if ($cambioCash) {
+                        $campos[] = 'cash';
+                    }
+                    if ($cambioBase) {
+                        $campos[] = 'presupuesto_base';
+                    }
+                    if ($cambioCreditos || $cambioCash || $cambioBase) {
+                        $ajustesPresupuesto++;
+                    }
+                    if (self::nullableInt($anterior['clasificacion_id'] ?? null) !== self::nullableInt($clasificacionId)) {
+                        $campos[] = 'clasificacion';
+                        $ajustesClasificacion++;
+                    }
+                }
+
+                if ($campos) {
+                    $comparativo[] = [
+                        'fila' => $excelRow,
+                        'tipo' => $anterior ? 'modificacion' : 'alta',
+                        'fk_sucursal' => $fkSucursal,
+                        'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? $fila['sucursal'] ?? ''),
+                        'distribuidor' => self::strVal($sucursalEsperada['distribuidor'] ?? $fila['distribuidor'] ?? ''),
+                        'campos' => $campos,
+                        'antes' => $anterior,
+                        'despues' => $despues,
+                    ];
+                } else {
+                    $sinCambios++;
+                }
+
+                $totalesDespues['creditos'] += $metaCreditos;
+                $totalesDespues['cash'] += $metaCash;
+                $objetivoHuella[$fkSucursal] = [
+                    'responsable_persona_id' => $asesorPersonaId,
+                    'responsable' => $asesorNombre,
+                    'clasificacion_id' => $clasificacionId,
+                    'creditos' => number_format($metaCreditos, 4, '.', ''),
+                    'cash' => number_format($metaCash, 4, '.', ''),
+                    'presupuesto_base' => $presupuestoBase === null
+                        ? null
+                        : number_format($presupuestoBase, 4, '.', ''),
+                ];
+            }
+
+            $bloqueos = [];
+            foreach ([
+                'duplicadas' => [count($duplicadas), 'El archivo contiene sucursales duplicadas. Deja una sola fila por PK.'],
+                'extras' => [count($extras), 'El archivo contiene PK de sucursales que no existen en el catalogo vigente.'],
+                'faltantes' => [count($faltantes), 'Faltan sucursales del presupuesto mensual. Descarga el template del mes y conserva todas sus filas; la ausencia no se interpreta como una orden de eliminacion.'],
+                'asignaciones' => [count($erroresAsignacion), 'Hay responsables que no se pudieron identificar de forma unica.'],
+                'clasificaciones' => [count($erroresClasificacion), 'Hay clasificaciones que no existen en el catalogo principal.'],
+                'presupuestos' => [count($erroresPresupuesto), 'Hay importes negativos o invalidos en el archivo.'],
+                'operacion' => [count($erroresOperacion), 'Hay sucursales cuyo estado operativo impide aplicar el presupuesto indicado.'],
+                'filas_invalidas' => [$omitidasInvalidas, 'Hay filas sin una PK de sucursal valida.'],
+            ] as $tipo => [$cantidad, $mensaje]) {
+                if ($cantidad > 0) {
+                    $bloqueos[] = [
+                        'tipo' => $tipo,
+                        'cantidad' => $cantidad,
+                        'mensaje' => $mensaje,
+                    ];
+                }
+            }
+
+            $huellaPresupuesto = self::huellaPresupuestoMensual($db, $anio, $mes);
+            $huellaAnalisis = hash('sha256', (string)json_encode([
+                'presupuesto' => $huellaPresupuesto,
+                'objetivo' => $objetivoHuella,
+                'bloqueos' => $bloqueos,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $totalCambios = count($comparativo);
+            $puedeConfirmar = !$bloqueos && $totalCambios > 0;
+
+            return [
+                'success' => true,
+                'mensaje' => $puedeConfirmar
+                    ? 'Analisis listo. Revisa el comparativo antes de confirmar el reajuste.'
+                    : ($totalCambios > 0
+                        ? 'El archivo tiene cambios, pero requiere correcciones antes de poder aplicarlos.'
+                        : 'El archivo coincide con el presupuesto actual y no contiene cambios por aplicar.'),
+                'datos' => [
+                    'anio' => $anio,
+                    'mes' => $mes,
+                    'nombre_mes' => self::nombreMes($mes),
+                    'presupuesto_id' => $presupuestoId,
+                    'es_carga_inicial' => $presupuestoId > 0 ? 0 : 1,
+                    'puede_confirmar' => $puedeConfirmar ? 1 : 0,
+                    'huella_presupuesto' => $huellaPresupuesto,
+                    'huella_analisis' => $huellaAnalisis,
+                    'resumen' => [
+                        'filas_leidas' => count($filas),
+                        'sucursales_archivo' => count($filasUnicas),
+                        'sucursales_obligatorias' => count($sucursalesObligatorias),
+                        'cambios' => $totalCambios,
+                        'sin_cambios' => $sinCambios,
+                        'reasignaciones' => $reasignaciones,
+                        'ajustes_presupuesto' => $ajustesPresupuesto,
+                        'ajustes_clasificacion' => $ajustesClasificacion,
+                        'ajustes_datos_sucursal' => $ajustesDatosSucursal,
+                        'altas' => $altas,
+                        'duplicadas' => count($duplicadas),
+                        'extras' => count($extras),
+                        'faltantes' => count($faltantes),
+                        'errores_asignacion' => count($erroresAsignacion),
+                        'errores_clasificacion' => count($erroresClasificacion),
+                        'errores_presupuesto' => count($erroresPresupuesto),
+                        'errores_operacion' => count($erroresOperacion),
+                        'omitidas_invalidas' => $omitidasInvalidas,
+                    ],
+                    'totales_antes' => $totalesAntes,
+                    'totales_despues' => $totalesDespues,
+                    'totales_delta' => [
+                        'sucursales' => $totalesDespues['sucursales'] - $totalesAntes['sucursales'],
+                        'creditos' => $totalesDespues['creditos'] - $totalesAntes['creditos'],
+                        'cash' => $totalesDespues['cash'] - $totalesAntes['cash'],
+                    ],
+                    'comparativo' => $comparativo,
+                    'bloqueos' => $bloqueos,
+                    'detalle_duplicadas' => $duplicadas,
+                    'detalle_extras' => $extras,
+                    'detalle_faltantes' => $faltantes,
+                    'detalle_errores_asignacion' => $erroresAsignacion,
+                    'detalle_errores_clasificacion' => $erroresClasificacion,
+                    'detalle_errores_presupuesto' => $erroresPresupuesto,
+                    'detalle_errores_operacion' => $erroresOperacion,
+                    'detalle_filas_invalidas' => $filasInvalidas,
+                ],
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'mensaje' => 'No se pudo preparar el comparativo del presupuesto.',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public static function confirmarReajustePresupuestoMensual(
+        int $anio,
+        int $mes,
+        string $archivoOriginal,
+        array $filas,
+        string $huellaAnalisisEsperada,
+        string $huellaPresupuestoEsperada,
+        string $motivo,
+        int $usuarioId = 0
+    ): array {
+        $motivo = trim($motivo);
+        if (mb_strlen($motivo) < 5) {
+            return ['success' => false, 'mensaje' => 'Captura el motivo del reajuste.'];
+        }
+
+        $analisis = self::analizarReajustePresupuestoMensual($anio, $mes, $filas);
+        if (empty($analisis['success'])) {
+            return $analisis;
+        }
+        $datosAnalisis = is_array($analisis['datos'] ?? null) ? $analisis['datos'] : [];
+        $huellaAnalisisActual = (string)($datosAnalisis['huella_analisis'] ?? '');
+        $huellaPresupuestoActual = (string)($datosAnalisis['huella_presupuesto'] ?? '');
+        if (
+            $huellaAnalisisEsperada === ''
+            || $huellaPresupuestoEsperada === ''
+            || !hash_equals($huellaAnalisisEsperada, $huellaAnalisisActual)
+            || !hash_equals($huellaPresupuestoEsperada, $huellaPresupuestoActual)
+        ) {
+            return [
+                'success' => false,
+                'status' => 409,
+                'mensaje' => 'El presupuesto cambio mientras revisabas el comparativo. Vuelve a cargar el Excel para analizar la version actual.',
+            ];
+        }
+        if (empty($datosAnalisis['puede_confirmar'])) {
+            return [
+                'success' => false,
+                'mensaje' => 'El reajuste no se puede confirmar hasta corregir las observaciones del analisis.',
+                'datos' => $datosAnalisis,
+            ];
+        }
+
+        return self::importarPresupuestoMensual(
+            $anio,
+            $mes,
+            $archivoOriginal,
+            $filas,
+            $usuarioId,
+            [
+                'huella_presupuesto_esperada' => $huellaPresupuestoEsperada,
+                'motivo' => $motivo,
+                'evento' => 'reajuste_masivo',
+            ]
+        );
+    }
+
+    private static function huellaPresupuestoMensual(Database $db, int $anio, int $mes): string
+    {
+        $presupuesto = $db->queryOne("
+            SELECT
+                id,
+                anio,
+                mes,
+                activo,
+                total_sucursales,
+                total_creditos,
+                total_cash,
+                fecha_actualizacion
+            FROM atlas_presupuestos_mensuales
+            WHERE anio = :anio
+              AND mes = :mes
+              AND activo = 1
+            LIMIT 1
+        ", ['anio' => $anio, 'mes' => $mes]);
+        $detalles = [];
+        if ($presupuesto) {
+            $rows = $db->queryAll("
+                SELECT
+                    id,
+                    fk_sucursal,
+                    sucursal,
+                    distribuidor,
+                    asesor,
+                    asesor_persona_id,
+                    clasificacion_id,
+                    meta_creditos,
+                    meta_cash,
+                    comisiona_a_partir_de,
+                    activo,
+                    fecha_actualizacion
+                FROM atlas_presupuesto_sucursal_detalle
+                WHERE presupuesto_id = :presupuesto_id
+                  AND activo = 1
+                ORDER BY fk_sucursal ASC
+            ", ['presupuesto_id' => (int)$presupuesto['id']]) ?: [];
+            foreach ($rows as $row) {
+                $detalles[] = [
+                    'id' => (int)($row['id'] ?? 0),
+                    'fk_sucursal' => (int)($row['fk_sucursal'] ?? 0),
+                    'sucursal' => self::strVal($row['sucursal'] ?? ''),
+                    'distribuidor' => self::strVal($row['distribuidor'] ?? ''),
+                    'asesor' => self::strVal($row['asesor'] ?? ''),
+                    'asesor_persona_id' => self::nullableInt($row['asesor_persona_id'] ?? null),
+                    'clasificacion_id' => self::nullableInt($row['clasificacion_id'] ?? null),
+                    'meta_creditos' => number_format(self::decimalPresupuesto($row['meta_creditos'] ?? 0), 4, '.', ''),
+                    'meta_cash' => number_format(self::decimalPresupuesto($row['meta_cash'] ?? 0), 4, '.', ''),
+                    'comisiona_a_partir_de' => self::nullableDecimalPresupuesto($row['comisiona_a_partir_de'] ?? null),
+                    'fecha_actualizacion' => self::strVal($row['fecha_actualizacion'] ?? ''),
+                ];
+            }
+        }
+
+        return hash('sha256', (string)json_encode([
+            'anio' => $anio,
+            'mes' => $mes,
+            'presupuesto' => $presupuesto ?: null,
+            'detalles' => $detalles,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    }
+
+    public static function importarPresupuestoMensual(
+        int $anio,
+        int $mes,
+        string $archivoOriginal,
+        array $filas,
+        int $usuarioId = 0,
+        array $opciones = []
+    ): array
     {
         if ($anio < 2000 || $mes < 1 || $mes > 12) {
             return ['success' => false, 'mensaje' => 'Selecciona un aÃƒÂ±o y mes validos.'];
@@ -5705,8 +6239,14 @@ class Atlas extends Model
             return ['success' => false, 'mensaje' => 'El Excel no contiene registros.'];
         }
 
+        $huellaPresupuestoEsperada = trim((string)($opciones['huella_presupuesto_esperada'] ?? ''));
+        $motivoReajuste = trim((string)($opciones['motivo'] ?? ''));
+        $eventoLote = trim((string)($opciones['evento'] ?? ''));
+        $esReajusteMasivo = $eventoLote === 'reajuste_masivo';
         $db = new Database();
         self::asegurarPresupuestosAtlas($db);
+        self::asegurarColumnasPasoSucursal($db);
+        self::asegurarResponsablesPersonaAtlas($db);
 
         try {
             $db->beginTransaction();
@@ -5719,6 +6259,18 @@ class Atlas extends Model
                   AND activo = 1
                 LIMIT 1
             ", ['anio' => $anio, 'mes' => $mes]);
+
+            if ($huellaPresupuestoEsperada !== '') {
+                $huellaPresupuestoActual = self::huellaPresupuestoMensual($db, $anio, $mes);
+                if (!hash_equals($huellaPresupuestoEsperada, $huellaPresupuestoActual)) {
+                    $db->rollback();
+                    return [
+                        'success' => false,
+                        'status' => 409,
+                        'mensaje' => 'El presupuesto cambio antes de aplicar el reajuste. Vuelve a cargar el Excel y revisa el comparativo actualizado.',
+                    ];
+                }
+            }
 
             $esRecarga = (bool)$actual;
             if ($actual) {
@@ -5765,9 +6317,11 @@ class Atlas extends Model
                 }
             }
 
-            $db->CRUD("UPDATE atlas_presupuesto_sucursal_detalle SET activo = 0 WHERE presupuesto_id = :id", ['id' => $presupuestoId]);
+            if (!$esReajusteMasivo) {
+                $db->CRUD("UPDATE atlas_presupuesto_sucursal_detalle SET activo = 0 WHERE presupuesto_id = :id", ['id' => $presupuestoId]);
+            }
 
-            $sucursalesEsperadas = self::getSucursalesTemplatePresupuesto();
+            $sucursalesEsperadas = self::getSucursalesTemplatePresupuestoDesdeDb($db);
             $clasificacionesPorNombre = self::getClasificacionesAtlasPorNombre($db);
             $personasPorNombre = self::getPersonasPresupuestoPorNombre($db);
             $esperadasPorFk = [];
@@ -5777,6 +6331,9 @@ class Atlas extends Model
                     $esperadasPorFk[$fkEsperada] = $sucursalEsperada;
                 }
             }
+            $sucursalesObligatorias = $esRecarga
+                ? $detallesAnteriores
+                : $esperadasPorFk;
 
             $filasRecibidas = count($filas);
             $filasUnicas = [];
@@ -5811,7 +6368,7 @@ class Atlas extends Model
             }
 
             $faltantes = [];
-            foreach ($esperadasPorFk as $fkEsperada => $sucursalEsperada) {
+            foreach ($sucursalesObligatorias as $fkEsperada => $sucursalEsperada) {
                 if (!isset($filasUnicas[$fkEsperada])) {
                     $faltantes[] = [
                         'fk_sucursal' => (int)$fkEsperada,
@@ -5857,6 +6414,18 @@ class Atlas extends Model
                 $filasUnicas[$fkSucursal]['_asesor_persona_nombre'] = $persona['nombre'];
                 $filasUnicas[$fkSucursal]['_asesor_numero_empleado'] = $persona['numero_empleado'];
                 $filasUnicas[$fkSucursal]['_asesor_user_name'] = $persona['user_name'];
+            }
+
+            if (
+                $esReajusteMasivo
+                && ($duplicadas || $extras || $faltantes || $omitidasInvalidas > 0 || $erroresAsignacion)
+            ) {
+                $db->rollback();
+                return [
+                    'success' => false,
+                    'status' => 409,
+                    'mensaje' => 'El catalogo o las asignaciones cambiaron antes de aplicar el reajuste. Vuelve a analizar el Excel.',
+                ];
             }
 
             $importadas = 0;
@@ -5905,9 +6474,9 @@ class Atlas extends Model
                 $datos = [
                     'presupuesto_id' => $presupuestoId,
                     'fk_sucursal' => (int)$fkSucursal,
-                    'sucursal' => self::strVal($fila['sucursal'] ?? ''),
-                    'distribuidor' => self::strVal($fila['distribuidor'] ?? ''),
-                    'asesor' => self::strVal($fila['asesor'] ?? ''),
+                    'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? $fila['sucursal'] ?? ''),
+                    'distribuidor' => self::strVal($sucursalEsperada['distribuidor'] ?? $fila['distribuidor'] ?? ''),
+                    'asesor' => self::strVal($fila['_asesor_persona_nombre'] ?? $fila['asesor'] ?? ''),
                     'asesor_persona_id' => self::nullableInt($fila['_asesor_persona_id'] ?? null),
                     'clasificacion_id' => $clasificacionId,
                     'meta_creditos' => self::decimalPresupuesto($fila['meta_creditos'] ?? 0),
@@ -5984,7 +6553,6 @@ class Atlas extends Model
                         'presupuesto_id' => $presupuestoId,
                         'fk_sucursal' => (int)$fkSucursal,
                     ]) ?: [];
-
                     $anterior = $detallesAnteriores[(int)$fkSucursal] ?? null;
                     $metaCreditosAnterior = $anterior ? self::decimalPresupuesto($anterior['meta_creditos'] ?? 0) : null;
                     $metaCashAnterior = $anterior ? self::decimalPresupuesto($anterior['meta_cash'] ?? 0) : null;
@@ -6007,14 +6575,37 @@ class Atlas extends Model
                     );
 
                     if ($cambioMeta || $cambioDatos) {
+                        if ($esReajusteMasivo && !empty($detalleActual['id'])) {
+                            $db->CRUD("
+                                UPDATE atlas_presupuesto_sucursal_gestores
+                                SET activo = 0,
+                                    updated_by = :usuario_id
+                                WHERE presupuesto_id = :presupuesto_id
+                                  AND sucursal_detalle_id = :sucursal_detalle_id
+                                  AND activo = 1
+                            ", [
+                                'usuario_id' => $usuarioId ?: null,
+                                'presupuesto_id' => $presupuestoId,
+                                'sucursal_detalle_id' => (int)$detalleActual['id'],
+                            ]);
+                        }
                         self::registrarBitacoraPresupuesto($db, [
                             'presupuesto_id' => $presupuestoId,
                             'anio' => $anio,
                             'mes' => $mes,
                             'evento' => $anterior ? 'modificacion_sucursal' : 'alta_sucursal',
-                            'descripcion' => $anterior
-                                ? 'Sucursal actualizada por recarga de presupuesto desde Excel.'
-                                : 'Sucursal agregada por recarga de presupuesto desde Excel.',
+                            'descripcion' => mb_substr(
+                                ($anterior
+                                    ? ($esReajusteMasivo
+                                        ? 'Sucursal actualizada por reajuste masivo desde Excel.'
+                                        : 'Sucursal actualizada por recarga de presupuesto desde Excel.')
+                                    : ($esReajusteMasivo
+                                        ? 'Sucursal agregada por reajuste masivo desde Excel.'
+                                        : 'Sucursal agregada por recarga de presupuesto desde Excel.'))
+                                . ($motivoReajuste !== '' ? ' Motivo: ' . $motivoReajuste : ''),
+                                0,
+                                250
+                            ),
                             'sucursal_detalle_id' => (int)($detalleActual['id'] ?? 0) ?: null,
                             'fk_sucursal' => (int)$fkSucursal,
                             'meta_creditos_anterior' => $metaCreditosAnterior,
@@ -6026,6 +6617,7 @@ class Atlas extends Model
                             'payload_json' => [
                                 'tipo' => $anterior ? 'recarga_cambio_sucursal' : 'recarga_alta_sucursal',
                                 'excel_row' => (int)($fila['_excel_row'] ?? 0),
+                                'motivo' => $motivoReajuste,
                                 'antes' => $anterior,
                                 'despues' => $detalleActual ?: $datos,
                             ],
@@ -6041,7 +6633,7 @@ class Atlas extends Model
             }
 
             $desactivadasRegistradas = 0;
-            if ($esRecarga && $detallesAnteriores) {
+            if ($esRecarga && $detallesAnteriores && !$esReajusteMasivo) {
                 foreach ($detallesAnteriores as $fkAnterior => $anterior) {
                     if (isset($filasUnicas[$fkAnterior])) {
                         continue;
@@ -6051,7 +6643,12 @@ class Atlas extends Model
                         'anio' => $anio,
                         'mes' => $mes,
                         'evento' => 'desactivacion_sucursal',
-                        'descripcion' => 'Sucursal desactivada del presupuesto por no venir en la recarga de Excel.',
+                        'descripcion' => mb_substr(
+                            'Sucursal desactivada del presupuesto por no venir en la recarga de Excel.'
+                            . ($motivoReajuste !== '' ? ' Motivo: ' . $motivoReajuste : ''),
+                            0,
+                            250
+                        ),
                         'sucursal_detalle_id' => (int)($anterior['id'] ?? 0) ?: null,
                         'fk_sucursal' => (int)$fkAnterior,
                         'meta_creditos_anterior' => self::decimalPresupuesto($anterior['meta_creditos'] ?? 0),
@@ -6062,6 +6659,7 @@ class Atlas extends Model
                         'usuario_id' => $usuarioId ?: null,
                         'payload_json' => [
                             'tipo' => 'recarga_desactivacion_sucursal',
+                            'motivo' => $motivoReajuste,
                             'antes' => $anterior,
                             'despues' => ['activo' => 0],
                         ],
@@ -6073,7 +6671,7 @@ class Atlas extends Model
             self::recalcularTotalesPresupuesto($db, $presupuestoId);
             $resumenImportacion = [
                 'filas_leidas' => $filasRecibidas,
-                'sucursales_esperadas' => count($esperadasPorFk),
+                'sucursales_esperadas' => count($sucursalesObligatorias),
                 'registros_importados' => $importadas,
                 'duplicados' => count($duplicadas),
                 'extras' => count($extras),
@@ -6091,13 +6689,21 @@ class Atlas extends Model
                 'detalle_extras' => $extras,
                 'detalle_faltantes' => $faltantes,
                 'detalle_errores_asignacion' => $erroresAsignacion,
+                'motivo' => $motivoReajuste,
             ];
             self::registrarBitacoraPresupuesto($db, [
                 'presupuesto_id' => $presupuestoId,
                 'anio' => $anio,
                 'mes' => $mes,
-                'evento' => $esRecarga ? 'recarga' : 'carga',
-                'descripcion' => $esRecarga ? 'Presupuesto mensual recargado desde Excel.' : 'Presupuesto mensual cargado desde Excel.',
+                'evento' => $esReajusteMasivo ? 'reajuste_masivo' : ($esRecarga ? 'recarga' : 'carga'),
+                'descripcion' => mb_substr(
+                    ($esReajusteMasivo
+                        ? 'Reajuste masivo de presupuesto confirmado desde Excel.'
+                        : ($esRecarga ? 'Presupuesto mensual recargado desde Excel.' : 'Presupuesto mensual cargado desde Excel.'))
+                    . ($motivoReajuste !== '' ? ' Motivo: ' . $motivoReajuste : ''),
+                    0,
+                    250
+                ),
                 'archivo_original' => mb_substr($archivoOriginal, 0, 220),
                 'total_sucursales' => $importadas,
                 'usuario_id' => $usuarioId ?: null,
@@ -6107,9 +6713,11 @@ class Atlas extends Model
 
             return [
                 'success' => true,
-                'mensaje' => $erroresAsignacion
-                    ? 'Presupuesto mensual importado con errores de asignacion. Revisa los asesores que no se pudieron ligar contra persona.'
-                    : 'Presupuesto mensual importado correctamente.',
+                'mensaje' => $esReajusteMasivo
+                    ? 'Reajuste masivo aplicado correctamente.'
+                    : ($erroresAsignacion
+                        ? 'Presupuesto mensual importado con errores de asignacion. Revisa los asesores que no se pudieron ligar contra persona.'
+                        : 'Presupuesto mensual importado correctamente.'),
                 'datos' => [
                     'presupuesto_id' => $presupuestoId,
                     'registros_importados' => $importadas,
@@ -6126,6 +6734,56 @@ class Atlas extends Model
         }
     }
 
+    public static function consolidarAsignacionUnicaPresupuesto(
+        int $presupuestoId,
+        array $detalleIds,
+        int $usuarioId = 0
+    ): array {
+        $detalleIds = array_values(array_unique(array_filter(
+            array_map('intval', $detalleIds),
+            static fn($detalleId) => $detalleId > 0
+        )));
+        if ($presupuestoId <= 0 || !$detalleIds) {
+            return ['success' => false, 'mensaje' => 'Presupuesto o sucursales invalidas.'];
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarPresupuestosAtlas($db);
+            $params = [
+                'presupuesto_id' => $presupuestoId,
+                'usuario_id' => $usuarioId > 0 ? $usuarioId : null,
+            ];
+            $placeholders = [];
+            foreach ($detalleIds as $index => $detalleId) {
+                $key = 'detalle_' . $index;
+                $placeholders[] = ':' . $key;
+                $params[$key] = $detalleId;
+            }
+
+            $db->CRUD("
+                UPDATE atlas_presupuesto_sucursal_gestores
+                SET activo = 0,
+                    updated_by = :usuario_id
+                WHERE presupuesto_id = :presupuesto_id
+                  AND sucursal_detalle_id IN (" . implode(',', $placeholders) . ")
+                  AND activo = 1
+            ", $params);
+
+            return [
+                'success' => true,
+                'mensaje' => 'Asignaciones anteriores consolidadas.',
+                'datos' => ['detalle_ids' => $detalleIds],
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'mensaje' => 'No se pudieron consolidar las asignaciones anteriores.',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
     public static function guardarPresupuestoSucursal(array $payload): array
     {
         $id = (int)($payload['id'] ?? 0);
@@ -6138,6 +6796,7 @@ class Atlas extends Model
             self::asegurarPresupuestosAtlas($db);
             $row = $db->queryOne("
                 SELECT d.id, d.presupuesto_id, d.fk_sucursal, d.sucursal, d.meta_creditos, d.meta_cash,
+                       d.comisiona_a_partir_de,
                        p.anio, p.mes
                 FROM atlas_presupuesto_sucursal_detalle d
                 INNER JOIN atlas_presupuestos_mensuales p ON p.id = d.presupuesto_id AND p.activo = 1
@@ -6151,6 +6810,7 @@ class Atlas extends Model
 
             $metaCreditosNueva = self::decimalPresupuesto($payload['meta_creditos'] ?? 0);
             $metaCashNueva = self::decimalPresupuesto($payload['meta_cash'] ?? 0);
+            $presupuestoBaseNuevo = self::nullableDecimalPresupuesto($payload['comisiona_a_partir_de'] ?? null);
             $tieneReparto = $db->queryOne("
                 SELECT COUNT(*) AS total
                 FROM atlas_presupuesto_sucursal_gestores
@@ -6170,7 +6830,7 @@ class Atlas extends Model
             ) {
                 return [
                     'success' => false,
-                    'mensaje' => 'Esta sucursal tiene presupuesto repartido. Modifica el reparto desde Reasignar presupuesto para conservar las sumas.',
+                    'mensaje' => 'Esta sucursal conserva una asignacion anterior por consolidar. Reasignala a un solo responsable antes de modificar sus presupuestos.',
                 ];
             }
             $validacionDistribuidor = self::validarPresupuestoSucursalDistribuidorOperativo(
@@ -6187,11 +6847,13 @@ class Atlas extends Model
                 UPDATE atlas_presupuesto_sucursal_detalle
                 SET meta_creditos = :meta_creditos,
                     meta_cash = :meta_cash,
+                    comisiona_a_partir_de = :comisiona_a_partir_de,
                     updated_by = :usuario
                 WHERE id = :id
             ", [
                 'meta_creditos' => $metaCreditosNueva,
                 'meta_cash' => $metaCashNueva,
+                'comisiona_a_partir_de' => $presupuestoBaseNuevo,
                 'usuario' => (int)($payload['usuario_id'] ?? 0) ?: null,
                 'id' => $id,
             ]);
@@ -6210,7 +6872,11 @@ class Atlas extends Model
                 'meta_cash_anterior' => (float)$row['meta_cash'],
                 'meta_cash_nueva' => $metaCashNueva,
                 'usuario_id' => (int)($payload['usuario_id'] ?? 0) ?: null,
-                'payload_json' => ['sucursal' => $row['sucursal'] ?? ''],
+                'payload_json' => [
+                    'sucursal' => $row['sucursal'] ?? '',
+                    'presupuesto_base_anterior' => self::nullableDecimalPresupuesto($row['comisiona_a_partir_de'] ?? null),
+                    'presupuesto_base_nuevo' => $presupuestoBaseNuevo,
+                ],
             ]);
 
             return ['success' => true, 'mensaje' => 'Meta actualizada.'];
@@ -6538,31 +7204,120 @@ class Atlas extends Model
             $db = new Database();
             self::asegurarColumnasPasoSucursal($db);
             self::asegurarResponsablesPersonaAtlas($db);
-            return $db->queryAll("
-                SELECT
-                    s.fk_sucursal,
-                    COALESCE(d.nombre, '') AS distribuidor,
-                    COALESCE(s.sucursal, '') AS sucursal,
-                    '' AS divisional,
-                    '' AS regional,
-                    COALESCE(NULLIF(TRIM(CONCAT_WS(' ', psup.nombres, psup.segundo_nombre, psup.apellidop, psup.apellidom)), ''), sup.nombre, '') AS supervisor,
-                    s.asesor_persona_id,
-                    COALESCE(NULLIF(TRIM(CONCAT_WS(' ', pase.nombres, pase.segundo_nombre, pase.apellidop, pase.apellidom)), ''), ase.nombre, '') AS asesor,
-                    COALESCE(s.estado, '') AS estado,
-                    COALESCE(cls.nombre, '') AS clasificacion
-                FROM atlas_catalogo_sucursales s
-                LEFT JOIN atlas_catalogo_distribuidores d ON d.id = s.distribuidor_id
-                LEFT JOIN atlas_catalogo_supervisores sup ON sup.id = s.supervisor_id
-                LEFT JOIN persona psup ON psup.id = s.supervisor_persona_id
-                LEFT JOIN atlas_catalogo_asesores ase ON ase.id = s.asesor_id
-                LEFT JOIN persona pase ON pase.id = s.asesor_persona_id
-                LEFT JOIN atlas_catalogo_clasificaciones cls ON cls.id = s.clasificacion_id
-                WHERE s.activo = 1
-                ORDER BY s.sucursal ASC, s.fk_sucursal ASC
-            ");
+            return self::getSucursalesTemplatePresupuestoDesdeDb($db);
         } catch (\Throwable $e) {
             return [];
         }
+    }
+
+    public static function getSucursalesTemplatePresupuestoMensual(int $anio, int $mes): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarPresupuestosAtlas($db);
+            self::asegurarColumnasPasoSucursal($db);
+            self::asegurarResponsablesPersonaAtlas($db);
+            $rows = self::getSucursalesTemplatePresupuestoDesdeDb($db);
+            $presupuesto = $db->queryOne("
+                SELECT id
+                FROM atlas_presupuestos_mensuales
+                WHERE anio = :anio
+                  AND mes = :mes
+                  AND activo = 1
+                LIMIT 1
+            ", ['anio' => $anio, 'mes' => $mes]);
+            if (!$presupuesto) {
+                return $rows;
+            }
+
+            $detalles = $db->queryAll("
+                SELECT
+                    d.fk_sucursal,
+                    d.sucursal,
+                    d.distribuidor,
+                    d.asesor,
+                    d.meta_creditos,
+                    d.meta_cash,
+                    d.comisiona_a_partir_de,
+                    COALESCE(cls.nombre, '') AS clasificacion
+                FROM atlas_presupuesto_sucursal_detalle d
+                LEFT JOIN atlas_catalogo_clasificaciones cls ON cls.id = d.clasificacion_id
+                WHERE d.presupuesto_id = :presupuesto_id
+                  AND d.activo = 1
+            ", ['presupuesto_id' => (int)$presupuesto['id']]) ?: [];
+            if (!$detalles) {
+                return $rows;
+            }
+
+            $catalogoPorFk = [];
+            foreach ($rows as $row) {
+                $fkSucursal = (int)($row['fk_sucursal'] ?? 0);
+                if ($fkSucursal > 0) {
+                    $catalogoPorFk[$fkSucursal] = $row;
+                }
+            }
+
+            $templateRows = [];
+            foreach ($detalles as $detalle) {
+                $fkSucursal = (int)($detalle['fk_sucursal'] ?? 0);
+                if ($fkSucursal <= 0) {
+                    continue;
+                }
+                $row = $catalogoPorFk[$fkSucursal] ?? [
+                    'fk_sucursal' => $fkSucursal,
+                    'distribuidor' => self::strVal($detalle['distribuidor'] ?? ''),
+                    'sucursal' => self::strVal($detalle['sucursal'] ?? ''),
+                    'divisional' => '',
+                    'regional' => '',
+                    'supervisor' => '',
+                    'asesor' => '',
+                    'estado' => '',
+                    'clasificacion' => '',
+                ];
+                $row['asesor'] = self::strVal($detalle['asesor'] ?? $row['asesor'] ?? '');
+                $row['clasificacion'] = self::strVal($detalle['clasificacion'] ?? '');
+                $row['meta_creditos'] = self::decimalPresupuesto($detalle['meta_creditos'] ?? 0);
+                $row['meta_cash'] = self::decimalPresupuesto($detalle['meta_cash'] ?? 0);
+                $row['comisiona_a_partir_de'] = self::nullableDecimalPresupuesto($detalle['comisiona_a_partir_de'] ?? null);
+                $templateRows[] = $row;
+            }
+            usort($templateRows, static function (array $left, array $right): int {
+                return strcasecmp(
+                    self::strVal($left['sucursal'] ?? ''),
+                    self::strVal($right['sucursal'] ?? '')
+                ) ?: ((int)($left['fk_sucursal'] ?? 0) <=> (int)($right['fk_sucursal'] ?? 0));
+            });
+
+            return $templateRows;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    private static function getSucursalesTemplatePresupuestoDesdeDb(Database $db): array
+    {
+        return $db->queryAll("
+            SELECT
+                s.fk_sucursal,
+                COALESCE(d.nombre, '') AS distribuidor,
+                COALESCE(s.sucursal, '') AS sucursal,
+                '' AS divisional,
+                '' AS regional,
+                COALESCE(NULLIF(TRIM(CONCAT_WS(' ', psup.nombres, psup.segundo_nombre, psup.apellidop, psup.apellidom)), ''), sup.nombre, '') AS supervisor,
+                s.asesor_persona_id,
+                COALESCE(NULLIF(TRIM(CONCAT_WS(' ', pase.nombres, pase.segundo_nombre, pase.apellidop, pase.apellidom)), ''), ase.nombre, '') AS asesor,
+                COALESCE(s.estado, '') AS estado,
+                COALESCE(cls.nombre, '') AS clasificacion
+            FROM atlas_catalogo_sucursales s
+            LEFT JOIN atlas_catalogo_distribuidores d ON d.id = s.distribuidor_id
+            LEFT JOIN atlas_catalogo_supervisores sup ON sup.id = s.supervisor_id
+            LEFT JOIN persona psup ON psup.id = s.supervisor_persona_id
+            LEFT JOIN atlas_catalogo_asesores ase ON ase.id = s.asesor_id
+            LEFT JOIN persona pase ON pase.id = s.asesor_persona_id
+            LEFT JOIN atlas_catalogo_clasificaciones cls ON cls.id = s.clasificacion_id
+            WHERE s.activo = 1
+            ORDER BY s.sucursal ASC, s.fk_sucursal ASC
+        ") ?: [];
     }
 
     private static function recalcularTotalesPresupuesto(Database $db, int $presupuestoId): void
@@ -6632,6 +7387,18 @@ class Atlas extends Model
         }
         $text = preg_replace('/[^0-9.\-]/', '', str_replace(',', '', (string)$value));
         return is_numeric($text) ? (float)$text : 0.0;
+    }
+
+    private static function valorPresupuestoEsNumerico($value): bool
+    {
+        if ($value === null || trim((string)$value) === '') {
+            return true;
+        }
+        if (is_numeric($value)) {
+            return true;
+        }
+        $text = preg_replace('/[\s,$]/u', '', trim((string)$value));
+        return $text !== '' && is_numeric($text);
     }
 
     private static function nullableDecimalPresupuesto($value): ?float

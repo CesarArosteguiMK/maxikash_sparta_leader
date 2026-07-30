@@ -1,5 +1,6 @@
 <?php
 $atlasNow = new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City'));
+$atlasToday = $atlasNow->format('Y-m-d');
 $atlasStart = $atlasNow->modify('first day of this month')->format('Y-m-d');
 $atlasEnd = $atlasNow->modify('last day of this month')->format('Y-m-d');
 $atlasDatasetEndDate = $atlasNow->modify('last day of this month');
@@ -24,38 +25,101 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .atlas-attendance-filter-secondary { display:grid; grid-template-columns:repeat(3, minmax(12rem, 1fr)) minmax(11rem, max-content); gap:.7rem; align-items:end; max-width:72rem; }
         .atlas-attendance-filter-actions { display:flex; align-items:center; }
         .atlas-attendance-filter-actions .btn { min-height:2.35rem; width:100%; }
-        .atlas-attendance-metrics { display:grid; grid-template-columns:repeat(6, minmax(8rem, 1fr)); gap:.7rem; margin-bottom:1rem; }
-        .atlas-attendance-metric { border:1px solid #dbe4ef; border-left:4px solid #64748b; border-radius:.45rem; background:#fff; padding:.72rem .8rem; min-width:0; }
-        .atlas-attendance-metric.is-green { border-left-color:#16a34a; }
-        .atlas-attendance-metric.is-red { border-left-color:#dc2626; }
-        .atlas-attendance-metric.is-amber { border-left-color:#d97706; }
-        .atlas-attendance-metric.is-blue { border-left-color:#2563eb; }
-        .atlas-attendance-metric-label { color:#64748b; font-size:.68rem; font-weight:900; text-transform:uppercase; }
-        .atlas-attendance-metric-value { color:#172033; font-size:1.25rem; font-weight:900; line-height:1.1; margin-top:.2rem; }
         .atlas-attendance-table-panel { border:1px solid #dbe4ef; border-radius:.5rem; background:#fff; overflow:hidden; }
         .atlas-attendance-table-head { display:flex; align-items:center; justify-content:space-between; gap:.8rem; padding:.75rem .9rem; border-bottom:1px solid #e5e7eb; }
         .atlas-attendance-table-title { margin:0; color:#173756; font-size:.9rem; font-weight:900; }
         .atlas-attendance-table-meta { color:#64748b; font-size:.75rem; font-weight:800; }
         .atlas-attendance-scroll { overflow-x:auto; }
-        .atlas-attendance-table { min-width:1280px; margin:0; }
-        .atlas-attendance-table th { background:#f8fafc; color:#566a7f; font-size:.68rem; font-weight:900; text-transform:uppercase; white-space:nowrap; }
-        .atlas-attendance-table td { color:#566a7f; font-size:.76rem; font-weight:700; vertical-align:middle; }
+        .atlas-attendance-table { min-width:880px; margin:0; table-layout:fixed; }
+        .atlas-attendance-table th { border:0; border-bottom:1px solid #eef2f7; background:#fff; color:#64748b; font-size:.7rem; font-weight:900; letter-spacing:0; padding:.9rem 1rem; text-transform:uppercase; white-space:nowrap; }
+        .atlas-attendance-table td { border:0; border-bottom:1px solid #eef2f7; color:#566a7f; font-size:.78rem; font-weight:700; padding:1rem; vertical-align:middle; }
+        .atlas-attendance-table tbody tr:hover { background:#f8fafc; }
+        .atlas-attendance-table th:nth-child(1) { width:17%; }
+        .atlas-attendance-table th:nth-child(2) { width:28%; }
+        .atlas-attendance-table th:nth-child(3) { width:20%; }
+        .atlas-attendance-table th:nth-child(4) { width:25%; }
+        .atlas-attendance-table th:nth-child(5) { width:10%; }
         .atlas-attendance-main { color:#22303e; font-weight:900; line-height:1.18; }
         .atlas-attendance-sub { color:#94a3b8; font-size:.68rem; font-weight:800; line-height:1.18; margin-top:.12rem; }
-        .atlas-attendance-badge { display:inline-flex; align-items:center; border-radius:999px; padding:.2rem .55rem; font-size:.68rem; font-weight:900; white-space:nowrap; }
+        .atlas-attendance-cell { display:flex; align-items:flex-start; gap:.65rem; min-width:0; }
+        .atlas-attendance-cell-content { min-width:0; }
+        .atlas-attendance-cell-icon { flex:0 0 1.9rem; width:1.9rem; height:1.9rem; display:grid; place-items:center; border-radius:.4rem; font-size:.78rem; }
+        .atlas-attendance-cell-icon.is-date { background:#eff6ff; color:#2563eb; }
+        .atlas-attendance-cell-icon.is-collaborator { background:#ecfdf5; color:#0f766e; }
+        .atlas-attendance-cell-icon.is-visits { background:#f0fdf4; color:#16a34a; }
+        .atlas-agency-visits-cell { min-width:0; }
+        .atlas-agency-visits-summary { color:#64748b; font-size:.68rem; font-weight:800; line-height:1.2; margin-top:.15rem; }
+        .atlas-attendance-branch-summary { display:grid; gap:.22rem; min-width:0; }
+        .atlas-attendance-branch-line { display:flex; align-items:baseline; justify-content:space-between; gap:.65rem; color:#64748b; font-size:.68rem; font-weight:800; line-height:1.2; }
+        .atlas-attendance-branch-line strong { color:#22303e; font-size:.78rem; font-variant-numeric:tabular-nums; }
+        .atlas-attendance-branch-line.is-missed strong { color:#b45309; }
+        .atlas-attendance-badge { display:inline-flex; align-items:center; gap:.3rem; border-radius:999px; padding:.24rem .58rem; font-size:.68rem; font-weight:900; white-space:nowrap; }
         .atlas-attendance-status-cumplida { background:#dcfce7; color:#15803d; }
         .atlas-attendance-status-no-realizada { background:#fee2e2; color:#b91c1c; }
         .atlas-attendance-status-fuera { background:#ffedd5; color:#c2410c; }
+        .atlas-attendance-status-mixta { border:1px solid #bae6fd; background:linear-gradient(90deg, #dbeafe 0%, #ccfbf1 100%); color:#0f5d78; }
         .atlas-attendance-status-en-visita { background:#dbeafe; color:#1d4ed8; }
-        .atlas-attendance-status-gestion-sin-visita { background:#fef3c7; color:#92400e; }
+        .atlas-attendance-status-gestion-sin-visita { background:#f1f5f9; color:#64748b; }
         .atlas-attendance-status-programada { background:#f1f5f9; color:#475569; }
         .atlas-attendance-empty { padding:2.5rem 1rem !important; text-align:center; color:#64748b !important; }
-        .atlas-attendance-note { color:#64748b; font-size:.73rem; font-weight:700; margin-top:.55rem; }
-        .atlas-attendance-evidence-button { position:relative; display:inline-grid; place-items:center; width:2.2rem; height:2.2rem; padding:0; border:1px solid #bfdbfe; border-radius:.4rem; background:#eff6ff; color:#1d4ed8; }
-        .atlas-attendance-evidence-button:hover { background:#dbeafe; color:#1e40af; }
-        .atlas-attendance-evidence-button:disabled { border-color:#e2e8f0; background:#f8fafc; color:#cbd5e1; opacity:1; }
-        .atlas-attendance-evidence-count { position:absolute; top:-.35rem; right:-.35rem; min-width:1.15rem; height:1.15rem; display:grid; place-items:center; border:2px solid #fff; border-radius:999px; background:#1d4ed8; color:#fff; font-size:.58rem; font-weight:900; }
+        .atlas-attendance-detail-button { display:inline-grid; place-items:center; width:2.2rem; height:2.2rem; padding:0; border:1px solid #bfdbfe; border-radius:.4rem; background:#eff6ff; color:#1d4ed8; }
+        .atlas-attendance-detail-button:hover { background:#dbeafe; color:#1e40af; }
+        .atlas-attendance-detail-button:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }
         .atlas-evidence-modal-meta { color:#64748b; font-size:.78rem; font-weight:700; }
+        .atlas-attendance-detail-summary { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:.75rem; margin-bottom:1.1rem; }
+        .atlas-attendance-detail-stat { --atlas-stat-accent:#2563eb; --atlas-stat-soft:#eff6ff; --atlas-stat-border:#bfdbfe; position:relative; min-width:0; min-height:6.5rem; overflow:hidden; padding:.8rem .9rem .75rem 1rem; border:1px solid var(--atlas-stat-border); border-radius:.5rem; background:#fff; box-shadow:0 2px 8px rgba(15, 23, 42, .05); }
+        .atlas-attendance-detail-stat::before { content:""; position:absolute; inset:0 auto 0 0; width:4px; background:var(--atlas-stat-accent); }
+        .atlas-attendance-detail-stat.is-teal { --atlas-stat-accent:#0f8f83; --atlas-stat-soft:#ecfdf5; --atlas-stat-border:#a7e3dc; }
+        .atlas-attendance-detail-stat.is-blue { --atlas-stat-accent:#2563eb; --atlas-stat-soft:#eff6ff; --atlas-stat-border:#bfdbfe; }
+        .atlas-attendance-detail-stat.is-indigo { --atlas-stat-accent:#4f46e5; --atlas-stat-soft:#eef2ff; --atlas-stat-border:#c7d2fe; }
+        .atlas-attendance-detail-stat.is-rose { --atlas-stat-accent:#e11d48; --atlas-stat-soft:#fff1f2; --atlas-stat-border:#fecdd3; }
+        .atlas-attendance-detail-stat-label { display:flex; align-items:center; gap:.45rem; color:#64748b; font-size:.68rem; font-weight:900; text-transform:none; }
+        .atlas-attendance-detail-stat-icon { flex:0 0 1.65rem; width:1.65rem; height:1.65rem; display:grid; place-items:center; border-radius:.38rem; background:var(--atlas-stat-soft); color:var(--atlas-stat-accent); font-size:.72rem; }
+        .atlas-attendance-detail-stat-value { margin:.35rem 0 0 2.1rem; color:var(--atlas-stat-accent); font-size:1.35rem; font-weight:900; line-height:1.05; }
+        .atlas-attendance-detail-stat-sub { margin:.28rem 0 0 2.1rem; color:#64748b; font-size:.68rem; font-weight:800; line-height:1.25; }
+        .atlas-attendance-coverage { margin-bottom:1.1rem; padding:1rem; border:1px solid #cfe3f7; border-radius:.5rem; background:#fff; box-shadow:0 2px 8px rgba(15, 23, 42, .05); }
+        .atlas-attendance-coverage-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:.85rem; }
+        .atlas-attendance-coverage-heading { display:flex; align-items:center; gap:.7rem; min-width:0; }
+        .atlas-attendance-coverage-icon { flex:0 0 2.25rem; width:2.25rem; height:2.25rem; display:grid; place-items:center; border-radius:.5rem; background:#e8f1ff; color:#2563eb; }
+        .atlas-attendance-coverage-title { margin:0; color:#22303e; font-size:.9rem; font-weight:900; }
+        .atlas-attendance-coverage-period { margin-top:.1rem; color:#64748b; font-size:.68rem; font-weight:750; }
+        .atlas-attendance-coverage-month { width:min(13rem, 100%); }
+        .atlas-attendance-coverage-main { display:flex; align-items:flex-end; justify-content:space-between; gap:1rem; margin-bottom:.45rem; }
+        .atlas-attendance-coverage-label { color:#64748b; font-size:.7rem; font-weight:850; }
+        .atlas-attendance-coverage-value { color:#1d4ed8; font-size:1.55rem; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; }
+        .atlas-attendance-coverage-track { height:.55rem; overflow:hidden; border-radius:999px; background:#e2e8f0; }
+        .atlas-attendance-coverage-fill { height:100%; border-radius:inherit; background:#2563eb; transition:width .2s ease; }
+        .atlas-attendance-coverage-stats { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:.65rem; }
+        .atlas-attendance-coverage-stat { min-height:4rem; padding:.65rem .75rem; border:1px solid #e2e8f0; border-radius:.45rem; background:#f8fafc; }
+        .atlas-attendance-coverage-stat.is-overdue { border-color:#fecaca; background:#fff7f7; }
+        .atlas-attendance-coverage-stat-value { color:#1d4ed8; font-size:1.05rem; font-weight:900; line-height:1.1; font-variant-numeric:tabular-nums; }
+        .atlas-attendance-coverage-stat.is-overdue .atlas-attendance-coverage-stat-value { color:#dc2626; }
+        .atlas-attendance-coverage-stat-label { margin-top:.28rem; color:#64748b; font-size:.7rem; font-weight:750; }
+        .atlas-attendance-coverage-loading { min-height:8.1rem; display:grid; place-items:center; color:#64748b; font-size:.78rem; font-weight:750; }
+        .atlas-attendance-detail-section { margin-top:1.1rem; padding-top:1rem; border-top:1px solid #e2e8f0; }
+        .atlas-attendance-detail-section.is-first { margin-top:0; padding-top:0; border-top:0; }
+        .atlas-attendance-detail-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.65rem; }
+        .atlas-attendance-detail-title { margin:0; color:#22303e; font-size:.9rem; font-weight:900; }
+        .atlas-attendance-detail-meta { color:#64748b; font-size:.72rem; font-weight:800; }
+        .atlas-attendance-detail-tools { display:flex; align-items:flex-end; justify-content:flex-end; gap:.65rem; flex-wrap:wrap; }
+        .atlas-attendance-detail-filter { min-width:12rem; }
+        .atlas-attendance-detail-filter .form-label { color:#64748b; font-size:.65rem; font-weight:850; }
+        .atlas-attendance-detail-table-wrap { border:1px solid #dbe4ef; border-radius:.45rem; overflow:auto; background:#fff; }
+        .atlas-attendance-detail-table { min-width:1580px; margin:0; font-size:.75rem; }
+        .atlas-attendance-detail-table thead th { border:0; border-bottom:1px solid #dbe4ef; background:#eef4fb; color:#566a7f; font-size:.65rem; font-weight:900; letter-spacing:0; padding:.65rem .75rem; text-transform:uppercase; white-space:nowrap; }
+        .atlas-attendance-detail-table tbody td { border-color:#edf2f7; color:#566a7f; font-weight:750; padding:.65rem .75rem; vertical-align:middle; }
+        .atlas-attendance-detail-table tbody tr:hover { background:#f8fafc; }
+        .atlas-attendance-credit-metric { min-width:7.6rem; display:grid; justify-items:end; gap:.3rem; }
+        .atlas-attendance-credit-value { color:#22303e; font-size:.92rem; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; }
+        .atlas-attendance-credit-tags { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:.2rem; }
+        .atlas-attendance-credit-tag { display:inline-flex; align-items:center; gap:.2rem; padding:.18rem .38rem; border-radius:.35rem; background:#f1f5f9; color:#64748b; font-size:.61rem; font-weight:850; line-height:1.15; white-space:nowrap; }
+        .atlas-attendance-credit-tag.is-managed { background:#eef2ff; color:#4f46e5; }
+        .atlas-attendance-credit-tag.is-overdue { background:#edf2f7; color:#475569; }
+        .atlas-attendance-credit-tag.is-sold { background:#ecfdf5; color:#047857; }
+        .atlas-attendance-credit-tag.is-visit { background:#ecfeff; color:#0f766e; }
+        .atlas-attendance-credit-loading { min-width:7.6rem; color:#64748b; font-size:.68rem; font-weight:800; white-space:nowrap; }
+        .atlas-attendance-credit-unavailable { min-width:7.6rem; color:#94a3b8; font-size:.66rem; font-weight:800; white-space:nowrap; }
+        .atlas-attendance-image-action { min-width:6.8rem; white-space:nowrap; }
         .atlas-evidence-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:1rem; }
         .atlas-evidence-item { min-width:0; border:1px solid #dbe4ef; border-radius:.5rem; overflow:hidden; background:#fff; }
         .atlas-evidence-media { display:grid; place-items:center; width:100%; min-height:14rem; aspect-ratio:16/10; overflow:hidden; background:#0f172a; }
@@ -103,19 +167,28 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         @media (max-width: 1399.98px) {
             .atlas-attendance-filter-primary { grid-template-columns:1fr; }
             .atlas-attendance-filter-secondary { max-width:none; }
-            .atlas-attendance-metrics { grid-template-columns:repeat(3, minmax(9rem, 1fr)); }
+        }
+        @media (max-width: 991.98px) {
+            .atlas-attendance-detail-summary { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+            .atlas-attendance-coverage-stats { grid-template-columns:repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 767.98px) {
             .atlas-attendance-filter-dates,
             .atlas-attendance-filter-main,
-            .atlas-attendance-filter-secondary,
-            .atlas-attendance-metrics { grid-template-columns:1fr; }
+            .atlas-attendance-filter-secondary { grid-template-columns:1fr; }
             .atlas-attendance-actions,
             .atlas-attendance-actions .btn,
             .atlas-attendance-filter-actions,
             .atlas-attendance-filter-actions .btn { width:100%; }
             .atlas-attendance-filter-actions .btn { flex:1; }
             .atlas-evidence-grid { grid-template-columns:1fr; }
+            .atlas-attendance-coverage-month,
+            .atlas-attendance-detail-tools,
+            .atlas-attendance-detail-filter { width:100%; }
+            .atlas-attendance-detail-tools { justify-content:stretch; }
+        }
+        @media (max-width: 575.98px) {
+            .atlas-attendance-detail-summary { grid-template-columns:1fr; }
         }
     </style>
 
@@ -215,74 +288,22 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 </div>
             </div>
         </div>
-        <div class="atlas-attendance-note" id="atlasAttendancePerimeter">Perímetro operativo pendiente de consultar.</div>
     </section>
-
-    <section class="atlas-attendance-metrics" aria-label="Resumen de asistencias">
-        <article class="atlas-attendance-metric is-blue">
-            <div class="atlas-attendance-metric-label">Visitas</div>
-            <div class="atlas-attendance-metric-value" id="atlasAttendanceTotal">0</div>
-        </article>
-        <article class="atlas-attendance-metric is-green">
-            <div class="atlas-attendance-metric-label">Cumplidas</div>
-            <div class="atlas-attendance-metric-value" id="atlasAttendanceCompleted">0</div>
-        </article>
-        <article class="atlas-attendance-metric is-red">
-            <div class="atlas-attendance-metric-label">No realizadas</div>
-            <div class="atlas-attendance-metric-value" id="atlasAttendanceMissed">0</div>
-        </article>
-        <article class="atlas-attendance-metric is-amber">
-            <div class="atlas-attendance-metric-label">Fuera de ubicación</div>
-            <div class="atlas-attendance-metric-value" id="atlasAttendanceOutside">0</div>
-        </article>
-        <article class="atlas-attendance-metric is-blue">
-            <div class="atlas-attendance-metric-label" title="Créditos gestionados dentro de la ventana de cada visita o registro">
-                Gestiones
-            </div>
-            <div class="atlas-attendance-metric-value" id="atlasAttendanceManaged">0</div>
-        </article>
-        <article class="atlas-attendance-metric">
-            <div class="atlas-attendance-metric-label" title="Saldo actual de créditos pendientes; el resumen cuenta cada sucursal una sola vez">
-                Pendientes actuales
-            </div>
-            <div class="atlas-attendance-metric-value" id="atlasAttendancePending">0</div>
-        </article>
-    </section>
-
-    <div class="alert alert-info d-flex align-items-start gap-2 py-2 mb-3" role="note">
-        <i class="fa-solid fa-circle-info mt-1"></i>
-        <div class="small">
-            <strong>Cómo se calculan:</strong>
-            Gestiones cuenta los créditos atendidos durante la visita o registro; el mismo crédito cuenta nuevamente si se atiende en otra visita.
-            Pendientes actuales es el saldo de la sucursal al generar el reporte, descontando los créditos dictaminados en el periodo;
-            en el resumen cada sucursal se contabiliza una sola vez.
-            Total de gestiones suma ambos valores de la fila y no debe acumularse entre visitas porque el saldo puede repetirse.
-        </div>
-    </div>
 
     <section class="atlas-attendance-table-panel">
         <div class="atlas-attendance-table-head">
-            <h2 class="atlas-attendance-table-title">Detalle de visitas y gestiones</h2>
+            <h2 class="atlas-attendance-table-title">Colaboradores</h2>
             <span class="atlas-attendance-table-meta" id="atlasAttendanceGenerated">Sin consultar</span>
         </div>
         <div class="atlas-attendance-scroll">
             <table id="atlasAttendanceTable" class="table table-hover atlas-attendance-table w-100">
                 <thead>
                     <tr>
-                        <th>Fecha</th>
+                        <th title="Fecha más reciente con actividad dentro del periodo filtrado">Fecha</th>
                         <th>Colaborador</th>
-                        <th>Agencia / Distribuidor</th>
-                        <th>Visitas agencia</th>
-                        <th>Estatus</th>
-                        <th>Perímetro</th>
-                        <th>Llegada</th>
-                        <th>Salida</th>
-                        <th>Permanencia</th>
-                        <th class="text-end" title="Créditos gestionados dentro de la ventana de esta visita o registro">Gestiones</th>
-                        <th class="text-end" title="Saldo actual de la sucursal al corte del reporte">Pendientes actuales</th>
-                        <th class="text-end" title="Gestiones de la fila más el saldo pendiente actual; no debe sumarse entre visitas">Total de gestiones</th>
-                        <th class="text-center">Evidencias</th>
-                        <th>Observaciones</th>
+                        <th title="Resumen calculado con los estados de sus visitas dentro del periodo">Estatus del colaborador</th>
+                        <th>Sucursales</th>
+                        <th class="text-center">Detalles</th>
                     </tr>
                 </thead>
                 <tbody id="atlasAttendanceBody"></tbody>
@@ -291,20 +312,115 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     </section>
 </div>
 
+<div class="modal fade" id="atlasAttendanceDownloadModal" tabindex="-1"
+     aria-labelledby="atlasAttendanceDownloadTitle" aria-hidden="true">
+    <div class="modal-dialog modal-md modal-dialog-centered">
+        <form class="modal-content" id="atlasAttendanceDownloadForm">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title fs-5" id="atlasAttendanceDownloadTitle">
+                        <i class="fa-solid fa-file-excel me-2 text-success"></i>Descargar asistencias
+                    </h2>
+                    <div class="atlas-evidence-modal-meta">El archivo se agrupará por colaborador.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold" for="atlasAttendanceDownloadStart">Fecha inicial</label>
+                        <input class="form-control" type="date" id="atlasAttendanceDownloadStart"
+                               min="<?= htmlspecialchars($atlasDatasetStart, ENT_QUOTES, 'UTF-8') ?>"
+                               max="<?= htmlspecialchars($atlasDatasetEnd, ENT_QUOTES, 'UTF-8') ?>"
+                               required>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold" for="atlasAttendanceDownloadEnd">Fecha final</label>
+                        <input class="form-control" type="date" id="atlasAttendanceDownloadEnd"
+                               min="<?= htmlspecialchars($atlasDatasetStart, ENT_QUOTES, 'UTF-8') ?>"
+                               max="<?= htmlspecialchars($atlasDatasetEnd, ENT_QUOTES, 'UTF-8') ?>"
+                               required>
+                    </div>
+                    <div class="col-12">
+                        <div class="alert alert-info mb-0 py-2" role="status">
+                            Un día cuenta como asistencia cuando existe al menos un check-in. Los días sin asistencia son días con visitas programadas sin ningún check-in.
+                        </div>
+                        <div class="invalid-feedback d-block mt-2 d-none" id="atlasAttendanceDownloadError">
+                            Selecciona un rango de fechas válido.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-end">
+                <button type="submit" class="btn btn-success" id="atlasAttendanceDownloadConfirm">
+                    <i class="fa-solid fa-download me-2"></i>Descargar archivo
+                </button>
+                <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="modal fade" id="atlasAttendanceEvidenceModal" tabindex="-1" aria-labelledby="atlasAttendanceEvidenceTitle" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <div>
                     <h2 class="modal-title fs-5" id="atlasAttendanceEvidenceTitle">
-                        <i class="fa-solid fa-images me-2 text-primary"></i>Evidencias
+                        <i class="fa-solid fa-clipboard-user me-2 text-primary"></i>Detalle de asistencias
                     </h2>
                     <div class="atlas-evidence-modal-meta" id="atlasAttendanceEvidenceMeta"></div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-                <div class="atlas-evidence-grid" id="atlasAttendanceEvidenceGrid"></div>
+                <div class="atlas-attendance-detail-summary" id="atlasAttendanceDetailSummary"></div>
+
+                <section class="atlas-attendance-coverage" aria-label="Cobertura mensual de sucursales">
+                    <div class="atlas-attendance-coverage-head">
+                        <div class="atlas-attendance-coverage-heading">
+                            <span class="atlas-attendance-coverage-icon"><i class="fa-solid fa-location-dot"></i></span>
+                            <div>
+                                <h3 class="atlas-attendance-coverage-title">Cobertura de sucursales</h3>
+                                <div class="atlas-attendance-coverage-period" id="atlasAttendanceCoveragePeriod"></div>
+                            </div>
+                        </div>
+                        <select class="form-select form-select-sm atlas-attendance-coverage-month"
+                                id="atlasAttendanceCoverageMonth"
+                                aria-label="Mes de cobertura"></select>
+                    </div>
+                    <div id="atlasAttendanceCoverageState"></div>
+                </section>
+
+                <section class="atlas-attendance-detail-section is-first" aria-label="Actividad registrada">
+                    <div class="atlas-attendance-detail-head">
+                        <h3 class="atlas-attendance-detail-title">
+                            <i class="fa-solid fa-location-dot me-2 text-primary"></i>Actividad registrada
+                        </h3>
+                        <div class="atlas-attendance-detail-tools">
+                            <div class="atlas-attendance-detail-filter">
+                                <label class="form-label mb-1" for="atlasAttendanceDetailStatus">Estatus</label>
+                                <select class="form-select form-select-sm" id="atlasAttendanceDetailStatus">
+                                    <option value="">Todos los estatus</option>
+                                </select>
+                            </div>
+                            <span class="atlas-attendance-detail-meta" id="atlasAttendanceDetailMeta"></span>
+                        </div>
+                    </div>
+                    <div id="atlasAttendanceCreditMetricsNotice"></div>
+                    <div id="atlasAttendanceDetailState"></div>
+                </section>
+
+                <section class="atlas-attendance-detail-section" aria-label="Evidencias">
+                    <div class="atlas-attendance-detail-head">
+                        <h3 class="atlas-attendance-detail-title">
+                            <i class="fa-solid fa-images me-2 text-primary"></i>Evidencias
+                        </h3>
+                        <span class="atlas-attendance-detail-meta" id="atlasAttendanceEvidenceSectionMeta"></span>
+                    </div>
+                    <div class="atlas-evidence-grid" id="atlasAttendanceEvidenceGrid"></div>
+                </section>
+
                 <section class="atlas-evidence-routes" aria-label="Rutas Spartan del usuario seleccionado">
                     <div class="atlas-evidence-routes-head">
                         <h3 class="atlas-evidence-routes-title">
@@ -326,6 +442,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     const initialEnd = <?= json_encode($atlasEnd, JSON_UNESCAPED_SLASHES) ?>;
     const datasetStart = <?= json_encode($atlasDatasetStart, JSON_UNESCAPED_SLASHES) ?>;
     const datasetEnd = <?= json_encode($atlasDatasetEnd, JSON_UNESCAPED_SLASHES) ?>;
+    const today = <?= json_encode($atlasToday, JSON_UNESCAPED_SLASHES) ?>;
     const startInput = document.getElementById('atlasAttendanceStart');
     const endInput = document.getElementById('atlasAttendanceEnd');
     const collaboratorSelect = document.getElementById('atlasAttendanceCollaborator');
@@ -336,17 +453,43 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     const routeSelect = document.getElementById('atlasAttendanceRoutes');
     const body = document.getElementById('atlasAttendanceBody');
     const downloadButton = document.getElementById('atlasAttendanceDownload');
+    const downloadModalElement = document.getElementById('atlasAttendanceDownloadModal');
+    const downloadForm = document.getElementById('atlasAttendanceDownloadForm');
+    const downloadStartInput = document.getElementById('atlasAttendanceDownloadStart');
+    const downloadEndInput = document.getElementById('atlasAttendanceDownloadEnd');
+    const downloadError = document.getElementById('atlasAttendanceDownloadError');
+    const downloadConfirmButton = document.getElementById('atlasAttendanceDownloadConfirm');
     const evidenceModalElement = document.getElementById('atlasAttendanceEvidenceModal');
     const evidenceGrid = document.getElementById('atlasAttendanceEvidenceGrid');
     const evidenceMeta = document.getElementById('atlasAttendanceEvidenceMeta');
+    const detailSummary = document.getElementById('atlasAttendanceDetailSummary');
+    const detailMeta = document.getElementById('atlasAttendanceDetailMeta');
+    const creditMetricsNotice = document.getElementById('atlasAttendanceCreditMetricsNotice');
+    const detailState = document.getElementById('atlasAttendanceDetailState');
+    const detailStatusSelect = document.getElementById('atlasAttendanceDetailStatus');
+    const coverageMonthSelect = document.getElementById('atlasAttendanceCoverageMonth');
+    const coveragePeriod = document.getElementById('atlasAttendanceCoveragePeriod');
+    const coverageState = document.getElementById('atlasAttendanceCoverageState');
+    const evidenceSectionMeta = document.getElementById('atlasAttendanceEvidenceSectionMeta');
     const routesMeta = document.getElementById('atlasAttendanceRoutesMeta');
     const routesState = document.getElementById('atlasAttendanceRoutesState');
+    let downloadModal = null;
     let evidenceModal = null;
     let visibleRows = [];
+    let visibleGroups = [];
     let attendanceTable = null;
     let generatedAt = '';
+    let perimeterMeters = null;
     let loading = false;
     let loadingAlertOpen = false;
+    let activeDetailGroup = null;
+    let coverageAbortController = null;
+    let creditMetricsAbortController = null;
+    let activeCreditMetrics = new Map();
+    let creditMetricsLoading = false;
+    let creditMetricsLoaded = false;
+    let creditMetricsError = '';
+    let lastDetailTrigger = null;
 
     const escapeHtml = (value) => String(value ?? '')
         .replaceAll('&', '&amp;')
@@ -391,7 +534,14 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         return named ? `agencia:${named}` : `fila:${index}`;
     };
 
-    const visitHourLabel = (row) => {
+    const collaboratorKey = (row) => {
+        const personaId = String(row?.colaborador_persona_id ?? row?.gestor_persona_id ?? '').trim();
+        if (personaId) return `persona:${personaId}`;
+        const name = String(row?.colaborador || '').trim().toLocaleLowerCase('es-MX');
+        return name ? `nombre:${name}` : 'sin-asignar';
+    };
+
+    const visitHourEntry = (row) => {
         const date = String(row?.fecha || '').trim();
         const start = String(row?.hora_llegada || row?.hora_confirmacion_llegada || row?.hora_gestion || '').trim();
         const end = String(row?.hora_salida || row?.hora_termino_visita || '').trim();
@@ -401,50 +551,520 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         else if (start) parts.push(start);
         else if (end) parts.push(`Salida ${end}`);
         else parts.push('Hora no disponible');
-        return parts.join(' ');
+        return {
+            date,
+            start,
+            end,
+            label: parts.join(' '),
+            hasTime: Boolean(start || end),
+        };
     };
 
-    const agencyVisitGroups = (rows) => {
+    const rowEvidenceCount = (row) => {
+        const evidences = Array.isArray(row?.evidencias) ? row.evidencias : [];
+        return Math.max(Math.max(0, Number(row?.total_evidencias) || 0), evidences.length);
+    };
+
+    const rowImageEvidence = (row) => {
+        const availableValues = [true, 1, '1', 'true'];
+        return (Array.isArray(row?.evidencias) ? row.evidencias : []).find((evidence) => {
+            if (!evidence || !evidence.id || !availableValues.includes(evidence.disponible)) return false;
+            const mimeType = String(evidence.mime_type || '').trim().toLowerCase();
+            const kind = String(evidence.tipo || '').trim().toLowerCase();
+            const name = String(evidence.nombre || '').trim().toLowerCase();
+            return mimeType.startsWith('image/')
+                || ['imagen', 'foto', 'fotografia'].includes(kind)
+                || /\.(jpe?g|png|webp|gif|heic|heif)$/.test(name);
+        }) || null;
+    };
+
+    const rowImageActionHtml = (row) => {
+        const image = rowImageEvidence(row);
+        if (!image) {
+            return `<button type="button" class="btn btn-sm btn-label-secondary atlas-attendance-image-action" disabled>
+                <i class="fa-regular fa-image me-1"></i>Sin imagen
+            </button>`;
+        }
+        const source = `/Atlas/verEvidenciaAsistencia?id=${encodeURIComponent(image.id)}`;
+        return `<a class="btn btn-sm btn-label-primary atlas-attendance-image-action"
+                   href="${escapeHtml(source)}" target="_blank" rel="noopener"
+                   title="Abrir fotografía de la visita">
+            <i class="fa-solid fa-image me-1"></i>Ver imagen
+        </a>`;
+    };
+
+    const collaboratorGroups = (rows) => {
         const groups = new Map();
         rows.forEach((row) => {
-            const index = visibleRows.indexOf(row);
-            if (row?.es_visita === false) return;
-            const key = agencyVisitKey(row, index);
-            const list = groups.get(key) || [];
-            list.push(visitHourLabel(row));
-            groups.set(key, list);
+            const key = collaboratorKey(row);
+            const group = groups.get(key) || { key, rows: [] };
+            group.rows.push(row);
+            groups.set(key, group);
         });
-        return groups;
+
+        return [...groups.values()].map((group) => {
+            group.rows.sort((left, right) => {
+                const leftKey = `${left?.fecha || ''} ${left?.hora_llegada || left?.hora_gestion || ''}`;
+                const rightKey = `${right?.fecha || ''} ${right?.hora_llegada || right?.hora_gestion || ''}`;
+                return rightKey.localeCompare(leftKey, 'es');
+            });
+            const representative = group.rows[0] || {};
+            const dates = [...new Set(group.rows.map((row) => String(row?.fecha || '').trim()).filter(Boolean))]
+                .sort((left, right) => right.localeCompare(left, 'es'));
+            return {
+                ...group,
+                representative,
+                personaId: representative.colaborador_persona_id ?? representative.gestor_persona_id ?? '',
+                name: representative.colaborador || 'Sin asignar',
+                position: representative.puesto || representative.rol || '',
+                divisional: representative.divisional || '',
+                dates,
+                latestDate: dates[0] || '',
+                earliestDate: dates[dates.length - 1] || '',
+            };
+        }).sort((left, right) => (
+            right.latestDate.localeCompare(left.latestDate, 'es')
+            || left.name.localeCompare(right.name, 'es')
+        ));
     };
 
-    const agencyVisitsCellHtml = (row, groups) => {
-        const index = visibleRows.indexOf(row);
-        const visits = groups.get(agencyVisitKey(row, index)) || [];
-        const fallbackLabels = Array.isArray(row?.visitas_agencia_horarios)
-            ? row.visitas_agencia_horarios
-                .map((visit) => String(visit?.etiqueta || visit || '').trim())
-                .filter(Boolean)
-            : [];
-        const labels = visits.length ? visits : fallbackLabels;
-        const total = labels.length || Number(row?.visitas_agencia_total || 0);
-        return `<div class="atlas-attendance-main">${number(total)} visita${total === 1 ? '' : 's'}</div>
-            <div class="atlas-attendance-sub">${escapeHtml(labels.length ? labels.join(' | ') : 'Horas no disponibles')}</div>`;
+    const groupVisitStats = (group) => {
+        const visitRows = (group?.rows || []).filter((row) => row?.es_visita !== false);
+        const entries = visitRows.map(visitHourEntry);
+        return {
+            visitRows,
+            total: visitRows.length,
+            withTime: entries.filter((entry) => entry.hasTime).length,
+            withoutTime: entries.filter((entry) => !entry.hasTime).length,
+        };
+    };
+
+    const rowHasCheckIn = (row) => (
+        row?.es_visita !== false
+        && [row?.hora_llegada, row?.hora_confirmacion_llegada, row?.checkin_at]
+            .some((value) => String(value ?? '').trim() !== '')
+    );
+
+    const groupBranchStats = (group) => {
+        const scheduled = new Set();
+        const visited = new Set();
+        const scheduledWithoutCheckIn = new Set();
+        (group?.rows || []).forEach((row, index) => {
+            if (row?.es_visita === false) return;
+            const branchKey = agencyVisitKey(row, index);
+            const visitDate = String(row?.fecha || '').trim();
+            scheduled.add(branchKey);
+            if (rowHasCheckIn(row)) {
+                visited.add(branchKey);
+                return;
+            }
+            if (visitDate && visitDate < today) {
+                scheduledWithoutCheckIn.add(branchKey);
+            }
+        });
+
+        return {
+            visited: visited.size,
+            missing: [...scheduled].filter((branchKey) => !visited.has(branchKey)).length,
+            scheduledWithoutCheckIn: scheduledWithoutCheckIn.size,
+        };
+    };
+
+    const normalizedStatus = (value) => String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
+
+    const statusIconClass = (value) => {
+        const status = normalizedStatus(value);
+        if (status === 'en visita') return 'fa-location-dot';
+        if (status === 'cumplida' || status === 'con actividad') return 'fa-circle-check';
+        if (status === 'actividad mixta') return 'fa-shuffle';
+        if (status === 'no realizada' || status === 'fuera de ubicacion' || status === 'requiere revision') {
+            return 'fa-triangle-exclamation';
+        }
+        if (status === 'gestion sin visita') return 'fa-clipboard-check';
+        if (status === 'programada' || status === 'programado') return 'fa-clock';
+        return 'fa-circle-minus';
+    };
+
+    const collaboratorActivityStatus = (group) => {
+        const statuses = (group?.rows || []).map((row) => normalizedStatus(row?.estatus_visita)).filter(Boolean);
+        const has = (...values) => statuses.some((status) => values.includes(status));
+        const counts = new Map();
+        (group?.rows || []).forEach((row) => {
+            const label = String(row?.estatus_visita || 'Sin estatus').trim();
+            counts.set(label, (counts.get(label) || 0) + 1);
+        });
+        const title = [...counts.entries()].map(([label, count]) => `${count} ${label}`).join(' | ');
+        if (has('en visita')) return { label: 'En visita', className: 'atlas-attendance-status-en-visita', iconClass: 'fa-location-dot', title };
+        if (has('cumplida') && has('no realizada', 'fuera de ubicacion')) {
+            return { label: 'Actividad mixta', className: 'atlas-attendance-status-mixta', iconClass: 'fa-shuffle', title };
+        }
+        if (has('cumplida')) return { label: 'Con actividad', className: 'atlas-attendance-status-cumplida', iconClass: 'fa-circle-check', title };
+        if (has('no realizada', 'fuera de ubicacion')) {
+            return { label: 'Requiere revisión', className: 'atlas-attendance-status-fuera', iconClass: 'fa-triangle-exclamation', title };
+        }
+        if (has('gestion sin visita')) {
+            return { label: 'Gestión sin visita', className: 'atlas-attendance-status-gestion-sin-visita', iconClass: 'fa-clipboard-check', title };
+        }
+        if (has('programada')) return { label: 'Programado', className: 'atlas-attendance-status-programada', iconClass: 'fa-clock', title };
+        return { label: 'Sin visitas', className: 'atlas-attendance-status-programada', iconClass: 'fa-circle-minus', title };
+    };
+
+    const groupPeriodText = (group) => {
+        if (!group?.latestDate) return 'Sin fecha registrada';
+        if (!group.earliestDate || group.earliestDate === group.latestDate) return group.latestDate;
+        return `${group.earliestDate} a ${group.latestDate}`;
+    };
+
+    const coverageMonthLabel = (month) => {
+        const match = String(month || '').match(/^(\d{4})-(\d{2})$/);
+        if (!match) return String(month || 'Mes sin identificar');
+        const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1));
+        const label = new Intl.DateTimeFormat('es-MX', {
+            month: 'long',
+            timeZone: 'UTC',
+            year: 'numeric',
+        }).format(date);
+        return label.charAt(0).toUpperCase() + label.slice(1);
+    };
+
+    const setupDetailStatusFilter = (group) => {
+        const statuses = [...new Set((group?.rows || [])
+            .map((row) => String(row?.estatus_visita || '').trim())
+            .filter(Boolean))]
+            .sort((left, right) => left.localeCompare(right, 'es'));
+        detailStatusSelect.innerHTML = '<option value="">Todos los estatus</option>' + statuses
+            .map((status) => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`)
+            .join('');
+        detailStatusSelect.value = '';
+    };
+
+    const creditMetricKey = (branchId, month) => {
+        const branch = String(branchId ?? '').trim();
+        const period = String(month ?? '').trim();
+        return branch && /^\d{4}-\d{2}$/.test(period) ? `${branch}|${period}` : '';
+    };
+
+    const creditMetricForRow = (row) => {
+        const branchId = row?.fk_sucursal ?? row?.ruta_sucursal_id;
+        const month = String(row?.fecha || '').slice(0, 7);
+        const key = creditMetricKey(branchId, month);
+        return key ? activeCreditMetrics.get(key) || null : null;
+    };
+
+    const renderCreditMetricsNotice = () => {
+        if (creditMetricsError) {
+            creditMetricsNotice.innerHTML = `<div class="alert alert-info py-2 mb-3">
+                <i class="fa-solid fa-circle-info me-2"></i>${escapeHtml(creditMetricsError)}
+            </div>`;
+            return;
+        }
+        if (creditMetricsLoaded && activeCreditMetrics.size === 0) {
+            creditMetricsNotice.innerHTML = `<div class="alert alert-info py-2 mb-3">
+                <i class="fa-solid fa-circle-info me-2"></i>No hay un resumen de créditos disponible para las sucursales de este periodo.
+            </div>`;
+            return;
+        }
+        creditMetricsNotice.innerHTML = '';
+    };
+
+    const creditMetricCellsHtml = (row) => {
+        if (creditMetricsLoading) {
+            const loadingCell = `<td class="text-end"><span class="atlas-attendance-credit-loading">
+                <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Consultando
+            </span></td>`;
+            return loadingCell.repeat(3);
+        }
+
+        const metric = creditMetricForRow(row);
+        if (!metric) {
+            const unavailableCell = '<td class="text-end"><span class="atlas-attendance-credit-unavailable">No disponible</span></td>';
+            return unavailableCell.repeat(3);
+        }
+
+        const managed = Math.max(0, Number(metric.creditos_gestionados) || 0);
+        const dictated = Math.max(0, Number(metric.creditos_dictaminados) || 0);
+        const pending = Math.max(0, Number(metric.creditos_pendientes) || 0);
+        const overdue = Math.max(0, Number(metric.creditos_rezagados) || 0);
+        const sold = Math.max(0, Number(metric.creditos_vendidos) || 0);
+        const total = Math.max(0, Number(metric.total_creditos) || 0);
+        const visitManagements = Math.max(0, Number(row?.gestiones_realizadas) || 0);
+
+        return `
+            <td class="text-end">
+                <div class="atlas-attendance-credit-metric" title="Créditos atendidos o dictaminados en el mes según las mismas reglas de la app móvil.">
+                    <div class="atlas-attendance-credit-value">${number(managed)}</div>
+                    <div class="atlas-attendance-credit-tags">
+                        <span class="atlas-attendance-credit-tag is-managed"><i class="fa-solid fa-clipboard-check"></i>${number(dictated)} dictaminados</span>
+                        ${visitManagements > 0 ? `<span class="atlas-attendance-credit-tag is-visit">${number(visitManagements)} en esta visita</span>` : ''}
+                    </div>
+                </div>
+            </td>
+            <td class="text-end">
+                <div class="atlas-attendance-credit-metric" title="Créditos pendientes del mes. Los créditos rezagados se muestran por separado.">
+                    <div class="atlas-attendance-credit-value">${number(pending)}</div>
+                    <div class="atlas-attendance-credit-tags">
+                        <span class="atlas-attendance-credit-tag is-overdue"><i class="fa-solid fa-clock-rotate-left"></i>${number(overdue)} rezagados</span>
+                    </div>
+                </div>
+            </td>
+            <td class="text-end">
+                <div class="atlas-attendance-credit-metric" title="Créditos únicos entre pendientes, rezagados, dictaminados y vendidos. Un mismo crédito no se cuenta dos veces.">
+                    <div class="atlas-attendance-credit-value">${number(total)}</div>
+                    <div class="atlas-attendance-credit-tags">
+                        <span class="atlas-attendance-credit-tag is-sold"><i class="fa-solid fa-circle-check"></i>${number(sold)} vendidos</span>
+                    </div>
+                </div>
+            </td>`;
+    };
+
+    const renderDetailActivity = () => {
+        const rows = Array.isArray(activeDetailGroup?.rows) ? activeDetailGroup.rows : [];
+        const status = detailStatusSelect.value;
+        const filteredRows = status
+            ? rows.filter((row) => String(row?.estatus_visita || '') === status)
+            : rows;
+        detailMeta.textContent = [
+            status ? `${number(filteredRows.length)} de ${number(rows.length)} registros` : `${number(rows.length)} registro${rows.length === 1 ? '' : 's'}`,
+            perimeterMeters === null ? null : `Perímetro permitido: ${number(perimeterMeters)} m`,
+        ].filter(Boolean).join(' · ');
+        renderCreditMetricsNotice();
+        detailState.innerHTML = attendanceDetailTableHtml(filteredRows);
+    };
+
+    const setupCoverageMonths = (group) => {
+        const months = [...new Set(visibleRows
+            .filter((row) => collaboratorKey(row) === group?.key)
+            .map((row) => String(row?.fecha || '').slice(0, 7))
+            .filter((month) => /^\d{4}-\d{2}$/.test(month)))]
+            .sort((left, right) => right.localeCompare(left, 'es'));
+        const preferredMonth = String(group?.latestDate || endInput.value || '').slice(0, 7);
+        if (/^\d{4}-\d{2}$/.test(preferredMonth) && !months.includes(preferredMonth)) {
+            months.unshift(preferredMonth);
+        }
+        coverageMonthSelect.innerHTML = months
+            .map((month) => `<option value="${month}">${escapeHtml(coverageMonthLabel(month))}</option>`)
+            .join('');
+        coverageMonthSelect.value = months.includes(preferredMonth) ? preferredMonth : (months[0] || '');
+        coverageMonthSelect.disabled = months.length <= 1;
+    };
+
+    const renderCoverageSummary = (data) => {
+        coveragePeriod.textContent = coverageMonthLabel(data?.mes || coverageMonthSelect.value);
+        coverageState.innerHTML = `
+            <div class="atlas-attendance-coverage-stats">
+                <div class="atlas-attendance-coverage-stat">
+                    <div class="atlas-attendance-coverage-stat-value">${number(data?.agencias_visitadas)}</div>
+                    <div class="atlas-attendance-coverage-stat-label">Sucursales visitadas</div>
+                </div>
+                <div class="atlas-attendance-coverage-stat">
+                    <div class="atlas-attendance-coverage-stat-value">${number(data?.agencias_pendientes)}</div>
+                    <div class="atlas-attendance-coverage-stat-label">Sucursales faltantes por visitar</div>
+                </div>
+                <div class="atlas-attendance-coverage-stat is-overdue">
+                    <div class="atlas-attendance-coverage-stat-value">${number(data?.agencias_agendadas_sin_checkin)}</div>
+                    <div class="atlas-attendance-coverage-stat-label">Sucursales agendadas sin check-in</div>
+                </div>
+            </div>`;
+    };
+
+    const loadCoverageSummary = async () => {
+        const group = activeDetailGroup;
+        const month = coverageMonthSelect.value;
+        if (!group || !month) {
+            coveragePeriod.textContent = '';
+            coverageState.innerHTML = '<div class="alert alert-info mb-0 py-2">No hay un mes disponible para calcular la cobertura.</div>';
+            return;
+        }
+
+        const representative = group.representative || {};
+        const personaId = String(group.personaId || '').trim();
+        const externalId = String(representative.numero_empleado || '').trim();
+        if (!personaId && !externalId) {
+            coveragePeriod.textContent = coverageMonthLabel(month);
+            coverageState.innerHTML = '<div class="alert alert-info mb-0 py-2">No pudimos identificar al colaborador para preparar su cobertura mensual.</div>';
+            return;
+        }
+
+        coverageAbortController?.abort();
+        coverageAbortController = new AbortController();
+        const requestGroupKey = group.key;
+        coveragePeriod.textContent = coverageMonthLabel(month);
+        coverageState.innerHTML = '<div class="atlas-attendance-coverage-loading"><span><i class="fa-solid fa-spinner fa-spin me-2"></i>Consultando cobertura mensual...</span></div>';
+        const params = new URLSearchParams({ mes: month });
+        if (personaId) params.set('gestor_persona_id', personaId);
+        if (externalId) params.set('external_id', externalId);
+
+        try {
+            const response = await fetch(`/Atlas/getResumenCoberturaAsistencia?${params.toString()}`, {
+                headers: { Accept: 'application/json' },
+                signal: coverageAbortController.signal,
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload.success) {
+                throw new Error(payload.mensaje || 'No se pudo consultar la cobertura mensual.');
+            }
+            if (activeDetailGroup?.key !== requestGroupKey || coverageMonthSelect.value !== month) return;
+            renderCoverageSummary(payload.datos || {});
+        } catch (error) {
+            if (error?.name === 'AbortError') return;
+            if (activeDetailGroup?.key !== requestGroupKey) return;
+            coverageState.innerHTML = '<div class="alert alert-info mb-0 py-2">No pudimos preparar la cobertura mensual. El detalle de asistencias sigue disponible.</div>';
+        }
+    };
+
+    const loadAttendanceCreditMetrics = async (group) => {
+        const personaId = String(group?.personaId || '').trim();
+        const dateStart = String(startInput.value || group?.earliestDate || '').trim();
+        const dateEnd = String(endInput.value || group?.latestDate || '').trim();
+        const requestGroupKey = group?.key;
+
+        creditMetricsAbortController?.abort();
+        creditMetricsAbortController = null;
+        activeCreditMetrics = new Map();
+        creditMetricsLoaded = false;
+        creditMetricsError = '';
+
+        if (!personaId || !dateStart || !dateEnd) {
+            creditMetricsLoading = false;
+            creditMetricsLoaded = true;
+            creditMetricsError = 'No pudimos identificar al colaborador o el periodo para consultar los estados de sus créditos.';
+            renderDetailActivity();
+            return;
+        }
+
+        const controller = new AbortController();
+        creditMetricsAbortController = controller;
+        creditMetricsLoading = true;
+        renderDetailActivity();
+
+        const params = new URLSearchParams({
+            fecha_inicio: dateStart,
+            fecha_fin: dateEnd,
+            gestor_persona_id: personaId,
+        });
+
+        try {
+            const response = await fetch(`/Atlas/getCreditosSucursalesAsistencia?${params.toString()}`, {
+                headers: { Accept: 'application/json' },
+                signal: controller.signal,
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload.success) {
+                throw new Error(payload.mensaje || 'No se pudieron consultar los estados de créditos.');
+            }
+            if (activeDetailGroup?.key !== requestGroupKey) return;
+
+            const records = Array.isArray(payload?.datos?.registros) ? payload.datos.registros : [];
+            activeCreditMetrics = new Map(records
+                .map((record) => [creditMetricKey(record?.fk_sucursal, record?.mes), record])
+                .filter(([key]) => key));
+            creditMetricsLoading = false;
+            creditMetricsLoaded = true;
+            creditMetricsError = '';
+            renderDetailActivity();
+        } catch (error) {
+            if (error?.name === 'AbortError' || activeDetailGroup?.key !== requestGroupKey) return;
+            activeCreditMetrics = new Map();
+            creditMetricsLoading = false;
+            creditMetricsLoaded = true;
+            creditMetricsError = 'No pudimos consultar los estados de créditos de la app en este momento. El detalle de asistencias sigue disponible.';
+            renderDetailActivity();
+        } finally {
+            if (creditMetricsAbortController === controller) {
+                creditMetricsAbortController = null;
+            }
+        }
+    };
+
+    const groupEvidenceEntries = (group) => (group?.rows || []).flatMap((row) => (
+        (Array.isArray(row?.evidencias) ? row.evidencias : []).map((evidence) => ({ evidence, row }))
+    ));
+
+    const attendanceDetailTableHtml = (rows) => {
+        if (!rows.length) {
+            return '<div class="atlas-evidence-empty py-3">Este colaborador no tiene asistencias para los filtros seleccionados.</div>';
+        }
+        return `<div class="atlas-attendance-detail-table-wrap">
+            <table class="table table-hover atlas-attendance-detail-table">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Agencia / Distribuidor</th>
+                        <th>Estatus</th>
+                        <th>Llegada</th>
+                        <th>Salida</th>
+                        <th>Permanencia</th>
+                        <th>Perímetro</th>
+                        <th class="text-end" title="Créditos gestionados o dictaminados según la app móvil">Gestiones realizadas <i class="fa-solid fa-circle-info ms-1"></i></th>
+                        <th class="text-end" title="Pendientes del mes; los rezagados aparecen desglosados">Pendientes <i class="fa-solid fa-circle-info ms-1"></i></th>
+                        <th class="text-end" title="Créditos únicos entre todos los estados de la app">Totales <i class="fa-solid fa-circle-info ms-1"></i></th>
+                        <th class="text-center">Evidencias</th>
+                        <th>Observaciones</th>
+                        <th class="text-center">Imagen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.map((row) => {
+                        const distance = row?.distancia_metros === null || row?.distancia_metros === undefined
+                            ? 'Sin distancia'
+                            : `${number(row.distancia_metros)} m`;
+                        const observations = row?.observaciones_incumplimiento || row?.observaciones || 'Sin observaciones';
+                        const location = [row?.latitud, row?.longitud]
+                            .filter((value) => value !== null && value !== undefined && String(value).trim() !== '')
+                            .join(', ');
+                        return `<tr>
+                            <td>
+                                <div class="atlas-attendance-main">${escapeHtml(row?.fecha || 'Sin fecha')}</div>
+                                <div class="atlas-attendance-sub">${escapeHtml(row?.dia_visita || '')}</div>
+                            </td>
+                            <td>
+                                <div class="atlas-attendance-main">${escapeHtml(row?.agencia || 'Sin agencia')}</div>
+                                <div class="atlas-attendance-sub">${escapeHtml(row?.distribuidor || 'Sin distribuidor')}</div>
+                            </td>
+                            <td><span class="atlas-attendance-badge ${statusClass(row?.estatus_visita)}"><i class="fa-solid ${statusIconClass(row?.estatus_visita)}"></i>${escapeHtml(row?.estatus_visita || 'Sin estatus')}</span></td>
+                            <td>
+                                <div class="atlas-attendance-main">${escapeHtml(row?.hora_llegada || row?.hora_gestion || '--:--')}</div>
+                                <div class="atlas-attendance-sub">Conf. ${escapeHtml(row?.hora_confirmacion_llegada || '--:--')}</div>
+                            </td>
+                            <td>
+                                <div class="atlas-attendance-main">${escapeHtml(row?.hora_salida || '--:--')}</div>
+                                <div class="atlas-attendance-sub">Fin ${escapeHtml(row?.hora_termino_visita || '--:--')}</div>
+                            </td>
+                            <td>${escapeHtml(row?.tiempo_permanencia || 'Sin dato')}</td>
+                            <td title="${escapeHtml(location ? `Coordenadas: ${location}` : 'Coordenadas no disponibles')}">
+                                <div class="atlas-attendance-main">${escapeHtml(row?.dentro_perimetro || 'Sin dato')}</div>
+                                <div class="atlas-attendance-sub">${escapeHtml(distance)}</div>
+                            </td>
+                            ${creditMetricCellsHtml(row)}
+                            <td class="text-center"><strong>${number(rowEvidenceCount(row))}</strong></td>
+                            <td style="max-width:18rem; white-space:normal;">${escapeHtml(observations)}</td>
+                            <td class="text-center">${rowImageActionHtml(row)}</td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>`;
     };
 
     const evidenceMedia = (evidence) => {
-        if (!evidence.disponible || !evidence.id) {
+        const item = evidence || {};
+        if (!item.disponible || !item.id) {
             return `<div class="atlas-evidence-media atlas-evidence-unavailable">
                 <i class="fa-solid fa-triangle-exclamation"></i>
-                <div>${escapeHtml(evidence.mensaje || 'Esta evidencia no esta disponible para consulta.')}</div>
+                <div>${escapeHtml(item.mensaje || 'Esta evidencia no esta disponible para consulta.')}</div>
             </div>`;
         }
 
-        const source = `/Atlas/verEvidenciaAsistencia?id=${encodeURIComponent(evidence.id)}`;
-        const mimeType = String(evidence.mime_type || '').toLowerCase();
-        const kind = String(evidence.tipo || '').toLowerCase();
+        const source = `/Atlas/verEvidenciaAsistencia?id=${encodeURIComponent(item.id)}`;
+        const mimeType = String(item.mime_type || '').toLowerCase();
+        const kind = String(item.tipo || '').toLowerCase();
         if (mimeType.startsWith('image/') || kind === 'imagen' || kind === 'foto') {
             return `<div class="atlas-evidence-media">
-                <img src="${source}" alt="${escapeHtml(evidence.nombre || 'Evidencia fotografica')}" loading="lazy">
+                <img src="${source}" alt="${escapeHtml(item.nombre || 'Evidencia fotografica')}" loading="lazy">
             </div>`;
         }
         if (mimeType.startsWith('video/') || kind === 'video') {
@@ -578,32 +1198,106 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             const headers = { Accept: 'application/json' };
             const response = await fetch(`/Atlas/getRutasUsuarioSpartan?${params.toString()}`, { headers });
             const payload = await response.json();
+            const data = payload.datos || {};
             if (!response.ok || !payload.success) {
+                const status = Number(payload.status || response.status || 0);
+                if ([204, 404].includes(status) && Array.isArray(data.rutas) && Number(data.total || 0) === 0) {
+                    renderSpartanRoutes([]);
+                    return;
+                }
                 throw new Error(payload.mensaje || 'No se pudieron consultar rutas Spartan.');
             }
-            const data = payload.datos || {};
             renderSpartanRoutes(data.rutas || []);
         } catch (error) {
             routesState.innerHTML = `<div class="alert alert-info mb-0 py-2">${routesMaintenanceMessage}</div>`;
         }
     };
 
-    const showEvidenceModal = (row) => {
-        const evidences = Array.isArray(row.evidencias) ? row.evidencias : [];
-        evidenceMeta.textContent = [row.agencia, row.colaborador, row.fecha].filter(Boolean).join(' · ');
+    const showEvidenceModal = (group) => {
+        const rows = Array.isArray(group?.rows) ? group.rows : [];
+        const representative = group?.representative || rows[0] || {};
+        activeDetailGroup = group;
+        creditMetricsAbortController?.abort();
+        creditMetricsAbortController = null;
+        activeCreditMetrics = new Map();
+        creditMetricsLoading = true;
+        creditMetricsLoaded = false;
+        creditMetricsError = '';
+        const visits = groupVisitStats(group);
+        const evidences = groupEvidenceEntries(group);
+        const agencyCount = new Set(rows.map((row, index) => agencyVisitKey(row, index))).size;
+        const managementCount = rows.reduce(
+            (total, row) => total + Number(row?.gestiones_realizadas || 0),
+            0
+        );
+        const evidenceCount = rows.reduce((total, row) => total + rowEvidenceCount(row), 0);
+        const status = collaboratorActivityStatus(group);
+
+        evidenceMeta.textContent = [
+            group?.name || 'Colaborador',
+            [group?.position, group?.divisional].filter(Boolean).join(' · '),
+            groupPeriodText(group),
+        ].filter(Boolean).join(' · ');
+        detailSummary.innerHTML = `
+            <div class="atlas-attendance-detail-stat is-teal">
+                <div class="atlas-attendance-detail-stat-label">
+                    <span class="atlas-attendance-detail-stat-icon"><i class="fa-solid fa-route"></i></span>
+                    <span>Visitas</span>
+                </div>
+                <div class="atlas-attendance-detail-stat-value">${number(visits.total)}</div>
+                <div class="atlas-attendance-detail-stat-sub">${number(visits.withTime)} con horario · ${number(visits.withoutTime)} sin horario</div>
+            </div>
+            <div class="atlas-attendance-detail-stat is-blue">
+                <div class="atlas-attendance-detail-stat-label">
+                    <span class="atlas-attendance-detail-stat-icon"><i class="fa-solid fa-building"></i></span>
+                    <span>Agencias</span>
+                </div>
+                <div class="atlas-attendance-detail-stat-value">${number(agencyCount)}</div>
+                <div class="atlas-attendance-detail-stat-sub">Dentro del periodo filtrado</div>
+            </div>
+            <div class="atlas-attendance-detail-stat is-indigo">
+                <div class="atlas-attendance-detail-stat-label">
+                    <span class="atlas-attendance-detail-stat-icon"><i class="fa-solid fa-clipboard-check"></i></span>
+                    <span>Gestiones realizadas</span>
+                </div>
+                <div class="atlas-attendance-detail-stat-value">${number(managementCount)}</div>
+                <div class="atlas-attendance-detail-stat-sub">${escapeHtml(status.label)}</div>
+            </div>
+            <div class="atlas-attendance-detail-stat is-rose">
+                <div class="atlas-attendance-detail-stat-label">
+                    <span class="atlas-attendance-detail-stat-icon"><i class="fa-solid fa-camera"></i></span>
+                    <span>Evidencias</span>
+                </div>
+                <div class="atlas-attendance-detail-stat-value">${number(evidenceCount)}</div>
+                <div class="atlas-attendance-detail-stat-sub">Archivos reportados</div>
+            </div>`;
+
+        setupDetailStatusFilter(group);
+        renderDetailActivity();
+        void loadAttendanceCreditMetrics(group);
+        setupCoverageMonths(group);
+        void loadCoverageSummary();
+
+        evidenceSectionMeta.textContent = `${number(evidenceCount)} evidencia${evidenceCount === 1 ? '' : 's'}`;
         evidenceGrid.innerHTML = evidences.length
-            ? evidences.map((evidence) => `<article class="atlas-evidence-item">
+            ? evidences.map(({ evidence, row }) => `<article class="atlas-evidence-item">
                 ${evidenceMedia(evidence)}
                 <div class="atlas-evidence-info">
-                    <div class="atlas-evidence-name">${escapeHtml(evidence.nombre || 'Evidencia')}</div>
+                    <div class="atlas-evidence-name">${escapeHtml(evidence?.nombre || 'Evidencia')}</div>
                     <div class="atlas-evidence-detail">${escapeHtml([
-                        evidence.tipo,
-                        formatBytes(evidence.size_bytes),
-                        evidence.fecha_hora ? String(evidence.fecha_hora).replace('T', ' ') : null
+                        row?.agencia,
+                        row?.fecha,
+                        evidence?.tipo,
+                        formatBytes(evidence?.size_bytes),
+                        evidence?.fecha_hora ? String(evidence.fecha_hora).replace('T', ' ') : null
                     ].filter(Boolean).join(' · '))}</div>
                 </div>
             </article>`).join('')
-            : '<div class="atlas-evidence-empty">Este registro no tiene evidencias cargadas.</div>';
+            : `<div class="atlas-evidence-empty">${
+                evidenceCount
+                    ? 'Hay evidencias reportadas, pero sus archivos no están disponibles para consulta.'
+                    : 'Este colaborador no tiene evidencias cargadas en el periodo filtrado.'
+            }</div>`;
 
         evidenceGrid.querySelectorAll('img, video, audio').forEach((media) => {
             media.addEventListener('error', () => {
@@ -619,7 +1313,11 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         } else if (window.jQuery && typeof window.jQuery.fn.modal === 'function') {
             window.jQuery(evidenceModalElement).modal('show');
         }
-        loadSpartanRoutes(row);
+        loadSpartanRoutes({
+            ...representative,
+            colaborador: group?.name || representative.colaborador,
+            colaborador_persona_id: group?.personaId || representative.colaborador_persona_id,
+        });
     };
 
     const datasetQuery = () => {
@@ -629,10 +1327,10 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         return params;
     };
 
-    const exportQuery = () => {
+    const exportQuery = (rangeStart, rangeEnd) => {
         const params = new URLSearchParams();
-        if (startInput.value) params.set('fecha_inicio', startInput.value);
-        if (endInput.value) params.set('fecha_fin', endInput.value);
+        if (rangeStart) params.set('fecha_inicio', rangeStart);
+        if (rangeEnd) params.set('fecha_fin', rangeEnd);
         if (collaboratorSelect.value) params.set('gestor_persona_id', collaboratorSelect.value);
         if (distributorSelect.value) params.set('distribuidor_id', distributorSelect.value);
         if (statusSelect.value) params.set('estatus', statusSelect.value);
@@ -706,6 +1404,29 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         && endInput.value <= datasetEnd
     );
 
+    const downloadDateRangeIsValid = () => (
+        Boolean(downloadStartInput.value && downloadEndInput.value)
+        && downloadEndInput.value >= downloadStartInput.value
+        && downloadStartInput.value >= datasetStart
+        && downloadEndInput.value <= datasetEnd
+    );
+
+    const validateDownloadRange = () => {
+        const valid = downloadDateRangeIsValid();
+        downloadStartInput.classList.toggle('is-invalid', !valid);
+        downloadEndInput.classList.toggle('is-invalid', !valid);
+        downloadError.classList.toggle('d-none', valid);
+        downloadConfirmButton.disabled = !valid;
+        return valid;
+    };
+
+    const openDownloadModal = () => {
+        downloadStartInput.value = dateRangeIsValid() ? startInput.value : initialStart;
+        downloadEndInput.value = dateRangeIsValid() ? endInput.value : initialEnd;
+        validateDownloadRange();
+        downloadModal?.show();
+    };
+
     const evidenceStatus = (row) => {
         const evidences = Array.isArray(row?.evidencias) ? row.evidencias : [];
         const declaredCount = row?.total_evidencias === null || row?.total_evidencias === undefined
@@ -757,156 +1478,70 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         return true;
     };
 
-    const attendanceDataTableFilter = (settings, _searchData, dataIndex) => {
-        if (!settings.nTable || settings.nTable.id !== 'atlasAttendanceTable') return true;
-        const tableRow = settings.aoData?.[dataIndex]?.nTr;
-        const rowIndex = Number(tableRow?.dataset?.atlasRow);
-        return rowMatchesFilters(visibleRows[rowIndex]);
-    };
-
-    const registerAttendanceFilter = () => {
-        if (!window.jQuery?.fn?.dataTable) return;
-        const filters = window.jQuery.fn.dataTable.ext.search;
-        if (window.__atlasAttendanceDataTableFilter) {
-            const previousIndex = filters.indexOf(window.__atlasAttendanceDataTableFilter);
-            if (previousIndex >= 0) filters.splice(previousIndex, 1);
-        }
-        window.__atlasAttendanceDataTableFilter = attendanceDataTableFilter;
-        filters.push(attendanceDataTableFilter);
-    };
-
-    const renderRows = (rows) => {
-        visibleRows = rows;
-        if (!rows.length) {
+    const renderRows = (groups) => {
+        visibleGroups = groups;
+        if (!groups.length) {
             body.innerHTML = '';
             return;
         }
-        const initialVisitGroups = agencyVisitGroups(rows);
-        body.innerHTML = rows.map((row, rowIndex) => {
-            const distance = row.distancia_metros === null || row.distancia_metros === undefined
-                ? 'Sin distancia'
-                : `${number(row.distancia_metros)} m`;
-            const observations = row.observaciones_incumplimiento || row.observaciones || '';
-            const evidences = Array.isArray(row.evidencias) ? row.evidencias : [];
-            const completedManagements = Number(row.gestiones_realizadas || 0);
-            const pendingManagements = row.pendientes_por_gestionar === null
-                || row.pendientes_por_gestionar === undefined
-                ? null
-                : Number(row.pendientes_por_gestionar || 0);
-            const totalManagements = pendingManagements === null
-                ? null
-                : completedManagements + pendingManagements;
-            const declaredEvidenceCount = Math.max(0, Number(row.total_evidencias) || 0);
-            const evidenceCount = Math.max(declaredEvidenceCount, evidences.length);
-            const evidenceButton = `<button type="button" class="atlas-attendance-evidence-button" data-atlas-evidence-row="${rowIndex}" title="Ver ${number(evidenceCount)} evidencia(s)" aria-label="Ver evidencias">
-                <i class="fa-solid fa-eye"></i>
-                <span class="atlas-attendance-evidence-count">${number(evidenceCount)}</span>
-            </button>`;
-            return `<tr data-atlas-row="${rowIndex}">
+        body.innerHTML = groups.map((group, groupIndex) => {
+            const branches = groupBranchStats(group);
+            const status = collaboratorActivityStatus(group);
+            const dateDetail = group.latestDate && group.earliestDate !== group.latestDate
+                ? `Desde ${group.earliestDate}`
+                : (group.representative?.dia_visita || 'Actividad más reciente');
+            const detailTitle = `Ver asistencias de ${group.name}`;
+            return `<tr data-atlas-group="${groupIndex}">
                 <td>
-                    <div class="atlas-attendance-main">${escapeHtml(row.fecha || '')}</div>
-                    <div class="atlas-attendance-sub">${escapeHtml(row.dia_visita || '')}${row.hora_gestion ? ` · Gestión ${escapeHtml(row.hora_gestion)}` : ''}</div>
+                    <div class="atlas-attendance-cell">
+                        <span class="atlas-attendance-cell-icon is-date"><i class="fa-solid fa-calendar-day"></i></span>
+                        <div class="atlas-attendance-cell-content">
+                            <div class="atlas-attendance-main">${escapeHtml(group.latestDate || 'Sin fecha')}</div>
+                            <div class="atlas-attendance-sub">${escapeHtml(dateDetail)}</div>
+                        </div>
+                    </div>
                 </td>
                 <td>
-                    <div class="atlas-attendance-main">${escapeHtml(row.colaborador || 'Sin asignar')}</div>
-                    <div class="atlas-attendance-sub">${escapeHtml([row.puesto || row.rol, row.divisional].filter(Boolean).join(' · '))}</div>
+                    <div class="atlas-attendance-cell">
+                        <span class="atlas-attendance-cell-icon is-collaborator"><i class="fa-solid fa-user-tie"></i></span>
+                        <div class="atlas-attendance-cell-content">
+                            <div class="atlas-attendance-main">${escapeHtml(group.name)}</div>
+                            <div class="atlas-attendance-sub">${escapeHtml([group.position, group.divisional].filter(Boolean).join(' · '))}</div>
+                        </div>
+                    </div>
                 </td>
-                <td>
-                    <div class="atlas-attendance-main">${escapeHtml(row.agencia || 'Sin agencia')}</div>
-                    <div class="atlas-attendance-sub">${escapeHtml(row.distribuidor || 'Sin distribuidor')}</div>
+                <td title="${escapeHtml(status.title || 'Sin estados registrados')}">
+                    <span class="atlas-attendance-badge ${status.className}"><i class="fa-solid ${status.iconClass}"></i>${escapeHtml(status.label)}</span>
                 </td>
-                <td style="max-width:18rem; white-space:normal;" data-atlas-agency-visits-row="${rowIndex}">
-                    ${agencyVisitsCellHtml(row, initialVisitGroups)}
+                <td title="${escapeHtml(`${branches.visited} visitadas | ${branches.missing} faltantes | ${branches.scheduledWithoutCheckIn} agendadas sin check-in`)}">
+                    <div class="atlas-attendance-cell">
+                        <span class="atlas-attendance-cell-icon is-visits"><i class="fa-solid fa-route"></i></span>
+                        <div class="atlas-attendance-cell-content atlas-attendance-branch-summary">
+                            <div class="atlas-attendance-branch-line"><span>Visitadas</span><strong>${number(branches.visited)}</strong></div>
+                            <div class="atlas-attendance-branch-line"><span>Faltantes</span><strong>${number(branches.missing)}</strong></div>
+                            <div class="atlas-attendance-branch-line is-missed"><span>Agendadas sin check-in</span><strong>${number(branches.scheduledWithoutCheckIn)}</strong></div>
+                        </div>
+                    </div>
                 </td>
-                <td><span class="atlas-attendance-badge ${statusClass(row.estatus_visita)}">${escapeHtml(row.estatus_visita || '')}</span></td>
-                <td>
-                    <div class="atlas-attendance-main">${escapeHtml(row.dentro_perimetro || 'Sin dato')}</div>
-                    <div class="atlas-attendance-sub">${escapeHtml(distance)}</div>
+                <td class="text-center">
+                    <button type="button" class="atlas-attendance-detail-button" data-atlas-detail-group="${groupIndex}"
+                            title="${escapeHtml(detailTitle)}" aria-label="${escapeHtml(detailTitle)}">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
                 </td>
-                <td>
-                    <div class="atlas-attendance-main">${escapeHtml(row.hora_llegada || '--:--')}</div>
-                    <div class="atlas-attendance-sub">Conf. ${escapeHtml(row.hora_confirmacion_llegada || '--:--')}</div>
-                </td>
-                <td>
-                    <div class="atlas-attendance-main">${escapeHtml(row.hora_salida || '--:--')}</div>
-                    <div class="atlas-attendance-sub">Fin ${escapeHtml(row.hora_termino_visita || '--:--')}</div>
-                </td>
-                <td>${escapeHtml(row.tiempo_permanencia || 'Sin dato')}</td>
-                <td class="text-end"><strong>${number(completedManagements)}</strong></td>
-                <td class="text-end"><strong>${pendingManagements === null ? '-' : number(pendingManagements)}</strong></td>
-                <td class="text-end"><strong>${totalManagements === null ? '-' : number(totalManagements)}</strong></td>
-                <td class="text-center">${evidenceButton}</td>
-                <td style="max-width:22rem; white-space:normal;">${escapeHtml(observations || 'Sin observaciones')}</td>
             </tr>`;
         }).join('');
     };
 
-    const setSummary = (summary) => {
-        document.getElementById('atlasAttendanceTotal').textContent = number(summary.total_visitas);
-        document.getElementById('atlasAttendanceCompleted').textContent = number(summary.cumplidas);
-        document.getElementById('atlasAttendanceMissed').textContent = number(summary.no_realizadas);
-        document.getElementById('atlasAttendanceOutside').textContent = number(summary.fuera_ubicacion);
-        document.getElementById('atlasAttendanceManaged').textContent = number(summary.gestiones_realizadas);
-        document.getElementById('atlasAttendancePending').textContent = number(summary.pendientes_por_gestionar);
-    };
+    const currentFilteredRows = () => visibleRows.filter(rowMatchesFilters);
 
-    const currentFilteredRows = () => {
-        if (!attendanceTable) return visibleRows.filter(rowMatchesFilters);
-        return attendanceTable
-            .rows({ search: 'applied' })
-            .nodes()
-            .toArray()
-            .map((tableRow) => visibleRows[Number(tableRow.dataset.atlasRow)])
-            .filter(Boolean);
-    };
-
-    const updateAgencyVisitCells = (rows) => {
-        const groups = agencyVisitGroups(rows);
-        document.querySelectorAll('[data-atlas-agency-visits-row]').forEach((cell) => {
-            const row = visibleRows[Number(cell.dataset.atlasAgencyVisitsRow)];
-            if (row) cell.innerHTML = agencyVisitsCellHtml(row, groups);
-        });
-    };
-
-    const pendingTotalForRows = (rows) => {
-        const pendingByBranch = new Map();
-        rows.forEach((row, index) => {
-            if (row.es_visita === false
-                || row.pendientes_por_gestionar === null
-                || row.pendientes_por_gestionar === undefined) {
-                return;
-            }
-            const branchKey = String(
-                row.fk_sucursal
-                ?? row.ruta_sucursal_id
-                ?? `fila:${index}`
-            );
-            const pending = Math.max(0, Number(row.pendientes_por_gestionar || 0));
-            pendingByBranch.set(
-                branchKey,
-                Math.max(pendingByBranch.get(branchKey) || 0, pending)
-            );
-        });
-        return [...pendingByBranch.values()].reduce((total, pending) => total + pending, 0);
-    };
-
-    const updateFilteredSummary = () => {
-        const rows = currentFilteredRows();
-        updateAgencyVisitCells(rows);
-        const visitRows = rows.filter((row) => row.es_visita !== false);
-        setSummary({
-            total_visitas: visitRows.length,
-            cumplidas: visitRows.filter((row) => row.estatus_visita === 'Cumplida').length,
-            no_realizadas: visitRows.filter((row) => row.estatus_visita === 'No realizada').length,
-            fuera_ubicacion: rows.filter((row) => row.estatus_visita === 'Fuera de ubicación').length,
-            gestiones_realizadas: rows.reduce(
-                (total, row) => total + Number(row.gestiones_realizadas || 0),
-                0
-            ),
-            pendientes_por_gestionar: pendingTotalForRows(visitRows),
-        });
+    const updateTableMeta = () => {
+        const shownGroups = attendanceTable
+            ? attendanceTable.rows({ search: 'applied' }).count()
+            : visibleGroups.length;
+        const filteredRecords = currentFilteredRows().length;
         document.getElementById('atlasAttendanceGenerated').textContent =
-            `${number(rows.length)} de ${number(visibleRows.length)} registros` +
+            `${number(shownGroups)} colaborador${shownGroups === 1 ? '' : 'es'} · ${number(filteredRecords)} registro${filteredRecords === 1 ? '' : 's'}` +
             (generatedAt ? ` · Generado ${generatedAt}` : '');
     };
 
@@ -917,7 +1552,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         attendanceTable = null;
     };
 
-    const initializeAttendanceTable = () => {
+    const initializeAttendanceTable = (searchValue = '') => {
         if (!window.jQuery?.fn?.DataTable) {
             throw new Error('DataTables no está disponible en esta pantalla.');
         }
@@ -925,14 +1560,14 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         const $table = window.jQuery('#atlasAttendanceTable');
         attendanceTable = $table.DataTable({
             language: {
-                emptyTable: 'No hay visitas ni gestiones para los filtros seleccionados',
-                info: 'Mostrando de _START_ a _END_ de _TOTAL_ registros',
-                infoEmpty: 'Sin registros para mostrar',
-                infoFiltered: '(filtrado de _MAX_ registros)',
-                zeroRecords: 'No se encontraron registros',
-                lengthMenu: 'Mostrar _MENU_ registros',
+                emptyTable: 'No hay colaboradores para los filtros seleccionados',
+                info: 'Mostrando de _START_ a _END_ de _TOTAL_ colaboradores',
+                infoEmpty: 'Sin colaboradores para mostrar',
+                infoFiltered: '(filtrado de _MAX_ colaboradores)',
+                zeroRecords: 'No se encontraron colaboradores',
+                lengthMenu: 'Mostrar _MENU_ colaboradores',
                 search: 'Buscar:',
-                searchPlaceholder: 'Buscar en asistencias...',
+                searchPlaceholder: 'Buscar colaborador...',
                 paginate: {
                     first: 'Primero',
                     last: 'Último',
@@ -948,34 +1583,46 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             searchDelay: 100,
             order: [[0, 'desc']],
             columnDefs: [
-                { targets: 12, orderable: false },
+                { targets: 4, orderable: false, searchable: false },
             ],
             initComplete() {
                 const container = this.api().table().container();
                 window.jQuery(container)
                     .find('input[type="search"]')
-                    .attr('placeholder', 'Buscar en asistencias...');
+                    .attr('placeholder', 'Buscar colaborador...');
             },
         });
         $table
             .off('draw.dt.atlasAttendance')
-            .on('draw.dt.atlasAttendance', updateFilteredSummary);
-        updateFilteredSummary();
+            .on('draw.dt.atlasAttendance', updateTableMeta);
+        if (searchValue) {
+            attendanceTable.search(searchValue).draw();
+        } else {
+            updateTableMeta();
+        }
+    };
+
+    const renderFilteredTable = () => {
+        const searchValue = attendanceTable ? attendanceTable.search() : '';
+        destroyAttendanceTable();
+        const rows = currentFilteredRows();
+        renderRows(collaboratorGroups(rows));
+        initializeAttendanceTable(searchValue);
     };
 
     const applyLocalFilters = () => {
         const validRange = dateRangeIsValid();
         startInput.classList.toggle('is-invalid', !validRange);
         endInput.classList.toggle('is-invalid', !validRange);
-        downloadButton.disabled = loading || !apiReady || !validRange;
-        if (attendanceTable) attendanceTable.draw();
+        downloadButton.disabled = loading || !apiReady;
+        if (validRange && !loading) renderFilteredTable();
     };
 
     const reportError = (message) => {
         destroyAttendanceTable();
         visibleRows = [];
-        body.innerHTML = `<tr><td class="atlas-attendance-empty text-danger" colspan="14">${escapeHtml(message)}</td></tr>`;
-        setSummary({});
+        visibleGroups = [];
+        body.innerHTML = `<tr><td class="atlas-attendance-empty text-danger" colspan="5">${escapeHtml(message)}</td></tr>`;
         document.getElementById('atlasAttendanceGenerated').textContent = 'No disponible';
         if (typeof Swal !== 'undefined') {
             Swal.fire({ icon: 'error', title: 'No se pudo cargar el reporte', text: message });
@@ -989,7 +1636,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         downloadButton.disabled = true;
         document.getElementById('atlasAttendanceRefresh').disabled = true;
         destroyAttendanceTable();
-        body.innerHTML = '<tr><td class="atlas-attendance-empty" colspan="14">Consultando asistencias...</td></tr>';
+        body.innerHTML = '<tr><td class="atlas-attendance-empty" colspan="5">Consultando asistencias...</td></tr>';
         try {
             const response = await fetch(`/Atlas/getReporteAsistencias?${datasetQuery().toString()}`, {
                 headers: { Accept: 'application/json' }
@@ -1023,12 +1670,11 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             updateSelect(statusSelect, statusOptions, '', '', 'Todos los estatus');
             updateSelect(divisionalSelect, catalogs.divisionales || [], '', '', 'Todas las divisionales');
             generatedAt = String(data.generado_at || '').replace('T', ' ');
-            renderRows(rows);
-            initializeAttendanceTable();
-            document.getElementById('atlasAttendancePerimeter').textContent =
-                `Perímetro permitido: ${number(data.perimetro_metros)} m. ` +
-                (data.pendientes_disponibles === false ? 'La fuente de pendientes no estuvo disponible en esta consulta.' : '');
-            applyLocalFilters();
+            perimeterMeters = data.perimetro_metros === null || data.perimetro_metros === undefined
+                ? null
+                : Number(data.perimetro_metros);
+            visibleRows = rows;
+            renderFilteredTable();
         } catch (error) {
             hideAttendanceLoading();
             reportError(error.message || 'No se pudo consultar el reporte.');
@@ -1036,7 +1682,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             hideAttendanceLoading();
             loading = false;
             document.getElementById('atlasAttendanceRefresh').disabled = false;
-            downloadButton.disabled = !dateRangeIsValid();
+            downloadButton.disabled = !apiReady;
         }
     };
 
@@ -1047,20 +1693,26 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             return;
         }
 
+        downloadModal = typeof bootstrap !== 'undefined'
+            ? bootstrap.Modal.getOrCreateInstance(downloadModalElement)
+            : null;
         evidenceModal = typeof bootstrap !== 'undefined'
             ? bootstrap.Modal.getOrCreateInstance(evidenceModalElement)
             : null;
 
         initializeSearchableSelects();
-        registerAttendanceFilter();
 
         document.getElementById('atlasAttendanceRefresh').addEventListener('click', loadReport);
-        document.getElementById('atlasAttendanceDownload').addEventListener('click', () => {
-            if (!dateRangeIsValid()) {
-                applyLocalFilters();
-                return;
-            }
-            window.location.href = `/Atlas/descargarReporteAsistencias?${exportQuery().toString()}`;
+        document.getElementById('atlasAttendanceDownload').addEventListener('click', openDownloadModal);
+        downloadForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            if (!validateDownloadRange()) return;
+            const query = exportQuery(downloadStartInput.value, downloadEndInput.value);
+            downloadModal?.hide();
+            window.location.href = `/Atlas/descargarReporteAsistencias?${query.toString()}`;
+        });
+        [downloadStartInput, downloadEndInput].forEach((input) => {
+            input.addEventListener('change', validateDownloadRange);
         });
         document.getElementById('atlasAttendanceClear').addEventListener('click', () => {
             startInput.value = initialStart;
@@ -1080,18 +1732,38 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 .off('change.atlasAttendance')
                 .on('change.atlasAttendance', applyLocalFilters);
         });
+        detailStatusSelect.addEventListener('change', renderDetailActivity);
+        coverageMonthSelect.addEventListener('change', loadCoverageSummary);
         body.addEventListener('click', (event) => {
-            const button = event.target.closest('[data-atlas-evidence-row]');
+            const button = event.target.closest('[data-atlas-detail-group]');
             if (!button) return;
-            const row = visibleRows[Number(button.dataset.atlasEvidenceRow)];
-            if (row) showEvidenceModal(row);
+            const group = visibleGroups[Number(button.dataset.atlasDetailGroup)];
+            if (group) {
+                lastDetailTrigger = button;
+                showEvidenceModal(group);
+            }
         });
         routesState.addEventListener('click', (event) => {
             const button = event.target.closest('[data-atlas-route-map-id]');
             if (!button) return;
             loadRouteMapPreview(button);
         });
+        evidenceModalElement.addEventListener('hide.bs.modal', () => {
+            const focusedElement = document.activeElement;
+            if (focusedElement instanceof HTMLElement && evidenceModalElement.contains(focusedElement)) {
+                focusedElement.blur();
+            }
+        });
         evidenceModalElement.addEventListener('hidden.bs.modal', () => {
+            coverageAbortController?.abort();
+            coverageAbortController = null;
+            creditMetricsAbortController?.abort();
+            creditMetricsAbortController = null;
+            activeDetailGroup = null;
+            activeCreditMetrics = new Map();
+            creditMetricsLoading = false;
+            creditMetricsLoaded = false;
+            creditMetricsError = '';
             evidenceGrid.querySelectorAll('video, audio').forEach((media) => {
                 media.pause();
                 media.removeAttribute('src');
@@ -1099,14 +1771,27 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 media.load();
             });
             evidenceGrid.innerHTML = '';
+            detailSummary.innerHTML = '';
+            detailMeta.textContent = '';
+            creditMetricsNotice.innerHTML = '';
+            detailState.innerHTML = '';
+            detailStatusSelect.innerHTML = '<option value="">Todos los estatus</option>';
+            coverageMonthSelect.innerHTML = '';
+            coveragePeriod.textContent = '';
+            coverageState.innerHTML = '';
+            evidenceSectionMeta.textContent = '';
             routesState.innerHTML = '';
             routesMeta.textContent = '';
+            if (lastDetailTrigger instanceof HTMLElement && document.contains(lastDetailTrigger)) {
+                lastDetailTrigger.focus({ preventScroll: true });
+            }
+            lastDetailTrigger = null;
         });
 
         if (apiReady) {
             loadReport();
         } else {
-            body.innerHTML = '<tr><td class="atlas-attendance-empty" colspan="14">El reporte no está disponible por ahora. Si necesitas consultarlo, avísanos y lo revisamos.</td></tr>';
+            body.innerHTML = '<tr><td class="atlas-attendance-empty" colspan="5">El reporte no está disponible por ahora. Si necesitas consultarlo, avísanos y lo revisamos.</td></tr>';
             downloadButton.disabled = true;
         }
     };
