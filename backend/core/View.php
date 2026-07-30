@@ -1896,6 +1896,10 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                             <div class="leonidas-appearance-preview__model" data-leonidas-appearance-model></div>
                             <canvas class="leonidas-appearance-preview__fallback"
                                     width="300" height="410" data-leonidas-appearance-preview></canvas>
+                            <span class="leonidas-appearance-preview__rotate-hint" aria-hidden="true">
+                                <i class="fas fa-arrows-rotate"></i>
+                                Arrastra para girar
+                            </span>
                             <span data-leonidas-appearance-name>Corporativo</span>
                         </section>
                         <section class="leonidas-appearance-controls">

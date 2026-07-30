@@ -18335,7 +18335,16 @@ class CapHum extends Controller
   </td></tr></table>
 </body></html>';
 
-        return $this->enviarCorreo($correo, 'Carta de compromiso del Gestor pendiente', $cuerpo, $nombreCompleto, $rutaLogoInline, $this->adjuntosCartaCompromisoGestor());
+        return $this->enviarCorreo(
+            $correo,
+            'Carta de compromiso del Gestor pendiente',
+            $cuerpo,
+            $nombreCompleto,
+            $rutaLogoInline,
+            $this->adjuntosCartaCompromisoGestor(),
+            [],
+            true
+        );
     }
 
     private function generarTokenCartaCompromisoPersona(int $idPersona): string
@@ -20716,7 +20725,9 @@ class CapHum extends Controller
                     $rutaLogoInline,
                     [],
                     (($destinatarioJefe['tipo'] ?? '') === 'Jefe directo')
-                        ? ['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx' => 'Erika Ortiz']
+                        ? ($esGestorCobranza
+                            ? $this->ccIngresoJefeDivisional()
+                            : $this->correosActivosPorUsuario(['ESANCHEZ']))
                         : ((($destinatarioJefe['tipo'] ?? '') === 'Jefe divisional') ? $this->ccIngresoJefeDivisional() : []),
                     true
                 );
@@ -21352,9 +21363,6 @@ class CapHum extends Controller
         $validos = [];
         foreach ($rows as $row) {
             $correo = trim((string) ($row['correo'] ?? ''));
-            if (strcasecmp($correo, 'erika.sachez@__SPARTA_SECRET_REDACTED__.mx') === 0) {
-                $correo = 'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx';
-            }
             if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
                 continue;
             }
@@ -21367,42 +21375,23 @@ class CapHum extends Controller
         }
         if ($direccionCobranza) {
             $personasFijas = $this->obtenerPersonasActivasPorUsuario(['ESANCHEZ', 'SABUESOS', 'ORUIZ']);
-            $correoAlterno = static function (array $persona, string $correoPrincipal): array {
+            foreach ($personasFijas as $persona) {
                 $correo = strtolower(trim((string) ($persona['correo'] ?? '')));
-                if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL) || strcasecmp($correo, $correoPrincipal) === 0) {
-                    return [];
+                if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+                    continue;
                 }
-                return [$correo];
-            };
-            $personaErika = $personasFijas['ESANCHEZ'] ?? [];
-            $personaSabuesos = $personasFijas['SABUESOS'] ?? [];
-            $personaOwen = $personasFijas['ORUIZ'] ?? [];
-            $destinatariosFijosCobranza = [
-                'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx' => [
-                    'id' => (int) ($personaErika['id'] ?? $validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['id'] ?? 0),
-                    'nombre' => $personaErika['nombre'] ?? $validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['nombre'] ?? 'Erika Ortiz',
-                    'correo' => 'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx',
-                    'user_name' => $personaErika['user_name'] ?? $validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['user_name'] ?? 'ERIKA.ORTIZ',
-                    'correos_extra' => $correoAlterno($personaErika, 'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx'),
-                ],
-                'sabuesos@__SPARTA_SECRET_REDACTED__.mx' => [
-                    'id' => (int) ($personaSabuesos['id'] ?? 0),
-                    'nombre' => $personaSabuesos['nombre'] ?? 'Sabuesos',
-                    'correo' => 'sabuesos@__SPARTA_SECRET_REDACTED__.mx',
-                    'user_name' => $personaSabuesos['user_name'] ?? 'SABUESOS',
-                    'correos_extra' => $correoAlterno($personaSabuesos, 'sabuesos@__SPARTA_SECRET_REDACTED__.mx'),
-                ],
-                'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx' => [
-                    'id' => (int) ($personaOwen['id'] ?? 0),
-                    'nombre' => $personaOwen['nombre'] ?? 'Owen Ruiz',
-                    'correo' => 'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx',
-                    'user_name' => $personaOwen['user_name'] ?? 'OWEN.RUIZ',
-                    'correos_extra' => $correoAlterno($personaOwen, 'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx'),
-                ],
-            ];
-            foreach ($destinatariosFijosCobranza as $correoFijo => $datosFijos) {
-                $validos[$correoFijo] = $datosFijos;
+                $validos[$correo] = [
+                    'id' => (int) ($persona['id'] ?? 0),
+                    'nombre' => trim((string) ($persona['nombre'] ?? '')) ?: $correo,
+                    'correo' => $correo,
+                    'user_name' => trim((string) ($persona['user_name'] ?? '')),
+                    'correos_extra' => [],
+                ];
             }
+        }
+
+        if ($direccionCobranza) {
+            return array_values($validos);
         }
 
         $institucionales = array_filter($validos, static function ($row) {
@@ -21469,7 +21458,8 @@ class CapHum extends Controller
         string $fechaContratado,
         string $urlPlataforma,
         ?string $rutaLogoInline,
-        bool $crearNotificacionesInternas = true
+        bool $crearNotificacionesInternas = true,
+        bool $simular = false
     ): array {
         $destinatarios = $this->obtenerDestinatariosRevisionDocumental(self::candidatoEsDireccionCobranza($candidato));
         $destinatariosEmail = [];
@@ -21549,7 +21539,7 @@ class CapHum extends Controller
             $correo = (string) ($destinatario['correo'] ?? '');
             $nombre = (string) ($destinatario['nombre'] ?? '');
             try {
-                if ($this->enviarCorreo($correo, $asunto, $cuerpoHtml, $nombre, $rutaLogoInline, [], [], true)) {
+                if ($this->enviarCorreo($correo, $asunto, $cuerpoHtml, $nombre, $rutaLogoInline, [], [], true, $simular)) {
                     $enviados++;
                 } else {
                     $errores[] = $correo . ': ' . ($this->enviarCorreoUltimoError ?: 'No se pudo enviar.');
@@ -21558,12 +21548,13 @@ class CapHum extends Controller
                 $errores[] = $correo . ': ' . $e->getMessage();
             }
         }
-        $notificacionesInternas = $crearNotificacionesInternas
+        $notificacionesInternas = $crearNotificacionesInternas && !$simular
             ? $this->notificarResponsablesRevisionDocumentalAltaPlantilla($candidato, $nombreCompleto, $destinatarios)
             : ['ids' => [], 'total' => 0, 'creada' => false];
 
         return [
             'enviado' => $enviados === count($destinatariosEmail),
+            'simulado' => $simular,
             'error' => empty($errores) ? null : implode(' | ', $errores),
             'destinatarios' => $correos,
             'destinatarios_envio' => $correos,
@@ -21657,12 +21648,14 @@ class CapHum extends Controller
         string $fechaIngreso,
         string $fechaContratado,
         string $logoSrc,
-        ?string $rutaLogoInline
+        ?string $rutaLogoInline,
+        bool $simular = false
     ): array {
         $aplica = $this->candidatoEsGestorCobranzaIngreso($candidato);
         $resultado = [
             'aplica' => $aplica,
             'enviado' => !$aplica,
+            'simulado' => $simular,
             'error' => null,
             'destinatarios' => [],
             'enviados' => 0,
@@ -21739,7 +21732,8 @@ class CapHum extends Controller
                     $rutaLogoInline,
                     [],
                     $cc,
-                    true
+                    true,
+                    $simular
                 );
             } catch (\Throwable $e) {
                 $enviado = false;
@@ -22770,11 +22764,27 @@ class CapHum extends Controller
 
     private function ccIngresoJefeDivisional(): array
     {
-        return [
-            'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx' => 'Erika Ortiz',
-            'sabuesos@__SPARTA_SECRET_REDACTED__.mx' => 'Sabuesos',
-            'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx' => 'Owen Ruiz',
-        ];
+        // Los avisos de Cobranza se resuelven desde las fichas activas; las
+        // direcciones fijas heredadas pueden estar obsoletas o no ser válidas.
+        return $this->correosActivosPorUsuario(['ESANCHEZ', 'SABUESOS', 'ORUIZ']);
+    }
+
+    private function correosActivosPorUsuario(array $usuarios): array
+    {
+        $destinatarios = [];
+        foreach ($this->obtenerPersonasActivasPorUsuario($usuarios) as $persona) {
+            $correo = strtolower(trim((string) ($persona['correo'] ?? '')));
+            if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+                continue;
+            }
+            $destinatarios[$correo] = trim((string) ($persona['nombre'] ?? '')) ?: $correo;
+        }
+
+        if (empty($destinatarios)) {
+            error_log('CapHum::correosActivosPorUsuario: no se encontraron correos activos para los responsables solicitados.');
+        }
+
+        return $destinatarios;
     }
 
     private function etiquetaMotivoCierreCandidato(string $motivo): string
@@ -22856,11 +22866,7 @@ class CapHum extends Controller
                 $resultado['fallidos'][] = ['correo' => $correo, 'nombre' => (string) $nombre, 'motivo' => 'Correo inválido.'];
                 continue;
             }
-            if ($simular) {
-                $resultado['enviados']++;
-                continue;
-            }
-            $ok = $this->enviarCorreo($correo, $asunto, $html, (string) $nombre, $rutaLogoInline);
+            $ok = $this->enviarCorreo($correo, $asunto, $html, (string) $nombre, $rutaLogoInline, [], [], true, $simular);
             if ($ok) {
                 $resultado['enviados']++;
                 continue;
@@ -25730,7 +25736,7 @@ class CapHum extends Controller
      * @param string|null $rutaLogoInline Ruta absoluta al logo para incrustar (cid:) — si existe se adjunta y se usa cid:logo__SPARTA_SECRET_REDACTED__ en el HTML
      * @return bool
      */
-    private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '', $rutaLogoInline = null, array $adjuntos = [], array $cc = [], bool $permitirFallbackSmtp = false)
+    private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '', $rutaLogoInline = null, array $adjuntos = [], array $cc = [], bool $permitirFallbackSmtp = false, bool $simular = false)
     {
         $this->enviarCorreoUltimoCanal = '';
         $repoRoot = defined('RAIZ') ? dirname(RAIZ) : dirname(__DIR__, 2);
@@ -25811,12 +25817,32 @@ class CapHum extends Controller
             ];
         }
 
+        $registrarAceptacionCorreo = static function (string $canal) use ($para, $ccValidos): void {
+            $referencia = substr(hash('sha256', strtolower(trim((string) $para))), 0, 12);
+            error_log(sprintf(
+                'CapHum::enviarCorreo aceptado por proveedor canal=%s destinatario_ref=%s cc=%d',
+                $canal,
+                $referencia,
+                count($ccValidos)
+            ));
+        };
+
+        if (!filter_var($para, FILTER_VALIDATE_EMAIL)) {
+            $this->enviarCorreoUltimoError = 'Destinatario de correo inválido.';
+            return false;
+        }
+
         // --- SendGrid: solo API key, sin SMTP ni puertos (recomendado en Windows/XAMPP) ---
         if ($driver === 'sendgrid') {
             $apiKey = trim($get('MAIL_SENDGRID_API_KEY', 'sendgrid_api_key', ''));
             if ($apiKey === '' || $fromEmail === '') {
                 $this->enviarCorreoUltimoError = 'Con MAIL_DRIVER=sendgrid configure MAIL_SENDGRID_API_KEY y MAIL_FROM=postulaciones@maxikash.mx en .env. Verifique el dominio maxikash.mx en SendGrid con SPF/DKIM y genere una API key con permiso Mail Send.';
                 return false;
+            }
+            if ($simular) {
+                $this->enviarCorreoUltimoError = '';
+                $this->enviarCorreoUltimoCanal = 'simulado_sendgrid';
+                return true;
             }
             $personalization = ['to' => [['email' => $para, 'name' => $nombreDestinatario ?: $para]]];
             if (!empty($ccValidos)) {
@@ -25875,6 +25901,7 @@ class CapHum extends Controller
             if ($httpCode === 202) {
                 $this->enviarCorreoUltimoError = '';
                 $this->enviarCorreoUltimoCanal = 'sendgrid';
+                $registrarAceptacionCorreo('sendgrid');
                 return true;
             }
             $errBody = is_string($response) ? $response : '';
@@ -25890,6 +25917,11 @@ class CapHum extends Controller
                 $this->enviarCorreoUltimoError = 'Con MAIL_DRIVER=mail configure MAIL_FROM en .env.';
                 return false;
             }
+            if ($simular) {
+                $this->enviarCorreoUltimoError = '';
+                $this->enviarCorreoUltimoCanal = 'simulado_mail';
+                return true;
+            }
             $headers = "From: " . ($fromName ? "\"{$fromName}\" " : '') . "<{$fromEmail}>\r\n";
             if (!empty($ccValidos)) {
                 $headers .= 'Cc: ' . implode(', ', array_map(static function ($ccItem) {
@@ -25904,6 +25936,7 @@ class CapHum extends Controller
             }
             $this->enviarCorreoUltimoError = '';
             $this->enviarCorreoUltimoCanal = 'mail';
+            $registrarAceptacionCorreo('mail');
             return true;
         }
 
@@ -25933,19 +25966,31 @@ class CapHum extends Controller
             return false;
         }
 
-        // Diagnóstico: confirmar qué valores usamos (sin escribir la contraseña)
+        if ($simular) {
+            $fallbackListo = $permitirFallbackSmtp
+                && $fallbackSmtpHost !== ''
+                && $fallbackSmtpUser !== ''
+                && $fallbackSmtpPass !== '';
+            $this->enviarCorreoUltimoError = '';
+            $this->enviarCorreoUltimoCanal = $fallbackListo
+                ? 'simulado_principal_respaldo_listo'
+                : 'simulado_principal';
+            return true;
+        }
+
+        // Diagnóstico: confirmar configuración sin exponer cuentas ni contraseñas.
         $rootEnv     = defined('RAIZ') ? dirname(RAIZ) : (__DIR__ . '/../..');
         $envPath     = $rootEnv . '/.env';
         $fromEnv     = isset($envMail['MAIL_SMTP_USER']) ? 'sí' : 'no';
         $passLen     = strlen($smtpPass);
         $passLenRaw  = strlen(trim($smtpPassRaw));
         error_log(sprintf(
-            'CapHum SMTP: env=%s exists=%s host=%s port=%s user=%s pass_len=%d pass_raw_len=%d secure=%s from_env=%s',
+            'CapHum SMTP: env=%s exists=%s host=%s port=%s user_configurado=%s pass_len=%d pass_raw_len=%d secure=%s from_env=%s',
             $envPath,
             is_file($envPath) ? 'y' : 'n',
             $smtpHost,
             $smtpPort,
-            $smtpUser,
+            $smtpUser !== '' ? 'sí' : 'no',
             $passLen,
             $passLenRaw,
             $smtpSecure,
@@ -26009,6 +26054,7 @@ class CapHum extends Controller
             $mail->send();
             $this->enviarCorreoUltimoError = '';
             $this->enviarCorreoUltimoCanal = 'principal';
+            $registrarAceptacionCorreo('principal');
             return true;
         } catch (\Exception $e) {
             $msg = $e->getMessage();
@@ -26086,7 +26132,8 @@ class CapHum extends Controller
                     $mail->send();
                     $this->enviarCorreoUltimoError = '';
                     $this->enviarCorreoUltimoCanal = 'secundario';
-                    error_log('CapHum::enviarCorreo: envio realizado con SMTP secundario tras fallo del principal. user=' . $fallbackSmtpUser);
+                    $registrarAceptacionCorreo('secundario');
+                    error_log('CapHum::enviarCorreo: envio realizado con SMTP secundario tras fallo del principal.');
                     return true;
                 } catch (\Exception $fallbackException) {
                     if ($fallbackDebugLog !== '') {

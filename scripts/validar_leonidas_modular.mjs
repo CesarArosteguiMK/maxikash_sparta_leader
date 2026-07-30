@@ -105,6 +105,12 @@ if (!configuredAsset) {
         } else if (!materialNames.has('leonidasvisormaterial')) {
             fail('falta el material negro independiente de la visera');
         } else if (
+            Number(found.helmet.node.extras?.leonidasHelmetCrestFaces || 0) <= 0
+            || !materialNames.has('leonidascrestred')
+            || !materialNames.has('leonidascrestdark')
+        ) {
+            fail('helmet no contiene la melena roja segmentada');
+        } else if (
             !String(found.chest.node.extras?.leonidasChestSemanticFaces || '')
                 .includes('original=')
         ) {

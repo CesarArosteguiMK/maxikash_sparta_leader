@@ -6,7 +6,7 @@ pechera. El resultado debe revisarse visualmente antes de habilitarse.
 """
 
 import os
-from math import radians
+from math import pi, radians, sin
 
 import bmesh
 import bpy
@@ -368,6 +368,8 @@ def assign_body_semantic_materials(obj):
         'metal': 3,
     }
     face_roles = {}
+    protected_original_faces = set()
+    protected_metal_faces = set()
 
     for polygon in obj.data.polygons:
         center = Vector((0.0, 0.0, 0.0))
@@ -429,20 +431,32 @@ def assign_body_semantic_materials(obj):
             and upper_leg_ratio > 0.34
             and upper_leg_ratio > hips_ratio * 1.25
         )
+        protected_metal = (
+            foot_ratio > 0.12
+            or (
+                metal_limb_ratio > 0.08
+                and center.z < 0.48
+            )
+        )
+        protected_original = (
+            not protected_metal
+            and (
+                skin_ratio >= 0.5
+                or protected_upper_leg
+                or (center.z > 1.0 and head_ratio > 0.18)
+            )
+        )
+        if protected_metal:
+            protected_metal_faces.add(polygon.index)
+        elif protected_original:
+            protected_original_faces.add(polygon.index)
 
-        if foot_ratio > 0.24:
+        if protected_metal:
             # El modelo no tiene pie desnudo: esta zona corresponde a la bota
             # y su puntera. Debe pintarse completa, no por manchas del atlas.
             role = 'metal'
-        elif skin_ratio >= 0.5 or protected_upper_leg:
+        elif protected_original:
             role = 'original'
-        elif center.z > 1.0 and head_ratio > 0.18:
-            role = 'original'
-        elif (
-            metal_limb_ratio > 0.34
-            and (center.z < 0.70 or center.z > 0.76)
-        ):
-            role = 'metal'
         elif (
             0.42 < center.z < 0.84
             and hips_ratio + upper_leg_ratio > 0.08
@@ -499,6 +513,18 @@ def assign_body_semantic_materials(obj):
             'role': role,
             **votes,
         })
+
+    # Una isla UV puede contener piel y vestuario. Las protecciones por cara
+    # se aplican al final para que el voto de la isla jamás pinte anatomía ni
+    # deje una puntera o greba con el color del faldón.
+    for face_index in protected_original_faces:
+        obj.data.polygons[face_index].material_index = material_indices['original']
+    for face_index in protected_metal_faces:
+        obj.data.polygons[face_index].material_index = material_indices['metal']
+    counts = {role: 0 for role in roles}
+    for polygon in obj.data.polygons:
+        counts[roles[polygon.material_index]] += 1
+
     print('LEONIDAS_BODY_UV_ISLANDS', island_summary[:30])
 
     obj['leonidasSemanticFaces'] = ':'.join(
@@ -581,61 +607,341 @@ def assign_chest_semantic_materials(obj):
 
 
 def add_helmet_visor(obj):
-    """Añade una visera negra en T sin recortar ni colorear el rostro."""
+    """Construye una abertura en T angular y un penacho de crin volumétrico."""
     minimum, maximum = mesh_vertex_bounds(obj)
     size = maximum - minimum
     center_x = (minimum.x + maximum.x) * 0.5
     half_width = size.x * 0.5
-    front_y = minimum.y - size.y * 0.012
     inverse = obj.matrix_world.inverted()
     old_vertex_count = len(obj.data.vertices)
 
     visor = bpy.data.materials.new('LeonidasVisorMaterial')
     visor.use_nodes = True
+    visor.use_backface_culling = False
     shader = visor.node_tree.nodes.get('Principled BSDF')
     shader.inputs['Base Color'].default_value = (0.008, 0.012, 0.018, 1.0)
-    shader.inputs['Metallic'].default_value = 0.15
-    shader.inputs['Roughness'].default_value = 0.26
+    shader.inputs['Metallic'].default_value = 0.04
+    shader.inputs['Roughness'].default_value = 0.72
     obj.data.materials.append(visor)
     visor_index = len(obj.data.materials) - 1
+
+    crest_materials = []
+    for name, color in (
+        ('LeonidasCrestRed', (0.34, 0.008, 0.014, 1.0)),
+        ('LeonidasCrestDark', (0.24, 0.004, 0.008, 1.0)),
+        ('LeonidasCrestHighlight', (0.41, 0.014, 0.020, 1.0)),
+    ):
+        material = bpy.data.materials.new(name)
+        material.use_nodes = True
+        material.use_backface_culling = False
+        crest_shader = material.node_tree.nodes.get('Principled BSDF')
+        crest_shader.inputs['Base Color'].default_value = color
+        crest_shader.inputs['Metallic'].default_value = 0.01
+        crest_shader.inputs['Roughness'].default_value = 0.78
+        obj.data.materials.append(material)
+        crest_materials.append(len(obj.data.materials) - 1)
 
     mesh = bmesh.new()
     mesh.from_mesh(obj.data)
 
-    def add_quad(points):
-        vertices = [
-            mesh.verts.new(inverse @ Vector(point))
-            for point in points
-        ]
-        face = mesh.faces.new(vertices)
-        face.material_index = visor_index
+    def curved_front_y(x_position, z_position):
+        normalized_x = (x_position - center_x) / max(half_width, 0.0001)
+        normalized_z = (
+            z_position - (minimum.z + size.z * 0.52)
+        ) / max(size.z, 0.0001)
+        return (
+            minimum.y
+            - size.y * 0.002
+            + size.y * 0.11 * normalized_x * normalized_x
+            + size.y * 0.035 * normalized_z * normalized_z
+        )
 
-    eye_top = minimum.z + size.z * 0.635
-    eye_inner = minimum.z + size.z * 0.545
-    eye_outer = minimum.z + size.z * 0.575
-    inner_x = half_width * 0.10
-    outer_x = half_width * 0.73
-    add_quad([
-        (center_x - outer_x, front_y, eye_top),
-        (center_x - inner_x, front_y, eye_top - size.z * 0.015),
-        (center_x - inner_x, front_y, eye_inner),
-        (center_x - outer_x, front_y, eye_outer),
-    ])
-    add_quad([
-        (center_x + inner_x, front_y, eye_top - size.z * 0.015),
-        (center_x + outer_x, front_y, eye_top),
-        (center_x + outer_x, front_y, eye_outer),
-        (center_x + inner_x, front_y, eye_inner),
-    ])
-    nasal_top = eye_inner + size.z * 0.025
-    nasal_bottom = minimum.z + size.z * 0.205
-    nasal_half = half_width * 0.105
-    add_quad([
-        (center_x - nasal_half, front_y, nasal_top),
-        (center_x + nasal_half, front_y, nasal_top),
-        (center_x + nasal_half * 0.62, front_y, nasal_bottom),
-        (center_x - nasal_half * 0.62, front_y, nasal_bottom),
-    ])
+    visor_outline = (
+        (0.050, 0.610),
+        (0.635, 0.630),
+        (0.585, 0.580),
+        (0.175, 0.548),
+        (0.300, 0.265),
+        (0.072, 0.292),
+        (0.055, 0.565),
+    )
+
+    def point_in_outline(x_ratio, z_ratio):
+        inside = False
+        previous = len(visor_outline) - 1
+        for current, (current_x, current_z) in enumerate(visor_outline):
+            previous_x, previous_z = visor_outline[previous]
+            vertical_delta = previous_z - current_z
+            crosses = (
+                (current_z > z_ratio) != (previous_z > z_ratio)
+                and abs(vertical_delta) > 0.000001
+                and x_ratio
+                < (
+                    (previous_x - current_x)
+                    * (z_ratio - current_z)
+                    / vertical_delta
+                    + current_x
+                )
+            )
+            if crosses:
+                inside = not inside
+            previous = current
+        return inside
+
+    # Se retiran caras reales de la máscara frontal. La oscuridad se colocará
+    # al fondo de la cavidad, no encima del metal.
+    opening_faces = []
+    front_limit = minimum.y + size.y * 0.34
+    for face in list(mesh.faces):
+        sample = obj.matrix_world @ face.calc_center_median()
+        x_ratio = abs(sample.x - center_x) / max(half_width, 0.0001)
+        z_ratio = (sample.z - minimum.z) / max(size.z, 0.0001)
+        should_open = (
+            sample.y <= front_limit
+            and point_in_outline(x_ratio, z_ratio)
+        )
+        if should_open:
+            opening_faces.append(face)
+    if opening_faces:
+        bmesh.ops.delete(mesh, geom=opening_faces, context='FACES')
+
+    def add_visor_half(sign):
+        # El fondo mate se retrasa y las paredes conservan el material metálico.
+        # Eso crea borde, profundidad y sombra reales.
+        outer_vertices = []
+        inner_vertices = []
+        inner_world_points = []
+        cavity_depth = size.y * 0.006
+        for x_ratio, z_ratio in visor_outline:
+            x_position = center_x + sign * half_width * x_ratio
+            z_position = minimum.z + size.z * z_ratio
+            surface_y = curved_front_y(x_position, z_position)
+            outer_world = Vector((
+                x_position,
+                surface_y + size.y * 0.002,
+                z_position,
+            ))
+            inner_world = Vector((
+                x_position,
+                surface_y + cavity_depth,
+                z_position,
+            ))
+            outer_vertices.append(mesh.verts.new(inverse @ outer_world))
+            inner_vertices.append(mesh.verts.new(inverse @ inner_world))
+            inner_world_points.append(inner_world)
+
+        center = sum(inner_world_points, Vector()) / len(inner_world_points)
+        center_vertex = mesh.verts.new(inverse @ center)
+        black_faces = 0
+        wall_faces = 0
+        for index in range(len(inner_vertices)):
+            following = (index + 1) % len(inner_vertices)
+            if sign < 0:
+                face_vertices = [
+                    center_vertex,
+                    inner_vertices[index],
+                    inner_vertices[following],
+                ]
+            else:
+                face_vertices = [
+                    center_vertex,
+                    inner_vertices[following],
+                    inner_vertices[index],
+                ]
+            face = mesh.faces.new(face_vertices)
+            face.material_index = visor_index
+            black_faces += 1
+
+            wall = mesh.faces.new([
+                outer_vertices[index],
+                outer_vertices[following],
+                inner_vertices[following],
+                inner_vertices[index],
+            ])
+            wall.material_index = 0
+            wall_faces += 1
+        return black_faces, wall_faces
+
+    left_visor_faces, left_wall_faces = add_visor_half(-1)
+    right_visor_faces, right_wall_faces = add_visor_half(1)
+    visor_faces = left_visor_faces + right_visor_faces
+    visor_wall_faces = left_wall_faces + right_wall_faces
+
+    # El penacho ya no es una placa. Una base baja sigue la cúpula y sostiene
+    # cintas de crin solapadas, con puntas desiguales y caída hacia atrás.
+    crest_sections = 37
+    crest_faces = 0
+    rail_height = size.z * 0.050
+    rail_half_width = half_width * 0.19
+    crest_profile = []
+    rail_rings = []
+    for section in range(crest_sections):
+        progress = section / (crest_sections - 1)
+        base_y = minimum.y + size.y * (0.115 + progress * 1.09)
+        dome_falloff = pow(progress * 2 - 1, 2)
+        base_z = maximum.z - size.z * (
+            0.058 + 0.178 * dome_falloff
+        )
+        arch = sin(pi * progress)
+        end_bias = 1.0 - pow(abs(progress * 2 - 1), 0.78)
+        strand_height = size.z * (
+            0.090
+            + 0.350 * pow(max(arch, 0.0), 0.70)
+            + 0.026 * end_bias
+        )
+        top_y = base_y + size.y * (
+            0.035 + 0.105 * pow(progress, 1.18)
+        )
+        crest_profile.append((
+            progress,
+            base_y,
+            base_z,
+            top_y,
+            strand_height,
+            arch,
+        ))
+        rail_rings.append([
+            mesh.verts.new(inverse @ Vector((
+                center_x - rail_half_width,
+                base_y,
+                base_z,
+            ))),
+            mesh.verts.new(inverse @ Vector((
+                center_x + rail_half_width,
+                base_y,
+                base_z,
+            ))),
+            mesh.verts.new(inverse @ Vector((
+                center_x - rail_half_width * 0.84,
+                base_y,
+                base_z + rail_height,
+            ))),
+            mesh.verts.new(inverse @ Vector((
+                center_x + rail_half_width * 0.84,
+                base_y,
+                base_z + rail_height,
+            ))),
+        ])
+
+    for section in range(crest_sections - 1):
+        current = rail_rings[section]
+        following = rail_rings[section + 1]
+        for indices in (
+            (2, 3, 3, 2),
+            (0, 2, 2, 0),
+            (1, 3, 3, 1),
+        ):
+            face = mesh.faces.new([
+                current[indices[0]],
+                current[indices[1]],
+                following[indices[2]],
+                following[indices[3]],
+            ])
+            face.material_index = crest_materials[1]
+            face.smooth = True
+            crest_faces += 1
+
+    for ring in (rail_rings[0], rail_rings[-1]):
+        face = mesh.faces.new([ring[0], ring[2], ring[3], ring[1]])
+        face.material_index = crest_materials[1]
+        crest_faces += 1
+
+    strand_rows = (-0.76, -0.38, 0.0, 0.38, 0.76)
+    section_spacing = size.y * 1.09 / (crest_sections - 1)
+    for section, profile in enumerate(crest_profile):
+        progress, base_y, base_z, top_y, strand_height, arch = profile
+        strand_half_width = half_width * (
+            0.19 + 0.055 * pow(max(arch, 0.0), 0.70)
+        )
+        for row_index, row in enumerate(strand_rows):
+            irregularity = sin(
+                (section * 1.91) + (row_index * 2.73)
+            )
+            base_world = Vector((
+                center_x + strand_half_width * row,
+                base_y + size.y * irregularity * 0.006,
+                base_z + rail_height * 0.34,
+            ))
+            tip_world = Vector((
+                center_x + strand_half_width * row * 0.64,
+                top_y + size.y * irregularity * 0.012,
+                base_z
+                + strand_height
+                + size.z * irregularity * 0.014,
+            ))
+            base_half_x = half_width * (
+                0.044 if row_index == 2 else 0.039
+            )
+            tip_half_x = base_half_x * 0.58
+            base_half_y = section_spacing * 0.78
+            tip_half_y = section_spacing * 0.28
+            world_vertices = (
+                Vector((
+                    base_world.x - base_half_x,
+                    base_world.y - base_half_y,
+                    base_world.z,
+                )),
+                Vector((
+                    base_world.x + base_half_x,
+                    base_world.y - base_half_y,
+                    base_world.z,
+                )),
+                Vector((
+                    base_world.x + base_half_x,
+                    base_world.y + base_half_y,
+                    base_world.z,
+                )),
+                Vector((
+                    base_world.x - base_half_x,
+                    base_world.y + base_half_y,
+                    base_world.z,
+                )),
+                Vector((
+                    tip_world.x - tip_half_x,
+                    tip_world.y - tip_half_y,
+                    tip_world.z,
+                )),
+                Vector((
+                    tip_world.x + tip_half_x,
+                    tip_world.y - tip_half_y,
+                    tip_world.z,
+                )),
+                Vector((
+                    tip_world.x + tip_half_x,
+                    tip_world.y + tip_half_y,
+                    tip_world.z,
+                )),
+                Vector((
+                    tip_world.x - tip_half_x,
+                    tip_world.y + tip_half_y,
+                    tip_world.z,
+                )),
+            )
+            vertices = [
+                mesh.verts.new(inverse @ point)
+                for point in world_vertices
+            ]
+            if (section + row_index) % 11 == 0:
+                material_index = crest_materials[2]
+            elif section % 6 == 0:
+                material_index = crest_materials[1]
+            else:
+                material_index = crest_materials[0]
+            for indices in (
+                (0, 1, 2, 3),
+                (4, 7, 6, 5),
+                (0, 4, 5, 1),
+                (1, 5, 6, 2),
+                (2, 6, 7, 3),
+                (3, 7, 4, 0),
+            ):
+                face = mesh.faces.new([
+                    vertices[index] for index in indices
+                ])
+                face.material_index = material_index
+                face.smooth = True
+                crest_faces += 1
+
     mesh.to_mesh(obj.data)
     mesh.free()
 
@@ -644,8 +950,17 @@ def add_helmet_visor(obj):
     if head_group is None:
         head_group = obj.vertex_groups.new(name='mixamorig:Head')
     head_group.add(new_vertex_indices, 1.0, 'REPLACE')
-    obj['leonidasHelmetVisorFaces'] = 3
-    print('LEONIDAS_HELMET_VISOR', {'faces': 3})
+
+    obj['leonidasHelmetVisorFaces'] = visor_faces
+    obj['leonidasHelmetOpeningFaces'] = len(opening_faces)
+    obj['leonidasHelmetVisorWallFaces'] = visor_wall_faces
+    obj['leonidasHelmetCrestFaces'] = crest_faces
+    print('LEONIDAS_HELMET_VISOR', {
+        'visor_faces': visor_faces,
+        'opening_faces': len(opening_faces),
+        'wall_faces': visor_wall_faces,
+        'crest_faces': crest_faces,
+    })
 
 
 def equipment_faces(obj):
