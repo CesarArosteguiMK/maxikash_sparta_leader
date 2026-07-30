@@ -64,9 +64,11 @@ appearanceIntegrationAssert(
         && str_contains($builder, 'LeonidasPrimary')
         && str_contains($builder, 'LeonidasSecondary')
         && str_contains($builder, 'LeonidasMetal')
-        && str_contains($builder, 'open_helmet_face')
+        && str_contains($builder, 'add_helmet_visor')
+        && str_contains($builder, 'LeonidasVisorMaterial')
+        && str_contains($builder, 'assign_chest_semantic_materials')
         && str_contains($threeJs, 'modularParts.headUnderlay.visible = true'),
-    'Los colores deben usar materiales semanticos y el casco debe mostrar el rostro real.'
+    'Los colores deben usar materiales semanticos y el casco debe ocultar el rostro tras una visera propia.'
 );
 appearanceIntegrationAssert(
     str_contains($threeJs, '|| region === RIG_REGION.chest')

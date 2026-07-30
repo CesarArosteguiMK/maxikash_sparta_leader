@@ -1,5 +1,5 @@
 {
-  "version": 24,
+  "version": 25,
   "enabled": true,
   "asset": "/assets/models/leonidas/leonidas-spartan-modular-v2.glb",
   "requiredParts": [

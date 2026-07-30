@@ -69,6 +69,9 @@ if (!configuredAsset) {
                 .map((material) => normalized(material.extras?.leonidasPalette))
                 .filter(Boolean)
         );
+        const materialNames = new Set(
+            (document.materials || []).map((material) => normalized(material.name))
+        );
         const missing = required.filter((role) => !found[role]);
         if (missing.length) {
             fail(`faltan piezas independientes: ${missing.join(', ')}`);
@@ -96,9 +99,16 @@ if (!configuredAsset) {
         ) {
             fail('body no declara la separacion semantica de piel y vestuario');
         } else if (
-            Number(found.helmet.node.extras?.leonidasHelmetOpeningFaces || 0) <= 0
+            Number(found.helmet.node.extras?.leonidasHelmetVisorFaces || 0) <= 0
         ) {
-            fail('helmet no contiene aberturas para mostrar el rostro anatomico');
+            fail('helmet no contiene la visera cerrada independiente');
+        } else if (!materialNames.has('leonidasvisormaterial')) {
+            fail('falta el material negro independiente de la visera');
+        } else if (
+            !String(found.chest.node.extras?.leonidasChestSemanticFaces || '')
+                .includes('original=')
+        ) {
+            fail('chest no separa la piel original de la pechera metalica');
         } else {
             console.log(
                 `Leonidas modular: OK - ${required.map((role) => `${role}=${found[role].node.name}`).join(', ')}`
