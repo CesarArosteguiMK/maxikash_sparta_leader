@@ -356,7 +356,15 @@ $tipoInicial = $tipos[0] ?? [
     const cargarAvance = async ({silencioso = false} = {}) => {
         if (!campaniaAvance) return;
         detenerActualizacionAvance();
-        if (consultaAvanceEnCurso) return;
+        if (consultaAvanceEnCurso) {
+            if (silencioso) return;
+            // Una acción explícita (reintento, filtro o búsqueda) no puede ser
+            // descartada por el refresco automático. Espera a que termine la
+            // consulta anterior y vuelve a leer el estado confirmado en BD.
+            while (consultaAvanceEnCurso) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+        }
         consultaAvanceEnCurso = true;
         const cuerpo = $('#avanceCuerpo');
         const modal = $('#modalAvanceCampania');
