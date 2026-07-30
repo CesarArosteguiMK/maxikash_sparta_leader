@@ -10089,6 +10089,12 @@ class CapHum extends Controller
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar campañas.']);
             return;
         }
+        $campaniasPendientes = CapHumNotificacionDocumental::campaniasPendientesAnalisisPatrones();
+        if ($campaniasPendientes && CapHumNotificacionDocumental::motorV1PatronesDisponible()) {
+            foreach ($campaniasPendientes as $idCampania) {
+                $this->iniciarWorkerPatronesNotificacionDocumental($idCampania, true);
+            }
+        }
         self::respuestaJSON(CapHumNotificacionDocumental::listarCampanias());
     }
 
@@ -10179,6 +10185,7 @@ class CapHum extends Controller
             return;
         }
         $idCampania = (int)($_GET['id'] ?? 0);
+        $soloEstado = (string)($_GET['solo_estado'] ?? '0') === '1';
         $resultado = CapHumNotificacionDocumental::personasCampania(
             $idCampania,
             (string)($_GET['estado'] ?? 'todos'),
@@ -10197,15 +10204,14 @@ class CapHum extends Controller
             }
             unset($persona);
         }
-        $workerLanzado = true;
-        if ($hayPendienteConArchivo) {
-            $workerLanzado = $this->iniciarWorkerPatronesNotificacionDocumental($idCampania);
-        }
-        if (!empty($resultado['datos']) && is_array($resultado['datos'])) {
+        $motorDisponible = $hayPendienteConArchivo && !$soloEstado
+            ? CapHumNotificacionDocumental::motorV1PatronesDisponible()
+            : null;
+        if ($motorDisponible !== null && !empty($resultado['datos']) && is_array($resultado['datos'])) {
             foreach ($resultado['datos'] as &$persona) {
                 if (($persona['estado_analisis_patrones'] ?? '') === 'pendiente'
                     && !empty($persona['archivo_disponible_nodo'])) {
-                    $persona['worker_lanzado_nodo'] = $workerLanzado;
+                    $persona['worker_lanzado_nodo'] = $motorDisponible;
                 }
             }
             unset($persona);
@@ -10231,9 +10237,15 @@ class CapHum extends Controller
         self::respuestaJSON($resultado);
     }
 
-    private function iniciarWorkerPatronesNotificacionDocumental(int $idCampania): bool
+    private function iniciarWorkerPatronesNotificacionDocumental(
+        int $idCampania,
+        bool $motorValidado = false
+    ): bool
     {
         if ($idCampania <= 0 || !defined('RAIZ')) {
+            return false;
+        }
+        if (!$motorValidado && !CapHumNotificacionDocumental::motorV1PatronesDisponible()) {
             return false;
         }
         $script = RAIZ . '/cronjobs/procesar_patrones_notificacion_documental.php';

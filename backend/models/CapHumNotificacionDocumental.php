@@ -1033,8 +1033,8 @@ class CapHumNotificacionDocumental extends Model
             ],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 20,
-            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 2,
         ]);
         $body = curl_exec($ch);
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -1043,6 +1043,29 @@ class CapHumNotificacionDocumental extends Model
         }
         $data = json_decode((string)$body, true);
         return is_array($data) ? $data : null;
+    }
+
+    public static function motorV1PatronesDisponible(): bool
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return false;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrl = trim((string)($config['doc_verificacion']['api_url'] ?? ''));
+        if ($apiUrl === '') {
+            return false;
+        }
+        $baseUrl = preg_replace('#/verificar/?\s*$#', '', $apiUrl);
+        $ch = curl_init(rtrim((string)$baseUrl, '/') . '/health');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 3,
+            CURLOPT_CONNECTTIMEOUT => 2,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        return $body !== false && $httpCode === 200;
     }
 
     public static function contarEntregasPendientesAnalisisPatrones(int $idCampania): int
@@ -1062,5 +1085,27 @@ class CapHumNotificacionDocumental extends Model
             'tipo' => self::TIPO_SEMANAS_COTIZADAS,
         ]);
         return (int)($row['total'] ?? 0);
+    }
+
+    public static function campaniasPendientesAnalisisPatrones(int $limite = 20): array
+    {
+        self::asegurarTablas();
+        $limite = max(1, min(100, $limite));
+        $db = new Database();
+        $rows = $db->queryAll("
+            SELECT DISTINCT e.id_campania
+            FROM estado_cuenta.rrhh_notificacion_documental_entrega e
+            INNER JOIN estado_cuenta.rrhh_notificacion_documental_campania c
+                ON c.id = e.id_campania
+            WHERE c.tipo = :tipo
+              AND e.patrones_analizado_en IS NULL
+            ORDER BY e.id_campania ASC
+            LIMIT {$limite}
+        ", ['tipo' => self::TIPO_SEMANAS_COTIZADAS]);
+
+        return array_values(array_filter(array_map(
+            static fn(array $row): int => (int)($row['id_campania'] ?? 0),
+            $rows ?: []
+        )));
     }
 }
