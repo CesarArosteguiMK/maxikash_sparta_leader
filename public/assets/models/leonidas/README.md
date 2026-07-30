@@ -14,8 +14,8 @@ esqueleto, animación, proporciones, texturas y apariencia del FBX anterior,
 pero separa seis partes:
 
 - `LeonidasBody`: cuerpo estable, extremidades y faldón.
-- `LeonidasHelmet`: casco corintio abierto, con nasal y carrilleras.
-- `LeonidasChest`: carcasa completa del torso con pechera.
+- `LeonidasHelmet`: casco cerrado, con visor negro en forma de T.
+- `LeonidasChest`: carcasa del torso con separación de piel y pechera.
 - `LeonidasHeadUnderlay`: cabeza anatómica visible al retirar el casco.
 - `LeonidasTorsoUnderlay`: torso anatómico visible al retirar la pechera.
 - `LeonidasHair`: cabello corto independiente, visible solamente sin casco y
@@ -27,23 +27,25 @@ cumple el contrato.
 
 ## Colores
 
-La paleta modular ya no intenta adivinar zonas a partir del color del atlas.
-Durante la construcciÃ³n, cada isla UV se asigna a un material semÃ¡ntico
-independiente:
+La paleta modular no modifica píxeles del atlas compartido. Durante la
+construcción, cada isla UV se asigna a un material semántico independiente:
 
 - `primary`: tela interior y base del faldón.
 - `secondary`: correas, ribetes y acentos discretos; los paneles grandes de
   cuero conservan su acabado original.
-- `metal`: casco, pechera, grebas, brazales y broches.
-- `original`: piel y anatomÃ­a; nunca recibe la paleta.
+- `metal`: casco, pechera, grebas, brazales, botas completas y broches.
+- `original`: piel y anatomía; nunca recibe la paleta.
 
-Los materiales de vestuario conservan la geometrÃ­a, las normales y el sombreado
-3D, pero reciben un color sÃ³lido independiente. AsÃ­ no existen pÃ­xeles
-compartidos capaces de pintar piel, rostro u otra prenda.
+Los materiales de vestuario conservan la geometría, las normales y el
+sombreado 3D, pero reciben un color sólido independiente. Así no existen
+píxeles compartidos capaces de pintar piel, rostro u otra prenda.
 
-La cabeza anatÃ³mica permanece activa debajo del casco. Las aberturas pequeÃ±as
-de ojos y boca muestran esa piel real sin destruir la silueta corintia; el
-material metÃ¡lico solo pertenece a la carcasa.
+La cabeza anatómica permanece activa debajo del casco, pero la carcasa es
+cerrada y no se recorta alrededor del rostro. Una pieza negra independiente
+forma el visor en T: nunca recibe los colores del metal y evita que la cara
+quede expuesta o parezca pintada. La pechera conserva en el material original
+las islas que corresponden a piel, y el calzado completo se clasifica por sus
+huesos de pie y dedos para impedir punteras beige.
 
 ## Reconstrucción y validación
 
@@ -51,9 +53,10 @@ material metÃ¡lico solo pertenece a la carcasa.
 de los activos locales. Antes de habilitar una nueva exportación:
 
 1. Ejecutar `node scripts/validar_leonidas_modular.mjs`.
-2. Revisar las cinco paletas.
+2. Revisar visualmente las cinco paletas.
 3. Revisar las combinaciones de casco, pechera y cabello, incluida la opción
    completamente calva.
-4. Confirmar pose, animación, rostro, uniones de hombros y cintura.
+4. Confirmar pose, animación, rostro, uniones de hombros, cintura y calzado.
 
-El archivo actual pasó la validación estructural y esas revisiones visuales.
+La validación estructural exige un visor independiente, materiales semánticos
+completos y separación explícita entre piel original y pechera metálica.

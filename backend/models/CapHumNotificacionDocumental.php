@@ -668,7 +668,7 @@ class CapHumNotificacionDocumental extends Model
                 ORDER BY (e.id IS NULL) DESC, nombre ASC
                 LIMIT 1000
             ", $params);
-            foreach ($rows ?: [] as &$row) {
+            foreach ($rows as &$row) {
                 $row['mensaje_analisis_patrones'] = '';
                 $analisis = json_decode((string)($row['patrones_analisis_json'] ?? ''), true);
                 if (($row['estado_analisis_patrones'] ?? '') === 'sin_lectura'

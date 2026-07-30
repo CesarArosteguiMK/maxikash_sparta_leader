@@ -392,6 +392,7 @@ def assign_body_semantic_materials(obj):
         torso_ratio = ratio('spine', 'shoulder', 'clavicle', 'upperarm')
         hips_ratio = ratio('hips', 'pelvis')
         upper_leg_ratio = ratio('upleg', 'thigh')
+        foot_ratio = ratio('foot', 'toe')
         metal_limb_ratio = sum(
             weight
             for name, weight in scores.items()
@@ -429,7 +430,11 @@ def assign_body_semantic_materials(obj):
             and upper_leg_ratio > hips_ratio * 1.25
         )
 
-        if skin_ratio >= 0.5 or protected_upper_leg:
+        if foot_ratio > 0.24:
+            # El modelo no tiene pie desnudo: esta zona corresponde a la bota
+            # y su puntera. Debe pintarse completa, no por manchas del atlas.
+            role = 'metal'
+        elif skin_ratio >= 0.5 or protected_upper_leg:
             role = 'original'
         elif center.z > 1.0 and head_ratio > 0.18:
             role = 'original'
@@ -514,48 +519,133 @@ def assign_solid_palette_material(obj, role):
     obj.data.materials.append(material)
     for polygon in obj.data.polygons:
         polygon.material_index = 0
-    obj['leonidasPalette'] = role
 
 
-def open_helmet_face(obj):
-    """Abre ojos, mejillas y boca conservando nasal y carrilleras.
+def is_confident_skin(pixel):
+    red, green, blue, alpha = pixel
+    return (
+        is_skin(pixel)
+        and alpha >= 12
+        and blue >= green * 0.78
+        and red <= green * 1.48
+    )
 
-    El modelo original era una máscara cerrada con forma de rostro. Por eso,
-    aunque la cabeza anatómica estuviera debajo, solo se veía metal. Esta
-    operación convierte la máscara en un casco corintio funcional.
-    """
-    # keep_faces() parte de una copia del personaje completo; bound_box puede
-    # conservar temporalmente esos límites. Los vértices actuales son la
-    # fuente fiable para recortar solo el casco.
+
+def assign_chest_semantic_materials(obj):
+    """Evita que la pechera pinte piel cercana de hombros o axilas."""
+    original = obj.data.materials[0]
+    metal = create_palette_material(
+        'LeonidasChestMetal',
+        'metal',
+        metalness=0.52,
+        roughness=0.42,
+    )
+    obj.data.materials.clear()
+    obj.data.materials.append(original)
+    obj.data.materials.append(metal)
+    width, height, pixels = load_pixels(
+        os.path.join(MODEL_ROOT, 'leonidas-spartan-color.webp')
+    )
+    uv_layer = obj.data.uv_layers.active.data
+    initial = {}
+    for polygon in obj.data.polygons:
+        samples = [
+            sample_texture(pixels, width, height, uv_layer[index].uv)
+            for index in polygon.loop_indices
+        ]
+        skin_ratio = (
+            sum(1 for pixel in samples if is_confident_skin(pixel))
+            / max(len(samples), 1)
+        )
+        initial[polygon.index] = 'original' if skin_ratio >= 0.5 else 'metal'
+
+    counts = {'original': 0, 'metal': 0}
+    for island in uv_face_components(obj):
+        original_votes = sum(
+            1 for face_index in island
+            if initial[face_index] == 'original'
+        )
+        role = (
+            'original'
+            if original_votes / len(island) >= 0.42
+            else 'metal'
+        )
+        material_index = 0 if role == 'original' else 1
+        for face_index in island:
+            obj.data.polygons[face_index].material_index = material_index
+        counts[role] += len(island)
+    obj['leonidasChestSemanticFaces'] = (
+        f"original={counts['original']}:metal={counts['metal']}"
+    )
+    print('LEONIDAS_CHEST_SEMANTIC_MATERIALS', counts)
+
+
+def add_helmet_visor(obj):
+    """Añade una visera negra en T sin recortar ni colorear el rostro."""
     minimum, maximum = mesh_vertex_bounds(obj)
     size = maximum - minimum
     center_x = (minimum.x + maximum.x) * 0.5
-    half_width = max(size.x * 0.5, 0.001)
-    front_limit = minimum.y + size.y * 0.34
+    half_width = size.x * 0.5
+    front_y = minimum.y - size.y * 0.012
+    inverse = obj.matrix_world.inverted()
+    old_vertex_count = len(obj.data.vertices)
+
+    visor = bpy.data.materials.new('LeonidasVisorMaterial')
+    visor.use_nodes = True
+    shader = visor.node_tree.nodes.get('Principled BSDF')
+    shader.inputs['Base Color'].default_value = (0.008, 0.012, 0.018, 1.0)
+    shader.inputs['Metallic'].default_value = 0.15
+    shader.inputs['Roughness'].default_value = 0.26
+    obj.data.materials.append(visor)
+    visor_index = len(obj.data.materials) - 1
+
     mesh = bmesh.new()
     mesh.from_mesh(obj.data)
-    remove = []
-    for face in mesh.faces:
-        world = obj.matrix_world @ face.calc_center_median()
-        if world.y >= front_limit:
-            continue
-        height = (world.z - minimum.z) / max(size.z, 0.001)
-        horizontal = abs(world.x - center_x) / half_width
-        mouth_opening = 0.05 < height < 0.30 and horizontal < 0.46
-        eye_cheek_opening = (
-            0.47 < height < 0.60
-            and 0.16 < horizontal < 0.60
-        )
-        if mouth_opening or eye_cheek_opening:
-            remove.append(face)
-    bmesh.ops.delete(mesh, geom=remove, context='FACES')
-    loose = [vertex for vertex in mesh.verts if not vertex.link_faces]
-    if loose:
-        bmesh.ops.delete(mesh, geom=loose, context='VERTS')
+
+    def add_quad(points):
+        vertices = [
+            mesh.verts.new(inverse @ Vector(point))
+            for point in points
+        ]
+        face = mesh.faces.new(vertices)
+        face.material_index = visor_index
+
+    eye_top = minimum.z + size.z * 0.635
+    eye_inner = minimum.z + size.z * 0.545
+    eye_outer = minimum.z + size.z * 0.575
+    inner_x = half_width * 0.10
+    outer_x = half_width * 0.73
+    add_quad([
+        (center_x - outer_x, front_y, eye_top),
+        (center_x - inner_x, front_y, eye_top - size.z * 0.015),
+        (center_x - inner_x, front_y, eye_inner),
+        (center_x - outer_x, front_y, eye_outer),
+    ])
+    add_quad([
+        (center_x + inner_x, front_y, eye_top - size.z * 0.015),
+        (center_x + outer_x, front_y, eye_top),
+        (center_x + outer_x, front_y, eye_outer),
+        (center_x + inner_x, front_y, eye_inner),
+    ])
+    nasal_top = eye_inner + size.z * 0.025
+    nasal_bottom = minimum.z + size.z * 0.205
+    nasal_half = half_width * 0.105
+    add_quad([
+        (center_x - nasal_half, front_y, nasal_top),
+        (center_x + nasal_half, front_y, nasal_top),
+        (center_x + nasal_half * 0.62, front_y, nasal_bottom),
+        (center_x - nasal_half * 0.62, front_y, nasal_bottom),
+    ])
     mesh.to_mesh(obj.data)
     mesh.free()
-    obj['leonidasHelmetOpeningFaces'] = len(remove)
-    print('LEONIDAS_HELMET_OPENING', {'removed_faces': len(remove)})
+
+    new_vertex_indices = list(range(old_vertex_count, len(obj.data.vertices)))
+    head_group = obj.vertex_groups.get('mixamorig:Head')
+    if head_group is None:
+        head_group = obj.vertex_groups.new(name='mixamorig:Head')
+    head_group.add(new_vertex_indices, 1.0, 'REPLACE')
+    obj['leonidasHelmetVisorFaces'] = 3
+    print('LEONIDAS_HELMET_VISOR', {'faces': 3})
 
 
 def equipment_faces(obj):
@@ -1165,8 +1255,8 @@ helmet = keep_faces(current_mesh, helmet_faces, 'LeonidasHelmet', 'helmet')
 chest = keep_faces(current_mesh, chest_faces, 'LeonidasChest', 'chest')
 assign_body_semantic_materials(body)
 assign_solid_palette_material(helmet, 'metal')
-assign_solid_palette_material(chest, 'metal')
-open_helmet_face(helmet)
+assign_chest_semantic_materials(chest)
+add_helmet_visor(helmet)
 
 anatomy_source = donor_body.copy()
 anatomy_source.data = donor_body.data.copy()
