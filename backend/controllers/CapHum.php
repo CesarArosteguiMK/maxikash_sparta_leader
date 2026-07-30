@@ -10235,18 +10235,35 @@ class CapHum extends Controller
             $ruta = $archivo !== '' ? sparta_uploads_join('documentos', $archivo) : '';
             $procesado = false;
             $motivo = '';
+            $motorUsado = '';
+            $duracionMs = 0;
+            $analisis = null;
 
             if ($ruta === '' || !is_file($ruta)) {
                 $motivo = 'El PDF no está disponible físicamente en este servidor.';
-            } elseif (!CapHumNotificacionDocumental::motorV1PatronesDisponible()) {
-                $motivo = 'El Motor V1 no está disponible.';
             } else {
-                $analisis = CapHumNotificacionDocumental::analizarArchivoPatronesMotorV1($ruta);
+                $ejecucionLocal = CapHumNotificacionDocumental::analizarArchivoPatronesMotorV1Cli($ruta);
+                $motorUsado = (string)($ejecucionLocal['motor'] ?? 'cli_local');
+                $duracionMs = (int)($ejecucionLocal['duracion_ms'] ?? 0);
+                $analisis = is_array($ejecucionLocal['analisis'] ?? null)
+                    ? $ejecucionLocal['analisis']
+                    : null;
+
+                if ($analisis === null && CapHumNotificacionDocumental::motorV1PatronesDisponible()) {
+                    $inicioHttp = microtime(true);
+                    $analisis = CapHumNotificacionDocumental::analizarArchivoPatronesMotorV1($ruta);
+                    $duracionMs += (int)round((microtime(true) - $inicioHttp) * 1000);
+                    $motorUsado = 'api_http';
+                }
+
                 if (is_array($analisis)) {
                     CapHumNotificacionDocumental::guardarAnalisisPatronesEntrega($idEntrega, $analisis);
                     $procesado = true;
                 } else {
-                    $motivo = 'El Motor V1 no devolvió un resultado dentro del tiempo permitido.';
+                    $detalleLocal = trim((string)($ejecucionLocal['error'] ?? ''));
+                    $motivo = $detalleLocal !== ''
+                        ? 'No se pudo ejecutar el Motor V1 local: ' . $detalleLocal
+                        : 'El Motor V1 no devolvió un resultado dentro del tiempo permitido.';
                     CapHumNotificacionDocumental::guardarAnalisisPatronesEntrega($idEntrega, [
                         'valido' => false,
                         'revision_manual' => false,
@@ -10263,9 +10280,29 @@ class CapHum extends Controller
             }
 
             $resultado['datos']['procesado'] = $procesado;
-            $resultado['mensaje'] = $procesado
-                ? 'Reintento completado. El nuevo resultado ya fue guardado.'
-                : $motivo;
+            $resultado['datos']['motor_usado'] = $motorUsado;
+            $resultado['datos']['duracion_ms'] = $duracionMs;
+            $resultado['datos']['clasificacion'] = is_array($analisis)
+                ? (string)($analisis['clasificacion'] ?? '')
+                : '';
+            $resultado['datos']['codigo_resultado'] = is_array($analisis)
+                ? (string)($analisis['codigo_resultado'] ?? '')
+                : '';
+            if ($procesado) {
+                $resultadoLegible = (string)($analisis['clasificacion'] ?? '') === 'documento_incorrecto'
+                    ? 'Documento incorrecto'
+                    : ((isset($analisis['patrones_vigentes']) && $analisis['patrones_vigentes'] !== null)
+                        ? ((int)$analisis['patrones_vigentes'] . ' patrón(es) vigente(s)')
+                        : 'Lectura finalizada');
+                $resultado['mensaje'] = sprintf(
+                    'Reintento completado en %.2f s con %s. Resultado: %s.',
+                    $duracionMs / 1000,
+                    $motorUsado === 'cli_local' ? 'Motor V1 local' : 'API del Motor V1',
+                    $resultadoLegible
+                );
+            } else {
+                $resultado['mensaje'] = $motivo;
+            }
         }
         self::respuestaJSON($resultado);
     }
