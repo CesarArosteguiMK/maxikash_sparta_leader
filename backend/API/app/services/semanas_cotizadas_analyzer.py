@@ -110,6 +110,11 @@ def analizar_semanas_cotizadas(pdf_bytes: bytes) -> Dict[str, Any]:
         and "FECHA DE BAJA" in texto
     )
     if not es_constancia:
+        es_error_portal = (
+            ("ACCESS DENIED" in texto and "ERROR 17" in texto)
+            or "THIS REQUEST WAS BLOCKED BY OUR SECURITY SERVICE" in texto
+            or ("SERVICIOSDIGITALES.IMSS.GOB.MX" in texto and "POWERED BY IMPERVA" in texto)
+        )
         return {
             "valido": False,
             "revision_manual": True,
@@ -118,7 +123,13 @@ def analizar_semanas_cotizadas(pdf_bytes: bytes) -> Dict[str, Any]:
             "patrones": [],
             "motor_ia": "motor_v1",
             "fuente_lectura": "motor_v1_pdf_text_ocr",
-            "mensaje": "No se reconoció una constancia de semanas cotizadas del IMSS.",
+            "clasificacion": "documento_incorrecto",
+            "codigo_resultado": "error_portal_imss" if es_error_portal else "documento_no_reconocido",
+            "mensaje": (
+                "El PDF contiene una página de error del portal del IMSS, no la constancia de semanas cotizadas."
+                if es_error_portal
+                else "El archivo no corresponde a una constancia de semanas cotizadas del IMSS."
+            ),
         }
 
     patrones = _registros_desde_geometria(pdf_bytes)

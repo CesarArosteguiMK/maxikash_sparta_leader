@@ -31,3 +31,22 @@ def test_cuenta_solo_patrones_vigentes():
     assert resultado["valido"] is True
     assert resultado["patrones_vigentes"] == 2
     assert resultado["patrones_historial"] == 3
+
+
+def test_marca_pagina_error_portal_como_documento_incorrecto():
+    doc = fitz.open()
+    page = doc.new_page(width=612, height=792)
+    page.insert_text((70, 120), "Access denied")
+    page.insert_text((70, 150), "Error 17")
+    page.insert_text((70, 180), "serviciosdigitales.imss.gob.mx")
+    page.insert_text((70, 220), "This request was blocked by our security service")
+    page.insert_text((70, 260), "Powered by imperva")
+    contenido = doc.tobytes()
+    doc.close()
+
+    resultado = analizar_semanas_cotizadas(contenido)
+
+    assert resultado["valido"] is False
+    assert resultado["clasificacion"] == "documento_incorrecto"
+    assert resultado["codigo_resultado"] == "error_portal_imss"
+    assert resultado["patrones_vigentes"] is None
