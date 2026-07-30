@@ -322,7 +322,11 @@ $tipoInicial = $tipos[0] ?? [
             return '<span class="badge rounded-pill text-bg-light border text-warning mt-1"><i class="fa-solid fa-spinner fa-spin me-1"></i>En cola del Motor V1</span>';
         }
         if (estado === 'sin_lectura') {
-            return '<span class="badge rounded-pill text-bg-secondary mt-1"><i class="fa-solid fa-eye-low-vision me-1"></i>Revisión manual</span>';
+            const motivo = row.mensaje_analisis_patrones
+                || 'El Motor V1 no pudo determinar el contenido del PDF.';
+            return `<span class="badge rounded-pill text-bg-secondary mt-1" title="${escapeHtml(motivo)}">
+                <i class="fa-solid fa-eye-low-vision me-1"></i>Revisión manual
+            </span><small class="d-block text-muted mt-1">${escapeHtml(motivo)}</small>`;
         }
         if (estado === 'documento_incorrecto') {
             const motivo = row.mensaje_analisis_patrones

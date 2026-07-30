@@ -65,8 +65,21 @@ try {
             $trabajoDisponible = true;
             $analisis = CapHumNotificacionDocumental::analizarArchivoPatronesMotorV1($ruta);
             if ($analisis === null) {
-                // Un PDF o una caída transitoria de la API no debe bloquear el
-                // resto de la campaña. Queda pendiente para el siguiente worker.
+                // La disponibilidad global ya se validó antes de empezar. Si una
+                // petición individual agota el tiempo, ese PDF no debe permanecer
+                // eternamente en cola ni bloquear el resto de la campaña.
+                CapHumNotificacionDocumental::guardarAnalisisPatronesEntrega($idEntrega, [
+                    'valido' => false,
+                    'revision_manual' => true,
+                    'patrones_vigentes' => null,
+                    'patrones_historial' => 0,
+                    'patrones' => [],
+                    'motor_ia' => 'motor_v1',
+                    'fuente_lectura' => 'motor_v1_timeout',
+                    'clasificacion' => 'revision_manual',
+                    'codigo_resultado' => 'tiempo_lectura_agotado',
+                    'mensaje' => 'El Motor V1 no pudo terminar la lectura dentro del tiempo permitido; requiere revisión manual.',
+                ]);
                 continue;
             }
             CapHumNotificacionDocumental::guardarAnalisisPatronesEntrega($idEntrega, $analisis);
