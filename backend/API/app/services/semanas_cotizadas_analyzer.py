@@ -9,8 +9,8 @@ from typing import Any, Dict, List
 import fitz
 
 from app.services.document_crosscheck import (
-    _texto_ocr_imagen_ligero,
     pdf_paginas_a_png_bytes,
+    texto_ocr_tesseract_ligero,
 )
 
 
@@ -121,7 +121,7 @@ def _texto_pdf_rapido(pdf_bytes: bytes, max_paginas: int = 20) -> tuple[str, str
     textos_ocr: List[str] = []
     imagenes = pdf_paginas_a_png_bytes(pdf_bytes, dpi=170, max_paginas=3)
     for imagen in imagenes:
-        texto = _texto_ocr_imagen_ligero(imagen)
+        texto = texto_ocr_tesseract_ligero(imagen)
         if texto and texto.strip():
             textos_ocr.append(texto.strip())
     return "\n".join(textos_ocr), "motor_v1_ocr_ligero"
@@ -155,11 +155,11 @@ def analizar_semanas_cotizadas(pdf_bytes: bytes) -> Dict[str, Any]:
             "patrones": [],
             "motor_ia": "motor_v1",
             "fuente_lectura": fuente_lectura,
-            "clasificacion": "documento_incorrecto" if texto_detectado else "revision_manual",
+            "clasificacion": "documento_incorrecto",
             "codigo_resultado": (
                 "error_portal_imss"
                 if es_error_portal
-                else ("documento_no_reconocido" if texto_detectado else "imagen_sin_texto_legible")
+                else ("documento_no_reconocido" if texto_detectado else "pdf_solo_imagen")
             ),
             "mensaje": (
                 "El PDF contiene una página de error del portal del IMSS, no la constancia de semanas cotizadas."
@@ -167,7 +167,7 @@ def analizar_semanas_cotizadas(pdf_bytes: bytes) -> Dict[str, Any]:
                 else (
                     "El archivo no corresponde a una constancia de semanas cotizadas del IMSS."
                     if texto_detectado
-                    else "El PDF es una imagen y no se pudo leer con suficiente claridad; requiere revisión manual."
+                    else "El PDF está compuesto solo por una imagen y no corresponde al formato digital esperado."
                 )
             ),
         }
