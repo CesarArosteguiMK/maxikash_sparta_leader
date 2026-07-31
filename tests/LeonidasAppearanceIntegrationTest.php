@@ -69,31 +69,26 @@ appearanceIntegrationAssert(
         && str_contains($builder, 'LeonidasPrimary')
         && str_contains($builder, 'LeonidasSecondary')
         && str_contains($builder, 'LeonidasMetal')
-        && str_contains($builder, 'finish_sculpted_helmet')
-        && str_contains($builder, 'LeonidasCrestRed')
         && str_contains($builder, 'leonidasHelmetOriginalFaces')
         && str_contains($builder, 'leonidasHelmetOpenFace')
         && str_contains($builder, 'leonidasHelmetScale')
         && str_contains($builder, 'leonidasHelmetLift')
-        && str_contains($builder, 'leonidasHelmetFrontReliefRemoved')
-        && str_contains($builder, 'leonidasHelmetPanelFaces')
-        && str_contains($builder, 'leonidasHelmetDomeFaces')
+        && str_contains($builder, 'leonidasHelmetConstruction')
         && str_contains($builder, 'leonidasHelmetFaceOpening')
-        && str_contains($builder, 'dome_segments')
-        && str_contains($builder, 'dome_latitudes')
-        && str_contains($builder, 'leonidasHelmetCrestFaces')
-        && str_contains($builder, 'LeonidasHelmetPatina')
-        && str_contains($builder, 'LeonidasHelmetHighlight')
+        && str_contains($builder, "assign_solid_palette_material(helmet, 'metal')")
+        && str_contains($builder, "'original-source'")
+        && str_contains($builder, "'source-model'")
+        && !str_contains($builder, 'finish_sculpted_helmet(helmet')
         && str_contains($builder, 'assign_chest_semantic_materials')
         && !str_contains($builder, "modifier.operation = 'DIFFERENCE'")
         && str_contains($threeJs, 'leonidasRoughnessOffset')
         && str_contains($threeJs, 'leonidasTone')
         && str_contains($threeJs, 'modularParts.headUnderlay.visible = true'),
-    'Los colores deben usar materiales semanticos y el casco abierto debe conservar el rostro real.'
+    'Los colores deben usar materiales semanticos y el casco debe conservar el rostro anatómico.'
 );
 appearanceIntegrationAssert(
     str_contains($threeJs, '|| region === RIG_REGION.chest')
-        && str_contains($view, 'Casco, pechera, grebas y brazales')
+        && str_contains($view, 'Pechera, grebas, brazales y broches')
         && str_contains($view, 'Correas, ribetes y acentos'),
     'La pechera debe usar el canal metal y no contaminar el color secundario.'
 );
@@ -112,6 +107,8 @@ appearanceIntegrationAssert(
         && str_contains($threeJs, 'currentAppearance.escudo_visible')
         && str_contains($threeJs, 'currentAppearance.lanza_visible')
         && str_contains($threeJs, 'idleElbowWeight')
+        && str_contains($appearanceJs, 'escudo_visible: false')
+        && str_contains($appearanceJs, 'lanza_visible: false')
         && ($manifest['enabled'] ?? null) === true
         && ($manifest['requiredParts'] ?? []) === [
             'body',
@@ -129,7 +126,7 @@ appearanceIntegrationAssert(
 appearanceIntegrationAssert(
     str_contains($builder, 'build_corporate_shield')
         && str_contains($builder, 'build_spartan_spear')
-        && str_contains($builder, "'mixamorig:LeftHand'")
+        && str_contains($builder, "'mixamorig:LeftForeArm'")
         && str_contains($builder, "'mixamorig:RightHand'")
         && str_contains($equipmentBuilder, "'LeonidasShield'")
         && str_contains($equipmentBuilder, "'LeonidasSpear'")
@@ -145,7 +142,7 @@ appearanceIntegrationAssert(
             'LeonidasSpear',
             'Spear',
         ],
-    'El escudo y la lanza deben ser piezas procedurales independientes y ancladas a las manos.'
+    'El escudo y la lanza deben ser piezas procedurales independientes y ancladas al brazo y la mano.'
 );
 
 echo "LeonidasAppearanceIntegration: OK\n";

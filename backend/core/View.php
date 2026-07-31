@@ -1929,7 +1929,7 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                                     </span>
                                 </label>
                                 <label>
-                                    <span>Metal<small>Casco, pechera, grebas y brazales</small></span>
+                                    <span>Metal<small>Pechera, grebas, brazales y broches</small></span>
                                     <span class="leonidas-color-control">
                                         <input type="color" value="#D7E0EA" data-leonidas-color="color_metal">
                                         <output data-leonidas-color-output="color_metal">#D7E0EA</output>

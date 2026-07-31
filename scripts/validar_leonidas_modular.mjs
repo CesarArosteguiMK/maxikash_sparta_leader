@@ -99,36 +99,19 @@ if (!configuredAsset) {
         ) {
             fail('body no declara la separacion semantica de piel y vestuario');
         } else if (
-            found.helmet.node.extras?.leonidasHelmetOpenFace !== true
+            found.helmet.node.extras?.leonidasHelmetOpenFace !== false
         ) {
-            fail('helmet no declara el frente abierto que conserva el rostro');
+            fail('helmet no declara la restauracion cerrada del modelo original');
         } else if (
             Number(found.helmet.node.extras?.leonidasHelmetOriginalFaces || 0) < 1000
         ) {
             fail('helmet no conserva la geometria esculpida de alta densidad');
         } else if (
-            Number(found.helmet.node.extras?.leonidasHelmetOpeningCutters || 0) > 0
+            found.helmet.node.extras?.leonidasHelmetConstruction !== 'original-source'
+            || found.helmet.node.extras?.leonidasHelmetFaceOpening !== 'source-model'
+            || (document.meshes?.[found.helmet.node.mesh]?.primitives || []).length !== 1
         ) {
-            fail('helmet contiene cortadores destructivos que pueden perforar la nuca');
-        } else if (
-            Number(found.helmet.node.extras?.leonidasHelmetFrontReliefRemoved || 0) <= 0
-            || Number(found.helmet.node.extras?.leonidasHelmetPanelFaces || 0) < 15
-            || Number(found.helmet.node.extras?.leonidasHelmetDomeFaces || 0) < 300
-            || found.helmet.node.extras?.leonidasHelmetFaceOpening !== 'protected-anatomy'
-        ) {
-            fail('helmet no completa la carcasa abierta alrededor del rostro anatomico');
-        } else if (
-            Number(found.helmet.node.extras?.leonidasHelmetScale || 0) < 0.89
-            || Number(found.helmet.node.extras?.leonidasHelmetScale || 0) > 0.93
-            || Number(found.helmet.node.extras?.leonidasHelmetLift || 0) <= 0
-        ) {
-            fail('helmet no declara la escala y elevacion ergonomicas');
-        } else if (
-            Number(found.helmet.node.extras?.leonidasHelmetCrestFaces || 0) <= 0
-            || !materialNames.has('leonidascrestred')
-            || !materialNames.has('leonidascrestdark')
-        ) {
-            fail('helmet no contiene el penacho rojo segmentado');
+            fail('helmet no conserva intacta la pieza original del FBX');
         } else if (
             !String(found.chest.node.extras?.leonidasChestSemanticFaces || '')
                 .includes('original=')

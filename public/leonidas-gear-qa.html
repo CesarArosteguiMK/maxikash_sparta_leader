@@ -19,15 +19,29 @@
             padding: 8px 12px; border-radius: 999px;
             color: white; background: rgba(10, 20, 38, .74); font-weight: 700;
         }
+        .qa-controls {
+            position: absolute; z-index: 3; right: 18px; top: 18px;
+            display: flex; gap: 12px; padding: 8px 12px; border-radius: 999px;
+            color: white; background: rgba(10, 20, 38, .74); font-weight: 700;
+        }
     </style>
 </head>
 <body>
     <div id="leonidasAssistant" class="is-appearance-preview-live">
-        <div class="label">Casco activo · equipo oculto · v57</div>
+        <div class="label">Casco original · equipo oculto · v82</div>
+        <div class="qa-controls">
+            <label><input type="checkbox" data-qa-gear="escudo_visible"> Escudo</label>
+            <label><input type="checkbox" data-qa-gear="lanza_visible"> Lanza</label>
+        </div>
         <canvas data-leonidas-canvas></canvas>
     </div>
     <script>
-        document.getElementById('leonidasAssistant')._leonidasAppearance = {
+        var qaRoot = document.getElementById('leonidasAssistant');
+        if (new URLSearchParams(window.location.search).has('modal')) {
+            qaRoot.style.width = '303px';
+            qaRoot.style.height = '650px';
+        }
+        qaRoot._leonidasAppearance = {
             id: 'clasico',
             color_principal: '#A91E2C',
             color_secundario: '#6F4328',
@@ -38,7 +52,16 @@
             escudo_visible: false,
             lanza_visible: false
         };
+        document.querySelectorAll('[data-qa-gear]').forEach(function (input) {
+            input.addEventListener('change', function () {
+                var root = qaRoot;
+                root._leonidasAppearance[input.dataset.qaGear] = input.checked;
+                root.dispatchEvent(new CustomEvent('leonidas:appearance', {
+                    detail: root._leonidasAppearance
+                }));
+            });
+        });
     </script>
-    <script type="module" src="/assets/js/leonidas-3d.js?v=57"></script>
+    <script type="module" src="/assets/js/leonidas-3d.js?v=82"></script>
 </body>
 </html>

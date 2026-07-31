@@ -44,7 +44,9 @@ construcción, cada isla UV se asigna a un material semántico independiente:
 - `primary`: tela interior y base del faldón.
 - `secondary`: correas, ribetes y acentos discretos; los paneles grandes de
   cuero conservan su acabado original.
-- `metal`: casco, pechera, grebas, brazales, botas completas y broches.
+- `metal`: pechera, grebas, brazales, botas completas y broches. El casco
+  conserva su contrato visual propio de acero oscuro, acero plateado y borde
+  pulido para no perder el facetado al aplicar uniformes.
 - `original`: piel y anatomía; nunca recibe la paleta.
 
 Los materiales de vestuario conservan la geometría, las normales y el

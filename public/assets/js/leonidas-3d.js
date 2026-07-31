@@ -146,12 +146,12 @@ if (root && canvas) {
                 cabello_visible: value?.cabello_visible !== false
                     && value?.cabello_visible !== 0
                     && value?.cabello_visible !== '0',
-                escudo_visible: value?.escudo_visible !== false
-                    && value?.escudo_visible !== 0
-                    && value?.escudo_visible !== '0',
-                lanza_visible: value?.lanza_visible !== false
-                    && value?.lanza_visible !== 0
-                    && value?.lanza_visible !== '0'
+                escudo_visible: value?.escudo_visible === true
+                    || value?.escudo_visible === 1
+                    || value?.escudo_visible === '1',
+                lanza_visible: value?.lanza_visible === true
+                    || value?.lanza_visible === 1
+                    || value?.lanza_visible === '1'
             };
         }
 
@@ -225,8 +225,8 @@ if (root && canvas) {
             modularParts.helmet.visible = currentAppearance.casco_visible;
             modularParts.chest.visible = currentAppearance.pechera_visible;
             if (modularParts.headUnderlay) {
-                // El casco modular es abierto: el rostro conserva siempre su
-                // material de piel y nunca hereda el color del metal.
+                // La anatomía permanece separada detrás de la careta y nunca
+                // hereda el color del metal.
                 modularParts.headUnderlay.visible = true;
             }
             if (modularParts.torsoUnderlay) {
@@ -404,7 +404,7 @@ if (root && canvas) {
                     .addScaledVector(bodyUp, lengths.foreLength * 0.78)
                     .addScaledVector(armOutward, lengths.foreLength * (0.05 + wave * 0.16))
                     .addScaledVector(bodyForward, lengths.foreLength * 0.28);
-            } else {
+            } else if (pose === 'victory') {
                 const pulse = Math.sin(clock.elapsedTime * 2.8) * 0.025;
                 // Bent elbows and raised fists read as celebration. Keeping the
                 // hands slightly inward avoids the old surrender/T-pose shape.
@@ -416,6 +416,18 @@ if (root && canvas) {
                     .addScaledVector(armOutward, -lengths.foreLength * 0.22)
                     .addScaledVector(bodyUp, lengths.foreLength * 0.78)
                     .addScaledVector(bodyForward, lengths.foreLength * 0.12);
+            } else {
+                // Descanso anatómico: el codo baja casi vertical, pero la mano
+                // avanza delante del muslo. La flexión se calcula en espacio
+                // mundial para no depender del eje local irregular del FBX.
+                armTargetElbow.copy(armShoulderPosition)
+                    .addScaledVector(bodyUp, -lengths.upperLength * 0.91)
+                    .addScaledVector(armOutward, lengths.upperLength * 0.08)
+                    .addScaledVector(bodyForward, lengths.upperLength * 0.06);
+                armTargetHand.copy(armTargetElbow)
+                    .addScaledVector(bodyUp, -lengths.foreLength * 0.88)
+                    .addScaledVector(armOutward, -lengths.foreLength * 0.05)
+                    .addScaledVector(bodyForward, lengths.foreLength * 0.34);
             }
 
             aimBoneAtWorldPoint(upperArm, foreArm, armTargetElbow, weight);
@@ -435,9 +447,9 @@ if (root && canvas) {
             const visibleWidth = visibleHeight * camera.aspect;
             const previewingAppearance = root.classList.contains('is-appearance-preview-live');
             const desiredHeight = previewingAppearance
-                ? Math.min(height * 0.90, width * 1.85)
+                ? Math.min(height * 0.66, width * 1.38)
                 : width <= 575 ? 210 : 300;
-            const edgeMargin = (previewingAppearance ? 25 : width <= 575 ? 12 : 22) * visibleHeight / height;
+            const edgeMargin = (previewingAppearance ? 140 : width <= 575 ? 12 : 22) * visibleHeight / height;
 
             characterScale = desiredHeight * visibleHeight / (height * characterHeight);
             characterAnchor.scale.setScalar(characterScale);
@@ -580,17 +592,19 @@ if (root && canvas) {
                     1 - Math.max(interaction, walkWeight)
                 );
                 if (idleElbowWeight > 0.001) {
-                    offsetAnimatedBone(
+                    poseArm(
+                        shieldArm,
                         shieldForeArm,
-                        0,
-                        0,
-                        -0.085 * idleElbowWeight
+                        leftHand,
+                        'idle',
+                        idleElbowWeight * 0.86
                     );
-                    offsetAnimatedBone(
+                    poseArm(
+                        swordArm,
                         swordForeArm,
-                        0,
-                        0,
-                        0.085 * idleElbowWeight
+                        rightHand,
+                        'idle',
+                        idleElbowWeight * 0.86
                     );
                 }
             }

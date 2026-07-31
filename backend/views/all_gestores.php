@@ -1018,6 +1018,21 @@
       margin-top: .2rem;
     }
 
+    #modalAgregarUsuarioRrhh .rrhh-wizard-context {
+      display: none;
+      margin-top: .3rem;
+      color: #52627b;
+      font-size: .8rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-context.is-visible {
+      display: block;
+    }
+
     #modalAgregarUsuarioRrhh .modal-body {
       display: flex;
       flex-direction: column;
@@ -1187,6 +1202,10 @@
       font-size: .78rem;
       font-weight: 600;
       margin-top: .25rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-steps .nav-link.is-complete .rrhh-step-state {
+      color: #198754;
     }
 
     #modalAgregarUsuarioRrhh .rrhh-section {
@@ -1404,6 +1423,12 @@
       flex: 1 1 auto;
     }
 
+    #modalAgregarUsuarioRrhh .rrhh-footer-left #btnGenerarExpedienteRrhh,
+    #modalAgregarUsuarioRrhh .rrhh-footer-left #btnGenerarCredencialRrhh {
+      border-color: #b9c8dc;
+      color: #24436d;
+    }
+
     #modalAgregarUsuarioRrhh .rrhh-footer-right {
       justify-content: flex-end;
     }
@@ -1411,6 +1436,47 @@
     #modalAgregarUsuarioRrhh .rrhh-wizard-action {
       min-width: 168px;
       min-height: 42px;
+    }
+
+    @media (min-width: 768px) and (max-width: 1199.98px) {
+      #modalAgregarUsuarioRrhh .rrhh-wizard-layout {
+        grid-template-columns: 1fr;
+        gap: .75rem;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-wizard-sidebar {
+        border-right: 0;
+        border-bottom: 1px solid #dfe7f2;
+        padding: 0 0 .7rem;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-wizard-steps {
+        flex-direction: row;
+        min-width: max-content;
+        gap: .45rem;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-wizard-steps::before {
+        display: none;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-wizard-steps .nav-link {
+        width: 185px;
+        grid-template-columns: 36px minmax(0, 1fr);
+        padding: .5rem .6rem;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-step-marker {
+        width: 32px;
+        height: 32px;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-wizard-content .col-md-3 {
+        flex: 0 0 auto;
+        width: 50%;
+      }
     }
 
     #modalAgregarUsuarioRrhh .rrhh-loading-overlay {
@@ -5661,6 +5727,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                   <div class="min-w-0">
                     <h5 class="modal-title fw-bold mb-0" id="modalAgregarUsuarioRrhhLabel">Agregar usuario RR.HH.</h5>
                     <div class="rrhh-wizard-subtitle" id="rrhhWizardSubtitle">Completa la informaci&oacute;n del nuevo usuario por secciones.</div>
+                    <div class="rrhh-wizard-context" id="rrhhWizardContext" aria-live="polite"></div>
                   </div>
                 </div>
                 <div class="d-flex align-items-center gap-3 ms-auto">
@@ -12274,9 +12341,6 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     if (tabla.responsive && typeof tabla.responsive.recalc === 'function') {
       tabla.responsive.recalc();
     }
-    if (typeof window.precargarActualizacionInfoVisible === 'function') {
-      window.precargarActualizacionInfoVisible(datos);
-    }
   }
 
   /**
@@ -14873,6 +14937,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
   const tituloModalRrhh = document.getElementById('modalAgregarUsuarioRrhhLabel');
   const subtituloModalRrhh = document.getElementById('rrhhWizardSubtitle');
+  const contextoModalRrhh = document.getElementById('rrhhWizardContext');
   const inputEditIdRrhh = document.getElementById('rrhh_edit_id_persona');
   const btnGuardarRrhh = document.getElementById('btnGuardarUsuarioRrhh');
   const cardSalarioSensibleRrhh = document.getElementById('rrhhSalarioSensibleCard');
@@ -15051,7 +15116,22 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     [btnGenerarExpedienteRrhh, document.getElementById('btnGenerarCredencialRrhh')].forEach(btn => {
       if (btn) btn.classList.toggle('d-none', !esEdicion);
     });
+    actualizarContextoModalRrhh();
     actualizarRrhhWizard();
+  }
+
+  function actualizarContextoModalRrhh() {
+    if (!contextoModalRrhh) return;
+    const esEdicion = form.dataset.mode === 'editar';
+    const valor = (name) => String(form.querySelector(`[name="${name}"]`)?.value || '').trim();
+    const nombre = [valor('persona.nombres'), valor('persona.segundo_nombre'), valor('persona.apellidop'), valor('persona.apellidom')]
+      .filter(Boolean)
+      .join(' ');
+    const puesto = valor('rrhh.puesto_texto') || form.querySelector('#rrhh_puesto_id option:checked')?.textContent?.trim() || '';
+    const empresa = valor('rrhh.empresa_texto') || form.querySelector('#rrhh_empresa_id option:checked')?.textContent?.trim() || '';
+    const detalle = [puesto, empresa].filter(item => item && !/^seleccione/i.test(item)).join(' · ');
+    contextoModalRrhh.textContent = nombre ? `${nombre}${detalle ? ` · ${detalle}` : ''}` : 'Cargando datos del colaborador…';
+    contextoModalRrhh.classList.toggle('is-visible', esEdicion);
   }
 
   function setEstadoSalarioSensibleRrhh(texto, modo = 'locked') {
@@ -15472,7 +15552,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       progress.className = 'rrhh-wizard-progress';
       progress.innerHTML = '<span id="rrhhWizardStepText">Paso 1 de 7</span>' +
         '<div class="rrhh-progress-track" aria-hidden="true"><div class="rrhh-progress-bar" id="rrhhWizardProgressBar"></div></div>' +
-        '<span id="rrhhWizardPercent">0% completado</span>';
+        '<span id="rrhhWizardPercent">0 de 0 obligatorios</span>';
       body.insertBefore(progress, nav);
 
       const info = document.createElement('div');
@@ -15588,28 +15668,17 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     let total = 0;
     let llenos = 0;
 
-    Array.from(form.querySelectorAll('input, select, textarea')).forEach(control => {
-      if (!controlCuentaParaProgresoRrhh(control)) return;
+    Array.from(form.querySelectorAll('[required]')).forEach(control => {
+      if (control.disabled || !control.name) return;
       total += 1;
       if (valorControlRrhh(control) !== '') llenos += 1;
     });
 
-    form.querySelectorAll('.rrhh-repeat-row').forEach(row => {
-      const fields = Array.from(row.querySelectorAll('[data-field]')).filter(control => !control.disabled);
-      if (!fields.length) return;
-      const rowConDatoReal = fields.some(control => {
-        if (control.tagName === 'SELECT') return false;
-        return valorControlRrhh(control) !== '';
-      });
-      if (!rowConDatoReal) return;
-      fields.forEach(control => {
-        total += 1;
-        if (valorControlRrhh(control) !== '') llenos += 1;
-      });
-    });
-
-    if (total <= 0 || llenos <= 0) return 0;
-    return Math.max(0, Math.min(100, Math.round((llenos / total) * 100)));
+    return {
+      total,
+      llenos,
+      porcentaje: total > 0 ? Math.round((llenos / total) * 100) : 0
+    };
   }
 
   function marcarControlRrhh(control, invalido) {
@@ -15713,13 +15782,13 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const botones = obtenerBotonesPasoRrhh();
     const activo = obtenerPasoActivoRrhh();
     const total = botones.length || rrhhWizardSteps.length;
-    const porcentaje = calcularProgresoCapturaRrhh();
+    const progreso = calcularProgresoCapturaRrhh();
     const pasoTexto = document.getElementById('rrhhWizardStepText');
     const porcentajeTexto = document.getElementById('rrhhWizardPercent');
     const barra = document.getElementById('rrhhWizardProgressBar');
     if (pasoTexto) pasoTexto.textContent = `Paso ${activo + 1} de ${total}`;
-    if (porcentajeTexto) porcentajeTexto.textContent = `${porcentaje}% completado`;
-    if (barra) barra.style.width = `${porcentaje}%`;
+    if (porcentajeTexto) porcentajeTexto.textContent = `${progreso.llenos} de ${progreso.total} obligatorios`;
+    if (barra) barra.style.width = `${progreso.porcentaje}%`;
 
     botones.forEach((btn, index) => {
       const pane = paneRrhhPorPaso(index);
@@ -15736,6 +15805,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const esEdicion = form.dataset.mode === 'editar';
     if (btnSiguiente) btnSiguiente.classList.toggle('d-none', esEdicion || activo >= total - 1);
     if (btnGuardarRrhh) btnGuardarRrhh.classList.toggle('d-none', !esEdicion && activo < total - 1);
+    actualizarContextoModalRrhh();
     actualizarResumenLaboralRrhh();
     actualizarBeneficiariosStatusRrhh();
   }

@@ -13,26 +13,28 @@
     "00:05"
   ],
   "lastRunBySlot": {
-    "truncar_auto_07_00": "2026-07-21",
+    "truncar_auto_07_00": "2026-07-28",
     "08:03": "2026-07-07",
-    "fallback_09:40": "2026-07-24",
-    "fallback_11:40": "2026-07-24",
-    "fallback_13:40": "2026-07-24",
-    "fallback_14:40": "2026-07-24",
-    "fallback_16:40": "2026-07-23",
-    "fallback_18:40": "2026-07-23",
-    "fallback_20:40": "2026-07-23",
-    "fallback_00:05": "2026-07-24",
-    "fallback_07:40": "2026-07-24",
-    "fallback_23:52": "2026-07-23"
+    "fallback_09:40": "2026-07-30",
+    "fallback_11:40": "2026-07-30",
+    "fallback_13:40": "2026-07-29",
+    "fallback_14:40": "2026-07-30",
+    "fallback_16:40": "2026-07-30",
+    "fallback_18:40": "2026-07-30",
+    "fallback_20:40": "2026-07-30",
+    "fallback_00:05": "2026-07-31",
+    "fallback_07:40": "2026-07-31",
+    "fallback_23:52": "2026-07-30",
+    "13:42": "2026-07-25"
   },
   "lastRunResult": {
     "success": true,
-    "mensaje": "Tabla tbl_segundometro_semana sin registros; no hay copia ni truncate que aplicar (operación idempotente).",
+    "mensaje": "Proceso completado: 77254 registros copiados y tabla truncada.",
     "tipo": "truncar_auto",
-    "fecha": "2026-07-21",
+    "fecha": "2026-07-28",
     "hora": "07:00",
-    "registros_copiados": 0
+    "registros_copiados": 77254,
+    "url_php": "http://localhost/index.php?url=segundometro/truncarAutomaticoAgente"
   },
   "pruebaEjecutarEn": null,
   "pruebaNoAntesDe": null

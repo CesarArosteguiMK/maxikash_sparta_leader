@@ -1297,8 +1297,6 @@ class CapHum extends Model
 
         try {
             $db = new Database();
-            self::asegurarPersonaEsExterno($db);
-            self::asegurarAsignaJefeSoportaVacante($db);
             $r = $db->queryAll($query);
             return self::resultado(true, 'Departamentos encontrados.', $r);
         } catch (\Exception $e) {
@@ -4956,7 +4954,6 @@ class CapHum extends Model
                 return false;
             }
             $db = new Database();
-            self::asegurarSalariosSensiblesRrhh($db);
             $row = $db->queryOne("
                 SELECT 1 AS ok
                 FROM estado_cuenta.rrhh_salarios_sensibles
@@ -4966,6 +4963,62 @@ class CapHum extends Model
             return !empty($row);
         } catch (\Throwable $e) {
             return false;
+        }
+    }
+
+    /**
+     * Datos minimamente necesarios para avisos operativos de movimientos de plantilla.
+     * No incluye correo, telefono ni otros datos que no forman parte del layout solicitado.
+     *
+     * @return array<int, array<string, mixed>> Indexado por id_persona.
+     */
+    public static function obtenerDatosNovedadPlantilla(array $idsPersonas): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsPersonas), static function (int $id): bool {
+            return $id > 0;
+        })));
+        if (empty($ids)) {
+            return [];
+        }
+
+        try {
+            $db = new Database();
+            $params = [];
+            $placeholders = [];
+            foreach ($ids as $indice => $idPersona) {
+                $clave = 'id_' . $indice;
+                $placeholders[] = ':' . $clave;
+                $params[$clave] = $idPersona;
+            }
+
+            $rows = $db->queryAll("
+                SELECT
+                    p.id AS id_persona,
+                    COALESCE(r.registro_patronal, '') AS registro_patronal,
+                    COALESCE(r.nss, '') AS nss,
+                    COALESCE(p.apellidop, '') AS apellido_paterno,
+                    COALESCE(p.apellidom, '') AS apellido_materno,
+                    TRIM(CONCAT_WS(' ', NULLIF(TRIM(p.nombres), ''), NULLIF(TRIM(p.segundo_nombre), ''))) AS nombres,
+                    COALESCE(NULLIF(TRIM(r.sbc), ''), NULLIF(TRIM(r.salario_diario), ''), '') AS sdi,
+                    COALESCE(DATE_FORMAT(p.fecha_ingreso, '%Y-%m-%d'), '') AS fecha_ingreso,
+                    COALESCE(p.curp, '') AS curp,
+                    COALESCE(r.rfc, '') AS rfc
+                FROM estado_cuenta.persona p
+                LEFT JOIN estado_cuenta.persona_datos_rrhh r ON r.id_persona = p.id
+                WHERE p.id IN (" . implode(', ', $placeholders) . ")
+            ", $params) ?: [];
+
+            $resultado = [];
+            foreach ($rows as $row) {
+                $idPersona = (int)($row['id_persona'] ?? 0);
+                if ($idPersona > 0) {
+                    $resultado[$idPersona] = $row;
+                }
+            }
+            return $resultado;
+        } catch (\Throwable $e) {
+            error_log('CapHum::obtenerDatosNovedadPlantilla -> ' . $e->getMessage());
+            return [];
         }
     }
 
@@ -5031,6 +5084,8 @@ class CapHum extends Model
             $resumen = [
                 'total' => 0,
                 'actualizados' => 0,
+                'cambios_reales' => 0,
+                'personas_con_cambio' => [],
                 'omitidos' => 0,
                 'errores' => [],
             ];
@@ -5075,6 +5130,16 @@ class CapHum extends Model
                 }
 
                 $idPersona = (int)$personas[0]['id'];
+                $salarioExistente = $db->queryOne("
+                    SELECT salario_cifrado
+                    FROM estado_cuenta.rrhh_salarios_sensibles
+                    WHERE id_persona = :id_persona
+                    LIMIT 1
+                ", ['id_persona' => $idPersona]);
+                $salarioAnterior = !empty($salarioExistente)
+                    ? self::descifrarValorSensibleRrhh((string)($salarioExistente['salario_cifrado'] ?? ''))
+                    : '';
+                $huboCambio = !$salarioExistente || $salarioAnterior !== $salarioNormalizado;
                 $db->CRUD("
                     INSERT INTO estado_cuenta.rrhh_salarios_sensibles
                         (id_persona, salario_cifrado, moneda, creado_en, actualizado_en, id_usuario_actualizacion)
@@ -5110,6 +5175,10 @@ class CapHum extends Model
                 ]);
 
                 $resumen['actualizados']++;
+                if ($huboCambio) {
+                    $resumen['cambios_reales']++;
+                    $resumen['personas_con_cambio'][] = $idPersona;
+                }
             }
 
             $db->commit();

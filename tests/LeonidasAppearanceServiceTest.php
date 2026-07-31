@@ -43,9 +43,9 @@ appearanceAssert(
     $custom['casco_visible'] === true
         && $custom['pechera_visible'] === true
         && $custom['cabello_visible'] === true
-        && $custom['escudo_visible'] === true
-        && $custom['lanza_visible'] === true,
-    'La armadura, el cabello y el equipo deben permanecer visibles por defecto.'
+        && $custom['escudo_visible'] === false
+        && $custom['lanza_visible'] === false,
+    'La armadura y el cabello deben permanecer visibles; el equipo de mano debe iniciar oculto.'
 );
 
 $withoutHelmet = LeonidasAppearanceService::normalizarSolicitud([
