@@ -613,6 +613,219 @@ class CapHum extends Controller
         );
     }
 
+    /**
+     * Destinatarios de los movimientos de plantilla. Se leen del archivo seguro
+     * para que se puedan agregar responsables sin cambiar ni publicar el codigo.
+     */
+    private function obtenerDestinatariosNovedadesPlantilla(): array
+    {
+        $valor = trim((string)(getenv('RRHH_PLANTILLA_NOVEDADES_DESTINATARIOS') ?: ''));
+        $envFile = getenv('SPARTA_ENV_FILE') ?: 'C:\\xampp\\secure\\sparta_ledger.env';
+        if (is_file($envFile) && is_readable($envFile)) {
+            $lineas = @file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            foreach ((array)$lineas as $linea) {
+                $linea = trim((string)$linea);
+                if ($linea === '' || strpos($linea, '#') === 0) {
+                    continue;
+                }
+                $partes = explode('=', $linea, 2);
+                if (count($partes) !== 2 || trim($partes[0]) !== 'RRHH_PLANTILLA_NOVEDADES_DESTINATARIOS') {
+                    continue;
+                }
+                $valorSeguro = trim(str_replace(["\r", "\n"], '', $partes[1]));
+                if (preg_match('/^["\'](.*)["\']$/s', $valorSeguro, $coincidencia)) {
+                    $valorSeguro = trim($coincidencia[1]);
+                }
+                if ($valorSeguro !== '') {
+                    $valor = $valorSeguro;
+                }
+                break;
+            }
+        }
+
+        if ($valor === '') {
+            $valor = 'virgilio.espinoza@maxikash.mx';
+        }
+
+        $destinatarios = [];
+        foreach (preg_split('/[;,\s]+/', $valor) ?: [] as $correo) {
+            $correo = trim((string)$correo);
+            if ($correo !== '' && filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+                $destinatarios[strtolower($correo)] = $correo;
+            }
+        }
+        return array_values($destinatarios);
+    }
+
+    /** @return string Ruta temporal del XLSX; el responsable debe eliminarla al terminar. */
+    private function crearExcelNovedadesPlantilla(array $filas): string
+    {
+        if (!class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            require_once dirname(__DIR__) . '/bootstrap_composer.php';
+            sparta_require_composer_autoload();
+        }
+        if (!class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            throw new \RuntimeException('PhpSpreadsheet no esta disponible para generar el archivo de plantilla.');
+        }
+
+        $baseTemporal = tempnam(sys_get_temp_dir(), 'sparta_novedad_plantilla_');
+        if ($baseTemporal === false) {
+            throw new \RuntimeException('No se pudo crear el archivo temporal de plantilla.');
+        }
+        @unlink($baseTemporal);
+        $ruta = $baseTemporal . '.xlsx';
+        $libro = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+
+        try {
+            $hoja = $libro->getActiveSheet();
+            $hoja->setTitle('Movimientos plantilla');
+            $encabezados = [
+                'Registro Patronal',
+                'NSS',
+                'Apellido Paterno',
+                'Apellido Materno',
+                'Nombres',
+                'SDI (Salario Diario Integrado)',
+                'Fecha ingreso',
+                'CURP',
+                'RFC',
+            ];
+            foreach ($encabezados as $indice => $encabezado) {
+                $celda = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($indice + 1) . '1';
+                $hoja->setCellValue($celda, $encabezado);
+            }
+            $ultimaColumna = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($encabezados));
+            $hoja->getStyle('A1:' . $ultimaColumna . '1')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+            $hoja->getStyle('A1:' . $ultimaColumna . '1')->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setARGB('FF26344E');
+            $hoja->freezePane('A2');
+            $hoja->setAutoFilter('A1:' . $ultimaColumna . '1');
+
+            $campos = ['registro_patronal', 'nss', 'apellido_paterno', 'apellido_materno', 'nombres', 'sdi', 'fecha_ingreso', 'curp', 'rfc'];
+            $fila = 2;
+            foreach ($filas as $datos) {
+                foreach ($campos as $indice => $campo) {
+                    $valor = trim((string)($datos[$campo] ?? ''));
+                    $celda = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($indice + 1) . $fila;
+                    $hoja->setCellValueExplicit($celda, $valor, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                }
+                $fila++;
+            }
+            foreach ([22, 18, 24, 24, 32, 28, 16, 22, 18] as $indice => $ancho) {
+                $hoja->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($indice + 1))->setWidth($ancho);
+            }
+
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($libro))->save($ruta);
+            if (!is_file($ruta) || (int)@filesize($ruta) < 100) {
+                throw new \RuntimeException('El archivo de movimientos se genero vacio.');
+            }
+            return $ruta;
+        } catch (\Throwable $e) {
+            @unlink($ruta);
+            throw $e;
+        } finally {
+            $libro->disconnectWorksheets();
+        }
+    }
+
+    /**
+     * Envia un aviso por movimiento confirmado. Una falla de correo nunca revierte
+     * el movimiento de plantilla ya guardado; queda auditada y registrada en log.
+     */
+    private function notificarNovedadPlantilla(string $motivo, array $idsPersonas): void
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsPersonas), static function (int $id): bool {
+            return $id > 0;
+        })));
+        if (empty($ids)) {
+            return;
+        }
+
+        $destinatarios = $this->obtenerDestinatariosNovedadesPlantilla();
+        if (empty($destinatarios)) {
+            error_log('CapHum::notificarNovedadPlantilla sin destinatarios configurados.');
+            return;
+        }
+
+        $datosPorPersona = CapHumDAO::obtenerDatosNovedadPlantilla($ids);
+        if (empty($datosPorPersona)) {
+            error_log('CapHum::notificarNovedadPlantilla no encontro datos para el movimiento.');
+            return;
+        }
+
+        $filas = [];
+        foreach ($ids as $idPersona) {
+            if (empty($datosPorPersona[$idPersona])) {
+                continue;
+            }
+            $fila = $datosPorPersona[$idPersona];
+            // El sueldo protegido es la fuente mas reciente cuando existe; para altas
+            // sin captura aun se conserva el SDI/SBC de datos RR.HH.
+            $salario = CapHumDAO::getSalarioSensiblePersona($idPersona);
+            if (!empty($salario['success']) && !empty($salario['datos']['tiene_salario'])) {
+                $fila['sdi'] = (string)($salario['datos']['salario'] ?? $fila['sdi'] ?? '');
+            }
+            $filas[] = $fila;
+        }
+        if (empty($filas)) {
+            return;
+        }
+
+        $rutaExcel = null;
+        $enviosCorrectos = 0;
+        try {
+            $rutaExcel = $this->crearExcelNovedadesPlantilla($filas);
+            $fecha = self::ahoraMexicoCiudad()->format('d/m/Y H:i');
+            $cantidad = count($filas);
+            $asunto = 'Sparta RR.HH. - ' . $motivo;
+            $cuerpo = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head><body style="font-family:Arial,sans-serif;color:#26344e;line-height:1.5;">'
+                . '<p>Se registr&oacute; un movimiento de plantilla.</p>'
+                . '<p><strong>Motivo:</strong> ' . htmlspecialchars($motivo, ENT_QUOTES, 'UTF-8') . '<br>'
+                . '<strong>Colaborador(es):</strong> ' . $cantidad . '<br>'
+                . '<strong>Fecha:</strong> ' . htmlspecialchars($fecha, ENT_QUOTES, 'UTF-8') . '</p>'
+                . '<p>Se adjunta el archivo Excel con la informaci&oacute;n requerida.</p>'
+                . '</body></html>';
+            $nombreArchivo = 'movimiento_plantilla_' . self::ahoraMexicoCiudad()->format('Ymd_His') . '.xlsx';
+            foreach ($destinatarios as $destinatario) {
+                if ($this->enviarCorreo(
+                    $destinatario,
+                    $asunto,
+                    $cuerpo,
+                    '',
+                    null,
+                    [['path' => $rutaExcel, 'name' => $nombreArchivo, 'type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']],
+                    [],
+                    true
+                )) {
+                    $enviosCorrectos++;
+                } else {
+                    error_log('CapHum::notificarNovedadPlantilla correo no enviado: ' . substr((string)$this->enviarCorreoUltimoError, 0, 500));
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('CapHum::notificarNovedadPlantilla -> ' . $e->getMessage());
+        } finally {
+            if ($rutaExcel !== null) {
+                @unlink($rutaExcel);
+            }
+            CapHumDAO::registrarAuditoriaInternaRrhh([
+                'modulo' => 'Gestion de Personal',
+                'entidad_tipo' => 'plantilla',
+                'entidad_id' => count($ids) === 1 ? $ids[0] : 0,
+                'entidad_nombre' => 'Novedades de plantilla',
+                'accion' => 'correo_novedad_plantilla',
+                'resumen' => 'Aviso de plantilla: ' . $motivo . '.',
+                'detalle' => [
+                    'motivo' => $motivo,
+                    'colaboradores' => count($filas),
+                    'destinatarios_configurados' => count($destinatarios),
+                    'envios_aceptados' => $enviosCorrectos,
+                ],
+            ]);
+        }
+    }
+
     private function autorizarSalarioSensibleRrhh(int $idPersona, string $accion, string $codigoTotp = ''): array
     {
         if (!self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH) || !self::puedeGestionarSalarioSensibleRrhh()) {
@@ -1412,8 +1625,6 @@ class CapHum extends Controller
 
     public function gestion()
     {
-        CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
-
         $script = <<<'HTML'
         <script>
 
@@ -1546,6 +1757,13 @@ class CapHum extends Controller
                     // ==========================================
                     // MAPEAR DATOS CON SOPORTE PARA MÃšLTIPLES PUESTOS
                     // ==========================================
+                    // La vista ya aporta actualizarTabla(), que genera el formato compacto.
+                    // Evitar construir el mismo HTML completo dos veces por persona.
+                    if (typeof actualizarTabla === 'function') {
+                        actualizarTabla(usuariosFiltrados);
+                        return;
+                    }
+
                     const datos = usuariosFiltrados.map(p => {
                         const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
                         const tienePuestos = p.puestos && p.puestos.length > 1;
@@ -21136,6 +21354,12 @@ class CapHum extends Controller
             $fechaContratado
         );
         CandidatosDAO::guardarSnapshotHistoricoCandidato($id_candidato, 'Contratado', 'Pasó a plantilla', null, (int) ($_SESSION['usuario_id'] ?? 0), $fechaContratado);
+        try {
+            $this->notificarNovedadPlantilla('Alta en plantilla desde Seleccion de Personal', [$id_persona]);
+        } catch (\Throwable $e) {
+            // La persona ya fue creada; el aviso no debe interferir con su alta ni su bienvenida.
+            error_log('CapHum::notificarNovedadPlantilla alta candidato -> ' . $e->getMessage());
+        }
         $nombreCompleto = trim(implode(' ', [$c['nombres'] ?? '', $c['segundo_nombre'] ?? '', $c['apellidop'] ?? '', $c['apellidom'] ?? '']));
         $destino = trim($c['email'] ?? '');
         $correoBienvenidaEnviado = false;
@@ -28984,6 +29208,13 @@ class CapHum extends Controller
                 // El cambio de estructura ya se guardo; una falla al avisar no debe revertirlo.
                 error_log('CapHum::notificarCambioAreaColaboradorRrhh -> ' . $e->getMessage());
             }
+            if (array_key_exists('puestos', $cambios)) {
+                try {
+                    $this->notificarNovedadPlantilla('Cambio de puesto', [$idPersonaAudit]);
+                } catch (\Throwable $e) {
+                    error_log('CapHum::notificarNovedadPlantilla cambio puesto -> ' . $e->getMessage());
+                }
+            }
         }
         self::respuestaJSON($resultado);
     }
@@ -29043,12 +29274,26 @@ class CapHum extends Controller
             return;
         }
 
+        $salarioAnterior = CapHumDAO::getSalarioSensiblePersona($idPersona);
         $resultado = CapHumDAO::guardarSalarioSensiblePersona(
             $idPersona,
             $input['salario'] ?? '',
             self::usuarioSesionId()
         );
         $this->auditarSalarioSensibleRrhh($idPersona, 'guardar', !empty($resultado['success']) ? 'autorizado' : 'fallido');
+        if (!empty($resultado['success'])) {
+            $antes = (array)($salarioAnterior['datos'] ?? []);
+            $despues = (array)($resultado['datos'] ?? []);
+            $cambioSalario = (bool)($antes['tiene_salario'] ?? false) !== (bool)($despues['tiene_salario'] ?? false)
+                || trim((string)($antes['salario'] ?? '')) !== trim((string)($despues['salario'] ?? ''));
+            if ($cambioSalario) {
+                try {
+                    $this->notificarNovedadPlantilla('Actualizacion de sueldo', [$idPersona]);
+                } catch (\Throwable $e) {
+                    error_log('CapHum::notificarNovedadPlantilla sueldo individual -> ' . $e->getMessage());
+                }
+            }
+        }
         self::respuestaJSON($resultado);
     }
 
@@ -29112,6 +29357,17 @@ class CapHum extends Controller
             }
 
             $resultado = CapHumDAO::importarSalariosSensiblesPorCurp($filas, self::usuarioSesionId());
+            if (!empty($resultado['success'])) {
+                $idsConCambio = array_values(array_unique(array_filter(array_map('intval', (array)($resultado['datos']['personas_con_cambio'] ?? [])))));
+                unset($resultado['datos']['personas_con_cambio']);
+                if (!empty($idsConCambio)) {
+                    try {
+                        $this->notificarNovedadPlantilla('Actualizacion de sueldos', $idsConCambio);
+                    } catch (\Throwable $e) {
+                        error_log('CapHum::notificarNovedadPlantilla sueldo masivo -> ' . $e->getMessage());
+                    }
+                }
+            }
             self::respuestaJSON($resultado);
         } catch (\Throwable $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo leer el archivo de sueldos.', 'error' => $e->getMessage()]);
@@ -29201,6 +29457,22 @@ class CapHum extends Controller
 
             $aplicar = !empty($_POST['aplicar']) && (string)$_POST['aplicar'] !== '0';
             $resultado = CapHumDAO::importarCambiosEstructuraPorExternalId($filas, self::usuarioSesionId(), $aplicar);
+            if ($aplicar && !empty($resultado['success'])) {
+                $idsConCambioPuesto = [];
+                foreach ((array)($resultado['datos']['detalles'] ?? []) as $detalle) {
+                    if (($detalle['estado'] ?? '') === 'cambio' && !empty($detalle['acciones']['cambiar_puesto'])) {
+                        $idsConCambioPuesto[] = (int)($detalle['acciones']['id_persona'] ?? 0);
+                    }
+                }
+                $idsConCambioPuesto = array_values(array_unique(array_filter($idsConCambioPuesto)));
+                if (!empty($idsConCambioPuesto)) {
+                    try {
+                        $this->notificarNovedadPlantilla('Cambio de puesto por actualizacion de estructura', $idsConCambioPuesto);
+                    } catch (\Throwable $e) {
+                        error_log('CapHum::notificarNovedadPlantilla estructura -> ' . $e->getMessage());
+                    }
+                }
+            }
             self::respuestaJSON($resultado);
         } catch (\Throwable $e) {
             self::respuestaJSON([
@@ -31480,6 +31752,12 @@ public function getEstadosMunicipiosMexico()
 
         if ($resultado['success']) {
             $notificacionJefe = $this->notificarJefeDirectoMovimientoBaja($contextoJefeBaja, 'inicio_baja');
+            try {
+                $this->notificarNovedadPlantilla('Baja de colaborador (tramite iniciado)', [(int)$idGestor]);
+            } catch (\Throwable $e) {
+                // El trámite ya quedó persistido: una falla de correo no debe revertirlo.
+                error_log('CapHum::notificarNovedadPlantilla baja -> ' . $e->getMessage());
+            }
             $responder([
                 'success' => true,
                 'datos' => array_merge((array)($resultado['datos'] ?? []), ['notificacion_jefe' => $notificacionJefe]),

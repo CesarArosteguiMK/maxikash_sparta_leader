@@ -6,6 +6,10 @@ CREATE TABLE IF NOT EXISTS leonidas_apariencia_usuario (
     color_metal CHAR(7) NOT NULL,
     casco_visible TINYINT(1) NOT NULL DEFAULT 1,
     pechera_visible TINYINT(1) NOT NULL DEFAULT 1,
+    cabello_visible TINYINT(1) NOT NULL DEFAULT 1,
+    escudo_visible TINYINT(1) NOT NULL DEFAULT 0,
+    lanza_visible TINYINT(1) NOT NULL DEFAULT 0,
+    equipamiento_version SMALLINT UNSIGNED NOT NULL DEFAULT 1,
     creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (persona_id),
@@ -14,4 +18,14 @@ CREATE TABLE IF NOT EXISTS leonidas_apariencia_usuario (
 
 ALTER TABLE leonidas_apariencia_usuario
     ADD COLUMN IF NOT EXISTS casco_visible TINYINT(1) NOT NULL DEFAULT 1 AFTER color_metal,
-    ADD COLUMN IF NOT EXISTS pechera_visible TINYINT(1) NOT NULL DEFAULT 1 AFTER casco_visible;
+    ADD COLUMN IF NOT EXISTS pechera_visible TINYINT(1) NOT NULL DEFAULT 1 AFTER casco_visible,
+    ADD COLUMN IF NOT EXISTS cabello_visible TINYINT(1) NOT NULL DEFAULT 1 AFTER pechera_visible,
+    ADD COLUMN IF NOT EXISTS escudo_visible TINYINT(1) NOT NULL DEFAULT 0 AFTER cabello_visible,
+    ADD COLUMN IF NOT EXISTS lanza_visible TINYINT(1) NOT NULL DEFAULT 0 AFTER escudo_visible,
+    ADD COLUMN IF NOT EXISTS equipamiento_version SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER lanza_visible;
+
+UPDATE leonidas_apariencia_usuario
+SET escudo_visible = 0,
+    lanza_visible = 0,
+    equipamiento_version = 1
+WHERE equipamiento_version < 1;

@@ -101,7 +101,7 @@ if (!configuredAsset) {
         } else if (
             found.helmet.node.extras?.leonidasHelmetOpenFace !== true
         ) {
-            fail('helmet no declara el frente abierto que conserva el rostro');
+            fail('helmet no declara el frente corintio abierto');
         } else if (
             Number(found.helmet.node.extras?.leonidasHelmetOriginalFaces || 0) < 1000
         ) {
@@ -112,17 +112,22 @@ if (!configuredAsset) {
             fail('helmet contiene cortadores destructivos que pueden perforar la nuca');
         } else if (
             Number(found.helmet.node.extras?.leonidasHelmetFrontReliefRemoved || 0) <= 0
-            || Number(found.helmet.node.extras?.leonidasHelmetPanelFaces || 0) < 15
-            || Number(found.helmet.node.extras?.leonidasHelmetDomeFaces || 0) < 300
-            || found.helmet.node.extras?.leonidasHelmetFaceOpening !== 'protected-anatomy'
+            || Number(found.helmet.node.extras?.leonidasHelmetPanelFaces || 0) < 40
+            || Number(found.helmet.node.extras?.leonidasHelmetDomeFaces || 0) < 160
+            || Number(found.helmet.node.extras?.leonidasHelmetVisorFaces || 0) < 1
+            || found.helmet.node.extras?.leonidasHelmetFaceOpening !== 'corinthian-t-slots'
+            || found.helmet.node.extras?.leonidasHelmetConstruction !== 'dense-shell-forged-mask'
+            || !materialNames.has('leonidashelmetmasksteel')
+            || !materialNames.has('leonidashelmetmaskedge')
         ) {
-            fail('helmet no completa la carcasa abierta alrededor del rostro anatomico');
+            fail('helmet no contiene la construcción angular corintia completa');
         } else if (
-            Number(found.helmet.node.extras?.leonidasHelmetScale || 0) < 0.89
-            || Number(found.helmet.node.extras?.leonidasHelmetScale || 0) > 0.93
-            || Number(found.helmet.node.extras?.leonidasHelmetLift || 0) <= 0
+            Number(found.helmet.node.extras?.leonidasHelmetFitHeadWidthRatio || 0) < 1.05
+            || Number(found.helmet.node.extras?.leonidasHelmetFitHeadWidthRatio || 0) > 1.20
+            || Number(found.helmet.node.extras?.leonidasHelmetFitHeadDepthRatio || 0) < 1.02
+            || Number(found.helmet.node.extras?.leonidasHelmetFitHeadDepthRatio || 0) > 1.15
         ) {
-            fail('helmet no declara la escala y elevacion ergonomicas');
+            fail('helmet no declara un ajuste ceñido a la cabeza anatómica');
         } else if (
             Number(found.helmet.node.extras?.leonidasHelmetCrestFaces || 0) <= 0
             || !materialNames.has('leonidascrestred')
