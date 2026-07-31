@@ -64,6 +64,11 @@ backend/storage/tmp_media/
 backend/storage/tmp_mpdf/
 backend/storage/tmp_rrhh_import/
 storage/evidencias_respaldo/
+# Artefactos generados localmente por herramientas y pruebas 3D; no son parte del despliegue.
+storage/tools/
+storage/design-rejected/
+storage/leonidas-helmet-designs/
+storage/leonidas-helmet-reconstruction/
 backend/storage/runtime/
 backend/storage/leonidas/*.jsonl
 backend/storage/leonidas_media/

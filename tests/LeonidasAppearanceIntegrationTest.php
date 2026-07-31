@@ -46,7 +46,10 @@ appearanceIntegrationAssert(
         && str_contains($threeJs, 'is-appearance-preview-live')
         && str_contains($threeJs, "canvas.addEventListener('pointerdown'")
         && str_contains($threeJs, "canvas.addEventListener('pointermove'")
-        && str_contains($threeJs, 'previewRotationTarget'),
+        && str_contains($threeJs, 'previewRotationTarget')
+        && str_contains($threeJs, 'settleHand(leftHand')
+        && str_contains($threeJs, 'settleHand(rightHand')
+        && str_contains($threeJs, 'applyOpenFingers(leftFingerBones, idleElbowWeight'),
     'La vista previa debe reutilizar el modelo 3D, permitir girarlo y devolverlo al cerrar el editor.'
 );
 appearanceIntegrationAssert(

@@ -1313,8 +1313,6 @@ class CapHum extends Model
 
         try {
             $db = new Database();
-            self::asegurarTablaVacantesPersonal($db);
-            self::asegurarAsignaJefeSoportaVacante($db);
 
             $puestosPersona = $db->queryAll("
                 SELECT
@@ -3180,7 +3178,13 @@ class CapHum extends Model
                 END AS id_jefe,
                 aj.id_vacante_jefe,
                 p.password,
-                al.id_legion
+                al.id_legion,
+                EXISTS(
+                    SELECT 1
+                    FROM estado_cuenta.baja_persona bp_transito
+                    WHERE bp_transito.id_persona = p.id
+                      AND bp_transito.estatus_tramite = 'Transito'
+                ) AS tiene_transito_baja
             FROM persona p
             LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
             LEFT JOIN puesto pu ON pu.id = ap.id_puesto
@@ -3188,7 +3192,15 @@ class CapHum extends Model
             LEFT JOIN asigna_jefe aj ON aj.id_persona = p.id
             LEFT JOIN asigna_legion al ON al.id_persona = p.id AND al.activo = 1
             WHERE p.id = $idPersona
-              AND LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
+              AND (
+                  LOWER(TRIM(COALESCE(p.estatus, ''))) NOT IN ('baja', 'transito de baja')
+                  OR EXISTS(
+                      SELECT 1
+                      FROM estado_cuenta.baja_persona bp_transito
+                      WHERE bp_transito.id_persona = p.id
+                        AND bp_transito.estatus_tramite = 'Transito'
+                  )
+              )
             LIMIT 1
         SQL;
 
@@ -10723,8 +10735,51 @@ class CapHum extends Model
     }
 
     /**
-     * Primer paso de baja: bloquea a la persona para operación sin ejecutar aún
-     * la Baja parcial, las reasignaciones ni la sincronización al sistema legado.
+     * Algunas instalaciones antiguas conservan persona.estatus como ENUM(Activo, Baja).
+     * El registro en baja_persona conserva el estado real del trámite; Baja se usa allí
+     * únicamente como bloqueo operativo reversible hasta que el esquema admita Tránsito.
+     */
+    private static function estatusPersonaDuranteTransitoBaja(Database $db): string
+    {
+        static $estatus = null;
+        if ($estatus !== null) {
+            return $estatus;
+        }
+
+        $columna = $db->queryOne("SHOW COLUMNS FROM estado_cuenta.persona LIKE 'estatus'");
+        $tipo = strtolower(trim((string)($columna['Type'] ?? '')));
+        $esEnum = str_starts_with($tipo, 'enum(');
+
+        $estatus = !$esEnum || str_contains($tipo, "'transito de baja'")
+            ? 'Transito de baja'
+            : 'Baja';
+
+        return $estatus;
+    }
+
+    /** Obtiene el único trámite de tránsito que sigue abierto para una persona. */
+    private static function obtenerTransitoBajaPendiente(Database $db, int $idPersona): ?array
+    {
+        if ($idPersona <= 0) {
+            return null;
+        }
+
+        return $db->queryOne(
+            "SELECT id, COALESCE(estatus_anterior, '') AS estatus_anterior,
+                    COALESCE(despachos_activos_previos, 0) AS despachos_activos_previos
+             FROM estado_cuenta.baja_persona
+             WHERE id_persona = :id_persona
+               AND estatus_tramite = 'Transito'
+             ORDER BY id DESC
+             LIMIT 1",
+            ['id_persona' => $idPersona]
+        );
+    }
+
+    /**
+     * Primer paso de baja: bloquea a la persona para operación. La Baja parcial
+     * y las reasignaciones siguen pendientes, pero el acceso Legacy se bloquea
+     * de inmediato para mantener ambos sistemas alineados.
      */
     public static function registrarBajaGestor($data)
     {
@@ -10764,6 +10819,10 @@ class CapHum extends Model
             }
 
             $estatusActual = strtolower(trim((string)$personaActual['estatus']));
+            if (self::obtenerTransitoBajaPendiente($db, $idPersona)) {
+                $db->rollback();
+                return self::resultado(false, 'Esta persona ya tiene un trámite de baja pendiente de documentos.');
+            }
             if ($estatusActual === 'baja') {
                 $db->rollback();
                 return self::resultado(false, 'Esta persona ya se encuentra en Baja parcial o Baja completa.');
@@ -10825,11 +10884,12 @@ class CapHum extends Model
                 ]);
             }
 
+            $estatusOperativo = self::estatusPersonaDuranteTransitoBaja($db);
             $db->CRUD("
                 UPDATE estado_cuenta.persona
-                SET estatus = 'Transito de baja'
+                SET estatus = :estatus
                 WHERE id = :id_persona
-            ", ['id_persona' => $idPersona]);
+            ", ['estatus' => $estatusOperativo, 'id_persona' => $idPersona]);
 
             // El despacho se inhabilita de inmediato para impedir nuevas asignaciones operativas.
             $db->CRUD("
@@ -10841,10 +10901,20 @@ class CapHum extends Model
 
             $db->commit();
 
-            return self::resultado(true, 'Trámite de baja iniciado. La persona queda fuera de cartera y asignaciones hasta completar sus documentos.', [
+            // El tránsito bloquea también el acceso Legacy, tal como bloquea
+            // cartera y asignaciones en Sparta. La bitácora conserva cualquier
+            // error externo para que pueda reintentarse sin perder trazabilidad.
+            $legacySync = LegacyUserSync::sincronizarBajaDesdeSpartan($idPersona, $usuarioBaja);
+            $legacyPendiente = (string)($legacySync['resultado'] ?? '') === 'error';
+
+            return self::resultado(true, $legacyPendiente
+                ? 'Trámite de baja iniciado. Sparta quedó bloqueado y la sincronización con Legacy quedó pendiente; revisa la bitácora de sincronización.'
+                : 'Trámite de baja iniciado. La persona queda fuera de cartera, asignaciones y acceso al sistema hasta completar sus documentos.', [
                 'id_persona' => $idPersona,
                 'id_baja' => $idBaja,
                 'estatus_tramite' => 'Transito',
+                'estatus_operativo' => $estatusOperativo,
+                'legacy_sync' => $legacySync,
             ]);
         } catch (\Throwable $e) {
             if ($db) {
@@ -10876,24 +10946,18 @@ class CapHum extends Model
             $idPersona = (int)($data['id_gestor'] ?? 0);
             $usuario = (int)($data['usuario_cancelacion'] ?? 0);
             $fecha = trim((string)($data['fecha_cancelacion'] ?? ''));
+            $motivoReactivacion = trim((string)($data['motivo_reactivacion'] ?? ''));
             if ($idPersona < 1) return self::resultado(false, 'La persona indicada no es válida.');
+            if ($motivoReactivacion === '') return self::resultado(false, 'Debes indicar el motivo de la reactivación.');
             if ($fecha === '') $fecha = (new \DateTime('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
 
             $db->beginTransaction();
             $persona = $db->queryOne("SELECT id, COALESCE(estatus, '') AS estatus FROM estado_cuenta.persona WHERE id = :id_persona FOR UPDATE", ['id_persona' => $idPersona]);
-            if (!$persona || strtolower(trim((string)$persona['estatus'])) !== 'transito de baja') {
+            $tramite = self::obtenerTransitoBajaPendiente($db, $idPersona);
+            $estatusPersona = strtolower(trim((string)($persona['estatus'] ?? '')));
+            if (!$persona || !$tramite || !in_array($estatusPersona, ['transito de baja', 'baja'], true)) {
                 $db->rollback();
                 return self::resultado(false, 'La persona ya no tiene un trámite de baja que se pueda cancelar.');
-            }
-            $tramite = $db->queryOne("
-                SELECT id, COALESCE(estatus_anterior, '') AS estatus_anterior, COALESCE(despachos_activos_previos, 0) AS despachos_activos_previos
-                FROM estado_cuenta.baja_persona
-                WHERE id_persona = :id_persona AND estatus_tramite = 'Transito'
-                ORDER BY id DESC LIMIT 1 FOR UPDATE
-            ", ['id_persona' => $idPersona]);
-            if (!$tramite) {
-                $db->rollback();
-                return self::resultado(false, 'No se encontró el registro del trámite de baja pendiente.');
             }
 
             $estatusAnterior = trim((string)$tramite['estatus_anterior']);
@@ -10902,9 +10966,28 @@ class CapHum extends Model
             if ((int)$tramite['despachos_activos_previos'] > 0) {
                 $db->CRUD("UPDATE estado_cuenta.despachos SET estatus = 'Activo' WHERE id_persona = :id_persona AND estatus = 'Inactivo'", ['id_persona' => $idPersona]);
             }
-            $db->CRUD("UPDATE estado_cuenta.baja_persona SET estatus_tramite = 'Cancelado', fecha_cancelacion = :fecha, usuario_cancelacion = :usuario WHERE id = :id", ['fecha' => $fecha, 'usuario' => $usuario ?: null, 'id' => (int)$tramite['id']]);
+            $notaReactivacion = "\n\n[Reactivación " . $fecha . "]: " . $motivoReactivacion;
+            $db->CRUD("UPDATE estado_cuenta.baja_persona
+                SET estatus_tramite = 'Cancelado',
+                    fecha_cancelacion = :fecha,
+                    usuario_cancelacion = :usuario,
+                    descripcion = CONCAT(COALESCE(descripcion, ''), :nota_reactivacion)
+                WHERE id = :id", [
+                'fecha' => $fecha,
+                'usuario' => $usuario ?: null,
+                'nota_reactivacion' => $notaReactivacion,
+                'id' => (int)$tramite['id'],
+            ]);
             $db->commit();
-            return self::resultado(true, 'Se canceló el trámite de baja y la persona volvió a su estado anterior.', ['id_persona' => $idPersona, 'estatus' => $estatusAnterior]);
+            $legacySync = LegacyUserSync::sincronizarReactivacionDesdeSpartan($idPersona, $usuario);
+            $legacyPendiente = (string)($legacySync['resultado'] ?? '') === 'error';
+            return self::resultado(true, $legacyPendiente
+                ? 'Se canceló el trámite y Sparta quedó reactivado; la sincronización con Legacy quedó pendiente.'
+                : 'Se canceló el trámite de baja y la persona volvió a su estado anterior.', [
+                'id_persona' => $idPersona,
+                'estatus' => $estatusAnterior,
+                'legacy_sync' => $legacySync,
+            ]);
         } catch (\Exception $e) {
             if ($db) { try { $db->rollback(); } catch (\Exception $ignored) {} }
             return self::resultado(false, 'No se pudo cancelar el trámite de baja.', null, $e->getMessage());
@@ -10938,7 +11021,9 @@ class CapHum extends Model
             $personaActual = $db->queryOne("
                 SELECT estatus FROM estado_cuenta.persona WHERE id = '$id_persona' LIMIT 1
             ");
-            if (!$personaActual || strtolower(trim((string)$personaActual['estatus'])) !== 'transito de baja') {
+            $transitoPendiente = self::obtenerTransitoBajaPendiente($db, (int)$id_persona);
+            $estatusPersona = strtolower(trim((string)($personaActual['estatus'] ?? '')));
+            if (!$personaActual || !$transitoPendiente || !in_array($estatusPersona, ['transito de baja', 'baja'], true)) {
                 return self::resultado(false, 'La Baja parcial solo se puede registrar desde un trámite de baja pendiente.');
             }
             if (!in_array($modoReasignacion, ['vacante', 'sustituto'], true)) {
@@ -11246,8 +11331,11 @@ class CapHum extends Model
             $db->commit();
 
             $legacySync = LegacyUserSync::sincronizarBajaDesdeSpartan((int)$id_persona, (int)$usuario_baja);
+            $legacyPendiente = (string)($legacySync['resultado'] ?? '') === 'error';
 
-            return self::resultado(true, 'Baja parcial registrada correctamente con el documento inicial.', [
+            return self::resultado(true, $legacyPendiente
+                ? 'Baja parcial registrada en Sparta. La sincronización con Legacy quedó pendiente; revisa la bitácora de sincronización.'
+                : 'Baja parcial registrada correctamente con el documento inicial.', [
                 'id_persona' => (int)$id_persona,
                 'estatus_tramite' => 'Baja parcial',
                 'legacy_sync' => $legacySync,
@@ -11326,7 +11414,14 @@ class CapHum extends Model
                 WHERE id = :id_persona
             ", ['id_persona' => $id_persona]);
 
-            return self::resultado(true, 'Reingreso registrado correctamente. La persona ha sido reactivada en la plantilla.');
+            $legacySync = LegacyUserSync::sincronizarReactivacionDesdeSpartan($id_persona, (int)$usuario_reingreso);
+            $legacyPendiente = (string)($legacySync['resultado'] ?? '') === 'error';
+            return self::resultado(true, $legacyPendiente
+                ? 'Reingreso registrado en Sparta. La sincronización con Legacy quedó pendiente.'
+                : 'Reingreso registrado correctamente. La persona ha sido reactivada en la plantilla.', [
+                'id_persona' => $id_persona,
+                'legacy_sync' => $legacySync,
+            ]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al registrar el reingreso.', null, $e->getMessage());
         }
@@ -11482,9 +11577,16 @@ class CapHum extends Model
             bp.motivo,
             bp.descripcion,
             CASE
+                WHEN LOWER(TRIM(COALESCE(bp.estatus_tramite, ''))) = 'transito' THEN 'Tránsito de baja'
                 WHEN LOWER(TRIM(COALESCE(bp.estatus_tramite, ''))) = 'baja completa' THEN 'Baja completa'
                 ELSE 'Baja parcial'
             END AS estatus_tramite,
+            CASE
+                WHEN LOWER(TRIM(COALESCE(bp.estatus_tramite, ''))) NOT IN ('transito', 'baja completa')
+                     AND bp.fecha_transito IS NULL
+                THEN 1
+                ELSE 0
+            END AS es_baja_legacy,
             bp.fecha_finalizacion AS fecha_baja_parcial,
             bp.fecha_baja_completa,
             p.user_name,
@@ -11517,14 +11619,16 @@ class CapHum extends Model
             ORDER BY COALESCE(c2.fecha_actualizacion, c2.fecha_registro) DESC, c2.id DESC
             LIMIT 1
         )
-        WHERE p.estatus = 'Baja'
+        WHERE LOWER(TRIM(COALESCE(p.estatus, ''))) IN ('baja', 'transito de baja')
         {$exB}
         SQL;
 
-        if ($etapaBaja === 'baja_completa') {
+        if ($etapaBaja === 'transito') {
+            $query .= " AND LOWER(TRIM(COALESCE(bp.estatus_tramite, ''))) = 'transito'";
+        } elseif ($etapaBaja === 'baja_completa') {
             $query .= " AND LOWER(TRIM(COALESCE(bp.estatus_tramite, ''))) = 'baja completa'";
         } elseif ($etapaBaja === 'baja_parcial') {
-            $query .= " AND LOWER(TRIM(COALESCE(bp.estatus_tramite, ''))) <> 'baja completa'";
+            $query .= " AND LOWER(TRIM(COALESCE(bp.estatus_tramite, ''))) NOT IN ('transito', 'baja completa')";
         }
 
         // Agregar filtro de fecha si se proporciona
