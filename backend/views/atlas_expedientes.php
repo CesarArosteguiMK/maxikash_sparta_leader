@@ -1,7 +1,7 @@
 <?php
 $atlasNow = new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City'));
-$atlasStart = $atlasNow->modify('first day of this month')->format('Y-m-d');
-$atlasEnd = $atlasNow->modify('last day of this month')->format('Y-m-d');
+$atlasStart = '';
+$atlasEnd = $atlasNow->format('Y-m-d');
 $atlasApiReady = !empty($atlas_admin_configurada);
 ?>
 
@@ -13,7 +13,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .atlas-expedientes-title i { color:#2563eb; }
         .atlas-expedientes-subtitle { margin:.2rem 0 0; color:#64748b; font-size:.86rem; font-weight:700; }
         .atlas-expedientes-filter-panel { border:1px solid #dbe4ef; border-radius:.5rem; background:#f8fafc; padding:.9rem; margin-bottom:1rem; }
-        .atlas-expedientes-filters { display:grid; grid-template-columns:repeat(5, minmax(10rem, 1fr)) auto; gap:.7rem; align-items:end; }
+        .atlas-expedientes-filters { display:grid; grid-template-columns:repeat(4, minmax(10rem, 1fr)) auto; gap:.7rem; align-items:end; }
         .atlas-expedientes-filter-actions { display:flex; align-items:center; gap:.45rem; }
         .atlas-expedientes-filter-actions .btn { min-height:2.35rem; white-space:nowrap; }
         .atlas-expedientes-metrics { display:grid; grid-template-columns:repeat(5, minmax(8rem, 1fr)); gap:.7rem; margin-bottom:1rem; }
@@ -90,6 +90,11 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .atlas-expedientes-evidence-open { margin-top:.65rem; }
         .atlas-expedientes-evidence-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.5rem; min-height:8rem; padding:1.25rem; border:1px dashed #cbd5e1; border-radius:.45rem; background:#f8fafc; color:#64748b; text-align:center; font-size:.78rem; font-weight:800; }
         .atlas-expedientes-evidence-empty i { color:#94a3b8; font-size:1.5rem; }
+        .atlas-expedientes-scope { display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; margin-top:.45rem; }
+        .atlas-expedientes-scope-badge { display:inline-flex; align-items:center; gap:.35rem; border-radius:999px; padding:.25rem .6rem; background:#dbeafe; color:#1d4ed8; font-size:.7rem; font-weight:900; }
+        .atlas-expedientes-scope-copy { color:#64748b; font-size:.75rem; font-weight:800; }
+        .atlas-expedientes-import-help { display:grid; gap:.55rem; padding:.75rem .85rem; border:1px solid #bfdbfe; border-radius:.45rem; background:#eff6ff; color:#1e3a5f; font-size:.78rem; font-weight:700; }
+        .atlas-expedientes-import-help strong { color:#1d4ed8; }
         @media (max-width: 1399.98px) {
             .atlas-expedientes-filters { grid-template-columns:repeat(3, minmax(10rem, 1fr)); }
             .atlas-expedientes-metrics { grid-template-columns:repeat(3, minmax(9rem, 1fr)); }
@@ -112,25 +117,33 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 <span>Expedientes</span>
             </h1>
             <p class="atlas-expedientes-subtitle">Control de entrega e incidencias por cr&eacute;dito, cliente y sucursal.</p>
+            <div class="atlas-expedientes-scope">
+                <span class="atlas-expedientes-scope-badge"><i class="fa-solid fa-bolt"></i>S2Credit</span>
+                <span class="atlas-expedientes-scope-copy">Hist&oacute;rico de activaciones desde el inicio de Maxikash.</span>
+            </div>
         </div>
+        <button type="button" class="btn btn-primary btn-sm" id="atlasExpedientesImportOpen"
+                <?= $atlasApiReady ? '' : 'disabled' ?>>
+            <i class="fa-solid fa-file-arrow-up me-2"></i>Cargar layout
+        </button>
     </div>
 
     <?php if (!$atlasApiReady): ?>
-        <div class="alert alert-warning d-flex align-items-center gap-2" role="alert">
-            <i class="fa-solid fa-triangle-exclamation"></i>
-            <span>Configura <strong>ATLAS_ADMIN_API_KEYS</strong> para operar expedientes.</span>
+        <div class="alert alert-info d-flex align-items-center gap-2" role="alert">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>El servicio de Expedientes no est&aacute; disponible por el momento. Contacta a soporte para revisarlo.</span>
         </div>
     <?php endif; ?>
 
     <section class="atlas-expedientes-filter-panel" aria-label="Filtros de expedientes">
         <div class="atlas-expedientes-filters">
             <div>
-                <label class="form-label mb-1" for="atlasExpedientesStart">Fecha inicio</label>
+                <label class="form-label mb-1" for="atlasExpedientesStart">Activaci&oacute;n desde (opcional)</label>
                 <input class="form-control form-control-sm" type="date" id="atlasExpedientesStart"
                        value="<?= htmlspecialchars($atlasStart, ENT_QUOTES, 'UTF-8') ?>">
             </div>
             <div>
-                <label class="form-label mb-1" for="atlasExpedientesEnd">Fecha fin</label>
+                <label class="form-label mb-1" for="atlasExpedientesEnd">Activaci&oacute;n hasta</label>
                 <input class="form-control form-control-sm" type="date" id="atlasExpedientesEnd"
                        value="<?= htmlspecialchars($atlasEnd, ENT_QUOTES, 'UTF-8') ?>">
             </div>
@@ -139,20 +152,14 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 <select class="form-select form-select-sm atlas-expedientes-select" id="atlasExpedientesStatus">
                     <option value="">Todos</option>
                     <option value="pendiente">Pendiente</option>
-                    <option value="entregado">Entregado</option>
-                    <option value="no_entregado">No entregado</option>
+                    <option value="entregado">Recolectado</option>
+                    <option value="no_entregado">No recolectado</option>
                     <option value="incidencia">Incidencia</option>
                 </select>
             </div>
             <div>
                 <label class="form-label mb-1" for="atlasExpedientesBranch">Sucursal</label>
                 <select class="form-select form-select-sm atlas-expedientes-select" id="atlasExpedientesBranch">
-                    <option value="">Todas</option>
-                </select>
-            </div>
-            <div>
-                <label class="form-label mb-1" for="atlasExpedientesStage">Etapa del cr&eacute;dito</label>
-                <select class="form-select form-select-sm atlas-expedientes-select" id="atlasExpedientesStage">
                     <option value="">Todas</option>
                 </select>
             </div>
@@ -177,11 +184,11 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             <div class="atlas-expedientes-metric-value" id="atlasExpedientesPending">0</div>
         </article>
         <article class="atlas-expedientes-metric is-green">
-            <div class="atlas-expedientes-metric-label">Entregados</div>
+            <div class="atlas-expedientes-metric-label">Recolectados</div>
             <div class="atlas-expedientes-metric-value" id="atlasExpedientesDelivered">0</div>
         </article>
         <article class="atlas-expedientes-metric is-red">
-            <div class="atlas-expedientes-metric-label">No entregados</div>
+            <div class="atlas-expedientes-metric-label">No recolectados</div>
             <div class="atlas-expedientes-metric-value" id="atlasExpedientesNotDelivered">0</div>
         </article>
         <article class="atlas-expedientes-metric is-amber">
@@ -192,7 +199,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
 
     <section class="atlas-expedientes-table-panel">
         <div class="atlas-expedientes-table-head">
-            <h2 class="atlas-expedientes-table-title">Cr&eacute;ditos disponibles</h2>
+            <h2 class="atlas-expedientes-table-title">Cr&eacute;ditos activos en S2Credit</h2>
             <span class="atlas-expedientes-table-meta" id="atlasExpedientesMeta">Sin consultar</span>
         </div>
         <div class="atlas-expedientes-scroll">
@@ -205,7 +212,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                         <th>Etapa</th>
                         <th>Monto</th>
                         <th>Estatus expediente</th>
-                        <th>&Uacute;ltima actualizaci&oacute;n</th>
+                        <th>Activaci&oacute;n S2</th>
                         <th class="text-end">Acciones</th>
                     </tr>
                 </thead>
@@ -270,6 +277,38 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     </div>
 </div>
 
+<div class="modal fade" id="atlasExpedientesImportModal" tabindex="-1" aria-labelledby="atlasExpedientesImportTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <form class="modal-content" id="atlasExpedientesImportForm">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title fs-5" id="atlasExpedientesImportTitle">
+                        <i class="fa-solid fa-file-excel me-2 text-primary"></i>Cargar layout de expedientes
+                    </h2>
+                    <div class="text-muted small fw-semibold">Se validar&aacute;n todos los registros antes de aplicar cambios.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="atlas-expedientes-import-help mb-3">
+                    <div><strong>Columnas requeridas:</strong> ID cr&eacute;dito y Estatus expediente.</div>
+                    <div><strong>Estados permitidos:</strong> Expediente recolectado, Expediente no recolectado e Incidencia.</div>
+                    <div>Para No recolectado e Incidencia, agrega una columna Motivo, Incidencia u Observaciones.</div>
+                </div>
+                <label class="form-label fw-bold" for="atlasExpedientesImportFile">Archivo Excel</label>
+                <input class="form-control" type="file" id="atlasExpedientesImportFile" name="archivo"
+                       accept=".xlsx,.xls" required>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="atlasExpedientesImportSubmit">
+                    <i class="fa-solid fa-cloud-arrow-up me-2"></i>Procesar layout
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 (() => {
     const apiReady = <?= $atlasApiReady ? 'true' : 'false' ?>;
@@ -279,14 +318,18 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     const endInput = document.getElementById('atlasExpedientesEnd');
     const statusSelect = document.getElementById('atlasExpedientesStatus');
     const branchSelect = document.getElementById('atlasExpedientesBranch');
-    const stageSelect = document.getElementById('atlasExpedientesStage');
     const refreshButton = document.getElementById('atlasExpedientesRefresh');
+    const importOpenButton = document.getElementById('atlasExpedientesImportOpen');
+    const importForm = document.getElementById('atlasExpedientesImportForm');
+    const importSubmitButton = document.getElementById('atlasExpedientesImportSubmit');
     const movementForm = document.getElementById('atlasExpedientesMovementForm');
     const movementModalElement = document.getElementById('atlasExpedientesMovementModal');
     const detailModalElement = document.getElementById('atlasExpedientesDetailModal');
+    const importModalElement = document.getElementById('atlasExpedientesImportModal');
     let table = null;
     let movementModal = null;
     let detailModal = null;
+    let importModal = null;
     let saving = false;
     let lastError = '';
     let loadingRequests = 0;
@@ -323,8 +366,8 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     const statusDefinition = (status) => {
         const definitions = {
             pendiente: { label: 'Pendiente', css: 'is-pending', icon: 'fa-clock' },
-            entregado: { label: 'Entregado', css: 'is-delivered', icon: 'fa-check' },
-            no_entregado: { label: 'No entregado', css: 'is-not-delivered', icon: 'fa-xmark' },
+            entregado: { label: 'Recolectado', css: 'is-delivered', icon: 'fa-check' },
+            no_entregado: { label: 'No recolectado', css: 'is-not-delivered', icon: 'fa-xmark' },
             incidencia: { label: 'Incidencia', css: 'is-incident', icon: 'fa-triangle-exclamation' },
         };
         return definitions[String(status || '')] || definitions.pendiente;
@@ -400,18 +443,15 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     };
 
     const dateRangeIsValid = () => {
-        if (!startInput.value || !endInput.value || endInput.value < startInput.value) return false;
-        const start = new Date(`${startInput.value}T00:00:00`);
-        const end = new Date(`${endInput.value}T00:00:00`);
-        const days = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
-        return days > 0 && days <= 366;
+        if (!startInput.value || !endInput.value) return true;
+        return endInput.value >= startInput.value;
     };
 
     const validateDateRange = (showMessage = false) => {
         const valid = dateRangeIsValid();
         startInput.classList.toggle('is-invalid', !valid);
         endInput.classList.toggle('is-invalid', !valid);
-        if (!valid && showMessage) showError('El periodo debe ser valido y no superar 366 dias.');
+        if (!valid && showMessage) showError('La fecha final no puede ser anterior a la fecha inicial.');
         return valid;
     };
 
@@ -427,7 +467,6 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         const placeholders = new Map([
             [statusSelect, 'Todos los estatus'],
             [branchSelect, 'Todas las sucursales'],
-            [stageSelect, 'Todas las etapas'],
         ]);
         placeholders.forEach((placeholder, select) => {
             window.jQuery(select).select2({
@@ -459,7 +498,6 @@ $atlasApiReady = !empty($atlas_admin_configurada);
 
     const updateCatalogs = (catalogs = {}) => {
         updateSelect(branchSelect, catalogs.sucursales || [], 'fk_sucursal', 'nombre', 'Todas las sucursales');
-        updateSelect(stageSelect, catalogs.etapas || [], '', '', 'Todas las etapas');
     };
 
     const rowActions = (row) => {
@@ -472,8 +510,8 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 <i class="fa-solid ${icon}"></i>
             </button>`;
         return `<div class="atlas-expedientes-actions">
-            ${action('entregado', 'Marcar entregado', 'fa-check', 'btn-label-success')}
-            ${action('no_entregado', 'Marcar no entregado', 'fa-xmark', 'btn-label-danger')}
+            ${action('entregado', 'Marcar recolectado', 'fa-check', 'btn-label-success')}
+            ${action('no_entregado', 'Marcar no recolectado', 'fa-xmark', 'btn-label-danger')}
             ${action('incidencia', 'Registrar incidencia', 'fa-triangle-exclamation', 'btn-label-warning')}
             <button type="button" class="btn btn-sm btn-label-primary atlas-expedientes-icon-btn"
                     data-exp-action="detalle" data-exp-credit="${creditId}" title="Ver expediente" aria-label="Ver expediente">
@@ -498,14 +536,13 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                     return;
                 }
                 const params = new URLSearchParams({
-                    fecha_inicio: startInput.value,
-                    fecha_fin: endInput.value,
                     page: String(Math.floor(request.start / request.length) + 1),
                     page_size: String(request.length),
                 });
+                if (startInput.value) params.set('fecha_inicio', startInput.value);
+                if (endInput.value) params.set('fecha_fin', endInput.value);
                 if (statusSelect.value) params.set('estatus', statusSelect.value);
                 if (branchSelect.value) params.set('fk_sucursal', branchSelect.value);
-                if (stageSelect.value) params.set('etapa', stageSelect.value);
                 if (request.search?.value) params.set('search', request.search.value);
                 refreshButton.disabled = true;
                 showExpedientesLoading();
@@ -521,8 +558,12 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                     const pagination = data.paginacion || {};
                     updateCatalogs(data.catalogos || {});
                     setSummary(data.resumen || {});
+                    const period = data.periodo || {};
+                    const scope = period.fecha_inicio
+                        ? `${period.fecha_inicio} a ${period.fecha_fin || 'hoy'}`
+                        : `Hist\u00f3rico hasta ${period.fecha_fin || 'hoy'}`;
                     document.getElementById('atlasExpedientesMeta').textContent =
-                        `${number(pagination.total_filtrados)} expediente(s) en el periodo`;
+                        `${number(pagination.total_filtrados)} expediente(s) \u00b7 ${scope}`;
                     lastError = '';
                     pendingTableError = '';
                     callback({
@@ -588,11 +629,11 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                     render: (value, type) => type === 'display' ? statusBadge(value) : value,
                 },
                 {
-                    data: 'fecha_estado',
+                    data: 'fecha_activacion_s2',
                     render: (value, type, row) => {
                         if (type !== 'display') return value || '';
                         return `<div class="atlas-expedientes-main">${escapeHtml(dateTime(value))}</div>
-                            <div class="atlas-expedientes-sub">Version ${number(row.version)}</div>`;
+                            <div class="atlas-expedientes-sub">Actualizaci&oacute;n ${escapeHtml(dateTime(row.fecha_estado))}</div>`;
                     },
                 },
                 {
@@ -667,13 +708,13 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     const markDelivered = async (row) => {
         const label = `#${row.numero_credito || row.credito_id}`;
         const confirmed = typeof Swal === 'undefined'
-            ? window.confirm(`Marcar el credito ${label} como entregado?`)
+            ? window.confirm(`Marcar el credito ${label} como recolectado?`)
             : await Swal.fire({
                 icon: 'question',
-                title: 'Confirmar entrega',
-                html: `El cr&eacute;dito <strong>${escapeHtml(label)}</strong> quedar&aacute; registrado como entregado.`,
+                title: 'Confirmar recolecci\u00f3n',
+                html: `El expediente del cr&eacute;dito <strong>${escapeHtml(label)}</strong> quedar&aacute; registrado como recolectado.`,
                 showCancelButton: true,
-                confirmButtonText: 'Confirmar entrega',
+                confirmButtonText: 'Confirmar recolecci\u00f3n',
                 cancelButtonText: 'Cancelar',
                 confirmButtonColor: '#16a34a',
             }).then((result) => Boolean(result.isConfirmed));
@@ -683,12 +724,12 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     const openMovement = (row, action) => {
         const definitions = {
             no_entregado: {
-                title: 'Registrar no entregado',
-                placeholder: 'Ej. Cliente ausente o rechazo de entrega',
+                title: 'Registrar no recolectado',
+                placeholder: 'Ej. El expediente no estaba disponible',
             },
             incidencia: {
                 title: 'Registrar incidencia',
-                placeholder: 'Ej. Documentacion incompleta o unidad no disponible',
+                placeholder: 'Ej. Factura con motocicleta diferente o nombre incorrecto',
             },
         };
         const definition = definitions[action];
@@ -858,6 +899,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 ${detailItem('Etapa del credito', expediente.etapa_credito)}
                 ${detailItem('Monto a financiar', money(expediente.monto_financiar))}
                 ${detailItem('Alta del credito', dateTime(expediente.fecha_credito))}
+                ${detailItem('Activacion S2Credit', dateTime(expediente.fecha_activacion_s2))}
                 <div class="atlas-expedientes-detail-item">
                     <div class="atlas-expedientes-detail-label">Estatus actual</div>
                     <div class="atlas-expedientes-detail-value">${statusBadge(expediente.estatus)}</div>
@@ -889,6 +931,51 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         }
     };
 
+    const uploadLayout = async (event) => {
+        event.preventDefault();
+        const fileInput = document.getElementById('atlasExpedientesImportFile');
+        if (!fileInput.files?.length) {
+            fileInput.classList.add('is-invalid');
+            return;
+        }
+
+        fileInput.classList.remove('is-invalid');
+        importSubmitButton.disabled = true;
+        const originalContent = importSubmitButton.innerHTML;
+        importSubmitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando';
+        try {
+            const response = await fetch('/Atlas/importarExpedientes', {
+                method: 'POST',
+                headers: { Accept: 'application/json' },
+                body: new FormData(importForm),
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload.success) {
+                throw new Error(payload.mensaje || 'No se pudo procesar el layout.');
+            }
+
+            const summary = payload.datos || {};
+            if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+            importModal?.hide();
+            importForm.reset();
+            table?.ajax.reload(null, false);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Layout aplicado',
+                    html: `<strong>${number(summary.actualizados)}</strong> actualizado(s) &middot; `
+                        + `<strong>${number(summary.sin_cambios)}</strong> sin cambios &middot; `
+                        + `<strong>${number(summary.ya_procesados)}</strong> ya procesado(s)`,
+                });
+            }
+        } catch (error) {
+            showError(error.message || 'No se pudo procesar el layout.');
+        } finally {
+            importSubmitButton.disabled = false;
+            importSubmitButton.innerHTML = originalContent;
+        }
+    };
+
     const reloadFromStart = () => {
         if (!validateDateRange(false) || !table) return;
         table.ajax.reload(null, true);
@@ -899,16 +986,24 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             showError('No se pudieron cargar los componentes de tabla y filtros.');
             return;
         }
+        [movementModalElement, detailModalElement, importModalElement].forEach((modalElement) => {
+            if (modalElement && modalElement.parentElement !== document.body) {
+                document.body.appendChild(modalElement);
+            }
+        });
         movementModal = typeof bootstrap !== 'undefined'
             ? bootstrap.Modal.getOrCreateInstance(movementModalElement)
             : null;
         detailModal = typeof bootstrap !== 'undefined'
             ? bootstrap.Modal.getOrCreateInstance(detailModalElement)
             : null;
+        importModal = typeof bootstrap !== 'undefined'
+            ? bootstrap.Modal.getOrCreateInstance(importModalElement)
+            : null;
         initializeSelects();
         loadDataTable();
 
-        window.jQuery([statusSelect, branchSelect, stageSelect])
+        window.jQuery([statusSelect, branchSelect])
             .off('change.atlasExpedientes')
             .on('change.atlasExpedientes', reloadFromStart);
         [startInput, endInput].forEach((input) => input.addEventListener('change', reloadFromStart));
@@ -918,12 +1013,19 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         document.getElementById('atlasExpedientesClear').addEventListener('click', () => {
             startInput.value = initialStart;
             endInput.value = initialEnd;
-            [statusSelect, branchSelect, stageSelect].forEach((select) => {
+            [statusSelect, branchSelect].forEach((select) => {
                 window.jQuery(select).val('').trigger('change.select2');
             });
             table.search('');
             reloadFromStart();
         });
+        importOpenButton.disabled = !apiReady;
+        importOpenButton.addEventListener('click', () => {
+            importForm.reset();
+            document.getElementById('atlasExpedientesImportFile').classList.remove('is-invalid');
+            importModal?.show();
+        });
+        importForm.addEventListener('submit', uploadLayout);
 
         window.jQuery('#atlasExpedientesTable').on('click', '[data-exp-action]', async function () {
             const action = String(this.dataset.expAction || '');

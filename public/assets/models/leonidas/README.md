@@ -11,17 +11,26 @@ El personaje se deriva del modelo:
 
 El activo principal es `leonidas-spartan-modular-v2.glb`. Conserva el
 esqueleto, animación, proporciones, texturas y apariencia del FBX anterior,
-pero separa seis partes:
+pero separa ocho partes:
 
 - `LeonidasBody`: cuerpo estable, extremidades y faldón.
-- `LeonidasHelmet`: casco esculpido original de alta densidad, conservado sin
-  recortes ni máscaras procedurales, con cámara interior oscura y penacho rojo
-  volumétrico anclado a la cúpula.
+- `LeonidasHelmet`: casco abierto con cúpula y nuca metálicas, rostro
+  anatómico independiente y penacho rojo volumétrico anclado a la cúpula.
 - `LeonidasChest`: carcasa del torso con separación de piel y pechera.
-- `LeonidasHeadUnderlay`: cabeza anatómica visible al retirar el casco.
+- `LeonidasHeadUnderlay`: cabeza anatómica visible tanto con el casco abierto
+  como al retirarlo; nunca recibe el color del metal.
 - `LeonidasTorsoUnderlay`: torso anatómico visible al retirar la pechera.
 - `LeonidasHair`: cabello corto independiente, visible solamente sin casco y
   configurable por usuario.
+- `LeonidasShield`: escudo ovalado original con aro, remaches, circuitos
+  luminosos y emblema corporativo entrelazado.
+- `LeonidasSpear`: lanza original con asta de madera, amarres, collares,
+  punta de acero facetada y regatÃ³n.
+
+El escudo y la lanza se construyen por geometrÃ­a procedural dentro del
+proyecto. No dependen de modelos descargados. Son nodos modulares diferentes,
+estÃ¡n anclados respectivamente a la mano izquierda y derecha, y conservan la
+animaciÃ³n del esqueleto.
 
 El manifiesto `leonidas-modular-manifest.json` está habilitado. El cargador
 regresa automáticamente a `leonidas-spartan-rigged.fbx` si el GLB falta o no
@@ -42,26 +51,25 @@ Los materiales de vestuario conservan la geometría, las normales y el
 sombreado 3D, pero reciben un color sólido independiente. Así no existen
 píxeles compartidos capaces de pintar piel, rostro u otra prenda.
 
-Cuando el casco está puesto, la cabeza anatómica se oculta para impedir que la
-piel atraviese la abertura. Se conserva la base esculpida del casco original:
-su curvatura, protector nasal, ranuras, normales y sombreado. No se practican
-cortes booleanos que puedan atravesar la nuca: detrás de las aberturas
-originales solamente se coloca una cámara mate profunda. Al retirar el casco
-reaparecen la cabeza y el cabello configurado por el usuario.
+Cuando el casco está puesto, la cabeza anatómica permanece visible dentro de
+un frente abierto. El relieve facial metálico heredado se elimina durante la
+construcción, incluidas sus islas residuales pequeñas. No se agrega una careta,
+una cámara negra ni un material metálico sobre la piel. Al retirar el casco
+desaparecen la cúpula y el penacho, y reaparece el cabello configurado por el
+usuario.
 
 La pieza se reduce al 91 % alrededor de su propio centro y se eleva ligeramente
-para mantener proporción con la cabeza y liberar el cuello. Las aberturas y sus
-bordes se conservan de la escultura original, evitando parches planos,
-perforaciones traseras y cambios destructivos de topología. La base inferior
-usa una pátina más oscura y el protector nasal un acabado más definido; ambos
-siguen respetando el color de metal elegido.
+para mantener proporción con la cabeza y liberar el cuello. La cúpula, los
+laterales y la nuca conservan el sombreado esculpido y respetan el color de
+metal elegido. El contrato prohíbe cortadores booleanos, paneles frontales
+artificiales y cualquier recoloración del rostro.
 
 El penacho utiliza una base baja pegada a la cúpula y una malla continua de
-crin en tres rojos próximos. La silueta es continua y conserva cambios de tono
-sin convertirse en púas, tarjetas flotantes ni una escoba rígida. La pechera
-conserva en el material original las islas que corresponden a piel, y el
-calzado completo se clasifica por sus huesos de pie y dedos para impedir
-punteras beige.
+crin en tres rojos próximos. Su base estrecha se abre en abanico, la superficie
+incluye nervaduras longitudinales y el último tercio cae hacia atrás hasta una
+punta. La pechera conserva en el material original las islas que corresponden
+a piel, y el calzado completo se clasifica por sus huesos de pie y dedos para
+impedir punteras beige.
 
 ## Reconstrucción y validación
 
@@ -74,8 +82,9 @@ de los activos locales. Antes de habilitar una nueva exportación:
    completamente calva.
 4. Confirmar pose, animación, rostro, uniones de hombros, cintura y calzado.
 
-La validación estructural exige conservar la malla esculpida de alta densidad,
-escala y elevación declaradas, contraste de metal, fondo interior oscuro,
+La validación estructural exige declarar el frente abierto, eliminar el relieve
+facial heredado, no exportar paneles de careta, conservar escala y elevación,
 penacho continuo, materiales semánticos completos y separación explícita entre
-piel original y pechera. La revisión visual debe confirmar también que la
-carcasa posterior permanece sólida.
+piel original y pechera. La revisión visual debe confirmar que el rostro
+mantiene su piel con todas las paletas y que la carcasa posterior permanece
+sólida.

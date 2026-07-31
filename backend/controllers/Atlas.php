@@ -101,18 +101,18 @@ class Atlas extends Controller
     {
         $this->validarAccesoExpedientes(true);
         $query = [];
-        foreach (['fecha_inicio', 'fecha_fin', 'estatus', 'fk_sucursal', 'etapa', 'search', 'page', 'page_size'] as $key) {
+        foreach (['fecha_inicio', 'fecha_fin', 'estatus', 'fk_sucursal', 'search', 'page', 'page_size'] as $key) {
             if (isset($_GET[$key]) && trim((string)$_GET[$key]) !== '') {
                 $query[$key] = $_GET[$key];
             }
         }
 
-        $this->json($this->atlasAdminApiRequest(
+        $this->json($this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
             'GET',
             '/api/atlas/admin/expedientes',
             null,
             $query
-        ));
+        )));
     }
 
     public function getExpedienteDetalle()
@@ -123,10 +123,10 @@ class Atlas extends Controller
             $this->json(['success' => false, 'mensaje' => 'Credito invalido.']);
         }
 
-        $this->json($this->atlasAdminApiRequest(
+        $this->json($this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
             'GET',
             '/api/atlas/admin/expedientes/' . $creditoId
-        ));
+        )));
     }
 
     public function verEvidenciaExpediente()
@@ -204,11 +204,75 @@ class Atlas extends Controller
         $payload['usuario_id'] = $usuarioId > 0 ? $usuarioId : null;
         $payload['usuario_nombre'] = $usuarioNombre !== '' ? $usuarioNombre : 'Usuario Sparta';
 
-        $this->json($this->atlasAdminApiRequest(
+        $this->json($this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
             'POST',
             '/api/atlas/admin/expedientes/' . $creditoId . '/movimientos',
             $payload
-        ));
+        )));
+    }
+
+    public function importarExpedientes()
+    {
+        $this->validarAccesoExpedientes(true);
+        $archivo = $_FILES['archivo'] ?? null;
+        if (!$archivo || (int)($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $this->json(['success' => false, 'mensaje' => 'Selecciona un archivo Excel valido.']);
+        }
+
+        $nombre = (string)($archivo['name'] ?? '');
+        $extension = strtolower(pathinfo($nombre, PATHINFO_EXTENSION));
+        if (!in_array($extension, ['xlsx', 'xls'], true)) {
+            $this->json(['success' => false, 'mensaje' => 'El layout debe ser un archivo .xlsx o .xls.']);
+        }
+        if ((int)($archivo['size'] ?? 0) > 10 * 1024 * 1024) {
+            $this->json(['success' => false, 'mensaje' => 'El layout no puede superar 10 MB.']);
+        }
+
+        try {
+            $filas = $this->leerExpedientesExcel((string)$archivo['tmp_name']);
+            $usuarioId = (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+            $usuarioNombre = trim((string)(
+                $_SESSION['usuario_nombre']
+                ?? $_SESSION['nombre']
+                ?? $_SESSION['usuario']
+                ?? 'Usuario Sparta'
+            ));
+            $lote = date('YmdHis') . '-' . bin2hex(random_bytes(5));
+            $movimientos = array_map(
+                static function (array $fila) use ($usuarioId, $usuarioNombre, $lote): array {
+                    $requestId = sprintf(
+                        'exp-layout-%s-%d-%d',
+                        $lote,
+                        (int)$fila['_excel_row'],
+                        (int)$fila['credito_id']
+                    );
+                    return [
+                        'credito_id' => (int)$fila['credito_id'],
+                        'accion' => (string)$fila['accion'],
+                        'motivo' => $fila['motivo'] !== '' ? $fila['motivo'] : null,
+                        'comentario' => $fila['comentario'] !== '' ? $fila['comentario'] : null,
+                        'evidencia_url' => null,
+                        'request_id' => substr($requestId, 0, 64),
+                        'usuario_id' => $usuarioId > 0 ? $usuarioId : null,
+                        'usuario_nombre' => $usuarioNombre !== '' ? $usuarioNombre : 'Usuario Sparta',
+                    ];
+                },
+                $filas
+            );
+
+            $this->json($this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
+                'POST',
+                '/api/atlas/admin/expedientes/importaciones',
+                $movimientos,
+                [],
+                120
+            )));
+        } catch (\Throwable $e) {
+            $this->json([
+                'success' => false,
+                'mensaje' => $e->getMessage() ?: 'No se pudo procesar el layout de expedientes.',
+            ]);
+        }
     }
 
     public function riesgosOperativos()
@@ -256,11 +320,26 @@ class Atlas extends Controller
         unset($payload['presupuesto_id']);
         $usuarioId = (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
         $payload['usuario_id'] = $usuarioId > 0 ? $usuarioId : null;
-        $this->json($this->atlasAdminApiRequest(
+        $response = $this->atlasAdminApiRequest(
             'POST',
             '/api/atlas/admin/presupuestos/' . $presupuestoId . '/reasignar',
             $payload
-        ));
+        );
+        if (
+            !empty($response['success'])
+            && !empty($payload['detalle_ids'])
+            && is_array($payload['detalle_ids'])
+        ) {
+            $consolidacion = AtlasDAO::consolidarAsignacionUnicaPresupuesto(
+                $presupuestoId,
+                $payload['detalle_ids'],
+                $usuarioId
+            );
+            if (empty($consolidacion['success'])) {
+                error_log('[Atlas][Presupuestos] No se pudieron limpiar repartos anteriores: ' . ($consolidacion['mensaje'] ?? 'Error desconocido.'));
+            }
+        }
+        $this->json($response);
     }
 
     public function eliminarPresupuestoSucursal()
@@ -329,29 +408,121 @@ class Atlas extends Controller
         try {
             $filas = $this->leerPresupuestoExcel((string)$archivo['tmp_name']);
             $usuarioId = (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
-            $resultado = AtlasDAO::importarPresupuestoMensual($anio, $mes, (string)$archivo['name'], $filas, $usuarioId);
-            if (!empty($resultado['success']) && !empty($resultado['datos']['resumen_importacion'])) {
-                $token = bin2hex(random_bytes(16));
-                if (!isset($_SESSION['atlas_presupuesto_resumen_importacion']) || !is_array($_SESSION['atlas_presupuesto_resumen_importacion'])) {
-                    $_SESSION['atlas_presupuesto_resumen_importacion'] = [];
+            $resultado = AtlasDAO::analizarReajustePresupuestoMensual($anio, $mes, $filas);
+            if (!empty($resultado['success']) && is_array($resultado['datos'] ?? null)) {
+                $datosAnalisis = $resultado['datos'];
+                $huellaAnalisis = (string)($datosAnalisis['huella_analisis'] ?? '');
+                $huellaPresupuesto = (string)($datosAnalisis['huella_presupuesto'] ?? '');
+                if ($huellaAnalisis === '' || $huellaPresupuesto === '') {
+                    $this->json([
+                        'success' => false,
+                        'mensaje' => 'No se pudo asegurar la version del comparativo. Vuelve a cargar el Excel.',
+                    ]);
                 }
-                foreach ($_SESSION['atlas_presupuesto_resumen_importacion'] as $key => $item) {
-                    if ((int)($item['created_at'] ?? 0) < time() - 3600) {
-                        unset($_SESSION['atlas_presupuesto_resumen_importacion'][$key]);
+
+                $token = bin2hex(random_bytes(16));
+                if (!isset($_SESSION['atlas_presupuesto_reajustes']) || !is_array($_SESSION['atlas_presupuesto_reajustes'])) {
+                    $_SESSION['atlas_presupuesto_reajustes'] = [];
+                }
+                foreach ($_SESSION['atlas_presupuesto_reajustes'] as $key => $item) {
+                    if ((int)($item['created_at'] ?? 0) < time() - 1800) {
+                        unset($_SESSION['atlas_presupuesto_reajustes'][$key]);
                     }
                 }
-                $_SESSION['atlas_presupuesto_resumen_importacion'][$token] = [
+                if (count($_SESSION['atlas_presupuesto_reajustes']) >= 5) {
+                    uasort(
+                        $_SESSION['atlas_presupuesto_reajustes'],
+                        static fn(array $a, array $b): int => (int)($a['created_at'] ?? 0) <=> (int)($b['created_at'] ?? 0)
+                    );
+                    array_shift($_SESSION['atlas_presupuesto_reajustes']);
+                }
+                $_SESSION['atlas_presupuesto_reajustes'][$token] = [
                     'created_at' => time(),
-                    'archivo_original' => (string)$archivo['name'],
-                    'datos' => $resultado['datos'],
+                    'usuario_id' => $usuarioId,
+                    'anio' => $anio,
+                    'mes' => $mes,
+                    'archivo_original' => mb_substr((string)$archivo['name'], 0, 220),
+                    'filas' => $filas,
+                    'huella_analisis' => $huellaAnalisis,
+                    'huella_presupuesto' => $huellaPresupuesto,
                 ];
-                $resultado['datos']['pdf_token'] = $token;
-                $resultado['datos']['pdf_url'] = '/Atlas/descargarResumenImportacionPresupuesto?token=' . rawurlencode($token);
+                unset($resultado['datos']['huella_analisis'], $resultado['datos']['huella_presupuesto']);
+                $resultado['datos']['reajuste_token'] = $token;
+                $resultado['datos']['archivo_original'] = mb_substr((string)$archivo['name'], 0, 220);
+                $resultado['datos']['expira_en_segundos'] = 1800;
             }
             $this->json($resultado);
         } catch (\Throwable $e) {
             $this->json(['success' => false, 'mensaje' => 'No se pudo leer el Excel de presupuesto.', 'error' => $e->getMessage()]);
         }
+    }
+
+    public function confirmarReajustePresupuesto()
+    {
+        $payload = $this->payload();
+        $token = trim((string)($payload['token'] ?? ''));
+        $motivo = trim((string)($payload['motivo'] ?? ''));
+        if (!preg_match('/^[a-f0-9]{32}$/', $token)) {
+            $this->json(['success' => false, 'mensaje' => 'El comparativo no es valido. Vuelve a cargar el Excel.']);
+        }
+        if (mb_strlen($motivo) < 5 || mb_strlen($motivo) > 500) {
+            $this->json(['success' => false, 'mensaje' => 'Captura un motivo de entre 5 y 500 caracteres.']);
+        }
+
+        $store = $_SESSION['atlas_presupuesto_reajustes'] ?? [];
+        $item = is_array($store) ? ($store[$token] ?? null) : null;
+        if (!$item || (int)($item['created_at'] ?? 0) < time() - 1800) {
+            unset($_SESSION['atlas_presupuesto_reajustes'][$token]);
+            $this->json([
+                'success' => false,
+                'status' => 410,
+                'mensaje' => 'El comparativo vencio. Vuelve a cargar el Excel para revisar datos actuales.',
+            ]);
+        }
+
+        $usuarioId = (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $usuarioAnalisis = (int)($item['usuario_id'] ?? 0);
+        if ($usuarioId > 0 && $usuarioAnalisis > 0 && $usuarioId !== $usuarioAnalisis) {
+            unset($_SESSION['atlas_presupuesto_reajustes'][$token]);
+            $this->json(['success' => false, 'status' => 403, 'mensaje' => 'Este comparativo pertenece a otra sesion.']);
+        }
+
+        $resultado = AtlasDAO::confirmarReajustePresupuestoMensual(
+            (int)($item['anio'] ?? 0),
+            (int)($item['mes'] ?? 0),
+            (string)($item['archivo_original'] ?? ''),
+            is_array($item['filas'] ?? null) ? $item['filas'] : [],
+            (string)($item['huella_analisis'] ?? ''),
+            (string)($item['huella_presupuesto'] ?? ''),
+            $motivo,
+            $usuarioId
+        );
+
+        if (!empty($resultado['success'])) {
+            unset($_SESSION['atlas_presupuesto_reajustes'][$token]);
+            if (!empty($resultado['datos']['resumen_importacion'])) {
+                $pdfToken = bin2hex(random_bytes(16));
+                if (!isset($_SESSION['atlas_presupuesto_resumen_importacion']) || !is_array($_SESSION['atlas_presupuesto_resumen_importacion'])) {
+                    $_SESSION['atlas_presupuesto_resumen_importacion'] = [];
+                }
+                foreach ($_SESSION['atlas_presupuesto_resumen_importacion'] as $key => $resumenItem) {
+                    if ((int)($resumenItem['created_at'] ?? 0) < time() - 3600) {
+                        unset($_SESSION['atlas_presupuesto_resumen_importacion'][$key]);
+                    }
+                }
+                $_SESSION['atlas_presupuesto_resumen_importacion'][$pdfToken] = [
+                    'created_at' => time(),
+                    'archivo_original' => (string)($item['archivo_original'] ?? ''),
+                    'datos' => $resultado['datos'],
+                ];
+                $resultado['datos']['pdf_token'] = $pdfToken;
+                $resultado['datos']['pdf_url'] = '/Atlas/descargarResumenImportacionPresupuesto?token=' . rawurlencode($pdfToken);
+            }
+        } elseif ((int)($resultado['status'] ?? 0) === 409) {
+            unset($_SESSION['atlas_presupuesto_reajustes'][$token]);
+        }
+
+        $this->json($resultado);
     }
 
     public function descargarResumenImportacionPresupuesto()
@@ -438,7 +609,7 @@ class Atlas extends Controller
             }
 
             $rowNum = 2;
-            foreach (AtlasDAO::getSucursalesTemplatePresupuesto() as $row) {
+            foreach (AtlasDAO::getSucursalesTemplatePresupuestoMensual($anio, $mes) as $row) {
                 $sheet->setCellValueExplicit($this->excelCell(1, $rowNum), (string)($row['fk_sucursal'] ?? ''), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
                 $sheet->setCellValue($this->excelCell(2, $rowNum), $row['distribuidor'] ?? '');
                 $sheet->setCellValue($this->excelCell(3, $rowNum), $row['sucursal'] ?? '');
@@ -449,9 +620,9 @@ class Atlas extends Controller
                 $sheet->setCellValue($this->excelCell(8, $rowNum), $row['estado'] ?? '');
                 $sheet->setCellValue($this->excelCell(9, $rowNum), '');
                 $sheet->setCellValue($this->excelCell(10, $rowNum), $row['clasificacion'] ?? '');
-                $sheet->setCellValue($this->excelCell(11, $rowNum), '');
-                $sheet->setCellValue($this->excelCell(12, $rowNum), '');
-                $sheet->setCellValue($this->excelCell(13, $rowNum), '');
+                $sheet->setCellValue($this->excelCell(11, $rowNum), $row['meta_creditos'] ?? '');
+                $sheet->setCellValue($this->excelCell(12, $rowNum), $row['meta_cash'] ?? '');
+                $sheet->setCellValue($this->excelCell(13, $rowNum), $row['comisiona_a_partir_de'] ?? '');
                 $rowNum++;
             }
 
@@ -885,11 +1056,118 @@ class Atlas extends Controller
         ));
     }
 
+    public function getCreditosSucursalesAsistencia()
+    {
+        $fechaInicio = trim((string)($_GET['fecha_inicio'] ?? ''));
+        $fechaFin = trim((string)($_GET['fecha_fin'] ?? ''));
+        $gestorPersonaId = (int)($_GET['gestor_persona_id'] ?? 0);
+        if (
+            !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio)
+            || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)
+            || $fechaFin < $fechaInicio
+        ) {
+            $this->json([
+                'success' => false,
+                'status' => 400,
+                'mensaje' => 'Selecciona un rango de fechas valido para consultar los creditos.',
+            ]);
+        }
+        if ($gestorPersonaId <= 0) {
+            $this->json([
+                'success' => false,
+                'status' => 400,
+                'mensaje' => 'No pudimos identificar al colaborador para consultar sus creditos.',
+            ]);
+        }
+
+        $response = $this->atlasAdminApiRequest(
+            'GET',
+            '/api/atlas/admin/reportes/asistencias/creditos-sucursales',
+            null,
+            [
+                'fecha_inicio' => $fechaInicio,
+                'fecha_fin' => $fechaFin,
+                'gestor_persona_id' => $gestorPersonaId,
+                'limit' => 100,
+            ]
+        );
+        if (!empty($response['success'])) {
+            $response['datos'] = $this->normalizarCreditosSucursalesAsistencia(
+                $response['datos'] ?? null
+            );
+        } else {
+            $status = (int)($response['status'] ?? 0);
+            $response = [
+                'success' => false,
+                'status' => $status > 0 ? $status : 502,
+                'mensaje' => 'No pudimos consultar los estados de creditos de la app en este momento.',
+                'datos' => [
+                    'registros' => [],
+                    'total' => 0,
+                ],
+            ];
+        }
+
+        $this->json($response);
+    }
+
     public function getRutasUsuarioSpartan()
     {
         $this->json($this->rutasUsuarioSpartanApiResponse(
             $this->rutasUsuarioSpartanQuery()
         ));
+    }
+
+    public function getResumenCoberturaAsistencia()
+    {
+        $mes = trim((string)($_GET['mes'] ?? ''));
+        if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $mes)) {
+            $this->json([
+                'success' => false,
+                'status' => 400,
+                'mensaje' => 'Selecciona un mes valido para consultar la cobertura.',
+            ]);
+        }
+
+        $contexto = $this->rutasUsuarioSpartanQuery();
+        $identidad = is_array($contexto['query'] ?? null) ? $contexto['query'] : [];
+        $query = array_intersect_key($identidad, array_flip([
+            'gestor_persona_id',
+            'external_id',
+            'user_id',
+        ]));
+        if (empty($query['gestor_persona_id']) && empty($query['external_id']) && empty($query['user_id'])) {
+            $this->json([
+                'success' => false,
+                'status' => 400,
+                'mensaje' => 'No pudimos identificar al colaborador para consultar su cobertura.',
+            ]);
+        }
+
+        $query['mes'] = $mes;
+        $response = $this->atlasAdminApiRequest(
+            'GET',
+            '/api/atlas/admin/reportes/asistencias/checkins',
+            null,
+            $query
+        );
+        if (empty($response['success'])) {
+            $status = (int)($response['status'] ?? 0);
+            $this->json([
+                'success' => false,
+                'status' => $status > 0 ? $status : 502,
+                'mensaje' => 'No pudimos preparar la cobertura mensual en este momento.',
+            ]);
+        }
+
+        $this->json([
+            'success' => true,
+            'mensaje' => 'Cobertura mensual consultada correctamente.',
+            'datos' => $this->normalizarResumenCoberturaAsistencia(
+                $response['datos'] ?? null,
+                $mes
+            ),
+        ]);
     }
 
     private function reporteAsistenciasApiResponse(array $query): array
@@ -1022,85 +1300,32 @@ class Atlas extends Controller
                     is_array($datos['resumen'] ?? null) ? $datos['resumen'] : []
                 );
             }
+            $colaboradores = $this->agruparAsistenciasPorColaborador($filas);
             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
-            $sheet->setTitle('Asistencias');
+            $sheet->setTitle('Colaboradores');
 
             $columns = [
-                ['Fecha', 'fecha'],
-                ['Día de la visita', 'dia_visita'],
-                ['Hora de llegada', 'hora_llegada'],
-                ['Hora en que confirmó su llegada', 'hora_confirmacion_llegada'],
-                ['Hora de salida', 'hora_salida'],
-                ['Hora en que terminó la visita', 'hora_termino_visita'],
                 ['Colaborador', 'colaborador'],
+                ['Número de empleado', 'numero_empleado'],
                 ['Puesto', 'puesto'],
                 ['Rol Atlas', 'rol'],
                 ['Divisional', 'divisional'],
-                ['Nombre de la agencia', 'agencia'],
-                ['Nombre del distribuidor', 'distribuidor'],
-                ['Visitas de la agencia en el periodo', 'visitas_agencia_total'],
-                ['Horas de visitas de la agencia', 'visitas_agencia_horarios'],
-                ['Estatus de la visita', 'estatus_visita'],
-                ['Dentro del perímetro', 'dentro_perimetro'],
-                ['Distancia al punto (m)', 'distancia_metros'],
-                ['Tiempo de permanencia', 'tiempo_permanencia'],
-                ['Latitud', 'latitud'],
-                ['Longitud', 'longitud'],
-                ['Evidencia', 'evidencia'],
-                ['No. de evidencias', 'total_evidencias'],
-                ['Detalle de evidencias', 'evidencias'],
-                ['En caso de incumplimiento / Observaciones', 'observaciones_incumplimiento'],
-                ['No. de gestiones realizadas', 'gestiones_realizadas'],
-                ['Detalle de gestiones', 'gestiones_detalle'],
-                ['No. de pendientes por gestionar', 'pendientes_por_gestionar'],
+                ['Días que acudió a sucursales', 'dias_con_asistencia'],
+                ['Días que no acudió a sucursales', 'dias_sin_asistencia'],
+                ['Total de gestiones realizadas', 'gestiones_realizadas'],
+                ['Total de gestiones pendientes', 'gestiones_pendientes'],
             ];
             foreach ($columns as $index => $column) {
                 $sheet->setCellValue($this->excelCell($index + 1, 1), $column[0]);
             }
 
             $rowNumber = 2;
-            foreach ($filas as $fila) {
+            foreach ($colaboradores as $fila) {
                 foreach ($columns as $index => $column) {
                     $key = $column[1];
                     $value = $fila[$key] ?? '';
-                    if ($key === 'visitas_agencia_horarios' && is_array($value)) {
-                        $value = implode(' | ', array_values(array_filter(array_map(
-                            static function ($visita): string {
-                                if (!is_array($visita)) {
-                                    return trim((string)$visita);
-                                }
-                                return trim((string)($visita['etiqueta'] ?? ''));
-                            },
-                            $value
-                        ))));
-                    }
-                    if ($key === 'gestiones_detalle' && is_array($value)) {
-                        $detalleGestiones = [];
-                        foreach ($value as $gestionDetalle) {
-                            if (!is_array($gestionDetalle)) {
-                                continue;
-                            }
-                            $cliente = trim((string)($gestionDetalle['cliente'] ?? 'Cliente sin nombre'));
-                            $oferta = trim((string)($gestionDetalle['oferta'] ?? ''));
-                            $detalleGestiones[] = $cliente . ($oferta !== '' ? ' · Oferta #' . $oferta : '');
-                        }
-                        $value = implode(' | ', $detalleGestiones);
-                    }
-                    if ($key === 'evidencias' && is_array($value)) {
-                        $detalleEvidencias = [];
-                        foreach ($value as $evidencia) {
-                            if (!is_array($evidencia)) {
-                                continue;
-                            }
-                            $nombre = trim((string)($evidencia['nombre'] ?? 'Evidencia'));
-                            $tipo = trim((string)($evidencia['tipo'] ?? 'archivo'));
-                            $disponible = !empty($evidencia['disponible']) ? 'disponible' : 'no disponible';
-                            $detalleEvidencias[] = $nombre . ' (' . $tipo . ', ' . $disponible . ')';
-                        }
-                        $value = implode(' | ', $detalleEvidencias);
-                    }
-                    if (in_array($key, ['distancia_metros', 'latitud', 'longitud', 'visitas_agencia_total', 'total_evidencias', 'gestiones_realizadas', 'pendientes_por_gestionar'], true)
+                    if (in_array($key, ['dias_con_asistencia', 'dias_sin_asistencia', 'gestiones_realizadas', 'gestiones_pendientes'], true)
                         && $value !== null
                         && $value !== '') {
                         $sheet->setCellValue($this->excelCell($index + 1, $rowNumber), (float)$value);
@@ -1115,35 +1340,34 @@ class Atlas extends Controller
                 $rowNumber++;
             }
 
-            $lastRow = max(2, $rowNumber - 1);
+            $lastRow = max(1, $rowNumber - 1);
             $lastColumn = $this->excelCell(count($columns), 1);
             $lastCell = $this->excelCell(count($columns), $lastRow);
             $sheet->getStyle('A1:' . $lastColumn)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
             $sheet->getStyle('A1:' . $lastColumn)->getFill()
                 ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
                 ->getStartColor()->setRGB('173756');
+            $sheet->getStyle('A1:' . $lastColumn)->getAlignment()->setWrapText(true);
             $sheet->getStyle('A1:' . $lastCell)
                 ->getBorders()->getAllBorders()
                 ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
                 ->getColor()->setRGB('D9E2EC');
-            $sheet->getStyle('N2:N' . $lastRow)->getAlignment()->setWrapText(true);
-            $sheet->getStyle('U2:X' . $lastRow)->getAlignment()->setWrapText(true);
-            $sheet->getStyle('Z2:Z' . $lastRow)->getAlignment()->setWrapText(true);
-            $sheet->getStyle('M2:M' . $lastRow)->getNumberFormat()->setFormatCode('0');
-            $sheet->getStyle('Q2:Q' . $lastRow)->getNumberFormat()->setFormatCode('0');
-            $sheet->getStyle('S2:T' . $lastRow)->getNumberFormat()->setFormatCode('0.0000000');
-            $sheet->getStyle('V2:V' . $lastRow)->getNumberFormat()->setFormatCode('0');
-            $sheet->getStyle('Y2:Y' . $lastRow)->getNumberFormat()->setFormatCode('0');
-            $sheet->getStyle('AA2:AA' . $lastRow)->getNumberFormat()->setFormatCode('0');
+            if ($lastRow >= 2) {
+                $sheet->getStyle('F2:I' . $lastRow)->getNumberFormat()->setFormatCode('0');
+            }
             $sheet->freezePane('A2');
             $sheet->setAutoFilter('A1:' . $lastCell);
 
             $widths = [
-                'A' => 12, 'B' => 16, 'C' => 15, 'D' => 25, 'E' => 14, 'F' => 24,
-                'G' => 28, 'H' => 22, 'I' => 18, 'J' => 22, 'K' => 32, 'L' => 30,
-                'M' => 24, 'N' => 48, 'O' => 22, 'P' => 20, 'Q' => 21, 'R' => 22,
-                'S' => 15, 'T' => 15, 'U' => 34, 'V' => 18, 'W' => 46, 'X' => 46,
-                'Y' => 24, 'Z' => 44, 'AA' => 28,
+                'A' => 34,
+                'B' => 20,
+                'C' => 24,
+                'D' => 20,
+                'E' => 24,
+                'F' => 22,
+                'G' => 24,
+                'H' => 26,
+                'I' => 26,
             ];
             foreach ($widths as $column => $width) {
                 $sheet->getColumnDimension($column)->setWidth($width);
@@ -1152,7 +1376,26 @@ class Atlas extends Controller
             $summarySheet = $spreadsheet->createSheet();
             $summarySheet->setTitle('Resumen');
             $periodo = is_array($datos['periodo'] ?? null) ? $datos['periodo'] : [];
-            $resumen = is_array($datos['resumen'] ?? null) ? $datos['resumen'] : [];
+            $totalesAgrupados = array_reduce(
+                $colaboradores,
+                static function (array $totales, array $colaborador): array {
+                    foreach ([
+                        'dias_con_asistencia',
+                        'dias_sin_asistencia',
+                        'gestiones_realizadas',
+                        'gestiones_pendientes',
+                    ] as $campo) {
+                        $totales[$campo] += (int)($colaborador[$campo] ?? 0);
+                    }
+                    return $totales;
+                },
+                [
+                    'dias_con_asistencia' => 0,
+                    'dias_sin_asistencia' => 0,
+                    'gestiones_realizadas' => 0,
+                    'gestiones_pendientes' => 0,
+                ]
+            );
             $summaryRows = [
                 ['Reporte', 'Asistencias Atlas'],
                 ['Fecha inicio', $periodo['fecha_inicio'] ?? ''],
@@ -1160,15 +1403,11 @@ class Atlas extends Controller
                 ['Generado', $datos['generado_at'] ?? ''],
                 ['Filtro de evidencias', $this->etiquetaFiltroEvidencias($filtroEvidencias)],
                 ['Filtro de rutas', $this->etiquetaFiltroRutas($filtroRutas)],
-                ['Perímetro permitido (m)', $datos['perimetro_metros'] ?? ''],
-                ['Total de visitas', $resumen['total_visitas'] ?? 0],
-                ['Cumplidas', $resumen['cumplidas'] ?? 0],
-                ['No realizadas', $resumen['no_realizadas'] ?? 0],
-                ['Fuera de ubicación', $resumen['fuera_ubicacion'] ?? 0],
-                ['En visita', $resumen['en_visita'] ?? 0],
-                ['Programadas', $resumen['programadas'] ?? 0],
-                ['Gestiones realizadas', $resumen['gestiones_realizadas'] ?? 0],
-                ['Pendientes por gestionar', $resumen['pendientes_por_gestionar'] ?? 0],
+                ['Total de colaboradores', count($colaboradores)],
+                ['Días con asistencia', $totalesAgrupados['dias_con_asistencia']],
+                ['Días sin asistencia', $totalesAgrupados['dias_sin_asistencia']],
+                ['Gestiones realizadas', $totalesAgrupados['gestiones_realizadas']],
+                ['Gestiones pendientes', $totalesAgrupados['gestiones_pendientes']],
             ];
             foreach ($summaryRows as $index => $summaryRow) {
                 $summarySheet->setCellValue('A' . ($index + 1), $summaryRow[0]);
@@ -1263,6 +1502,51 @@ class Atlas extends Controller
         return $datos;
     }
 
+    private function normalizarCreditosSucursalesAsistencia($datos): array
+    {
+        $payload = is_array($datos) ? $datos : [];
+        $registros = $this->extraerListaApiComercial(
+            $payload,
+            ['registros', 'items', 'filas', 'data']
+        );
+        $normalizados = [];
+        foreach ($registros as $registro) {
+            if (!is_array($registro)) {
+                continue;
+            }
+            $fkSucursal = (int)($registro['fk_sucursal'] ?? 0);
+            $mes = trim((string)($registro['mes'] ?? ''));
+            if ($fkSucursal <= 0 || !preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $mes)) {
+                continue;
+            }
+
+            $gestionados = max(0, (int)($registro['creditos_gestionados']
+                ?? $registro['creditos_dictaminados']
+                ?? 0));
+            $dictaminados = max(0, (int)($registro['creditos_dictaminados'] ?? $gestionados));
+            $normalizados[] = [
+                'fk_sucursal' => $fkSucursal,
+                'sucursal' => trim((string)($registro['sucursal'] ?? '')),
+                'mes' => $mes,
+                'creditos_pendientes' => max(0, (int)($registro['creditos_pendientes'] ?? 0)),
+                'creditos_rezagados' => max(0, (int)($registro['creditos_rezagados'] ?? 0)),
+                'creditos_gestionados' => $gestionados,
+                'creditos_dictaminados' => $dictaminados,
+                'creditos_vendidos' => max(0, (int)($registro['creditos_vendidos'] ?? 0)),
+                'total_creditos' => max(0, (int)($registro['total_creditos']
+                    ?? $registro['total_creditos_unicos']
+                    ?? 0)),
+            ];
+        }
+
+        return [
+            'periodo' => is_array($payload['periodo'] ?? null) ? $payload['periodo'] : [],
+            'registros' => $normalizados,
+            'total' => count($normalizados),
+            'total_formula' => trim((string)($payload['total_formula'] ?? '')),
+        ];
+    }
+
     private function claveAgenciaAsistencia(array $fila, int $index, ?int &$sinClaveSucursal = null): string
     {
         foreach (['fk_sucursal', 'ruta_sucursal_id'] as $campo) {
@@ -1319,6 +1603,98 @@ class Atlas extends Controller
             }
         }
         return '';
+    }
+
+    private function agruparAsistenciasPorColaborador(array $filas): array
+    {
+        $grupos = [];
+        foreach ($filas as $index => $fila) {
+            if (!is_array($fila)) {
+                continue;
+            }
+            $personaId = (int)($fila['colaborador_persona_id'] ?? $fila['gestor_persona_id'] ?? 0);
+            $numeroEmpleado = trim((string)($fila['numero_empleado'] ?? ''));
+            $nombre = trim((string)($fila['colaborador'] ?? ''));
+            if ($personaId > 0) {
+                $clave = 'persona:' . $personaId;
+            } elseif ($numeroEmpleado !== '') {
+                $clave = 'empleado:' . mb_strtolower($numeroEmpleado, 'UTF-8');
+            } elseif ($nombre !== '') {
+                $clave = 'nombre:' . mb_strtolower($nombre, 'UTF-8');
+            } else {
+                $clave = 'sin-identidad:' . $index;
+            }
+
+            if (!isset($grupos[$clave])) {
+                $grupos[$clave] = [
+                    'colaborador' => $nombre !== '' ? $nombre : 'Sin asignar',
+                    'numero_empleado' => $numeroEmpleado,
+                    'puesto' => trim((string)($fila['puesto'] ?? '')),
+                    'rol' => trim((string)($fila['rol'] ?? '')),
+                    'divisional' => trim((string)($fila['divisional'] ?? '')),
+                    'gestiones_realizadas' => 0,
+                    'dias_programados' => [],
+                    'dias_con_asistencia' => [],
+                    'filas' => [],
+                ];
+            }
+
+            $grupos[$clave]['filas'][] = $fila;
+            $grupos[$clave]['gestiones_realizadas'] += max(0, (int)($fila['gestiones_realizadas'] ?? 0));
+            if (($fila['es_visita'] ?? true) === false) {
+                continue;
+            }
+
+            $fecha = trim((string)($fila['fecha'] ?? ''));
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+                continue;
+            }
+            $grupos[$clave]['dias_programados'][$fecha] = true;
+            if ($this->filaAsistenciaTieneCheckin($fila)) {
+                $grupos[$clave]['dias_con_asistencia'][$fecha] = true;
+            }
+        }
+
+        $resultado = [];
+        foreach ($grupos as $grupo) {
+            $diasSinAsistencia = array_diff_key(
+                $grupo['dias_programados'],
+                $grupo['dias_con_asistencia']
+            );
+            $resultado[] = [
+                'colaborador' => $grupo['colaborador'],
+                'numero_empleado' => $grupo['numero_empleado'],
+                'puesto' => $grupo['puesto'],
+                'rol' => $grupo['rol'],
+                'divisional' => $grupo['divisional'],
+                'dias_con_asistencia' => count($grupo['dias_con_asistencia']),
+                'dias_sin_asistencia' => count($diasSinAsistencia),
+                'gestiones_realizadas' => $grupo['gestiones_realizadas'],
+                'gestiones_pendientes' => $this->totalPendientesAsistencias($grupo['filas']),
+            ];
+        }
+        usort(
+            $resultado,
+            static fn(array $a, array $b): int => strcasecmp(
+                (string)($a['colaborador'] ?? ''),
+                (string)($b['colaborador'] ?? '')
+            )
+        );
+
+        return $resultado;
+    }
+
+    private function filaAsistenciaTieneCheckin(array $fila): bool
+    {
+        if (($fila['es_visita'] ?? true) === false) {
+            return false;
+        }
+        foreach (['hora_llegada', 'hora_confirmacion_llegada', 'checkin_at'] as $campo) {
+            if (trim((string)($fila[$campo] ?? '')) !== '') {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function filtrarAsistenciasPorEvidencias(array $filas, string $filtro): array
@@ -1559,6 +1935,20 @@ class Atlas extends Controller
             return $response;
         }
 
+        $status = (int)($response['status'] ?? 0);
+        if (in_array($status, [204, 404], true)) {
+            return [
+                'success' => true,
+                'status' => $status,
+                'mensaje' => 'Sin rutas generadas para este usuario en el periodo filtrado.',
+                'datos' => [
+                    'rutas' => [],
+                    'total' => 0,
+                    'usuario' => is_array($contexto['usuario'] ?? null) ? $contexto['usuario'] : [],
+                ],
+            ];
+        }
+
         $response['mensaje'] = 'El servicio de consulta de rutas de usuarios se encuentra en mantenimiento, en breves se desplegara y podras ver de nuevo las rutas';
         $response['datos'] = [
             'rutas' => [],
@@ -1590,6 +1980,101 @@ class Atlas extends Controller
         return [
             'rutas' => $rutas,
             'total' => $total,
+        ];
+    }
+
+    private function normalizarResumenCoberturaAsistencia($datos, string $mes): array
+    {
+        $payload = is_array($datos) ? $datos : [];
+        $resumen = is_array($payload['resumen'] ?? null)
+            ? $payload['resumen']
+            : $payload;
+        $valor = static function (array $source, array $keys, $default = null) {
+            foreach ($keys as $key) {
+                if (array_key_exists($key, $source)) {
+                    return $source[$key];
+                }
+            }
+            return $default;
+        };
+
+        $agenciasEnRuta = max(0, (int)$valor(
+            $resumen,
+            ['total_agencias_en_ruta', 'totalAgenciasEnRuta', 'agencias_en_ruta'],
+            0
+        ));
+        $agenciasAsignadas = $valor(
+            $resumen,
+            ['agencias_asignadas', 'agenciasAsignadas'],
+            null
+        );
+        if ($agenciasAsignadas !== null) {
+            $agenciasAsignadas = max($agenciasEnRuta, (int)$agenciasAsignadas);
+        }
+        $visitasVencidas = max(0, (int)$valor(
+            $resumen,
+            ['visitas_vencidas', 'visitasVencidas'],
+            0
+        ));
+        $agenciasAgendadasSinCheckin = [];
+        $tieneDetalleVisitas = false;
+        foreach ((array)($payload['dias'] ?? []) as $dia) {
+            if (!is_array($dia)) {
+                continue;
+            }
+            foreach ((array)($dia['visitas'] ?? []) as $visita) {
+                if (!is_array($visita)) {
+                    continue;
+                }
+                $tieneDetalleVisitas = true;
+                $estatus = mb_strtolower(trim((string)($visita['estatus_visita'] ?? '')), 'UTF-8');
+                $checkin = trim((string)($visita['checkin_at'] ?? ''));
+                if ($estatus !== 'vencida' || $checkin !== '') {
+                    continue;
+                }
+                $clave = trim((string)($visita['fk_sucursal'] ?? ''));
+                if ($clave === '') {
+                    $clave = trim((string)($visita['ruta_sucursal_id'] ?? $visita['sucursal'] ?? ''));
+                }
+                if ($clave !== '') {
+                    $agenciasAgendadasSinCheckin[$clave] = true;
+                }
+            }
+        }
+
+        return [
+            'mes' => trim((string)$valor($resumen, ['mes'], $mes)) ?: $mes,
+            'agencias_asignadas' => $agenciasAsignadas,
+            'agencias_en_ruta' => $agenciasEnRuta,
+            'agencias_visitadas' => max(0, (int)$valor(
+                $resumen,
+                ['agencias_visitadas', 'agenciasVisitadas'],
+                0
+            )),
+            'agencias_pendientes' => max(0, (int)$valor(
+                $resumen,
+                ['agencias_pendientes', 'agenciasPendientes'],
+                0
+            )),
+            'porcentaje_cobertura' => max(0, min(100, (int)round((float)$valor(
+                $resumen,
+                ['porcentaje_cobertura', 'porcentajeCobertura'],
+                0
+            )))),
+            'total_visitas_programadas' => max(0, (int)$valor(
+                $resumen,
+                ['total_visitas_programadas', 'totalVisitasProgramadas'],
+                0
+            )),
+            'visitas_realizadas' => max(0, (int)$valor(
+                $resumen,
+                ['visitas_realizadas', 'visitasRealizadas'],
+                0
+            )),
+            'visitas_vencidas' => $visitasVencidas,
+            'agencias_agendadas_sin_checkin' => $tieneDetalleVisitas
+                ? count($agenciasAgendadasSinCheckin)
+                : $visitasVencidas,
         ];
     }
 
@@ -2179,7 +2664,13 @@ class Atlas extends Controller
         return (string)($keys[0] ?? '');
     }
 
-    private function atlasAdminApiRequest(string $method, string $path, ?array $body = null, array $query = []): array
+    private function atlasAdminApiRequest(
+        string $method,
+        string $path,
+        ?array $body = null,
+        array $query = [],
+        int $timeout = 35
+    ): array
     {
         $adminApiKey = $this->atlasAdminApiKey();
         if ($adminApiKey === '') {
@@ -2205,7 +2696,7 @@ class Atlas extends Controller
                 'Accept: application/json',
                 'X-API-Key: ' . $adminApiKey,
             ],
-            CURLOPT_TIMEOUT => 35,
+            CURLOPT_TIMEOUT => max(10, min(120, $timeout)),
             CURLOPT_CONNECTTIMEOUT => 10,
         ]);
         if ($method !== 'GET') {
@@ -2488,6 +2979,155 @@ class Atlas extends Controller
         exit;
     }
 
+    private function atlasExpedientesApiResponse(array $response): array
+    {
+        if (!empty($response['success'])) {
+            return $response;
+        }
+        $message = strtolower((string)($response['mensaje'] ?? ''));
+        if (
+            str_contains($message, 'atlas_admin_api_key')
+            || str_contains($message, 'api-comercial')
+            || (int)($response['status'] ?? 0) >= 500
+        ) {
+            $response['mensaje'] = 'El servicio de Expedientes no esta disponible por el momento. Contacta a soporte para revisarlo.';
+        }
+        return $response;
+    }
+
+    private function leerExpedientesExcel(string $ruta): array
+    {
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
+        try {
+            $sheet = $spreadsheet->getActiveSheet();
+            $highestRow = $sheet->getHighestDataRow();
+            $highestColumn = $sheet->getHighestDataColumn();
+            $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+
+            $headerRow = 0;
+            $headers = [];
+            for ($row = 1; $row <= min(15, $highestRow); $row++) {
+                $candidate = [];
+                for ($col = 1; $col <= $highestColumnIndex; $col++) {
+                    $candidate[$col] = $this->normalizarHeaderPresupuesto(
+                        $sheet->getCell($this->excelCell($col, $row))->getValue()
+                    );
+                }
+                $hasCredit = (bool)array_intersect(
+                    ['idcredito', 'creditoid', 'idoferta', 'oferta', 'credito'],
+                    $candidate
+                );
+                $hasStatus = (bool)array_intersect(
+                    ['estatus', 'estado', 'estatusexpediente', 'estadoexpediente', 'resultado'],
+                    $candidate
+                );
+                if ($hasCredit && $hasStatus) {
+                    $headerRow = $row;
+                    $headers = $candidate;
+                    break;
+                }
+            }
+
+            if ($headerRow === 0) {
+                throw new \RuntimeException(
+                    'El layout debe incluir las columnas ID credito y Estatus expediente.'
+                );
+            }
+
+            $map = [];
+            foreach ($headers as $col => $header) {
+                $field = match ($header) {
+                    'idcredito', 'creditoid', 'idoferta', 'oferta', 'credito' => 'credito_id',
+                    'estatus', 'estado', 'estatusexpediente', 'estadoexpediente', 'resultado' => 'estatus',
+                    'motivo', 'incidencia', 'motivoincidencia', 'detalleincidencia', 'observacion', 'observaciones' => 'motivo',
+                    'comentario', 'comentarios', 'detalle', 'notas', 'nota' => 'comentario',
+                    default => null,
+                };
+                if ($field !== null && !in_array($field, $map, true)) {
+                    $map[$col] = $field;
+                }
+            }
+
+            if (!in_array('credito_id', $map, true) || !in_array('estatus', $map, true)) {
+                throw new \RuntimeException(
+                    'El layout debe incluir las columnas ID credito y Estatus expediente.'
+                );
+            }
+
+            $rows = [];
+            $errors = [];
+            $seenCredits = [];
+            for ($row = $headerRow + 1; $row <= $highestRow; $row++) {
+                $item = ['credito_id' => '', 'estatus' => '', 'motivo' => '', 'comentario' => ''];
+                foreach ($map as $col => $field) {
+                    $cell = $sheet->getCell($this->excelCell($col, $row));
+                    $value = $cell->isFormula() ? $cell->getCalculatedValue() : $cell->getValue();
+                    $item[$field] = trim((string)($value ?? ''));
+                }
+                if ($item['credito_id'] === '' && $item['estatus'] === '' && $item['motivo'] === '' && $item['comentario'] === '') {
+                    continue;
+                }
+
+                $creditText = preg_replace('/[,\s]+/', '', $item['credito_id']) ?: '';
+                if (!ctype_digit($creditText) || (int)$creditText <= 0) {
+                    $errors[] = "Fila {$row}: ID credito invalido.";
+                    continue;
+                }
+                $creditId = (int)$creditText;
+                if (isset($seenCredits[$creditId])) {
+                    $errors[] = "Fila {$row}: el credito {$creditId} esta repetido.";
+                    continue;
+                }
+
+                $action = $this->normalizarEstatusExpedienteLayout($item['estatus']);
+                if ($action === null) {
+                    $errors[] = "Fila {$row}: estatus no reconocido.";
+                    continue;
+                }
+                if (in_array($action, ['no_entregado', 'incidencia'], true) && mb_strlen($item['motivo']) < 5) {
+                    $errors[] = "Fila {$row}: captura el motivo o incidencia.";
+                    continue;
+                }
+
+                $seenCredits[$creditId] = true;
+                $rows[] = [
+                    'credito_id' => $creditId,
+                    'accion' => $action,
+                    'motivo' => $item['motivo'],
+                    'comentario' => $item['comentario'],
+                    '_excel_row' => $row,
+                ];
+                if (count($rows) > 2000) {
+                    throw new \RuntimeException('El layout no puede superar 2,000 registros.');
+                }
+            }
+
+            if ($errors) {
+                $preview = array_slice($errors, 0, 8);
+                if (count($errors) > count($preview)) {
+                    $preview[] = 'Hay ' . (count($errors) - count($preview)) . ' error(es) adicional(es).';
+                }
+                throw new \RuntimeException(implode(' ', $preview));
+            }
+            if (!$rows) {
+                throw new \RuntimeException('El layout no contiene expedientes para actualizar.');
+            }
+            return $rows;
+        } finally {
+            $spreadsheet->disconnectWorksheets();
+        }
+    }
+
+    private function normalizarEstatusExpedienteLayout($value): ?string
+    {
+        return match ($this->normalizarHeaderPresupuesto($value)) {
+            'recolectado', 'expedienterecolectado', 'entregado', 'expedienteentregado' => 'entregado',
+            'norecolectado', 'expedientenorecolectado', 'noentregado', 'expedientenoentregado' => 'no_entregado',
+            'incidencia', 'conincidencia', 'expedienteconincidencia' => 'incidencia',
+            default => null,
+        };
+    }
+
     private function leerPresupuestoExcel(string $ruta): array
     {
         $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
@@ -2553,7 +3193,11 @@ class Atlas extends Controller
                 $item[$campo] = is_string($value) ? trim($value) : $value;
             }
             $fk = trim((string)($item['fk_sucursal'] ?? ''));
-            if ($fk === '' || !is_numeric($fk)) {
+            $tieneDatos = (bool)array_filter(
+                $item,
+                static fn($value): bool => $value !== null && trim((string)$value) !== ''
+            );
+            if ($fk === '' && !$tieneDatos) {
                 continue;
             }
             $item['_excel_row'] = $row;
