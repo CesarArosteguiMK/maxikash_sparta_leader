@@ -101,18 +101,18 @@ class Atlas extends Controller
     {
         $this->validarAccesoExpedientes(true);
         $query = [];
-        foreach (['fecha_inicio', 'fecha_fin', 'estatus', 'fk_sucursal', 'etapa', 'search', 'page', 'page_size'] as $key) {
+        foreach (['fecha_inicio', 'fecha_fin', 'estatus', 'fk_sucursal', 'search', 'page', 'page_size'] as $key) {
             if (isset($_GET[$key]) && trim((string)$_GET[$key]) !== '') {
                 $query[$key] = $_GET[$key];
             }
         }
 
-        $this->json($this->atlasAdminApiRequest(
+        $this->json($this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
             'GET',
             '/api/atlas/admin/expedientes',
             null,
             $query
-        ));
+        )));
     }
 
     public function getExpedienteDetalle()
@@ -123,10 +123,10 @@ class Atlas extends Controller
             $this->json(['success' => false, 'mensaje' => 'Credito invalido.']);
         }
 
-        $this->json($this->atlasAdminApiRequest(
+        $this->json($this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
             'GET',
             '/api/atlas/admin/expedientes/' . $creditoId
-        ));
+        )));
     }
 
     public function verEvidenciaExpediente()
@@ -204,11 +204,75 @@ class Atlas extends Controller
         $payload['usuario_id'] = $usuarioId > 0 ? $usuarioId : null;
         $payload['usuario_nombre'] = $usuarioNombre !== '' ? $usuarioNombre : 'Usuario Sparta';
 
-        $this->json($this->atlasAdminApiRequest(
+        $this->json($this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
             'POST',
             '/api/atlas/admin/expedientes/' . $creditoId . '/movimientos',
             $payload
-        ));
+        )));
+    }
+
+    public function importarExpedientes()
+    {
+        $this->validarAccesoExpedientes(true);
+        $archivo = $_FILES['archivo'] ?? null;
+        if (!$archivo || (int)($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $this->json(['success' => false, 'mensaje' => 'Selecciona un archivo Excel valido.']);
+        }
+
+        $nombre = (string)($archivo['name'] ?? '');
+        $extension = strtolower(pathinfo($nombre, PATHINFO_EXTENSION));
+        if (!in_array($extension, ['xlsx', 'xls'], true)) {
+            $this->json(['success' => false, 'mensaje' => 'El layout debe ser un archivo .xlsx o .xls.']);
+        }
+        if ((int)($archivo['size'] ?? 0) > 10 * 1024 * 1024) {
+            $this->json(['success' => false, 'mensaje' => 'El layout no puede superar 10 MB.']);
+        }
+
+        try {
+            $filas = $this->leerExpedientesExcel((string)$archivo['tmp_name']);
+            $usuarioId = (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+            $usuarioNombre = trim((string)(
+                $_SESSION['usuario_nombre']
+                ?? $_SESSION['nombre']
+                ?? $_SESSION['usuario']
+                ?? 'Usuario Sparta'
+            ));
+            $lote = date('YmdHis') . '-' . bin2hex(random_bytes(5));
+            $movimientos = array_map(
+                static function (array $fila) use ($usuarioId, $usuarioNombre, $lote): array {
+                    $requestId = sprintf(
+                        'exp-layout-%s-%d-%d',
+                        $lote,
+                        (int)$fila['_excel_row'],
+                        (int)$fila['credito_id']
+                    );
+                    return [
+                        'credito_id' => (int)$fila['credito_id'],
+                        'accion' => (string)$fila['accion'],
+                        'motivo' => $fila['motivo'] !== '' ? $fila['motivo'] : null,
+                        'comentario' => $fila['comentario'] !== '' ? $fila['comentario'] : null,
+                        'evidencia_url' => null,
+                        'request_id' => substr($requestId, 0, 64),
+                        'usuario_id' => $usuarioId > 0 ? $usuarioId : null,
+                        'usuario_nombre' => $usuarioNombre !== '' ? $usuarioNombre : 'Usuario Sparta',
+                    ];
+                },
+                $filas
+            );
+
+            $this->json($this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
+                'POST',
+                '/api/atlas/admin/expedientes/importaciones',
+                $movimientos,
+                [],
+                120
+            )));
+        } catch (\Throwable $e) {
+            $this->json([
+                'success' => false,
+                'mensaje' => $e->getMessage() ?: 'No se pudo procesar el layout de expedientes.',
+            ]);
+        }
     }
 
     public function riesgosOperativos()
@@ -2600,7 +2664,13 @@ class Atlas extends Controller
         return (string)($keys[0] ?? '');
     }
 
-    private function atlasAdminApiRequest(string $method, string $path, ?array $body = null, array $query = []): array
+    private function atlasAdminApiRequest(
+        string $method,
+        string $path,
+        ?array $body = null,
+        array $query = [],
+        int $timeout = 35
+    ): array
     {
         $adminApiKey = $this->atlasAdminApiKey();
         if ($adminApiKey === '') {
@@ -2626,7 +2696,7 @@ class Atlas extends Controller
                 'Accept: application/json',
                 'X-API-Key: ' . $adminApiKey,
             ],
-            CURLOPT_TIMEOUT => 35,
+            CURLOPT_TIMEOUT => max(10, min(120, $timeout)),
             CURLOPT_CONNECTTIMEOUT => 10,
         ]);
         if ($method !== 'GET') {
@@ -2907,6 +2977,155 @@ class Atlas extends Controller
         }
         header('Location: /Inicio', true, 302);
         exit;
+    }
+
+    private function atlasExpedientesApiResponse(array $response): array
+    {
+        if (!empty($response['success'])) {
+            return $response;
+        }
+        $message = strtolower((string)($response['mensaje'] ?? ''));
+        if (
+            str_contains($message, 'atlas_admin_api_key')
+            || str_contains($message, 'api-comercial')
+            || (int)($response['status'] ?? 0) >= 500
+        ) {
+            $response['mensaje'] = 'El servicio de Expedientes no esta disponible por el momento. Contacta a soporte para revisarlo.';
+        }
+        return $response;
+    }
+
+    private function leerExpedientesExcel(string $ruta): array
+    {
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
+        try {
+            $sheet = $spreadsheet->getActiveSheet();
+            $highestRow = $sheet->getHighestDataRow();
+            $highestColumn = $sheet->getHighestDataColumn();
+            $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+
+            $headerRow = 0;
+            $headers = [];
+            for ($row = 1; $row <= min(15, $highestRow); $row++) {
+                $candidate = [];
+                for ($col = 1; $col <= $highestColumnIndex; $col++) {
+                    $candidate[$col] = $this->normalizarHeaderPresupuesto(
+                        $sheet->getCell($this->excelCell($col, $row))->getValue()
+                    );
+                }
+                $hasCredit = (bool)array_intersect(
+                    ['idcredito', 'creditoid', 'idoferta', 'oferta', 'credito'],
+                    $candidate
+                );
+                $hasStatus = (bool)array_intersect(
+                    ['estatus', 'estado', 'estatusexpediente', 'estadoexpediente', 'resultado'],
+                    $candidate
+                );
+                if ($hasCredit && $hasStatus) {
+                    $headerRow = $row;
+                    $headers = $candidate;
+                    break;
+                }
+            }
+
+            if ($headerRow === 0) {
+                throw new \RuntimeException(
+                    'El layout debe incluir las columnas ID credito y Estatus expediente.'
+                );
+            }
+
+            $map = [];
+            foreach ($headers as $col => $header) {
+                $field = match ($header) {
+                    'idcredito', 'creditoid', 'idoferta', 'oferta', 'credito' => 'credito_id',
+                    'estatus', 'estado', 'estatusexpediente', 'estadoexpediente', 'resultado' => 'estatus',
+                    'motivo', 'incidencia', 'motivoincidencia', 'detalleincidencia', 'observacion', 'observaciones' => 'motivo',
+                    'comentario', 'comentarios', 'detalle', 'notas', 'nota' => 'comentario',
+                    default => null,
+                };
+                if ($field !== null && !in_array($field, $map, true)) {
+                    $map[$col] = $field;
+                }
+            }
+
+            if (!in_array('credito_id', $map, true) || !in_array('estatus', $map, true)) {
+                throw new \RuntimeException(
+                    'El layout debe incluir las columnas ID credito y Estatus expediente.'
+                );
+            }
+
+            $rows = [];
+            $errors = [];
+            $seenCredits = [];
+            for ($row = $headerRow + 1; $row <= $highestRow; $row++) {
+                $item = ['credito_id' => '', 'estatus' => '', 'motivo' => '', 'comentario' => ''];
+                foreach ($map as $col => $field) {
+                    $cell = $sheet->getCell($this->excelCell($col, $row));
+                    $value = $cell->isFormula() ? $cell->getCalculatedValue() : $cell->getValue();
+                    $item[$field] = trim((string)($value ?? ''));
+                }
+                if ($item['credito_id'] === '' && $item['estatus'] === '' && $item['motivo'] === '' && $item['comentario'] === '') {
+                    continue;
+                }
+
+                $creditText = preg_replace('/[,\s]+/', '', $item['credito_id']) ?: '';
+                if (!ctype_digit($creditText) || (int)$creditText <= 0) {
+                    $errors[] = "Fila {$row}: ID credito invalido.";
+                    continue;
+                }
+                $creditId = (int)$creditText;
+                if (isset($seenCredits[$creditId])) {
+                    $errors[] = "Fila {$row}: el credito {$creditId} esta repetido.";
+                    continue;
+                }
+
+                $action = $this->normalizarEstatusExpedienteLayout($item['estatus']);
+                if ($action === null) {
+                    $errors[] = "Fila {$row}: estatus no reconocido.";
+                    continue;
+                }
+                if (in_array($action, ['no_entregado', 'incidencia'], true) && mb_strlen($item['motivo']) < 5) {
+                    $errors[] = "Fila {$row}: captura el motivo o incidencia.";
+                    continue;
+                }
+
+                $seenCredits[$creditId] = true;
+                $rows[] = [
+                    'credito_id' => $creditId,
+                    'accion' => $action,
+                    'motivo' => $item['motivo'],
+                    'comentario' => $item['comentario'],
+                    '_excel_row' => $row,
+                ];
+                if (count($rows) > 2000) {
+                    throw new \RuntimeException('El layout no puede superar 2,000 registros.');
+                }
+            }
+
+            if ($errors) {
+                $preview = array_slice($errors, 0, 8);
+                if (count($errors) > count($preview)) {
+                    $preview[] = 'Hay ' . (count($errors) - count($preview)) . ' error(es) adicional(es).';
+                }
+                throw new \RuntimeException(implode(' ', $preview));
+            }
+            if (!$rows) {
+                throw new \RuntimeException('El layout no contiene expedientes para actualizar.');
+            }
+            return $rows;
+        } finally {
+            $spreadsheet->disconnectWorksheets();
+        }
+    }
+
+    private function normalizarEstatusExpedienteLayout($value): ?string
+    {
+        return match ($this->normalizarHeaderPresupuesto($value)) {
+            'recolectado', 'expedienterecolectado', 'entregado', 'expedienteentregado' => 'entregado',
+            'norecolectado', 'expedientenorecolectado', 'noentregado', 'expedientenoentregado' => 'no_entregado',
+            'incidencia', 'conincidencia', 'expedienteconincidencia' => 'incidencia',
+            default => null,
+        };
     }
 
     private function leerPresupuestoExcel(string $ruta): array

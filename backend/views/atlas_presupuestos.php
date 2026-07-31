@@ -680,7 +680,25 @@
             modalRanking: null,
             modalBitacora: null,
 
+            mountModalsAtBody() {
+                [
+                    'modalAtlasPresupuestoImportar',
+                    'modalAtlasPresupuestoComparativo',
+                    'modalAtlasPresupuestoEditar',
+                    'modalAtlasPresupuestoReasignar',
+                    'modalAtlasPresupuestoEliminarSucursal',
+                    'modalAtlasPresupuestoRanking',
+                    'modalAtlasPresupuestoBitacora'
+                ].forEach((id) => {
+                    const modal = document.getElementById(id);
+                    if (modal && modal.parentElement !== document.body) {
+                        document.body.appendChild(modal);
+                    }
+                });
+            },
+
             init() {
+                this.mountModalsAtBody();
                 this.modalImport = new bootstrap.Modal(document.getElementById('modalAtlasPresupuestoImportar'));
                 this.modalComparativo = new bootstrap.Modal(document.getElementById('modalAtlasPresupuestoComparativo'));
                 this.modalEdit = new bootstrap.Modal(document.getElementById('modalAtlasPresupuestoEditar'));

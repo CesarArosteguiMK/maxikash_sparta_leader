@@ -414,10 +414,22 @@ const showSuccess = (mensaje) => tipoMensaje(mensaje, "success")
 const showInfo = (mensaje) => tipoMensaje(mensaje, "info")
 const showWarning = (mensaje) => tipoMensaje(mensaje, "warning")
 const showWait = (mensaje = null) => {
+    // Una misma pantalla puede invocar showWait manualmente y después usar
+    // http.request(), que también lo invoca. Reutilizar el diálogo activo
+    // evita apilar dos alertas de espera para la misma operación.
+    const popupActivo = typeof Swal !== "undefined" ? Swal.getPopup?.() : null;
+    if (popupActivo?.classList.contains("sparta-wait-dialog")) {
+        const texto = mensaje || "Espere un momento...";
+        const contenido = Swal.getHtmlContainer?.();
+        if (contenido) contenido.textContent = texto;
+        return Swal;
+    }
+
     const config = {
         title: "Procesando su petición",
         text: mensaje || "Espere un momento...",
         imageUrl: "/assets/img/wait.svg",
+        customClass: { popup: "sparta-wait-dialog" },
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,

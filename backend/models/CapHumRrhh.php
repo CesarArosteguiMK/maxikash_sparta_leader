@@ -1232,7 +1232,15 @@ class CapHumRrhh extends Model
                        p.correo, p.telefono_uno, p.telefono_dos, p.user_name, p.password, p.fecha_ingreso, p.id_pais,
                        p.domicilio_calle_texto, p.codigo_postal, p.curp,
                        r.rfc, r.nss, r.entidad_federativa_rfc, r.anio, r.mes, r.dia,
-                       r.fecha_nacimiento, r.sexo, r.estado_civil
+                       r.fecha_nacimiento, r.sexo, r.estado_civil,
+                       r.id_persona AS rrhh_existe, r.registro_patronal, r.codigo_contpaq, r.fecha_contpaq, r.fecha_imss_alta,
+                       r.id_departamento AS rrhh_departamento_id, r.id_area AS rrhh_area_id, r.id_puesto AS rrhh_puesto_id,
+                       r.id_jefe AS rrhh_jefe_id, r.puesto_texto AS rrhh_puesto_texto,
+                       r.departamento_texto AS rrhh_departamento_texto, r.area_texto AS rrhh_area_texto,
+                       r.direccion_organizacional, r.ubicacion_laboral, r.municipio_laboral, r.jefe_directo_texto,
+                       r.tipo_sangre, r.alergias, r.enfermedades_cronicas, r.enfermedades_hereditarias,
+                       r.medicamentos_actuales, r.discapacidad_condicion, r.observaciones_medicas,
+                       r.carta_no_credito, r.carta_no_nomina_bbva, r.observaciones AS rrhh_observaciones
                 FROM estado_cuenta.persona p
                 LEFT JOIN estado_cuenta.persona_datos_rrhh r ON r.id_persona = p.id
                 WHERE p.id = :id_persona
@@ -1243,18 +1251,33 @@ class CapHumRrhh extends Model
                 return self::resultado(false, 'No se encontro la persona solicitada.');
             }
 
-            $rrhh = $db->queryOne("
-                SELECT registro_patronal, codigo_contpaq, fecha_contpaq, fecha_imss_alta,
-                       id_departamento AS departamento_id, id_area AS area_id, id_puesto AS puesto_id,
-                       id_jefe AS jefe_id, puesto_texto, departamento_texto, area_texto,
-                       direccion_organizacional, ubicacion_laboral, municipio_laboral,
-                       jefe_directo_texto, tipo_sangre, alergias, enfermedades_cronicas,
-                       enfermedades_hereditarias, medicamentos_actuales, discapacidad_condicion,
-                       observaciones_medicas, carta_no_credito, carta_no_nomina_bbva, observaciones
-                FROM estado_cuenta.persona_datos_rrhh
-                WHERE id_persona = :id_persona
-                LIMIT 1
-            ", ['id_persona' => $idPersona]) ?: [];
+            $rrhh = !empty($persona['rrhh_existe']) ? [
+                'registro_patronal' => $persona['registro_patronal'] ?? null,
+                'codigo_contpaq' => $persona['codigo_contpaq'] ?? null,
+                'fecha_contpaq' => $persona['fecha_contpaq'] ?? null,
+                'fecha_imss_alta' => $persona['fecha_imss_alta'] ?? null,
+                'departamento_id' => $persona['rrhh_departamento_id'] ?? null,
+                'area_id' => $persona['rrhh_area_id'] ?? null,
+                'puesto_id' => $persona['rrhh_puesto_id'] ?? null,
+                'jefe_id' => $persona['rrhh_jefe_id'] ?? null,
+                'puesto_texto' => $persona['rrhh_puesto_texto'] ?? null,
+                'departamento_texto' => $persona['rrhh_departamento_texto'] ?? null,
+                'area_texto' => $persona['rrhh_area_texto'] ?? null,
+                'direccion_organizacional' => $persona['direccion_organizacional'] ?? null,
+                'ubicacion_laboral' => $persona['ubicacion_laboral'] ?? null,
+                'municipio_laboral' => $persona['municipio_laboral'] ?? null,
+                'jefe_directo_texto' => $persona['jefe_directo_texto'] ?? null,
+                'tipo_sangre' => $persona['tipo_sangre'] ?? null,
+                'alergias' => $persona['alergias'] ?? null,
+                'enfermedades_cronicas' => $persona['enfermedades_cronicas'] ?? null,
+                'enfermedades_hereditarias' => $persona['enfermedades_hereditarias'] ?? null,
+                'medicamentos_actuales' => $persona['medicamentos_actuales'] ?? null,
+                'discapacidad_condicion' => $persona['discapacidad_condicion'] ?? null,
+                'observaciones_medicas' => $persona['observaciones_medicas'] ?? null,
+                'carta_no_credito' => $persona['carta_no_credito'] ?? null,
+                'carta_no_nomina_bbva' => $persona['carta_no_nomina_bbva'] ?? null,
+                'observaciones' => $persona['rrhh_observaciones'] ?? null,
+            ] : [];
 
             $asignacionPuesto = $db->queryOne("
                 SELECT
@@ -1331,6 +1354,59 @@ class CapHumRrhh extends Model
                 LIMIT 1
             ", ['id_persona' => $idPersona]);
 
+            // Estas seis colecciones siempre se leen por la misma persona.
+            // Agruparlas evita cinco viajes adicionales entre PHP y MySQL sin
+            // modificar su contenido ni el contrato de respuesta del modal.
+            $colecciones = $db->queryAll("
+                SELECT 'telefonos' AS grupo, id, numero AS valor_1, tipo AS valor_2, estatus AS valor_3, NULL AS valor_4, NULL AS valor_5
+                FROM estado_cuenta.telefonos_persona WHERE id_persona = :id_persona
+                UNION ALL
+                SELECT 'correos' AS grupo, id, correo AS valor_1, tipo AS valor_2, estatus AS valor_3, NULL AS valor_4, NULL AS valor_5
+                FROM estado_cuenta.correos_persona WHERE id_persona = :id_persona
+                UNION ALL
+                SELECT 'domicilios' AS grupo, id, domicilio_texto AS valor_1, codigo_postal AS valor_2, tipo AS valor_3, estatus AS valor_4, NULL AS valor_5
+                FROM estado_cuenta.domicilio_persona WHERE id_persona = :id_persona
+                UNION ALL
+                SELECT 'cuentas_bancarias' AS grupo, id, id_banco AS valor_1, nombre_banco AS valor_2, numero_cuenta AS valor_3, clabe AS valor_4, estatus AS valor_5
+                FROM estado_cuenta.persona_cuenta_bancaria WHERE id_persona = :id_persona
+                UNION ALL
+                SELECT 'contactos_emergencia' AS grupo, id, nombre_contacto AS valor_1, parentesco AS valor_2, numero AS valor_3, estatus AS valor_4, NULL AS valor_5
+                FROM estado_cuenta.contacto_persona_emergencia WHERE id_persona = :id_persona
+                UNION ALL
+                SELECT 'beneficiarios' AS grupo, id, nombre_beneficiario AS valor_1, parentesco AS valor_2, numero AS valor_3, porcentaje AS valor_4, estatus AS valor_5
+                FROM estado_cuenta.persona_beneficiario_fallecimiento WHERE id_persona = :id_persona
+                ORDER BY grupo ASC, id ASC
+            ", ['id_persona' => $idPersona]);
+
+            $telefonos = [];
+            $correos = [];
+            $domicilios = [];
+            $cuentasBancarias = [];
+            $contactosEmergencia = [];
+            $beneficiarios = [];
+            foreach ($colecciones as $fila) {
+                switch ($fila['grupo'] ?? '') {
+                    case 'telefonos':
+                        $telefonos[] = ['numero' => $fila['valor_1'], 'tipo' => $fila['valor_2'], 'estatus' => $fila['valor_3']];
+                        break;
+                    case 'correos':
+                        $correos[] = ['correo' => $fila['valor_1'], 'tipo' => $fila['valor_2'], 'estatus' => $fila['valor_3']];
+                        break;
+                    case 'domicilios':
+                        $domicilios[] = ['domicilio_texto' => $fila['valor_1'], 'codigo_postal' => $fila['valor_2'], 'tipo' => $fila['valor_3'], 'estatus' => $fila['valor_4']];
+                        break;
+                    case 'cuentas_bancarias':
+                        $cuentasBancarias[] = ['id_banco' => $fila['valor_1'], 'nombre_banco' => $fila['valor_2'], 'numero_cuenta' => $fila['valor_3'], 'clabe' => $fila['valor_4'], 'estatus' => $fila['valor_5']];
+                        break;
+                    case 'contactos_emergencia':
+                        $contactosEmergencia[] = ['nombre_contacto' => $fila['valor_1'], 'parentesco' => $fila['valor_2'], 'numero' => $fila['valor_3'], 'estatus' => $fila['valor_4']];
+                        break;
+                    case 'beneficiarios':
+                        $beneficiarios[] = ['nombre_beneficiario' => $fila['valor_1'], 'parentesco' => $fila['valor_2'], 'numero' => $fila['valor_3'], 'porcentaje' => $fila['valor_4'], 'estatus' => $fila['valor_5']];
+                        break;
+                }
+            }
+
             $datos = [
                 'persona' => [
                     'id_persona' => $idPersona,
@@ -1359,12 +1435,12 @@ class CapHumRrhh extends Model
                 ],
                 'rrhh' => $rrhh,
                 'nomina' => $credito,
-                'telefonos' => $db->queryAll("SELECT numero, tipo, estatus FROM estado_cuenta.telefonos_persona WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
-                'correos' => $db->queryAll("SELECT correo, tipo, estatus FROM estado_cuenta.correos_persona WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
-                'domicilios' => $db->queryAll("SELECT domicilio_texto, codigo_postal, tipo, estatus FROM estado_cuenta.domicilio_persona WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
-                'cuentas_bancarias' => $db->queryAll("SELECT id_banco, nombre_banco, numero_cuenta, clabe, estatus FROM estado_cuenta.persona_cuenta_bancaria WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
-                'contactos_emergencia' => $db->queryAll("SELECT nombre_contacto, parentesco, numero, estatus FROM estado_cuenta.contacto_persona_emergencia WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
-                'beneficiarios' => $db->queryAll("SELECT nombre_beneficiario, parentesco, numero, porcentaje, estatus FROM estado_cuenta.persona_beneficiario_fallecimiento WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
+                'telefonos' => $telefonos,
+                'correos' => $correos,
+                'domicilios' => $domicilios,
+                'cuentas_bancarias' => $cuentasBancarias,
+                'contactos_emergencia' => $contactosEmergencia,
+                'beneficiarios' => $beneficiarios,
                 'salario_sensible' => [
                     'tiene_salario' => CapHum::personaTieneSalarioSensible($idPersona),
                 ],

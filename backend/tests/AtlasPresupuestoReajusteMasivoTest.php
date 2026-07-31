@@ -58,6 +58,20 @@ final class AtlasPresupuestoReajusteMasivoTest extends TestCase
         );
     }
 
+    public function testBudgetModalsAreMountedAtBodyBeforeBootstrapInitialization(): void
+    {
+        $mountCall = strpos($this->view, 'this.mountModalsAtBody();');
+        $bootstrapInit = strpos(
+            $this->view,
+            "this.modalImport = new bootstrap.Modal(document.getElementById('modalAtlasPresupuestoImportar'));"
+        );
+
+        $this->assertNotFalse($mountCall);
+        $this->assertNotFalse($bootstrapInit);
+        $this->assertLessThan($bootstrapInit, $mountCall);
+        $this->assertStringContainsString('document.body.appendChild(modal);', $this->view);
+    }
+
     public function testMissingRowsNeverActAsImplicitDeletionOrders(): void
     {
         $this->assertStringContainsString(
