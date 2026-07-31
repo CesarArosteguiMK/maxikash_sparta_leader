@@ -63,6 +63,7 @@ backend/API/storage/doc_ai_quick_cache/**
 backend/storage/tmp_media/
 backend/storage/tmp_mpdf/
 backend/storage/tmp_rrhh_import/
+storage/evidencias_respaldo/
 backend/storage/runtime/
 backend/storage/leonidas/*.jsonl
 backend/storage/leonidas_media/

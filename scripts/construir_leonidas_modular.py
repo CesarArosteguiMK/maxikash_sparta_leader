@@ -1535,13 +1535,13 @@ def finish_sculpted_helmet(obj, head_reference=None):
     mask_steel.use_nodes = True
     mask_steel_shader = mask_steel.node_tree.nodes.get('Principled BSDF')
     mask_steel_shader.inputs['Base Color'].default_value = (
-        0.090,
-        0.105,
-        0.125,
+        0.140,
+        0.160,
+        0.195,
         1.0,
     )
-    mask_steel_shader.inputs['Metallic'].default_value = 0.88
-    mask_steel_shader.inputs['Roughness'].default_value = 0.40
+    mask_steel_shader.inputs['Metallic'].default_value = 0.84
+    mask_steel_shader.inputs['Roughness'].default_value = 0.48
     obj.data.materials.append(mask_steel)
     mask_steel_index = len(obj.data.materials) - 1
 
@@ -1698,11 +1698,11 @@ def finish_sculpted_helmet(obj, head_reference=None):
                 return False
             eye_center = 0.610 - max(absolute_x - 0.15, 0.0) * 0.105
             eye_opening = (
-                0.14 < absolute_x < 0.70
-                and abs(z_ratio - eye_center) < 0.052
+                0.13 < absolute_x < 0.75
+                and abs(z_ratio - eye_center) < 0.068
             )
             vertical_opening = (
-                absolute_x < 0.105
+                absolute_x < 0.125
                 and 0.16 < z_ratio < 0.610
             )
             return not (eye_opening or vertical_opening)
@@ -1927,22 +1927,22 @@ def finish_sculpted_helmet(obj, head_reference=None):
         face.material_index = visor_index
 
     add_visor_insert((
-        (-0.70, 0.535),
-        (-0.15, 0.590),
-        (-0.15, 0.645),
-        (-0.70, 0.590),
+        (-0.80, 0.500),
+        (-0.11, 0.565),
+        (-0.11, 0.680),
+        (-0.80, 0.615),
     ))
     add_visor_insert((
-        (0.15, 0.590),
-        (0.70, 0.535),
-        (0.70, 0.590),
-        (0.15, 0.645),
+        (0.11, 0.565),
+        (0.80, 0.500),
+        (0.80, 0.615),
+        (0.11, 0.680),
     ))
     add_visor_insert((
-        (-0.105, 0.16),
-        (0.105, 0.16),
-        (0.105, 0.61),
-        (-0.105, 0.61),
+        (-0.15, 0.13),
+        (0.15, 0.13),
+        (0.15, 0.64),
+        (-0.15, 0.64),
     ))
     visor_faces = 3
 
@@ -1954,12 +1954,12 @@ def finish_sculpted_helmet(obj, head_reference=None):
     dome_latitudes = 38
     dome_center_y = head_center.y + head_size.y * 0.012
     dome_center_z = head_center.z + head_size.z * 0.005
-    dome_radius_x = head_size.x * 0.575
-    dome_radius_y = head_size.y * 0.555
+    dome_radius_x = head_size.x * 0.555
+    dome_radius_y = head_size.y * 0.520
     dome_radius_z = head_size.z * 0.565
     dome_rings = []
     theta_start = 0.035
-    theta_end = 2.49
+    theta_end = 2.18
 
     for latitude in range(dome_latitudes):
         progress = latitude / (dome_latitudes - 1)
@@ -2041,6 +2041,56 @@ def finish_sculpted_helmet(obj, head_reference=None):
         edge.material_index = mask_edge_index
         edge.smooth = True
         dome_faces += 1
+
+    # Bisagras laterales pequeñas: conectan visualmente careta y corona y
+    # evitan que el frente parezca una placa suspendida cuando se gira.
+    hinge_segments = 24
+    hinge_radius_y = head_size.y * 0.095
+    hinge_radius_z = head_size.z * 0.070
+    for side in (-1.0, 1.0):
+        outer_x = center_x + side * dome_radius_x * 0.965
+        inner_x = outer_x - side * head_size.x * 0.018
+        hinge_y = head_center.y - head_size.y * 0.005
+        hinge_z = head_minimum.z + head_size.z * 0.485
+        outer_ring = []
+        inner_hinge_ring = []
+        for segment in range(hinge_segments):
+            angle = 2.0 * pi * segment / hinge_segments
+            y = hinge_y + hinge_radius_y * cos(angle)
+            z = hinge_z + hinge_radius_z * sin(angle)
+            outer_ring.append(mesh.verts.new(inverse @ Vector((
+                outer_x,
+                y,
+                z,
+            ))))
+            inner_hinge_ring.append(mesh.verts.new(inverse @ Vector((
+                inner_x,
+                y,
+                z,
+            ))))
+        outer_center = mesh.verts.new(inverse @ Vector((
+            outer_x,
+            hinge_y,
+            hinge_z,
+        )))
+        for segment in range(hinge_segments):
+            following = (segment + 1) % hinge_segments
+            cap = mesh.faces.new((
+                outer_center,
+                outer_ring[following],
+                outer_ring[segment],
+            ))
+            cap.material_index = mask_edge_index
+            cap.smooth = True
+            wall = mesh.faces.new((
+                outer_ring[segment],
+                outer_ring[following],
+                inner_hinge_ring[following],
+                inner_hinge_ring[segment],
+            ))
+            wall.material_index = mask_steel_index
+            wall.smooth = True
+            dome_faces += 2
     shell_faces = dome_faces
 
     crest_sections = 49
@@ -2093,7 +2143,7 @@ def finish_sculpted_helmet(obj, head_reference=None):
                 following[indices[2]],
                 following[indices[3]],
             ])
-            face.material_index = 0
+            face.material_index = mask_edge_index
             face.smooth = True
             crest_faces += 1
 
@@ -2959,7 +3009,15 @@ print(
     tuple(round(value, 4) for value in mesh_vertex_bounds(head_underlay)[0]),
     tuple(round(value, 4) for value in mesh_vertex_bounds(head_underlay)[1]),
 )
-finish_sculpted_helmet(helmet, head_underlay)
+# Restauración solicitada: se conserva íntegra la geometría del casco que
+# viene en leonidas-spartan-rigged.fbx. No se agregan caretas, coronas ni
+# penachos procedurales sobre la pieza original.
+helmet['leonidasHelmetOriginalFaces'] = len(helmet.data.polygons)
+helmet['leonidasHelmetConstruction'] = 'original-source'
+helmet['leonidasHelmetOpenFace'] = False
+helmet['leonidasHelmetFaceOpening'] = 'source-model'
+helmet['leonidasHelmetScale'] = 1.0
+helmet['leonidasHelmetLift'] = 0.0
 hair = create_hair_shell(head_underlay)
 torso_underlay = keep_faces(
     anatomy_source,

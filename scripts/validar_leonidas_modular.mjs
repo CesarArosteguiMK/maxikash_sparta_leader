@@ -99,41 +99,19 @@ if (!configuredAsset) {
         ) {
             fail('body no declara la separacion semantica de piel y vestuario');
         } else if (
-            found.helmet.node.extras?.leonidasHelmetOpenFace !== true
+            found.helmet.node.extras?.leonidasHelmetOpenFace !== false
         ) {
-            fail('helmet no declara el frente corintio abierto');
+            fail('helmet no declara la restauracion cerrada del modelo original');
         } else if (
             Number(found.helmet.node.extras?.leonidasHelmetOriginalFaces || 0) < 1000
         ) {
             fail('helmet no conserva la geometria esculpida de alta densidad');
         } else if (
-            Number(found.helmet.node.extras?.leonidasHelmetOpeningCutters || 0) > 0
+            found.helmet.node.extras?.leonidasHelmetConstruction !== 'original-source'
+            || found.helmet.node.extras?.leonidasHelmetFaceOpening !== 'source-model'
+            || (document.meshes?.[found.helmet.node.mesh]?.primitives || []).length !== 1
         ) {
-            fail('helmet contiene cortadores destructivos que pueden perforar la nuca');
-        } else if (
-            Number(found.helmet.node.extras?.leonidasHelmetFrontReliefRemoved || 0) <= 0
-            || Number(found.helmet.node.extras?.leonidasHelmetPanelFaces || 0) < 40
-            || Number(found.helmet.node.extras?.leonidasHelmetDomeFaces || 0) < 160
-            || Number(found.helmet.node.extras?.leonidasHelmetVisorFaces || 0) < 1
-            || found.helmet.node.extras?.leonidasHelmetFaceOpening !== 'corinthian-t-slots'
-            || found.helmet.node.extras?.leonidasHelmetConstruction !== 'dense-shell-forged-mask'
-            || !materialNames.has('leonidashelmetmasksteel')
-            || !materialNames.has('leonidashelmetmaskedge')
-        ) {
-            fail('helmet no contiene la construcción angular corintia completa');
-        } else if (
-            Number(found.helmet.node.extras?.leonidasHelmetFitHeadWidthRatio || 0) < 1.05
-            || Number(found.helmet.node.extras?.leonidasHelmetFitHeadWidthRatio || 0) > 1.20
-            || Number(found.helmet.node.extras?.leonidasHelmetFitHeadDepthRatio || 0) < 1.02
-            || Number(found.helmet.node.extras?.leonidasHelmetFitHeadDepthRatio || 0) > 1.15
-        ) {
-            fail('helmet no declara un ajuste ceñido a la cabeza anatómica');
-        } else if (
-            Number(found.helmet.node.extras?.leonidasHelmetCrestFaces || 0) <= 0
-            || !materialNames.has('leonidascrestred')
-            || !materialNames.has('leonidascrestdark')
-        ) {
-            fail('helmet no contiene el penacho rojo segmentado');
+            fail('helmet no conserva intacta la pieza original del FBX');
         } else if (
             !String(found.chest.node.extras?.leonidasChestSemanticFaces || '')
                 .includes('original=')
