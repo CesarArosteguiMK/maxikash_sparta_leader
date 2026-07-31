@@ -13,6 +13,7 @@ use Core\Database;
 final class LeonidasAppearanceService
 {
     public const TEMA_PREDETERMINADO = 'corporativo';
+    private const VERSION_EQUIPAMIENTO = 1;
 
     private Database $db;
 
@@ -35,8 +36,8 @@ final class LeonidasAppearanceService
                 'casco_visible' => true,
                 'pechera_visible' => true,
                 'cabello_visible' => true,
-                'escudo_visible' => true,
-                'lanza_visible' => true,
+                'escudo_visible' => false,
+                'lanza_visible' => false,
             ],
             'clasico' => [
                 'id' => 'clasico',
@@ -48,8 +49,8 @@ final class LeonidasAppearanceService
                 'casco_visible' => true,
                 'pechera_visible' => true,
                 'cabello_visible' => true,
-                'escudo_visible' => true,
-                'lanza_visible' => true,
+                'escudo_visible' => false,
+                'lanza_visible' => false,
             ],
             'nocturno' => [
                 'id' => 'nocturno',
@@ -61,8 +62,8 @@ final class LeonidasAppearanceService
                 'casco_visible' => true,
                 'pechera_visible' => true,
                 'cabello_visible' => true,
-                'escudo_visible' => true,
-                'lanza_visible' => true,
+                'escudo_visible' => false,
+                'lanza_visible' => false,
             ],
             'dorado' => [
                 'id' => 'dorado',
@@ -74,8 +75,8 @@ final class LeonidasAppearanceService
                 'casco_visible' => true,
                 'pechera_visible' => true,
                 'cabello_visible' => true,
-                'escudo_visible' => true,
-                'lanza_visible' => true,
+                'escudo_visible' => false,
+                'lanza_visible' => false,
             ],
             'bosque' => [
                 'id' => 'bosque',
@@ -87,8 +88,8 @@ final class LeonidasAppearanceService
                 'casco_visible' => true,
                 'pechera_visible' => true,
                 'cabello_visible' => true,
-                'escudo_visible' => true,
-                'lanza_visible' => true,
+                'escudo_visible' => false,
+                'lanza_visible' => false,
             ],
         ];
     }
@@ -104,12 +105,33 @@ final class LeonidasAppearanceService
         $row = $this->db->queryOne(
             'SELECT tema, color_principal, color_secundario, color_metal,
                     casco_visible, pechera_visible, cabello_visible,
-                    escudo_visible, lanza_visible, actualizado_en
+                    escudo_visible, lanza_visible, equipamiento_version,
+                    actualizado_en
              FROM leonidas_apariencia_usuario
              WHERE persona_id = :persona_id
              LIMIT 1',
             ['persona_id' => $personaId]
         );
+
+        if (
+            $row
+            && (int) ($row['equipamiento_version'] ?? 0)
+                < self::VERSION_EQUIPAMIENTO
+        ) {
+            $row['escudo_visible'] = 0;
+            $row['lanza_visible'] = 0;
+            $this->db->CRUD(
+                'UPDATE leonidas_apariencia_usuario
+                 SET escudo_visible = 0,
+                     lanza_visible = 0,
+                     equipamiento_version = :version
+                 WHERE persona_id = :persona_id',
+                [
+                    'version' => self::VERSION_EQUIPAMIENTO,
+                    'persona_id' => $personaId,
+                ]
+            );
+        }
 
         $apariencia = $row
             ? self::normalizarSolicitud($row)
@@ -133,11 +155,13 @@ final class LeonidasAppearanceService
             'INSERT INTO leonidas_apariencia_usuario
                 (persona_id, tema, color_principal, color_secundario, color_metal,
                  casco_visible, pechera_visible, cabello_visible,
-                 escudo_visible, lanza_visible, creado_en, actualizado_en)
+                 escudo_visible, lanza_visible, equipamiento_version,
+                 creado_en, actualizado_en)
              VALUES
                 (:persona_id, :tema, :principal, :secundario, :metal,
                  :casco_visible, :pechera_visible, :cabello_visible,
-                 :escudo_visible, :lanza_visible, NOW(), NOW())
+                 :escudo_visible, :lanza_visible, :equipamiento_version,
+                 NOW(), NOW())
              ON DUPLICATE KEY UPDATE
                 tema = VALUES(tema),
                 color_principal = VALUES(color_principal),
@@ -148,6 +172,7 @@ final class LeonidasAppearanceService
                 cabello_visible = VALUES(cabello_visible),
                 escudo_visible = VALUES(escudo_visible),
                 lanza_visible = VALUES(lanza_visible),
+                equipamiento_version = VALUES(equipamiento_version),
                 actualizado_en = NOW()',
             [
                 'persona_id' => $personaId,
@@ -160,6 +185,7 @@ final class LeonidasAppearanceService
                 'cabello_visible' => $apariencia['cabello_visible'] ? 1 : 0,
                 'escudo_visible' => $apariencia['escudo_visible'] ? 1 : 0,
                 'lanza_visible' => $apariencia['lanza_visible'] ? 1 : 0,
+                'equipamiento_version' => self::VERSION_EQUIPAMIENTO,
             ]
         );
 
@@ -197,8 +223,8 @@ final class LeonidasAppearanceService
             $apariencia['casco_visible'] = self::validarVisibilidad($payload['casco_visible'] ?? true, 'casco');
             $apariencia['pechera_visible'] = self::validarVisibilidad($payload['pechera_visible'] ?? true, 'pechera');
             $apariencia['cabello_visible'] = self::validarVisibilidad($payload['cabello_visible'] ?? true, 'cabello');
-            $apariencia['escudo_visible'] = self::validarVisibilidad($payload['escudo_visible'] ?? true, 'escudo');
-            $apariencia['lanza_visible'] = self::validarVisibilidad($payload['lanza_visible'] ?? true, 'lanza');
+            $apariencia['escudo_visible'] = self::validarVisibilidad($payload['escudo_visible'] ?? false, 'escudo');
+            $apariencia['lanza_visible'] = self::validarVisibilidad($payload['lanza_visible'] ?? false, 'lanza');
             return $apariencia;
         }
         if ($tema !== 'personalizado') {
@@ -215,8 +241,8 @@ final class LeonidasAppearanceService
             'casco_visible' => self::validarVisibilidad($payload['casco_visible'] ?? true, 'casco'),
             'pechera_visible' => self::validarVisibilidad($payload['pechera_visible'] ?? true, 'pechera'),
             'cabello_visible' => self::validarVisibilidad($payload['cabello_visible'] ?? true, 'cabello'),
-            'escudo_visible' => self::validarVisibilidad($payload['escudo_visible'] ?? true, 'escudo'),
-            'lanza_visible' => self::validarVisibilidad($payload['lanza_visible'] ?? true, 'lanza'),
+            'escudo_visible' => self::validarVisibilidad($payload['escudo_visible'] ?? false, 'escudo'),
+            'lanza_visible' => self::validarVisibilidad($payload['lanza_visible'] ?? false, 'lanza'),
         ];
     }
 
@@ -259,8 +285,9 @@ final class LeonidasAppearanceService
                 casco_visible TINYINT(1) NOT NULL DEFAULT 1,
                 pechera_visible TINYINT(1) NOT NULL DEFAULT 1,
                 cabello_visible TINYINT(1) NOT NULL DEFAULT 1,
-                escudo_visible TINYINT(1) NOT NULL DEFAULT 1,
-                lanza_visible TINYINT(1) NOT NULL DEFAULT 1,
+                escudo_visible TINYINT(1) NOT NULL DEFAULT 0,
+                lanza_visible TINYINT(1) NOT NULL DEFAULT 0,
+                equipamiento_version SMALLINT UNSIGNED NOT NULL DEFAULT 1,
                 creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 PRIMARY KEY (persona_id),
@@ -270,23 +297,52 @@ final class LeonidasAppearanceService
         $this->asegurarColumna('casco_visible');
         $this->asegurarColumna('pechera_visible');
         $this->asegurarColumna('cabello_visible');
-        $this->asegurarColumna('escudo_visible');
-        $this->asegurarColumna('lanza_visible');
+        $this->asegurarColumna('escudo_visible', 0);
+        $this->asegurarColumna('lanza_visible', 0);
+        $this->asegurarVersionEquipamiento();
     }
 
-    private function asegurarColumna(string $columna): void
+    private function asegurarColumna(string $columna, int $predeterminado = 1): void
     {
         $existente = $this->db->queryOne(
             'SHOW COLUMNS FROM leonidas_apariencia_usuario LIKE :columna',
             ['columna' => $columna]
+        );
+        if (
+            $existente
+            && (string) ($existente['Default'] ?? '') === (string) $predeterminado
+        ) {
+            return;
+        }
+        if ($existente) {
+            $this->db->CRUD(
+                'ALTER TABLE leonidas_apariencia_usuario
+                 MODIFY COLUMN `' . $columna . '` TINYINT(1) NOT NULL
+                 DEFAULT ' . $predeterminado
+            );
+            return;
+        }
+        $this->db->CRUD(
+            'ALTER TABLE leonidas_apariencia_usuario
+             ADD COLUMN `' . $columna . '` TINYINT(1) NOT NULL DEFAULT ' . $predeterminado . '
+             AFTER color_metal'
+        );
+    }
+
+    private function asegurarVersionEquipamiento(): void
+    {
+        $existente = $this->db->queryOne(
+            'SHOW COLUMNS FROM leonidas_apariencia_usuario
+             LIKE :columna',
+            ['columna' => 'equipamiento_version']
         );
         if ($existente) {
             return;
         }
         $this->db->CRUD(
             'ALTER TABLE leonidas_apariencia_usuario
-             ADD COLUMN `' . $columna . '` TINYINT(1) NOT NULL DEFAULT 1
-             AFTER color_metal'
+             ADD COLUMN equipamiento_version SMALLINT UNSIGNED NOT NULL
+             DEFAULT 0 AFTER lanza_visible'
         );
     }
 }

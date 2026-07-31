@@ -272,23 +272,21 @@ def build_corporate_shield(world_matrix, create_palette_material):
         metalness=0.42,
         roughness=0.34,
     )
-    rim = create_palette_material(
+    rim = create_fixed_material(
         'LeonidasShieldRim',
-        'metal',
+        (0.22, 0.25, 0.29),
         metalness=0.78,
-        roughness=0.25,
+        roughness=0.31,
     )
-    rim['leonidasTone'] = 0.72
-    rim['leonidasRoughnessOffset'] = -0.12
-    blue = create_palette_material(
+    blue = create_fixed_material(
         'LeonidasShieldPrimary',
-        'primary',
+        (0.00, 0.075, 0.46),
         metalness=0.46,
         roughness=0.28,
     )
-    yellow = create_palette_material(
+    yellow = create_fixed_material(
         'LeonidasShieldSecondary',
-        'secondary',
+        (0.66, 0.69, 0.08),
         metalness=0.35,
         roughness=0.32,
     )
@@ -315,7 +313,7 @@ def build_corporate_shield(world_matrix, create_palette_material):
 
     # En la pose nativa la mano izquierda descansa en x=0.278, y=0.722.
     # El desplazamiento pequeño deja ver el torso sin separar el agarre.
-    center = (0.35, 0.70)
+    center = (0.31, 0.70)
     add_elliptic_disc(
         mesh,
         center,
@@ -324,7 +322,7 @@ def build_corporate_shield(world_matrix, create_palette_material):
         front_z=0.125,
         back_z=0.065,
         material_index=0,
-        dome=0.018,
+        dome=0.010,
     )
     add_elliptic_ring(
         mesh,
@@ -419,24 +417,30 @@ def build_corporate_shield(world_matrix, create_palette_material):
 
     # El reverso también está resuelto: abrazadera de antebrazo y asa rígida
     # alineada con la posición real de la mano izquierda.
-    add_beam(
-        mesh,
-        (center[0] - 0.19, center[1] + 0.105),
-        (center[0] + 0.12, center[1] + 0.105),
-        width=0.030,
-        depth=0.018,
-        material_index=5,
-        z=0.036,
-    )
-    add_beam(
-        mesh,
-        (0.278, center[1] - 0.09),
-        (0.278, center[1] + 0.075),
-        width=0.026,
-        depth=0.022,
-        material_index=5,
-        z=0.031,
-    )
+    for offset_y in (-0.055, 0.055):
+        add_beam(
+            mesh,
+            (center[0] - 0.075, center[1] + offset_y),
+            (center[0] + 0.055, center[1] + offset_y),
+            width=0.022,
+            depth=0.014,
+            material_index=5,
+            z=0.050,
+        )
+
+    # El primer prototipo tapaba desde hombros hasta tobillos. Se conserva la
+    # proporción ovalada de la referencia, pero se reduce alrededor del agarre
+    # para que proteja el torso sin ocultar la postura ni los pies.
+    shield_scale = 0.66
+    shield_depth_scale = 0.72
+    shield_center_z = 0.10
+    for vertex in mesh.verts:
+        vertex.co.x = center[0] + (vertex.co.x - center[0]) * shield_scale
+        vertex.co.y = center[1] + (vertex.co.y - center[1]) * shield_scale
+        vertex.co.z = (
+            shield_center_z
+            + (vertex.co.z - shield_center_z) * shield_depth_scale
+        )
 
     bmesh.ops.recalc_face_normals(mesh, faces=list(mesh.faces))
     mesh.to_mesh(obj.data)
@@ -456,14 +460,12 @@ def build_spartan_spear(world_matrix, create_palette_material):
         metalness=0.0,
         roughness=0.66,
     )
-    metal = create_palette_material(
+    metal = create_fixed_material(
         'LeonidasSpearMetal',
-        'metal',
+        (0.30, 0.34, 0.38),
         metalness=0.86,
-        roughness=0.22,
+        roughness=0.27,
     )
-    metal['leonidasTone'] = 0.76
-    metal['leonidasRoughnessOffset'] = -0.15
     leather = create_fixed_material(
         'LeonidasSpearBinding',
         (0.055, 0.046, 0.04),
@@ -477,41 +479,41 @@ def build_spartan_spear(world_matrix, create_palette_material):
         world_matrix,
     )
     # La mano derecha está en x=-0.255 durante la pose nativa.
-    shaft_x = -0.258
-    shaft_z = -0.052
+    shaft_x = -0.255
+    shaft_z = 0.035
     add_cylinder(
         mesh,
         (shaft_x, 0.72, shaft_z),
-        radius=0.0145,
-        depth=1.34,
+        radius=0.0088,
+        depth=1.30,
         material_index=0,
         vertices=20,
     )
-    for y in (1.356, 1.378, 1.400):
+    for y in (1.340, 1.356, 1.372):
         add_cylinder(
             mesh,
             (shaft_x, y, shaft_z),
-            radius=0.023,
-            depth=0.012,
+            radius=0.014,
+            depth=0.010,
             material_index=1,
             vertices=24,
         )
-    for y in (0.945, 0.966, 0.987, 1.008):
+    for y in (0.688, 0.706, 0.724, 0.742):
         add_cylinder(
             mesh,
             (shaft_x, y, shaft_z),
-            radius=0.0185,
-            depth=0.011,
+            radius=0.0115,
+            depth=0.010,
             material_index=2,
             vertices=20,
         )
 
     blade = (
-        (shaft_x, 1.535),
-        (shaft_x + 0.059, 1.438),
-        (shaft_x + 0.020, 1.393),
-        (shaft_x - 0.020, 1.393),
-        (shaft_x - 0.059, 1.438),
+        (shaft_x, 1.525),
+        (shaft_x + 0.040, 1.420),
+        (shaft_x + 0.014, 1.372),
+        (shaft_x - 0.014, 1.372),
+        (shaft_x - 0.040, 1.420),
     )
     add_extruded_polygon(
         mesh,
@@ -522,10 +524,10 @@ def build_spartan_spear(world_matrix, create_palette_material):
     )
     add_beam(
         mesh,
-        (shaft_x, 1.405),
-        (shaft_x, 1.515),
-        width=0.010,
-        depth=0.010,
+        (shaft_x, 1.382),
+        (shaft_x, 1.508),
+        width=0.006,
+        depth=0.008,
         material_index=1,
         z=shaft_z - 0.021,
     )

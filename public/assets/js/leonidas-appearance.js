@@ -22,6 +22,7 @@
     var liveModelCanvas = root.querySelector('[data-leonidas-canvas]');
     var personaId = root.getAttribute('data-leonidas-persona') || '0';
     var cacheKey = 'sparta.leonidas.appearance.' + personaId;
+    var equipmentDefaultsKey = cacheKey + '.equipment-defaults-v1';
     var modal = null;
     var acceptClose = false;
     var renderTimer = null;
@@ -39,8 +40,8 @@
         casco_visible: true,
         pechera_visible: true,
         cabello_visible: true,
-        escudo_visible: true,
-        lanza_visible: true
+        escudo_visible: false,
+        lanza_visible: false
     };
     var draftAppearance = copyAppearance(savedAppearance);
 
@@ -55,13 +56,14 @@
             casco_visible: normalizeVisibility(appearance && appearance.casco_visible),
             pechera_visible: normalizeVisibility(appearance && appearance.pechera_visible),
             cabello_visible: normalizeVisibility(appearance && appearance.cabello_visible),
-            escudo_visible: normalizeVisibility(appearance && appearance.escudo_visible),
-            lanza_visible: normalizeVisibility(appearance && appearance.lanza_visible),
+            escudo_visible: normalizeVisibility(appearance && appearance.escudo_visible, false),
+            lanza_visible: normalizeVisibility(appearance && appearance.lanza_visible, false),
             personalizada: Boolean(appearance && appearance.personalizada)
         };
     }
 
-    function normalizeVisibility(value) {
+    function normalizeVisibility(value, fallback) {
+        if (value === undefined || value === null) return fallback !== false;
         return value !== false && value !== 0 && value !== '0';
     }
 
@@ -304,6 +306,14 @@
     function readCachedAppearance() {
         try {
             var cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+            if (localStorage.getItem(equipmentDefaultsKey) !== '1') {
+                if (cached) {
+                    cached.escudo_visible = false;
+                    cached.lanza_visible = false;
+                    localStorage.setItem(cacheKey, JSON.stringify(cached));
+                }
+                localStorage.setItem(equipmentDefaultsKey, '1');
+            }
             return cached && cached.color_principal ? copyAppearance(cached) : null;
         } catch (ignore) {
             return null;
