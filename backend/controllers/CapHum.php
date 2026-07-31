@@ -1412,8 +1412,6 @@ class CapHum extends Controller
 
     public function gestion()
     {
-        CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
-
         $script = <<<'HTML'
         <script>
 
@@ -1546,6 +1544,13 @@ class CapHum extends Controller
                     // ==========================================
                     // MAPEAR DATOS CON SOPORTE PARA MÃšLTIPLES PUESTOS
                     // ==========================================
+                    // La vista ya aporta actualizarTabla(), que genera el formato compacto.
+                    // Evitar construir el mismo HTML completo dos veces por persona.
+                    if (typeof actualizarTabla === 'function') {
+                        actualizarTabla(usuariosFiltrados);
+                        return;
+                    }
+
                     const datos = usuariosFiltrados.map(p => {
                         const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
                         const tienePuestos = p.puestos && p.puestos.length > 1;

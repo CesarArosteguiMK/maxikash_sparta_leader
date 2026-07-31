@@ -1297,8 +1297,6 @@ class CapHum extends Model
 
         try {
             $db = new Database();
-            self::asegurarPersonaEsExterno($db);
-            self::asegurarAsignaJefeSoportaVacante($db);
             $r = $db->queryAll($query);
             return self::resultado(true, 'Departamentos encontrados.', $r);
         } catch (\Exception $e) {
@@ -4956,7 +4954,6 @@ class CapHum extends Model
                 return false;
             }
             $db = new Database();
-            self::asegurarSalariosSensiblesRrhh($db);
             $row = $db->queryOne("
                 SELECT 1 AS ok
                 FROM estado_cuenta.rrhh_salarios_sensibles
