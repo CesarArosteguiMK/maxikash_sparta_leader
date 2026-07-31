@@ -337,6 +337,15 @@ if (root && canvas) {
             bone.quaternion.multiply(poseQuaternion);
         };
 
+        const settleHand = (hand, weight = 1) => {
+            const neutral = hand ? baseRotations.get(hand) : null;
+            if (!neutral || weight <= 0.001) return;
+            hand.quaternion.slerp(
+                neutral,
+                THREE.MathUtils.clamp(weight, 0, 1)
+            );
+        };
+
         const aimBoneAtWorldPoint = (bone, child, target, weight = 1) => {
             if (!bone || !child || !bone.parent || weight <= 0.001) return;
             activeModel.updateMatrixWorld(true);
@@ -421,13 +430,13 @@ if (root && canvas) {
                 // avanza delante del muslo. La flexión se calcula en espacio
                 // mundial para no depender del eje local irregular del FBX.
                 armTargetElbow.copy(armShoulderPosition)
-                    .addScaledVector(bodyUp, -lengths.upperLength * 0.91)
-                    .addScaledVector(armOutward, lengths.upperLength * 0.08)
-                    .addScaledVector(bodyForward, lengths.upperLength * 0.06);
+                    .addScaledVector(bodyUp, -lengths.upperLength * 0.89)
+                    .addScaledVector(armOutward, lengths.upperLength * 0.14)
+                    .addScaledVector(bodyForward, lengths.upperLength * 0.045);
                 armTargetHand.copy(armTargetElbow)
-                    .addScaledVector(bodyUp, -lengths.foreLength * 0.88)
-                    .addScaledVector(armOutward, -lengths.foreLength * 0.05)
-                    .addScaledVector(bodyForward, lengths.foreLength * 0.34);
+                    .addScaledVector(bodyUp, -lengths.foreLength * 0.84)
+                    .addScaledVector(armOutward, lengths.foreLength * 0.12)
+                    .addScaledVector(bodyForward, lengths.foreLength * 0.18);
             }
 
             aimBoneAtWorldPoint(upperArm, foreArm, armTargetElbow, weight);
@@ -606,6 +615,13 @@ if (root && canvas) {
                         'idle',
                         idleElbowWeight * 0.86
                     );
+                    // La animación nativa cierra los puños y quiebra ambas
+                    // muñecas hacia el faldón. Recuperar parte de la rotación
+                    // neutra y relajar los dedos mantiene manos anatómicas.
+                    settleHand(leftHand, idleElbowWeight * 0.74);
+                    settleHand(rightHand, idleElbowWeight * 0.74);
+                    applyOpenFingers(leftFingerBones, idleElbowWeight * 0.52);
+                    applyOpenFingers(rightFingerBones, idleElbowWeight * 0.52);
                 }
             }
             root.dataset.leonidasMotion = victoryWeight > 0.08
@@ -1404,6 +1420,11 @@ if (root && canvas) {
                 if (name.startsWith('mixamorigrighthand') && name !== 'mixamorigrighthand') rightFingerBones.push(node);
                 if (name.startsWith('mixamoriglefthand') && name !== 'mixamoriglefthand') leftFingerBones.push(node);
             });
+            // Capturar los dedos en reposo antes de que el clip anime un puño
+            // diferente en cada lado. Esta es la referencia simétrica.
+            [...rightFingerBones, ...leftFingerBones].forEach((bone) => {
+                openFingerRotations.set(bone, bone.quaternion.clone());
+            });
             [
                 pelvis, spine, head, shieldArm, shieldForeArm, swordArm,
                 swordForeArm, leftHand, rightHand, rightUpLeg, rightLeg, leftUpLeg, leftLeg
@@ -1414,9 +1435,6 @@ if (root && canvas) {
                 mixer.clipAction(animations[0]).reset().play();
                 mixer.setTime(6.4);
                 if (rightHand) greetingHandRotation = rightHand.quaternion.clone();
-                [...rightFingerBones, ...leftFingerBones].forEach((bone) => {
-                    openFingerRotations.set(bone, bone.quaternion.clone());
-                });
                 mixer.setTime(nativeAnimationTime);
             }
 

@@ -11,6 +11,7 @@ class LegacyUserSync extends Model
     private const MODEL_TYPE = 'App\\Models\\User';
     private const ORIGEN_EDITAR_USUARIO = 'editar_usuario_rrhh';
     private const ORIGEN_BAJA_USUARIO = 'baja_usuario_spartan';
+    private const ORIGEN_REACTIVAR_USUARIO = 'reactivar_usuario_spartan';
     private const DIRECCION_COBRANZA_ID = 12;
     private static ?array $alcanceConfigCache = null;
 
@@ -595,6 +596,100 @@ class LegacyUserSync extends Model
                 'id_usuario' => $idSesion,
                 'resultado' => 'error',
                 'mensaje' => 'Error al dar de baja el usuario en Legacy.',
+                'detalle' => ['error' => $e->getMessage()],
+            ]);
+        }
+    }
+
+    /** Restaura el acceso Legacy de una persona que vuelve a estar activa en Sparta. */
+    public static function sincronizarReactivacionDesdeSpartan(int $idPersona, int $idSesion = 0): array
+    {
+        $db = new Database();
+        self::asegurarBitacora($db);
+
+        try {
+            $ctx = self::obtenerContextoPersonaBaja($db, $idPersona);
+            if (!$ctx) {
+                return self::registrar($db, [
+                    'origen' => self::ORIGEN_REACTIVAR_USUARIO,
+                    'id_persona' => $idPersona,
+                    'id_usuario' => $idSesion,
+                    'resultado' => 'error',
+                    'mensaje' => 'Persona no encontrada en Spartan para reactivacion Legacy.',
+                ]);
+            }
+
+            $externalId = trim((string)($ctx['external_id'] ?? ''));
+            if ($externalId === '') {
+                return self::registrar($db, [
+                    'origen' => self::ORIGEN_REACTIVAR_USUARIO,
+                    'id_persona' => $idPersona,
+                    'id_puesto' => (int)($ctx['id_puesto'] ?? 0),
+                    'puesto_nombre' => $ctx['puesto_nombre'] ?? '',
+                    'departamento_nombre' => $ctx['departamento_nombre'] ?? '',
+                    'id_usuario' => $idSesion,
+                    'resultado' => 'omitido',
+                    'mensaje' => 'La persona no tiene numero de empleado; no hay usuario Legacy que reactivar.',
+                ]);
+            }
+
+            $legacy = new DatabaseLegacy();
+            $legacyUser = self::buscarUsuarioLegacyIncluyendoBaja($legacy, $externalId);
+            if (!$legacyUser) {
+                return self::registrar($db, [
+                    'origen' => self::ORIGEN_REACTIVAR_USUARIO,
+                    'id_persona' => $idPersona,
+                    'external_id' => $externalId,
+                    'id_puesto' => (int)($ctx['id_puesto'] ?? 0),
+                    'puesto_nombre' => $ctx['puesto_nombre'] ?? '',
+                    'departamento_nombre' => $ctx['departamento_nombre'] ?? '',
+                    'role_legacy' => $ctx['role_legacy'] ?? '',
+                    'id_usuario' => $idSesion,
+                    'resultado' => 'omitido',
+                    'mensaje' => 'Usuario no encontrado en Legacy; no habia acceso que reactivar.',
+                ]);
+            }
+
+            $estadoAnterior = self::estadoLegacyActual($legacy, (int)$legacyUser['id']);
+            $estabaBaja = !empty($legacyUser['deleted_at']);
+            if ($estabaBaja) {
+                $legacy->beginTransaction();
+                self::reactivarUsuarioLegacy($legacy, (int)$legacyUser['id']);
+                $legacy->commit();
+            }
+            $estadoNuevo = self::estadoLegacyActual($legacy, (int)$legacyUser['id']);
+
+            return self::registrar($db, [
+                'origen' => self::ORIGEN_REACTIVAR_USUARIO,
+                'id_persona' => $idPersona,
+                'external_id' => $externalId,
+                'id_puesto' => (int)($ctx['id_puesto'] ?? 0),
+                'puesto_nombre' => $ctx['puesto_nombre'] ?? '',
+                'departamento_nombre' => $ctx['departamento_nombre'] ?? '',
+                'id_usuario_legacy' => (int)$legacyUser['id'],
+                'role_legacy' => $estadoAnterior['role_name'] ?? ($ctx['role_legacy'] ?? ''),
+                'id_usuario' => $idSesion,
+                'resultado' => $estabaBaja ? 'actualizado' : 'sin_cambios',
+                'mensaje' => $estabaBaja
+                    ? 'Usuario reactivado en Legacy correctamente.'
+                    : 'Usuario Legacy ya estaba activo.',
+                'detalle' => [
+                    'accion' => 'restore_legacy_user',
+                    'antes' => $estadoAnterior,
+                    'despues' => $estadoNuevo,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            if (isset($legacy)) {
+                try { $legacy->rollback(); } catch (\Throwable $rollbackError) {}
+            }
+
+            return self::registrar($db, [
+                'origen' => self::ORIGEN_REACTIVAR_USUARIO,
+                'id_persona' => $idPersona,
+                'id_usuario' => $idSesion,
+                'resultado' => 'error',
+                'mensaje' => 'Error al reactivar el usuario en Legacy.',
                 'detalle' => ['error' => $e->getMessage()],
             ]);
         }

@@ -539,6 +539,120 @@
         border-radius: 0.85rem;
         overflow: hidden;
     }
+    #modalBajas .baja-modal-footer {
+        justify-content: flex-end;
+        gap: 1rem;
+    }
+    #modalBajas .baja-modal-footer-btn {
+        width: 10rem;
+    }
+    #modalBajas .modal-body > .mb-3:has(#archivoPDF),
+    #modalBajas #listaArchivos {
+        display: none !important;
+    }
+    .swal2-actions.baja-confirm-actions {
+        gap: 1rem;
+        margin-top: 1.75rem;
+    }
+    .swal2-actions.baja-reactivar-actions {
+        gap: 0.85rem;
+        margin-top: 1.45rem;
+    }
+    .swal2-popup .swal2-actions.baja-reactivar-actions .baja-reactivar-action {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 12rem !important;
+        min-width: 12rem !important;
+        height: 2.85rem !important;
+        min-height: 2.85rem;
+        margin: 0 !important;
+        padding: 0.55rem 1rem !important;
+        border-radius: 0.6rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0 !important;
+        white-space: nowrap;
+        transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease;
+    }
+    body .swal2-popup .swal2-actions.baja-reactivar-actions .baja-reactivar-action--cancel {
+        background: #fff5f3 !important;
+        border: 1px solid #ef8a76 !important;
+        color: #b6402c !important;
+        box-shadow: none !important;
+    }
+    body .swal2-popup .swal2-actions.baja-reactivar-actions .baja-reactivar-action--confirm {
+        background: #24395d !important;
+        border: 1px solid #24395d !important;
+        color: #fff !important;
+        box-shadow: 0 0.45rem 0.9rem rgba(36, 57, 93, 0.24) !important;
+    }
+    body .swal2-popup .swal2-actions.baja-reactivar-actions .baja-reactivar-action:hover:not(:disabled) {
+        transform: translateY(-1px);
+    }
+    body .swal2-popup .swal2-actions.baja-reactivar-actions .baja-reactivar-action--cancel:hover:not(:disabled) {
+        background: #ffe7e1 !important;
+        border-color: #d96b56 !important;
+    }
+    body .swal2-popup .swal2-actions.baja-reactivar-actions .baja-reactivar-action--confirm:hover:not(:disabled) {
+        background: #172a4a !important;
+        border-color: #172a4a !important;
+        box-shadow: 0 0.6rem 1.1rem rgba(36, 57, 93, 0.3) !important;
+    }
+    body .swal2-popup .swal2-actions.baja-reactivar-actions .baja-reactivar-action:focus-visible {
+        outline: 3px solid rgba(36, 57, 93, 0.28) !important;
+        outline-offset: 3px;
+    }
+    .swal2-popup .swal2-actions.baja-confirm-actions button.baja-confirm-action {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 11.5rem !important;
+        min-width: 11.5rem !important;
+        min-height: 2.85rem;
+        margin: 0 !important;
+        border-radius: 0.55rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0 !important;
+        transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease;
+    }
+    body .swal2-popup .swal2-actions.baja-confirm-actions .swal2-cancel.baja-confirm-action {
+        background: #fffaf2 !important;
+        border: 1px solid #d7a048 !important;
+        color: #805315 !important;
+        box-shadow: none !important;
+    }
+    body .swal2-popup .swal2-actions.baja-confirm-actions .swal2-confirm.baja-confirm-action {
+        background: #d89222 !important;
+        border: 1px solid #d89222 !important;
+        color: #fff !important;
+        box-shadow: 0 0.45rem 0.9rem rgba(185, 117, 22, 0.28) !important;
+    }
+    body .swal2-popup .swal2-actions.baja-confirm-actions .baja-confirm-action:hover:not(:disabled) {
+        transform: translateY(-1px);
+    }
+    body .swal2-popup .swal2-actions.baja-confirm-actions .swal2-cancel.baja-confirm-action:hover:not(:disabled) {
+        background: #fff1d8 !important;
+        border-color: #bd7b1e !important;
+    }
+    body .swal2-popup .swal2-actions.baja-confirm-actions .swal2-confirm.baja-confirm-action:hover:not(:disabled) {
+        background: #b97012 !important;
+        border-color: #b97012 !important;
+        box-shadow: 0 0.6rem 1.1rem rgba(185, 117, 22, 0.34) !important;
+    }
+    body .swal2-popup .swal2-actions.baja-confirm-actions .baja-confirm-action:focus-visible {
+        outline: 3px solid rgba(216, 146, 34, 0.3) !important;
+        outline-offset: 3px;
+    }
+    @media (max-width: 575.98px) {
+        #modalBajas .baja-modal-footer-btn {
+            min-width: 0;
+            width: calc(50% - 0.5rem);
+        }
+        .swal2-popup .swal2-actions.baja-confirm-actions button.baja-confirm-action {
+            min-width: 0 !important;
+            width: calc(50% - 0.5rem) !important;
+        }
+    }
     #modalBajas .baja-side-panel {
         display: none !important;
     }
@@ -660,6 +774,63 @@
     #historialUsuarios .control-bajas-action-btn i {
       font-size: 0.86rem;
       line-height: 1;
+    }
+
+    #historialUsuarios .control-bajas-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.6rem;
+      min-width: 236px;
+    }
+
+    #historialUsuarios .control-bajas-action-btn--text {
+      width: auto;
+      min-width: 112px;
+      height: 34px;
+      padding: 0 0.85rem;
+      border-radius: 0.55rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      white-space: nowrap;
+      box-shadow: 0 0.25rem 0.65rem rgba(30, 41, 59, 0.12);
+      transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+    }
+
+    #historialUsuarios .control-bajas-action-btn--text:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0.4rem 0.85rem rgba(30, 41, 59, 0.18);
+    }
+
+    #historialUsuarios .control-bajas-action-btn--reactivate {
+      background: #f1fff6;
+      border-color: #32a85b;
+      color: #1b7840;
+    }
+
+    #historialUsuarios .control-bajas-action-btn--reactivate:hover {
+      background: #dff8e8;
+      border-color: #218a49;
+      color: #146c36;
+    }
+
+    #historialUsuarios .control-bajas-action-btn--document {
+      background: #effcff;
+      border-color: #12a9ca;
+      color: #087b97;
+    }
+
+    #historialUsuarios .control-bajas-action-btn--document:hover {
+      background: #d9f7fc;
+      border-color: #0789a8;
+      color: #06657b;
+    }
+
+    @media (max-width: 767.98px) {
+      #historialUsuarios .control-bajas-actions {
+        min-width: 0;
+        justify-content: flex-start;
+      }
     }
 
     .gestion-personal-name-cell {
@@ -6379,6 +6550,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                 </label>
                                 <select id="filtroEtapaBajas" class="form-select form-select-sm">
                                     <option value="todas">Todas las bajas</option>
+                                    <option value="transito">Trámite pendiente</option>
                                     <option value="baja_parcial">Baja parcial</option>
                                     <option value="baja_completa">Baja completa</option>
                                 </select>
@@ -7002,14 +7174,14 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     </div>
                 </div>
 
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <div class="modal-footer baja-modal-footer">
+                    <button type="button" class="btn btn-secondary baja-modal-footer-btn" data-bs-dismiss="modal">Cancelar</button>
 
                     <!-- ðŸ†• Botón para confirmar baja -->
-                    <button type="button" class="btn btn-warning" id="btnIniciarTransitoBaja" onclick="confirmarBaja()">
+                    <button type="button" class="btn btn-warning baja-modal-footer-btn" id="btnIniciarTransitoBaja" onclick="confirmarBaja()">
                         Iniciar trámite
                     </button>
-                    <button type="button" class="btn btn-danger" id="btnFinalizarBaja" onclick="finalizarBaja()" style="display: none;">
+                    <button type="button" class="btn btn-danger baja-modal-footer-btn" id="btnFinalizarBaja" onclick="finalizarBaja()" style="display: none;">
                         Registrar baja parcial
                     </button>
                 </div>
@@ -7183,6 +7355,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <div class="mb-3">
                         <label for="cargarDoc_tipoDocumento" class="form-label"><strong>Tipo de Documento: </strong></label>
                         <select class="form-select" id="cargarDoc_tipoDocumento" onchange="cambiarTipoDocumentoBaja(this)">
+                            <option value="">-- Selecciona el tipo de documento --</option>
                             <?php foreach (($tiposDocumentoBajaPermitidos ?? []) as $idDocumentoBaja => $nombreDocumentoBaja): ?>
                                 <option value="<?= (int) $idDocumentoBaja ?>"><?= htmlspecialchars((string) $nombreDocumentoBaja, ENT_QUOTES, 'UTF-8') ?></option>
                             <?php endforeach; ?>

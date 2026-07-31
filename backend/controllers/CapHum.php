@@ -5919,7 +5919,8 @@ class CapHum extends Controller
                             .filter(Boolean)
                             .join(" ");
 
-                        const enTransito = String(persona.estatus || '').trim().toLowerCase() === 'transito de baja';
+                        const enTransito = String(persona.estatus || '').trim().toLowerCase() === 'transito de baja'
+                            || Number(persona.tiene_transito_baja || 0) === 1;
                         configurarModalBaja(enTransito);
                         if (enTransito) {
                             cargarDatosReasignacionBaja(persona.id);
@@ -5932,6 +5933,25 @@ class CapHum extends Controller
                         Swal.fire("Error", "No se pudo cargar la información", "error");
                     });
         }
+
+            (function abrirTramiteBajaDesdeControl() {
+                const abrir = function () {
+                    const params = new URLSearchParams(window.location.search);
+                    const idPendiente = Number(params.get('continuar_baja') || 0);
+                    if (!idPendiente) return;
+
+                    params.delete('continuar_baja');
+                    const nuevaUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash;
+                    window.history.replaceState({}, document.title, nuevaUrl);
+                    window.setTimeout(function () { baja_gestor(idPendiente); }, 250);
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', abrir, { once: true });
+                } else {
+                    abrir();
+                }
+            })();
 
             function registra_ausencia(id) {
                 if (!id) {
@@ -7015,9 +7035,14 @@ class CapHum extends Controller
                     title: '¿Iniciar trámite de baja?',
                     html: '<div class="text-start">La persona quedará bloqueada para cartera, asignaciones y acceso al sistema.<br><br>La Baja parcial, la vacante y las reasignaciones se registrarán al cargar la Renuncia o el Aviso de rescisión.</div>',
                     showCancelButton: true,
-                    confirmButtonText: 'Sí, iniciar trámite',
-                    cancelButtonText: 'Cancelar',
-                    reverseButtons: true
+                    confirmButtonText: '<i class="fa fa-play me-2"></i>Sí, iniciar trámite',
+                    cancelButtonText: '<i class="fa fa-times me-2"></i>Cancelar',
+                    reverseButtons: true,
+                    customClass: {
+                        actions: 'baja-confirm-actions',
+                        confirmButton: 'baja-confirm-action',
+                        cancelButton: 'baja-confirm-action'
+                    }
                 }).then((result) => {
                     if (!result.isConfirmed) {
                         return;
@@ -7027,8 +7052,6 @@ class CapHum extends Controller
                     formData.append('idGestor', idGestor);
                     formData.append('motivo', motivo);
                     formData.append('descripcion', descripcion);
-                    archivosSeleccionados.forEach((file) => formData.append('archivosPDF[]', file));
-
                     const boton = document.getElementById('btnIniciarTransitoBaja');
                     if (boton) {
                         boton.disabled = true;
@@ -7158,18 +7181,35 @@ class CapHum extends Controller
                 if (!idPersona) return;
                 Swal.fire({
                     icon: 'warning',
-                    title: '¿Cancelar trámite de baja?',
-                    text: 'La persona recuperará su estado anterior y sus asignaciones activas previas.',
+                    title: '¿Reactivar persona?',
+                    text: 'Indica por qué se cancela el trámite de baja. La persona recuperará su estado anterior y sus asignaciones previas.',
+                    input: 'textarea',
+                    inputLabel: 'Motivo de la reactivación',
+                    inputPlaceholder: 'Escribe el motivo...',
+                    inputAttributes: { 'aria-label': 'Motivo de la reactivación', maxlength: 500 },
                     showCancelButton: true,
-                    confirmButtonText: 'Sí, reactivar persona',
-                    cancelButtonText: 'Conservar en tránsito',
-                    reverseButtons: true
+                    confirmButtonText: 'Reactivar',
+                    cancelButtonText: 'Conservar trámite',
+                    reverseButtons: true,
+                    customClass: {
+                        actions: 'baja-reactivar-actions',
+                        confirmButton: 'baja-reactivar-action baja-reactivar-action--confirm',
+                        cancelButton: 'baja-reactivar-action baja-reactivar-action--cancel'
+                    },
+                    preConfirm: function (valor) {
+                        const motivo = String(valor || '').trim();
+                        if (!motivo) {
+                            Swal.showValidationMessage('Debes indicar el motivo de la reactivación.');
+                            return false;
+                        }
+                        return motivo;
+                    }
                 }).then(function (result) {
                     if (!result.isConfirmed) return;
                     fetch('/CapHum/cancelarTransitoBaja', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: JSON.stringify({ idGestor: idPersona })
+                        body: JSON.stringify({ idGestor: idPersona, motivo_reactivacion: result.value })
                     })
                     .then(function (response) { return response.json(); })
                     .then(function (data) {
@@ -26486,6 +26526,260 @@ class CapHum extends Controller
             }
             // ----- Fin reingreso -----
 
+            // Control de Bajas conserva el flujo completo: no redirige a Gestión de Personal.
+            let controlBajaPendiente = { idPersona: 0, subordinados: [], vacantes: [], personas: [] };
+
+            function controlBajasEscapeHtml(valor) {
+                return String(valor || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            function controlBajasActualizarModoReasignacion() {
+                const modo = document.querySelector('input[name="bajaModoReasignacion"]:checked')?.value || 'vacante';
+                const detalle = document.getElementById('bajaSubordinadosDetalleWrap');
+                const vacante = document.getElementById('bajaVacanteResumen');
+                const sustituto = document.getElementById('bajaSustitutoWrap');
+                const contador = document.getElementById('bajaSubordinadosCount');
+                if (detalle) detalle.classList.toggle('d-none', modo !== 'sustituto');
+                if (vacante) vacante.classList.toggle('d-none', modo !== 'vacante');
+                if (sustituto) sustituto.style.display = modo === 'sustituto' ? '' : 'none';
+                if (contador) contador.textContent = String(controlBajaPendiente.subordinados.length || 0);
+            }
+
+            function controlBajasPintarReasignacion(datos, idPersona) {
+                controlBajaPendiente.subordinados = Array.isArray(datos?.subordinados) ? datos.subordinados : [];
+                controlBajaPendiente.vacantes = Array.isArray(datos?.vacantes_mismo_puesto) ? datos.vacantes_mismo_puesto : [];
+                controlBajaPendiente.personas = Array.isArray(datos?.personas) ? datos.personas : [];
+
+                const lista = document.getElementById('bajaSubordinadosLista');
+                const vacantes = document.getElementById('bajaVacantesMismoPuesto');
+                const select = document.getElementById('bajaSustitutoId');
+                const wrap = document.getElementById('bajaReasignacionWrap');
+                const buscar = document.getElementById('bajaBuscarSubordinado');
+                const aplicar = document.getElementById('bajaAplicarJefeSeleccionados');
+                const resumenAsignaciones = document.getElementById('bajaResumenAsignacionesJefe');
+                if (wrap) wrap.style.display = '';
+                if (buscar) buscar.closest('.card-header')?.classList.add('d-none');
+                if (aplicar) aplicar.style.display = 'none';
+                if (resumenAsignaciones) resumenAsignaciones.style.display = 'none';
+                if (lista) {
+                    const total = controlBajaPendiente.subordinados.length;
+                    lista.innerHTML = '<div class="list-group-item text-muted">'
+                        + (total ? 'Se reasignaran ' + total + ' subordinado(s) activos al confirmar esta etapa.' : 'Esta persona no tiene subordinados directos activos.')
+                        + '</div>';
+                }
+                if (vacantes) {
+                    const puesto = controlBajasEscapeHtml(datos?.puesto_baja?.nombre_puesto || 'este puesto');
+                    vacantes.innerHTML = controlBajaPendiente.vacantes.length
+                        ? '<div class="fw-semibold mb-2">Vacantes activas para ' + puesto + '</div><div class="list-group list-group-flush rounded border bg-body">'
+                            + controlBajaPendiente.vacantes.map(function (vacante, indice) {
+                                return '<label class="list-group-item small bg-transparent d-flex align-items-start gap-2 mb-0">'
+                                    + '<input class="form-check-input mt-1" type="radio" name="bajaVacanteDestino" value="' + Number(vacante.id || 0) + '"' + (indice === 0 ? ' checked' : '') + '>'
+                                    + '<span><span class="fw-semibold d-block">Vacante #' + Number(vacante.id || 0) + '</span><span class="text-muted d-block">'
+                                    + controlBajasEscapeHtml(vacante.nombre_departamento || 'Sin departamento') + '</span></span></label>';
+                            }).join('') + '</div>'
+                        : '<div class="small text-muted">Se creara una vacante nueva al confirmar la baja.</div>';
+                }
+                if (select) {
+                    if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2) {
+                        const $select = window.jQuery(select);
+                        if ($select.hasClass('select2-hidden-accessible')) $select.select2('destroy');
+                    }
+                    select.innerHTML = '<option value="">Selecciona sustituto</option>';
+                    controlBajaPendiente.personas.forEach(function (persona) {
+                        if (Number(persona?.id || 0) === Number(idPersona || 0)) return;
+                        const opcion = document.createElement('option');
+                        opcion.value = String(persona.id || '');
+                        opcion.textContent = String(persona.nombre_completo || ('ID ' + persona.id)) + (persona.nombre_puesto ? ' - ' + persona.nombre_puesto : '');
+                        select.appendChild(opcion);
+                    });
+                    if (typeof window.refreshSelectBuscador === 'function') window.refreshSelectBuscador('bajaSustitutoId');
+                }
+                controlBajasActualizarModoReasignacion();
+            }
+
+            function baja_gestor(idPersona) {
+                const id = Number(idPersona || 0);
+                if (!id) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'No se identificó a la persona para continuar el trámite.' });
+                    return;
+                }
+                controlBajaPendiente = { idPersona: id, subordinados: [], vacantes: [], personas: [] };
+                const modal = document.getElementById('modalBajas');
+                const dialogo = modal?.querySelector('.modal-bajas-dialog');
+                const shell = modal?.querySelector('.modal-bajas-shell');
+                const motivo = document.getElementById('motivoBaja')?.closest('.mb-3');
+                const descripcion = document.getElementById('motivoBajaDescripcion')?.closest('.mb-3');
+                const respaldo = document.getElementById('archivoPDF')?.closest('.mb-3');
+                const documento = document.getElementById('bajaDocumentoFinalWrap');
+                const inicio = document.getElementById('btnIniciarTransitoBaja');
+                const finalizar = document.getElementById('btnFinalizarBaja');
+                if (dialogo) dialogo.classList.add('modo-final');
+                if (shell) shell.classList.add('modo-final');
+                document.getElementById('modalRFCLabel').textContent = 'Continuar trámite de baja';
+                document.getElementById('bajaMensajeFlujo').className = 'alert alert-danger small';
+                document.getElementById('bajaMensajeFlujo').innerHTML = '<strong>Etapa 2 de 3.</strong> El motivo ya fue registrado. Define el destino del equipo y carga la Renuncia o el Aviso de rescisión para registrar la baja parcial.';
+                [motivo, descripcion, respaldo].forEach(function (elemento) { if (elemento) elemento.style.display = 'none'; });
+                if (documento) documento.style.display = '';
+                if (inicio) inicio.style.display = 'none';
+                if (finalizar) { finalizar.style.display = ''; finalizar.textContent = 'Cargando opciones...'; finalizar.disabled = true; }
+                const archivo = document.getElementById('archivoFinalBaja');
+                const tipo = document.getElementById('tipoDocumentoFinal');
+                if (archivo) archivo.value = '';
+                if (tipo) tipo.value = '';
+                document.getElementById('bajaFinal_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
+                document.getElementById('edit_id').value = String(id);
+                document.querySelectorAll('input[name="bajaModoReasignacion"]').forEach(function (radio) {
+                    radio.onchange = controlBajasActualizarModoReasignacion;
+                });
+
+                window.jQuery('#modalBajas').modal('show');
+
+                const detalleSolicitud = fetch('/CapHum/getDetalles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ idPersona: id })
+                })
+                .then(function (respuesta) { return respuesta.json(); });
+                const reasignacionSolicitud = fetch('/CapHum/getDatosReasignacionBaja', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ idPersona: id })
+                })
+                .then(function (respuesta) { return respuesta.json(); });
+
+                Promise.all([detalleSolicitud, reasignacionSolicitud])
+                .then(function (respuestas) {
+                    const detalleRespuesta = respuestas[0];
+                    const reasignacionRespuesta = respuestas[1];
+                    if (!detalleRespuesta?.success) throw new Error(detalleRespuesta?.mensaje || 'No se pudo cargar a la persona.');
+                    const persona = detalleRespuesta.datos?.persona || detalleRespuesta.datos || {};
+                    if (!Number(persona.id || 0)) throw new Error('No se encontraron datos de la persona.');
+                    document.getElementById('gestor').textContent = [persona.nombres, persona.apellidop, persona.apellidom].filter(Boolean).join(' ');
+                    if (!reasignacionRespuesta?.success) throw new Error(reasignacionRespuesta?.mensaje || 'No se pudieron cargar las opciones de reasignación.');
+                    controlBajasPintarReasignacion(reasignacionRespuesta.datos || {}, id);
+                    if (finalizar) { finalizar.disabled = false; finalizar.textContent = 'Registrar baja parcial'; }
+                })
+                .catch(function (error) {
+                    window.jQuery('#modalBajas').modal('hide');
+                    Swal.fire({ icon: 'error', title: 'No se pudo continuar el trámite', text: error.message || 'Ocurrió un error al cargar la información.' });
+                });
+            }
+
+            function actualizarNombreArchivoFinalBaja() {
+                const archivo = document.getElementById('archivoFinalBaja');
+                document.getElementById('bajaFinal_nombreArchivo').textContent = archivo?.files?.[0]?.name || 'No se ha seleccionado ningún archivo';
+            }
+
+            function finalizarBaja() {
+                const idPersona = Number(controlBajaPendiente.idPersona || 0);
+                const modo = document.querySelector('input[name="bajaModoReasignacion"]:checked')?.value || '';
+                const tipoDocumento = document.getElementById('tipoDocumentoFinal')?.value || '';
+                const archivo = document.getElementById('archivoFinalBaja')?.files?.[0];
+                const sustituto = document.getElementById('bajaSustitutoId')?.value || '';
+                const vacante = document.querySelector('input[name="bajaVacanteDestino"]:checked')?.value || '';
+                const subordinados = controlBajaPendiente.subordinados.map(function (persona) { return Number(persona.id || 0); }).filter(Boolean);
+                if (!idPersona || !modo || !tipoDocumento || !archivo) {
+                    Swal.fire({ icon: 'warning', title: 'Faltan datos obligatorios', text: 'Selecciona Vacante o Sustituto y carga la Renuncia o el Aviso de rescisión en PDF.' });
+                    return;
+                }
+                if (modo === 'sustituto' && !sustituto) {
+                    Swal.fire({ icon: 'warning', title: 'Selecciona sustituto', text: 'Indica quién recibirá las personas asignadas.' });
+                    return;
+                }
+                if (!/\.pdf$/i.test(archivo.name || '')) {
+                    Swal.fire({ icon: 'warning', title: 'Archivo no válido', text: 'El documento debe ser un PDF.' });
+                    return;
+                }
+                Swal.fire({ icon: 'warning', title: '¿Registrar baja parcial?', text: 'La persona quedará en baja parcial y el expediente pasará a la etapa final de documentos.', showCancelButton: true, confirmButtonText: 'Sí, registrar baja parcial', cancelButtonText: 'Cancelar', reverseButtons: true })
+                .then(function (resultado) {
+                    if (!resultado.isConfirmed) return;
+                    const datos = new FormData();
+                    datos.append('idGestor', String(idPersona));
+                    datos.append('modo_reasignacion', modo);
+                    datos.append('sustituto_id', sustituto);
+                    datos.append('vacante_existente_id', vacante);
+                    datos.append('subordinados_seleccionados', JSON.stringify(subordinados));
+                    datos.append('asignaciones_jefe', '{}');
+                    datos.append('tipo_documento_final', tipoDocumento);
+                    datos.append('archivoFinalBaja', archivo);
+                    const boton = document.getElementById('btnFinalizarBaja');
+                    if (boton) { boton.disabled = true; boton.textContent = 'Registrando...'; }
+                    fetch('/CapHum/finalizarBaja', { method: 'POST', body: datos })
+                    .then(function (respuesta) { return respuesta.json(); })
+                    .then(function (respuesta) {
+                        if (!respuesta?.success) throw new Error(respuesta?.message || 'No se pudo registrar la baja parcial.');
+                        window.jQuery('#modalBajas').modal('hide');
+                        Swal.fire({ icon: 'success', title: 'Baja parcial registrada', text: 'Continúa con la etapa final: selecciona y carga los documentos pendientes del expediente.' });
+                        if (typeof getBajas === 'function') getBajas();
+                    })
+                    .catch(function (error) {
+                        Swal.fire({ icon: 'error', title: 'No se pudo registrar la baja parcial', text: error.message || 'Ocurrió un error al procesar el trámite.' });
+                    })
+                    .finally(function () {
+                        if (boton) { boton.disabled = false; boton.textContent = 'Registrar baja parcial'; }
+                    });
+                });
+            }
+
+            function cancelarTransitoBaja(idPersona) {
+                const id = Number(idPersona || 0);
+                if (!id) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'No se identificó a la persona para reactivar.' });
+                    return;
+                }
+                Swal.fire({
+                    icon: 'warning',
+                    title: '¿Reactivar persona?',
+                    text: 'Indica por qué se cancela el trámite de baja. La persona recuperará su estado anterior y sus asignaciones previas.',
+                    input: 'textarea',
+                    inputLabel: 'Motivo de la reactivación',
+                    inputPlaceholder: 'Escribe el motivo...',
+                    inputAttributes: { 'aria-label': 'Motivo de la reactivación', maxlength: 500 },
+                    showCancelButton: true,
+                    confirmButtonText: 'Reactivar',
+                    cancelButtonText: 'Conservar trámite',
+                    reverseButtons: true,
+                    customClass: {
+                        actions: 'baja-reactivar-actions',
+                        confirmButton: 'baja-reactivar-action baja-reactivar-action--confirm',
+                        cancelButton: 'baja-reactivar-action baja-reactivar-action--cancel'
+                    },
+                    preConfirm: function (valor) {
+                        const motivo = String(valor || '').trim();
+                        if (!motivo) {
+                            Swal.showValidationMessage('Debes indicar el motivo de la reactivación.');
+                            return false;
+                        }
+                        return motivo;
+                    }
+                }).then(function (result) {
+                    if (!result.isConfirmed) return;
+                    fetch('/CapHum/cancelarTransitoBaja', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ idGestor: id, motivo_reactivacion: result.value })
+                    })
+                    .then(function (response) {
+                        return response.json().catch(function () {
+                            throw new Error('El servidor devolvió una respuesta no válida.');
+                        });
+                    })
+                    .then(function (data) {
+                        if (!data.success) throw new Error(data.message || 'No se pudo reactivar a la persona.');
+                        Swal.fire({ icon: 'success', title: 'Persona reactivada', text: data.message || 'El trámite de baja fue cancelado.' });
+                        if (typeof getBajas === 'function') getBajas();
+                    })
+                    .catch(function (error) {
+                        Swal.fire({ icon: 'error', title: 'No se pudo reactivar', text: error.message || 'Ocurrió un error al cancelar el trámite.' });
+                    });
+                });
+            }
+
             const getUsuarios = () => {
                 // En Control de Bajas no debe pintarse la grilla de Gestión.
                 // Si algún flujo legado llama getUsuarios(), redirigimos al dataset de bajas.
@@ -26618,9 +26912,13 @@ class CapHum extends Controller
                             ? `<span class="gestion-personal-code-value">${escaparAttr(codigoContpac)}</span>`
                             : '<span class="gestion-personal-code-value">Sin id</span>';
                         const externalId = String(p.external_id || '').trim();
-                        const esBajaCompleta = String(p.estatus_tramite || '').toLowerCase() === 'baja completa';
-                        const etiquetaBaja = esBajaCompleta ? 'Baja completa' : 'Baja parcial';
-                        const colorBaja = esBajaCompleta ? '#198754' : '#d97706';
+                        const estatusTramite = String(p.estatus_tramite || '').toLowerCase();
+                        const esTransitoBaja = estatusTramite === 'tránsito de baja' || estatusTramite === 'transito de baja';
+                        const esBajaCompleta = estatusTramite === 'baja completa';
+                        const esBajaAntigua = Number(p.es_baja_legacy || 0) === 1;
+                        const etiquetaBaja = esTransitoBaja ? 'Trámite pendiente' : (esBajaCompleta ? 'Baja completa' : 'Baja parcial');
+                        const etiquetaDocumentoBaja = esBajaCompleta ? 'Documentos' : 'Completar documentos';
+                        const colorBaja = esBajaCompleta ? '#198754' : (esTransitoBaja ? '#2563eb' : '#d97706');
                         const iconoBaja = esBajaCompleta ? 'fa-check-circle' : 'fa-hourglass-half';
                         const fechaEtapaBaja = esBajaCompleta
                             ? (p.fecha_baja_completa || p.fecha_baja_parcial || p.fecha_baja)
@@ -26670,10 +26968,13 @@ class CapHum extends Controller
                                 <div class="fw-semibold d-flex align-items-center gap-2" style="color: ${colorBaja} !important;">
                                     <span class="bajas-easter-ghost-trigger" style="cursor:pointer;display:inline-flex;align-items:center;" title="Mant&eacute;n pulsado 1,5 s"><i class="fa ${iconoBaja}" style="color: ${colorBaja} !important;"></i></span>
                                     <span style="color: ${colorBaja} !important;">${etiquetaBaja}</span>
+                                    ${esBajaAntigua ? '<span class="badge text-bg-secondary">Antigua</span>' : ''}
                                 </div>
                                 ${esBajaCompleta
                                     ? '<div class="small text-success mt-1">Expediente final completado</div>'
-                                    : '<div class="small text-warning mt-1">Documentación final pendiente</div>'}
+                                    : (esTransitoBaja
+                                        ? '<div class="small text-warning mt-1">Pendiente de continuar el proceso</div>'
+                                        : '<div class="small text-warning mt-1">Documentación final pendiente</div>')}
                                 <div class="text-muted small d-flex align-items-center gap-2 mt-1">
                                     <i class="fa fa-calendar" style="font-size: 0.85em; color: #666;"></i>
                                     <span>${fechaEtapaBaja ? new Date(fechaEtapaBaja).toLocaleDateString('es-MX') : 'N/A'}</span>
@@ -26696,18 +26997,27 @@ class CapHum extends Controller
                             `.trim(),
                             usuario: p.user_name ?? 'N/A',
                             acciones: `
-                                <div class="d-flex gap-2 flex-wrap align-items-center justify-content-start">
-                                    <button class="btn btn-sm btn-success control-bajas-action-btn" onclick="abrirModalReingreso(${p.id}, '${(nombreCompleto || '').replace(/'/g, "\\'")}')" title="Reactivar (registrar reingreso)" aria-label="Reactivar">
-                                        <i class="fa fa-user-check"></i>
-                                    </button>
-                                    ${window.tiposDocumentoBajaPermitidos && Object.keys(window.tiposDocumentoBajaPermitidos).length > 0 ? `<button class="btn btn-sm btn-info control-bajas-action-btn" onclick="cargarDocumentoBaja(this)"
-                                        data-id-persona="${p.id ?? ''}"
-                                        data-registro-baja="${p.registro_baja ?? ''}"
-                                        data-estatus="${etiquetaBaja}"
-                                        data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}"
-                                        title="Cargar documento" aria-label="Cargar documento">
-                                        <i class="fa fa-file"></i>
-                                    </button>` : ''}
+                                <div class="control-bajas-actions">
+                                    ${esTransitoBaja ? `
+                                        <button class="btn btn-sm btn-primary control-bajas-action-btn control-bajas-action-btn--text" onclick="baja_gestor(${p.id})" title="Continuar tramite de baja" aria-label="Continuar tramite de baja">
+                                            <i class="fa fa-arrow-right me-1"></i>Continuar
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-success control-bajas-action-btn control-bajas-action-btn--text control-bajas-action-btn--reactivate" onclick="cancelarTransitoBaja(${p.id})" title="Reactivar y devolver a Gestion" aria-label="Reactivar y devolver a Gestion">
+                                            <i class="fa fa-user-check me-1"></i>Reactivar
+                                        </button>
+                                    ` : `
+                                        <button class="btn btn-sm btn-outline-success control-bajas-action-btn control-bajas-action-btn--text control-bajas-action-btn--reactivate" onclick="abrirModalReingreso(${p.id}, '${(nombreCompleto || '').replace(/'/g, "\\'")}')" title="Registrar reingreso" aria-label="Registrar reingreso">
+                                            <i class="fa fa-user-check me-1"></i>Reactivar
+                                        </button>
+                                        ${window.tiposDocumentoBajaPermitidos && Object.keys(window.tiposDocumentoBajaPermitidos).length > 0 ? `<button class="btn btn-sm control-bajas-action-btn control-bajas-action-btn--text control-bajas-action-btn--document" onclick="cargarDocumentoBaja(this)"
+                                            data-id-persona="${p.id ?? ''}"
+                                            data-registro-baja="${p.registro_baja ?? ''}"
+                                            data-estatus="${etiquetaBaja}"
+                                            data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}"
+                                            title="${etiquetaDocumentoBaja}" aria-label="${etiquetaDocumentoBaja}">
+                                            <i class="fa fa-file me-1"></i>${etiquetaDocumentoBaja}
+                                        </button>` : ''}
+                                    `}
                                 </div>
                             `.trim()
                         };
@@ -27034,7 +27344,7 @@ class CapHum extends Controller
 
                 // Limpiar el select y el input de archivo
                 const tipoDocumento = document.getElementById('cargarDoc_tipoDocumento');
-                if (!tipoDocumento || !tipoDocumento.value) {
+                if (!tipoDocumento || tipoDocumento.options.length <= 1) {
                     Swal.fire({
                         icon: 'info',
                         title: 'Sin documentos autorizados',
@@ -27042,6 +27352,7 @@ class CapHum extends Controller
                     });
                     return;
                 }
+                tipoDocumento.value = '';
                 document.getElementById('cargarDoc_archivo').value = '';
                 document.getElementById('cargarDoc_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
 
@@ -27049,17 +27360,13 @@ class CapHum extends Controller
                 archivosSeleccionados = [];
                 document.getElementById('cargarDoc_listaArchivos').style.display = 'none';
 
-                // Cargar archivos existentes
-                if (registroBaja) {
-                    cargarArchivosExistentes(registroBaja, tipoDocumento.value);
-                } else {
-                    // Si no hay registro, mostrar tabla vacía
-                    document.getElementById('cargarDoc_tablaArchivos').innerHTML = `
-                        <tr>
-                            <td colspan="5" class="text-center text-muted">No hay archivos subidos</td>
-                        </tr>
-                    `;
-                }
+                // La etapa final requiere elegir el tipo antes de consultar o cargar archivos.
+                archivosSubidos = [];
+                document.getElementById('cargarDoc_tablaArchivos').innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">Selecciona un tipo de documento para ver o cargar sus archivos.</td>
+                    </tr>
+                `;
 
                 // Abrir el modal
                 $('#modalCargarDocumentoBaja').modal('show');
@@ -28842,7 +29149,7 @@ class CapHum extends Controller
             $fecha_inicio = $input['fecha_inicio'] ?? null;
             $fecha_fin = $input['fecha_fin'] ?? null;
             $etapaBaja = strtolower(trim((string)($input['etapa_baja'] ?? 'todas')));
-            if (!in_array($etapaBaja, ['todas', 'baja_parcial', 'baja_completa'], true)) {
+            if (!in_array($etapaBaja, ['todas', 'transito', 'baja_parcial', 'baja_completa'], true)) {
                 self::respuestaJSON([
                     'success' => false,
                     'mensaje' => 'La etapa de baja seleccionada no es válida.',
@@ -28914,6 +29221,7 @@ class CapHum extends Controller
                         'motivo' => $p['motivo'] ?? '',
                         'descripcion' => $p['descripcion'] ?? '',
                         'estatus_tramite' => $p['estatus_tramite'] ?? 'Baja parcial',
+                        'es_baja_legacy' => (int)($p['es_baja_legacy'] ?? 0),
                         'fecha_baja_parcial' => $p['fecha_baja_parcial'] ?? $p['fecha_baja'] ?? '',
                         'fecha_baja_completa' => $p['fecha_baja_completa'] ?? null,
                         'user_name' => $p['user_name'] ?? '',
@@ -28957,7 +29265,7 @@ class CapHum extends Controller
             $fecha_inicio = $_GET['fecha_inicio'] ?? null;
             $fecha_fin = $_GET['fecha_fin'] ?? null;
             $etapaBaja = strtolower(trim((string)($_GET['etapa_baja'] ?? 'todas')));
-            if (!in_array($etapaBaja, ['todas', 'baja_parcial', 'baja_completa'], true)) {
+            if (!in_array($etapaBaja, ['todas', 'transito', 'baja_parcial', 'baja_completa'], true)) {
                 die('La etapa de baja seleccionada no es válida');
             }
 
@@ -29035,7 +29343,9 @@ class CapHum extends Controller
             // Generar nombre del archivo
             $nombreArchivo = 'Bajas';
             if ($etapaBaja !== 'todas') {
-                $nombreArchivo .= '_' . ($etapaBaja === 'baja_completa' ? 'completas' : 'parciales');
+                $nombreArchivo .= '_' . ($etapaBaja === 'baja_completa'
+                    ? 'completas'
+                    : ($etapaBaja === 'transito' ? 'tramites_pendientes' : 'parciales'));
             }
             if ($fecha_inicio && $fecha_fin) {
                 $nombreArchivo .= '_' . $fecha_inicio . '_a_' . $fecha_fin;
@@ -31734,7 +32044,7 @@ public function getEstadosMunicipiosMexico()
             'motivo'      => $motivo,
             'descripcion' => $descripcion,
             'archivos'    => $rutasPDF, // ï¿½Ë† ahora es un arreglo
-            'fecha_baja'  => (new DateTime('now', new DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'),
+            'fecha_baja'  => (new \DateTime('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'),
             'usuario_baja' => self::usuarioSesionId(),
         ];
 
@@ -31838,7 +32148,7 @@ public function getEstadosMunicipiosMexico()
             'subordinados_seleccionados' => is_array($subordinados) ? $subordinados : [],
             'asignaciones_jefe' => is_array($asignaciones) ? $asignaciones : [],
             'archivos' => [$nombreFinal],
-            'fecha_baja' => (new DateTime('now', new DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'),
+            'fecha_baja' => (new \DateTime('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'),
             'usuario_baja' => (int)($_SESSION['usuario_id'] ?? 0),
         ];
         $contextoJefeBaja = $this->obtenerContextoNotificacionJefeBaja($idGestor);
@@ -31948,14 +32258,20 @@ public function getEstadosMunicipiosMexico()
         $body = json_decode(file_get_contents('php://input'), true);
         $payload = is_array($body) ? $body : $_POST;
         $idGestor = (int)($payload['idGestor'] ?? $payload['idPersona'] ?? 0);
+        $motivoReactivacion = trim((string)($payload['motivo_reactivacion'] ?? $payload['motivoReactivacion'] ?? ''));
         if ($idGestor < 1) {
             echo json_encode(['success' => false, 'message' => 'La persona indicada no es válida.']);
             exit;
         }
+        if ($motivoReactivacion === '') {
+            echo json_encode(['success' => false, 'message' => 'Debes indicar el motivo de la reactivación.']);
+            exit;
+        }
         $resultado = CapHumDAO::cancelarTransitoBajaGestor([
             'id_gestor' => $idGestor,
+            'motivo_reactivacion' => $motivoReactivacion,
             'usuario_cancelacion' => (int)($_SESSION['usuario_id'] ?? 0),
-            'fecha_cancelacion' => (new DateTime('now', new DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'),
+            'fecha_cancelacion' => (new \DateTime('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'),
         ]);
         echo json_encode([
             'success' => (bool)($resultado['success'] ?? false),
