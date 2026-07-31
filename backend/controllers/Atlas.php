@@ -98,16 +98,31 @@ class Atlas extends Controller
     {
         $this->validarAccesoVentas();
         $this->set('titulo', 'Ventas');
+        $this->set('layoutVendorLite', true);
+        $this->set('layoutPreloadSweetAlert', true);
+        $this->set('layoutPreloadSweetAlertTitle', 'Cargando ventas');
+        $this->set('layoutPreloadSweetAlertText', 'Preparando la informaci&oacute;n...');
+        $this->set('layoutSelect2', true);
         $this->render('atlas_ventas');
     }
 
     public function getVentas()
     {
         $this->validarAccesoVentas(true);
+        $cargaCompleta = filter_var($_GET['carga_completa'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($cargaCompleta) {
+            $forzarActualizacion = filter_var($_GET['actualizar'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $response = AtlasVentasDAO::precargar($forzarActualizacion);
+            if (empty($response['success'])) {
+                http_response_code((int)($response['status'] ?? 500));
+            }
+            $this->jsonComprimido($response);
+        }
+
         $query = [];
         foreach ([
             'fecha_inicio', 'fecha_fin', 'fk_sucursal', 'fk_distribuidor',
-            'search', 'page', 'page_size',
+            'historico', 'etapa', 'search', 'page', 'page_size',
         ] as $key) {
             if (isset($_GET[$key]) && trim((string)$_GET[$key]) !== '') {
                 $query[$key] = $_GET[$key];
@@ -125,7 +140,7 @@ class Atlas extends Controller
     {
         $this->validarAccesoVentas();
         $query = [];
-        foreach (['fecha_inicio', 'fecha_fin', 'fk_sucursal', 'fk_distribuidor', 'search'] as $key) {
+        foreach (['fecha_inicio', 'fecha_fin', 'historico', 'fk_sucursal', 'fk_distribuidor', 'etapa', 'search'] as $key) {
             if (isset($_GET[$key]) && trim((string)$_GET[$key]) !== '') {
                 $query[$key] = $_GET[$key];
             }
@@ -3633,6 +3648,34 @@ class Atlas extends Controller
     {
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    private function jsonComprimido(array $data): void
+    {
+        $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!is_string($json)) {
+            $json = '{"success":false,"status":500,"mensaje":"No se pudo preparar la respuesta."}';
+            http_response_code(500);
+        }
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        $acceptEncoding = strtolower((string)($_SERVER['HTTP_ACCEPT_ENCODING'] ?? ''));
+        if (
+            str_contains($acceptEncoding, 'gzip')
+            && function_exists('gzencode')
+            && !filter_var(ini_get('zlib.output_compression'), FILTER_VALIDATE_BOOLEAN)
+        ) {
+            $gzip = gzencode($json, 6);
+            if (is_string($gzip)) {
+                header('Content-Encoding: gzip');
+                header('Vary: Accept-Encoding');
+                header('Content-Length: ' . strlen($gzip));
+                echo $gzip;
+                exit;
+            }
+        }
+        echo $json;
         exit;
     }
 }

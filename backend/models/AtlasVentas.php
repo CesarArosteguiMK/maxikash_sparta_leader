@@ -7,13 +7,51 @@ use Core\Model;
 
 class AtlasVentas extends Model
 {
-    private const MAX_CANDIDATOS = 50001;
-    private const MAX_RESULTADOS = 50000;
+    private const CACHE_TTL_MINUTES = 15;
+    private const MAX_CANDIDATOS = 100001;
+    private const MAX_RESULTADOS = 100000;
+    private const HISTORICAL_START = '1970-01-01';
     private const CRITERIO_ACTIVACION = 'ACTIVACION_S2';
     private const CRITERIO_POR_DISPERSAR = 'POR_DISPERSAR';
     private const CRITERIO_DISPERSADO = 'DISPERSADO';
     private const ETAPA_S2CREDIT = 'S2CREDIT';
     private const ETAPA_POR_DISPERSAR = 'POR DISPERSAR';
+
+    public static function precargar(bool $forzarActualizacion = false): array
+    {
+        $hoy = new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City'));
+        $inicio = self::HISTORICAL_START;
+        $fin = $hoy->format('Y-m-d');
+        $cacheKey = 'ventas:v3:historico';
+        $db = null;
+
+        try {
+            $db = new Database();
+            self::asegurarCachePrecarga($db);
+            if (!$forzarActualizacion) {
+                $cached = self::leerCachePrecarga($db, $cacheKey, $inicio, $fin);
+                if ($cached !== null) {
+                    return $cached;
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('[AtlasVentas cache] ' . $e->getMessage());
+            $db = null;
+        }
+
+        $response = self::consultar([
+            'historico' => true,
+            'fecha_fin' => $fin,
+        ], true);
+        if (!empty($response['success']) && $db instanceof Database) {
+            try {
+                self::guardarCachePrecarga($db, $cacheKey, $inicio, $fin, $response);
+            } catch (\Throwable $e) {
+                error_log('[AtlasVentas cache] ' . $e->getMessage());
+            }
+        }
+        return $response;
+    }
 
     public static function consultar(array $input, bool $sinPaginacion = false): array
     {
@@ -57,6 +95,20 @@ class AtlasVentas extends Model
 
             $total = count($ventas);
             $resumen = self::resumir($ventas);
+            $periodoInicio = $filtros['fecha_inicio'];
+            if ($filtros['historico'] && $ventas) {
+                $fechasVenta = array_values(array_filter(array_map(
+                    static fn(array $venta): string => substr(
+                        (string)($venta['fecha_contabilizacion_venta'] ?? ''),
+                        0,
+                        10
+                    ),
+                    $ventas
+                )));
+                if ($fechasVenta) {
+                    $periodoInicio = min($fechasVenta);
+                }
+            }
             $pagina = $sinPaginacion ? 1 : $filtros['page'];
             $tamano = $sinPaginacion ? max($total, 1) : $filtros['page_size'];
             $totalPaginas = max(1, (int)ceil($total / $tamano));
@@ -72,7 +124,7 @@ class AtlasVentas extends Model
                     'filas' => $filas,
                     'resumen' => $resumen,
                     'periodo' => [
-                        'fecha_inicio' => $filtros['fecha_inicio'],
+                        'fecha_inicio' => $periodoInicio,
                         'fecha_fin' => $filtros['fecha_fin'],
                     ],
                     'paginacion' => [
@@ -106,14 +158,17 @@ class AtlasVentas extends Model
     {
         $zona = new \DateTimeZone('America/Mexico_City');
         $hoy = new \DateTimeImmutable('now', $zona);
-        $inicio = self::fechaValida($input['fecha_inicio'] ?? $hoy->format('Y-m-01'), 'fecha inicial');
+        $historico = filter_var($input['historico'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $inicio = $historico
+            ? self::HISTORICAL_START
+            : self::fechaValida($input['fecha_inicio'] ?? $hoy->format('Y-m-01'), 'fecha inicial');
         $fin = self::fechaValida($input['fecha_fin'] ?? $hoy->format('Y-m-d'), 'fecha final');
 
         if ($inicio > $fin) {
             throw new \InvalidArgumentException('La fecha inicial no puede ser posterior a la fecha final.');
         }
         $dias = (int)(new \DateTimeImmutable($inicio, $zona))->diff(new \DateTimeImmutable($fin, $zona))->days;
-        if ($dias > 731) {
+        if (!$historico && $dias > 731) {
             throw new \InvalidArgumentException('El rango maximo permitido es de 24 meses.');
         }
 
@@ -125,8 +180,10 @@ class AtlasVentas extends Model
         return [
             'fecha_inicio' => $inicio,
             'fecha_fin' => $fin,
+            'historico' => $historico,
             'fk_sucursal' => max(0, (int)($input['fk_sucursal'] ?? 0)),
             'fk_distribuidor' => max(0, (int)($input['fk_distribuidor'] ?? 0)),
+            'etapa' => mb_substr(self::normalizarTexto($input['etapa'] ?? ''), 0, 80, 'UTF-8'),
             'search' => mb_substr(trim((string)($input['search'] ?? '')), 0, 120, 'UTF-8'),
             'page' => max(1, (int)($input['page'] ?? 1)),
             'page_size' => $pageSize,
@@ -145,6 +202,99 @@ class AtlasVentas extends Model
             self::fechaValida($fechaInicio, 'fecha inicial'),
             self::fechaValida($fechaFin, 'fecha final')
         );
+    }
+
+    private static function asegurarCachePrecarga(Database $db): void
+    {
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS atlas_ventas_precarga_cache (
+                cache_key VARCHAR(40) NOT NULL,
+                periodo_inicio DATE NOT NULL,
+                periodo_fin DATE NOT NULL,
+                total_registros INT UNSIGNED NOT NULL DEFAULT 0,
+                payload_gzip LONGBLOB NOT NULL,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (cache_key),
+                INDEX idx_atlas_ventas_cache_updated (updated_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    }
+
+    private static function leerCachePrecarga(
+        Database $db,
+        string $cacheKey,
+        string $inicio,
+        string $fin
+    ): ?array {
+        $row = $db->queryOne("
+            SELECT payload_gzip
+            FROM atlas_ventas_precarga_cache
+            WHERE cache_key = :cache_key
+              AND periodo_inicio = :periodo_inicio
+              AND periodo_fin = :periodo_fin
+              AND updated_at >= DATE_SUB(NOW(), INTERVAL " . self::CACHE_TTL_MINUTES . " MINUTE)
+            LIMIT 1
+        ", [
+            'cache_key' => $cacheKey,
+            'periodo_inicio' => $inicio,
+            'periodo_fin' => $fin,
+        ]);
+        if (!$row || !is_string($row['payload_gzip'] ?? null)) {
+            return null;
+        }
+        $json = gzdecode($row['payload_gzip']);
+        if (!is_string($json)) {
+            return null;
+        }
+        $payload = json_decode($json, true);
+        return is_array($payload) && !empty($payload['success']) ? $payload : null;
+    }
+
+    private static function guardarCachePrecarga(
+        Database $db,
+        string $cacheKey,
+        string $inicio,
+        string $fin,
+        array $response
+    ): void {
+        $json = json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!is_string($json)) {
+            return;
+        }
+        $gzip = gzencode($json, 6);
+        if (!is_string($gzip)) {
+            return;
+        }
+        $total = count($response['datos']['filas'] ?? []);
+        $db->CRUD("
+            INSERT INTO atlas_ventas_precarga_cache (
+                cache_key,
+                periodo_inicio,
+                periodo_fin,
+                total_registros,
+                payload_gzip,
+                updated_at
+            ) VALUES (
+                :cache_key,
+                :periodo_inicio,
+                :periodo_fin,
+                :total_registros,
+                :payload_gzip,
+                NOW()
+            )
+            ON DUPLICATE KEY UPDATE
+                periodo_inicio = VALUES(periodo_inicio),
+                periodo_fin = VALUES(periodo_fin),
+                total_registros = VALUES(total_registros),
+                payload_gzip = VALUES(payload_gzip),
+                updated_at = NOW()
+        ", [
+            'cache_key' => $cacheKey,
+            'periodo_inicio' => $inicio,
+            'periodo_fin' => $fin,
+            'total_registros' => $total,
+            'payload_gzip' => $gzip,
+        ]);
     }
 
     private static function cargarCandidatos(\core\DatabaseMaxiProd $maxi, array $filtros): array
@@ -168,6 +318,10 @@ class AtlasVentas extends Model
         if ($filtros['fk_distribuidor'] > 0) {
             $where[] = 's.fk_distribuidor = :fk_distribuidor';
             $params['fk_distribuidor'] = $filtros['fk_distribuidor'];
+        }
+        if ($filtros['etapa'] !== '') {
+            $where[] = 'UPPER(TRIM(o.etapa)) = :etapa_actual';
+            $params['etapa_actual'] = $filtros['etapa'];
         }
         if ($filtros['search'] !== '') {
             $value = '%' . $filtros['search'] . '%';
@@ -217,15 +371,15 @@ class AtlasVentas extends Model
                 p.segundo_nombre AS cliente_segundo_nombre,
                 p.apellido_paterno AS cliente_apellido_paterno,
                 p.apellido_materno AS cliente_apellido_materno,
-                dispersion_s2.fecha_activacion_s2,
-                s2credit.fecha_paso_s2credit,
-                por_dispersar.fecha_paso_por_dispersar,
-                dispersado.fecha_paso_dispersado,
+                dispersion_s2.fecha_dispersion,
+                etapas_venta.fecha_paso_s2credit,
+                etapas_venta.fecha_paso_por_dispersar,
+                etapas_venta.fecha_paso_dispersado,
                 (
                     SELECT MAX(actual.fecha_hora)
                     FROM oferta_bitacora actual
                     WHERE actual.fk_oferta = o.id_oferta
-                      AND UPPER(TRIM(COALESCE(actual.etapa, ''))) = UPPER(TRIM(COALESCE(o.etapa, '')))
+                      AND actual.etapa = o.etapa
                       AND actual.fecha_hora IS NOT NULL
                 ) AS fecha_etapa_actual
             FROM oferta o
@@ -238,7 +392,7 @@ class AtlasVentas extends Model
             LEFT JOIN persona p
                    ON p.id_persona = o.fk_persona
             LEFT JOIN (
-                SELECT id_oferta, MIN(fecha_creacion) AS fecha_activacion_s2
+                SELECT id_oferta, MIN(fecha_creacion) AS fecha_dispersion
                 FROM bitacora_dispersiones
                 WHERE fecha_creacion IS NOT NULL
                   AND estatus_operacion IS NOT NULL
@@ -247,35 +401,23 @@ class AtlasVentas extends Model
             ) dispersion_s2
                    ON dispersion_s2.id_oferta = o.id_oferta
             LEFT JOIN (
-                SELECT fk_oferta, MIN(fecha_hora) AS fecha_paso_s2credit
+                SELECT
+                    fk_oferta,
+                    MIN(CASE WHEN etapa = 'S2CREDIT' THEN fecha_hora END) AS fecha_paso_s2credit,
+                    MIN(CASE WHEN etapa = 'POR DISPERSAR' THEN fecha_hora END) AS fecha_paso_por_dispersar,
+                    MIN(CASE WHEN etapa = 'DISPERSADO' THEN fecha_hora END) AS fecha_paso_dispersado
                 FROM oferta_bitacora
-                WHERE UPPER(TRIM(COALESCE(etapa, ''))) = 'S2CREDIT'
+                WHERE etapa IN ('S2CREDIT', 'POR DISPERSAR', 'DISPERSADO')
                   AND fecha_hora IS NOT NULL
                 GROUP BY fk_oferta
-            ) s2credit
-                   ON s2credit.fk_oferta = o.id_oferta
-            LEFT JOIN (
-                SELECT fk_oferta, MIN(fecha_hora) AS fecha_paso_por_dispersar
-                FROM oferta_bitacora
-                WHERE UPPER(TRIM(COALESCE(etapa, ''))) = 'POR DISPERSAR'
-                  AND fecha_hora IS NOT NULL
-                GROUP BY fk_oferta
-            ) por_dispersar
-                   ON por_dispersar.fk_oferta = o.id_oferta
-            LEFT JOIN (
-                SELECT fk_oferta, MIN(fecha_hora) AS fecha_paso_dispersado
-                FROM oferta_bitacora
-                WHERE UPPER(TRIM(COALESCE(etapa, ''))) = 'DISPERSADO'
-                  AND fecha_hora IS NOT NULL
-                GROUP BY fk_oferta
-            ) dispersado
-                   ON dispersado.fk_oferta = o.id_oferta
+            ) etapas_venta
+                   ON etapas_venta.fk_oferta = o.id_oferta
             WHERE o.estatus = 1
               AND (
-                    DATE(por_dispersar.fecha_paso_por_dispersar) BETWEEN :por_inicio AND :por_fin
-                    OR DATE(s2credit.fecha_paso_s2credit) BETWEEN :s2_inicio AND :s2_fin
-                    OR DATE(dispersion_s2.fecha_activacion_s2) BETWEEN :activacion_inicio AND :activacion_fin
-                    OR DATE(dispersado.fecha_paso_dispersado) BETWEEN :dispersado_inicio AND :dispersado_fin
+                    DATE(etapas_venta.fecha_paso_por_dispersar) BETWEEN :por_inicio AND :por_fin
+                    OR DATE(etapas_venta.fecha_paso_s2credit) BETWEEN :s2_inicio AND :s2_fin
+                    OR DATE(dispersion_s2.fecha_dispersion) BETWEEN :activacion_inicio AND :activacion_fin
+                    OR DATE(etapas_venta.fecha_paso_dispersado) BETWEEN :dispersado_inicio AND :dispersado_fin
               )
               {$whereSql}
             LIMIT " . self::MAX_CANDIDATOS . "
@@ -467,6 +609,7 @@ class AtlasVentas extends Model
             'id_persona' => (int)($fila['id_persona'] ?? 0),
             'id_oferta' => (int)($fila['id_oferta'] ?? 0),
             'nombre_cliente' => $cliente,
+            'fecha_dispersion' => (string)($fila['fecha_dispersion'] ?? ''),
             'fecha_contabilizacion_venta' => (string)($seleccion['fecha_contabilizacion_venta'] ?? ''),
             'sucursal' => trim((string)($fila['sucursal'] ?? '')),
             'distribuidor' => trim((string)($fila['distribuidor'] ?? '')),
@@ -534,7 +677,7 @@ class AtlasVentas extends Model
         if (trim((string)$s2credit) !== '') {
             return $s2credit;
         }
-        return $fila['fecha_activacion_s2'] ?? null;
+        return $fila['fecha_dispersion'] ?? null;
     }
 
     private static function fechasEventos(array $fila): array
