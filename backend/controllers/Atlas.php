@@ -5,6 +5,8 @@ namespace controllers;
 use Core\Controller;
 use Core\Database;
 use Models\Atlas as AtlasDAO;
+use Models\AtlasVentas as AtlasVentasDAO;
+use Services\AtlasVentasReportService;
 
 class Atlas extends Controller
 {
@@ -89,6 +91,86 @@ class Atlas extends Controller
         $this->render('atlas_creditos_operacion');
     }
 
+    public function ventas()
+    {
+        $this->validarAccesoVentas();
+        $this->set('titulo', 'Ventas');
+        $this->render('atlas_ventas');
+    }
+
+    public function getVentas()
+    {
+        $this->validarAccesoVentas(true);
+        $query = [];
+        foreach ([
+            'fecha_inicio', 'fecha_fin', 'fk_sucursal', 'fk_distribuidor',
+            'search', 'page', 'page_size',
+        ] as $key) {
+            if (isset($_GET[$key]) && trim((string)$_GET[$key]) !== '') {
+                $query[$key] = $_GET[$key];
+            }
+        }
+
+        $response = AtlasVentasDAO::consultar($query);
+        if (empty($response['success'])) {
+            http_response_code((int)($response['status'] ?? 500));
+        }
+        $this->json($response);
+    }
+
+    public function exportarVentas()
+    {
+        $this->validarAccesoVentas();
+        $query = [];
+        foreach (['fecha_inicio', 'fecha_fin', 'fk_sucursal', 'fk_distribuidor', 'search'] as $key) {
+            if (isset($_GET[$key]) && trim((string)$_GET[$key]) !== '') {
+                $query[$key] = $_GET[$key];
+            }
+        }
+
+        $tmp = null;
+        try {
+            $response = AtlasVentasDAO::consultar($query, true);
+            if (empty($response['success'])) {
+                throw new \RuntimeException((string)($response['mensaje'] ?? 'No se pudo preparar el reporte.'));
+            }
+            $datos = is_array($response['datos'] ?? null) ? $response['datos'] : [];
+            $ventas = is_array($datos['filas'] ?? null) ? $datos['filas'] : [];
+            $periodo = is_array($datos['periodo'] ?? null) ? $datos['periodo'] : [];
+
+            $spreadsheet = (new AtlasVentasReportService())->crear($ventas);
+            $tmp = tempnam(sys_get_temp_dir(), 'atlas_ventas_');
+            if ($tmp === false) {
+                throw new \RuntimeException('No se pudo preparar el archivo temporal.');
+            }
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save($tmp);
+            $spreadsheet->disconnectWorksheets();
+
+            $inicio = preg_replace('/[^0-9-]/', '', (string)($periodo['fecha_inicio'] ?? date('Y-m-d')));
+            $fin = preg_replace('/[^0-9-]/', '', (string)($periodo['fecha_fin'] ?? date('Y-m-d')));
+            $filename = 'ventas_atlas_' . $inicio . '_a_' . $fin . '.xlsx';
+            if (function_exists('session_write_close')) {
+                session_write_close();
+            }
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Content-Transfer-Encoding: binary');
+            header('Content-Length: ' . filesize($tmp));
+            header('Cache-Control: max-age=0');
+            readfile($tmp);
+            @unlink($tmp);
+            exit;
+        } catch (\Throwable $e) {
+            if (is_string($tmp) && is_file($tmp)) {
+                @unlink($tmp);
+            }
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'No se pudo generar el reporte de ventas: ' . $e->getMessage();
+            exit;
+        }
+    }
+
     public function expedientes()
     {
         $this->validarAccesoExpedientes();
@@ -105,6 +187,14 @@ class Atlas extends Controller
             if (isset($_GET[$key]) && trim((string)$_GET[$key]) !== '') {
                 $query[$key] = $_GET[$key];
             }
+        }
+
+        if ((int)($_GET['all'] ?? 0) === 1) {
+            $bulkQuery = array_merge(
+                array_intersect_key($query, array_flip(['fecha_inicio', 'fecha_fin'])),
+                ['completo' => 1, 'compacto' => 1, 'actualizar' => 1]
+            );
+            $this->streamAtlasExpedientesSnapshot($bulkQuery);
         }
 
         $this->json($this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
@@ -192,7 +282,7 @@ class Atlas extends Controller
         if ($creditoId <= 0) {
             $this->json(['success' => false, 'mensaje' => 'Credito invalido.']);
         }
-        unset($payload['credito_id']);
+        unset($payload['credito_id'], $payload['origen_cambio'], $payload['document_change_source']);
 
         $usuarioId = (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
         $usuarioNombre = trim((string)(
@@ -2698,6 +2788,7 @@ class Atlas extends Controller
             ],
             CURLOPT_TIMEOUT => max(10, min(120, $timeout)),
             CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_ENCODING => '',
         ]);
         if ($method !== 'GET') {
             curl_setopt(
@@ -2749,6 +2840,124 @@ class Atlas extends Controller
             'mensaje' => $mensaje,
             'datos' => is_array($decoded) ? ($decoded['data'] ?? $decoded['datos'] ?? null) : null,
         ];
+    }
+
+    private function streamAtlasExpedientesSnapshot(array $query): void
+    {
+        $adminApiKey = $this->atlasAdminApiKey();
+        if ($adminApiKey === '') {
+            $this->json([
+                'success' => false,
+                'status' => 500,
+                'mensaje' => 'ATLAS_ADMIN_API_KEYS no esta configurada en servidor.',
+            ]);
+        }
+
+        $base = getenv('ATLAS_APP_API_BASE');
+        if ($base === false || trim((string)$base) === '') {
+            $base = 'https://api-comercial-601258367060.us-central1.run.app';
+        }
+        $url = rtrim((string)$base, '/') . '/api/atlas/admin/expedientes?' . http_build_query($query);
+        $responseHeaders = [];
+        $requestHeaders = [
+            'Accept: application/json',
+            'X-API-Key: ' . $adminApiKey,
+        ];
+        $browserAcceptsGzip = stripos((string)($_SERVER['HTTP_ACCEPT_ENCODING'] ?? ''), 'gzip') !== false;
+        if ($browserAcceptsGzip) {
+            $requestHeaders[] = 'Accept-Encoding: gzip';
+        }
+
+        if (function_exists('session_write_close')) {
+            session_write_close();
+        }
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => $requestHeaders,
+            CURLOPT_TIMEOUT => 120,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_HTTP_CONTENT_DECODING => false,
+            CURLOPT_HEADERFUNCTION => static function ($curl, string $line) use (&$responseHeaders): int {
+                $length = strlen($line);
+                $line = trim($line);
+                if ($line === '') {
+                    return $length;
+                }
+                if (stripos($line, 'HTTP/') === 0) {
+                    $responseHeaders = [];
+                    return $length;
+                }
+                $separator = strpos($line, ':');
+                if ($separator !== false) {
+                    $name = strtolower(trim(substr($line, 0, $separator)));
+                    $responseHeaders[$name] = trim(substr($line, $separator + 1));
+                }
+                return $length;
+            },
+        ]);
+        $raw = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($raw === false || $error !== '') {
+            $this->json([
+                'success' => false,
+                'status' => 502,
+                'mensaje' => 'No se pudo conectar con API-COMERCIAL.',
+                'error' => $error,
+            ]);
+        }
+        if ($httpCode >= 200 && $httpCode < 300) {
+            if (($responseHeaders['x-atlas-format'] ?? '') !== 'columnar') {
+                $legacyRaw = (string)$raw;
+                if (stripos((string)($responseHeaders['content-encoding'] ?? ''), 'gzip') !== false) {
+                    $legacyRaw = (string)gzdecode($legacyRaw);
+                }
+                $legacy = json_decode($legacyRaw, true);
+                $data = is_array($legacy['data'] ?? null) ? $legacy['data'] : [];
+                $rows = is_array($data['filas'] ?? null) ? $data['filas'] : [];
+                $expected = (int)($data['paginacion']['total_filtrados'] ?? count($rows));
+                if (
+                    !is_array($legacy)
+                    || empty($legacy['success'])
+                    || ($data['formato'] ?? '') !== 'columnar'
+                    || count($rows) !== $expected
+                ) {
+                    $this->json([
+                        'success' => false,
+                        'status' => 502,
+                        'mensaje' => 'API-COMERCIAL no entrego la carga completa de Expedientes.',
+                    ]);
+                }
+                $this->json([
+                    'success' => true,
+                    'status' => $httpCode,
+                    'mensaje' => (string)($legacy['message'] ?? 'Expedientes consultados correctamente.'),
+                    'datos' => $data,
+                ]);
+            }
+            header('X-Atlas-Format: columnar');
+            header('X-Atlas-Total: ' . (string)($responseHeaders['x-atlas-total'] ?? '0'));
+        }
+
+        http_response_code($httpCode > 0 ? $httpCode : 502);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Content-Type-Options: nosniff');
+        if (isset($responseHeaders['content-encoding'])) {
+            header('Content-Encoding: ' . $responseHeaders['content-encoding']);
+            header('Vary: Accept-Encoding');
+        }
+        foreach (['x-atlas-snapshot', 'x-atlas-snapshot-version', 'x-atlas-snapshot-time-ms'] as $name) {
+            if (isset($responseHeaders[$name])) {
+                header($name . ': ' . $responseHeaders[$name]);
+            }
+        }
+        header('Content-Length: ' . strlen((string)$raw));
+        echo $raw;
+        exit;
     }
 
     private function atlasAppApiRequest(string $method, string $path, ?array $body = null, array $query = []): array
@@ -2973,6 +3182,24 @@ class Atlas extends Controller
                 'success' => false,
                 'status' => 403,
                 'mensaje' => 'No tienes permiso para operar expedientes.',
+            ]);
+        }
+        header('Location: /Inicio', true, 302);
+        exit;
+    }
+
+    private function validarAccesoVentas(bool $json = false): void
+    {
+        $modulos = array_map('intval', (array)($_SESSION['modulos'] ?? []));
+        if (in_array(139, $modulos, true)) {
+            return;
+        }
+        if ($json) {
+            http_response_code(403);
+            $this->json([
+                'success' => false,
+                'status' => 403,
+                'mensaje' => 'No tienes permiso para consultar ventas.',
             ]);
         }
         header('Location: /Inicio', true, 302);

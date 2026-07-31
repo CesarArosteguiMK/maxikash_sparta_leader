@@ -29,7 +29,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .atlas-expedientes-table-title { margin:0; color:#173756; font-size:.9rem; font-weight:900; }
         .atlas-expedientes-table-meta { color:#64748b; font-size:.75rem; font-weight:800; }
         .atlas-expedientes-scroll { overflow-x:auto; }
-        .atlas-expedientes-table { min-width:1240px; margin:0; }
+        .atlas-expedientes-table { min-width:1450px; margin:0; }
         .atlas-expedientes-table th { background:#f8fafc; color:#566a7f; font-size:.68rem; font-weight:900; text-transform:uppercase; white-space:nowrap; }
         .atlas-expedientes-table td { color:#566a7f; font-size:.76rem; font-weight:700; vertical-align:middle; }
         .atlas-expedientes-main { color:#22303e; font-weight:900; line-height:1.2; }
@@ -39,6 +39,11 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .atlas-expedientes-status.is-delivered { background:#dcfce7; color:#15803d; }
         .atlas-expedientes-status.is-not-delivered { background:#fee2e2; color:#b91c1c; }
         .atlas-expedientes-status.is-incident { background:#fef3c7; color:#92400e; }
+        .atlas-expedientes-source { display:inline-flex; align-items:center; gap:.35rem; border-radius:999px; padding:.25rem .6rem; font-size:.68rem; font-weight:900; white-space:nowrap; }
+        .atlas-expedientes-source.is-layout { background:#ede9fe; color:#6d28d9; }
+        .atlas-expedientes-source.is-mobile { background:#dbeafe; color:#1d4ed8; }
+        .atlas-expedientes-source.is-manual { background:#e0f2fe; color:#0369a1; }
+        .atlas-expedientes-source.is-legacy { background:#eef2f7; color:#64748b; }
         .atlas-expedientes-actions { display:flex; align-items:center; justify-content:flex-end; gap:.35rem; min-width:10.5rem; }
         .atlas-expedientes-icon-btn { display:inline-grid; place-items:center; width:2.1rem; height:2.1rem; padding:0; border-radius:.4rem; }
         .atlas-expedientes-icon-btn:disabled { opacity:.42; }
@@ -69,6 +74,12 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         .atlas-expedientes-detail-item { border-bottom:1px solid #e2e8f0; padding:.4rem 0 .65rem; min-width:0; }
         .atlas-expedientes-detail-label { color:#94a3b8; font-size:.65rem; font-weight:900; text-transform:uppercase; }
         .atlas-expedientes-detail-value { color:#22303e; font-size:.8rem; font-weight:900; margin-top:.15rem; overflow-wrap:anywhere; }
+        .atlas-expedientes-detail-header { align-items:flex-start; gap:1rem; flex-wrap:wrap; }
+        .atlas-expedientes-detail-owner { display:flex; align-items:center; justify-content:flex-end; gap:.55rem; min-width:15rem; max-width:23rem; margin-left:auto; text-align:right; }
+        .atlas-expedientes-detail-owner-icon { display:grid; place-items:center; flex:0 0 2rem; width:2rem; height:2rem; border-radius:.375rem; background:#dbeafe; color:#1d4ed8; }
+        .atlas-expedientes-detail-owner-label { color:#94a3b8; font-size:.62rem; font-weight:900; text-transform:uppercase; }
+        .atlas-expedientes-detail-owner-name { color:#22303e; font-size:.78rem; font-weight:900; line-height:1.2; overflow-wrap:anywhere; }
+        .atlas-expedientes-detail-owner-meta { color:#64748b; font-size:.65rem; font-weight:700; }
         .atlas-expedientes-evidence-section { margin-bottom:1.25rem; padding-bottom:1.25rem; border-bottom:1px solid #e2e8f0; }
         .atlas-expedientes-evidence-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.75rem; }
         .atlas-expedientes-evidence-title { display:flex; align-items:center; gap:.5rem; margin:0; color:#22303e; font-size:.9rem; font-weight:900; }
@@ -107,6 +118,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             .atlas-expedientes-filter-actions,
             .atlas-expedientes-filter-actions .btn { width:100%; }
             .atlas-expedientes-filter-actions .btn { flex:1; }
+            .atlas-expedientes-detail-owner { order:3; justify-content:flex-start; width:100%; max-width:none; margin-left:0; text-align:left; }
         }
     </style>
 
@@ -207,11 +219,12 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 <thead>
                     <tr>
                         <th>Cr&eacute;dito</th>
-                        <th>Cliente</th>
+                        <th>Gestor a cargo</th>
                         <th>Sucursal</th>
                         <th>Etapa</th>
                         <th>Monto</th>
                         <th>Estatus expediente</th>
+                        <th>Origen del cambio</th>
                         <th>Activaci&oacute;n S2</th>
                         <th class="text-end">Acciones</th>
                     </tr>
@@ -224,7 +237,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
 <div class="modal fade" id="atlasExpedientesMovementModal" tabindex="-1" aria-labelledby="atlasExpedientesMovementTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <form class="modal-content" id="atlasExpedientesMovementForm">
-            <div class="modal-header">
+            <div class="modal-header atlas-expedientes-detail-header">
                 <div>
                     <h2 class="modal-title fs-5" id="atlasExpedientesMovementTitle">Registrar movimiento</h2>
                     <div class="text-muted small fw-semibold" id="atlasExpedientesMovementMeta"></div>
@@ -267,6 +280,14 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                         <i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>Detalle del expediente
                     </h2>
                     <div class="text-muted small fw-semibold" id="atlasExpedientesDetailMeta"></div>
+                </div>
+                <div class="atlas-expedientes-detail-owner" aria-label="Gestor a cargo">
+                    <span class="atlas-expedientes-detail-owner-icon"><i class="fa-solid fa-user-tie"></i></span>
+                    <div>
+                        <div class="atlas-expedientes-detail-owner-label">Gestor a cargo</div>
+                        <div class="atlas-expedientes-detail-owner-name" id="atlasExpedientesDetailGestor">Por consultar</div>
+                        <div class="atlas-expedientes-detail-owner-meta" id="atlasExpedientesDetailGestorMeta"></div>
+                    </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
@@ -331,7 +352,10 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     let detailModal = null;
     let importModal = null;
     let saving = false;
-    let lastError = '';
+    let allRows = [];
+    let loadedPeriod = {};
+    let loadedAt = null;
+    let listRequest = null;
     let loadingRequests = 0;
     let loadingAlertOpen = false;
     let pendingTableError = '';
@@ -376,6 +400,22 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     const statusBadge = (status) => {
         const item = statusDefinition(status);
         return `<span class="atlas-expedientes-status ${item.css}"><i class="fa-solid ${item.icon}"></i>${item.label}</span>`;
+    };
+
+    const changeOriginDefinition = (value) => {
+        const definitions = {
+            sparta_layout: { label: 'Cambio realizado mediante carga de layout', css: 'is-layout', icon: 'fa-file-excel' },
+            app_movil: { label: 'Actualizado desde la app móvil', css: 'is-mobile', icon: 'fa-mobile-screen-button' },
+            sparta_manual: { label: 'Actualizado desde Sparta', css: 'is-manual', icon: 'fa-desktop' },
+            legacy: { label: 'Registro histórico', css: 'is-legacy', icon: 'fa-clock-rotate-left' },
+        };
+        const key = String(value || 'legacy').trim().toLowerCase();
+        return definitions[key] || definitions.legacy;
+    };
+
+    const changeOriginBadge = (value) => {
+        const item = changeOriginDefinition(value);
+        return `<span class="atlas-expedientes-source ${item.css}"><i class="fa-solid ${item.icon}"></i>${item.label}</span>`;
     };
 
     const safeEvidenceLink = (value) => {
@@ -500,6 +540,82 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         updateSelect(branchSelect, catalogs.sucursales || [], 'fk_sucursal', 'nombre', 'Todas las sucursales');
     };
 
+    const expedienteMatchesFilters = (settings, _searchData, dataIndex, rowData) => {
+        if (settings.nTable?.id !== 'atlasExpedientesTable') return true;
+        const row = rowData || table?.row(dataIndex).data();
+        if (!row) return false;
+
+        if (statusSelect.value && String(row.estatus || '') !== String(statusSelect.value)) return false;
+        if (branchSelect.value && String(row.fk_sucursal || '') !== String(branchSelect.value)) return false;
+
+        const activationDate = String(row.fecha_activacion_s2 || '').slice(0, 10);
+        if (startInput.value && (!activationDate || activationDate < startInput.value)) return false;
+        if (endInput.value && (!activationDate || activationDate > endInput.value)) return false;
+        return true;
+    };
+
+    const addRowToSummary = (summary, row) => {
+        summary.total += 1;
+        const status = String(row.estatus || 'pendiente');
+        if (status === 'entregado') summary.entregados++;
+        else if (status === 'no_entregado') summary.no_entregados++;
+        else if (status === 'incidencia') summary.incidencias++;
+        else summary.pendientes++;
+        return summary;
+    };
+
+    const normalizeListingRows = (data = {}) => {
+        const sourceRows = Array.isArray(data.filas) ? data.filas : [];
+        const columns = Array.isArray(data.columnas) ? data.columnas : [];
+        const isColumnar = data.formato === 'columnar' && columns.length > 0;
+        const rows = new Array(sourceRows.length);
+        for (let rowIndex = 0; rowIndex < sourceRows.length; rowIndex++) {
+            const sourceRow = sourceRows[rowIndex];
+            let row = sourceRow;
+            if (isColumnar) {
+                row = {};
+                for (let columnIndex = 0; columnIndex < columns.length; columnIndex++) {
+                    row[columns[columnIndex]] = sourceRow[columnIndex];
+                }
+            }
+            row._search_text = [
+                row.numero_credito,
+                row.credito_id,
+                row.cliente_id,
+                row.cliente_nombre,
+                row.gestor_persona_id,
+                row.gestor_nombre,
+                row.fk_sucursal,
+                row.sucursal,
+                row.etapa_credito,
+                row.oferta_estatus,
+                row.estatus_label,
+            ].filter(Boolean).join(' ');
+            rows[rowIndex] = row;
+        }
+        return rows;
+    };
+
+    const updateFilteredState = () => {
+        if (!table) return;
+        const filteredRows = table.rows({ search: 'applied' });
+        const summary = { total: 0, pendientes: 0, entregados: 0, no_entregados: 0, incidencias: 0 };
+        filteredRows.every(function () {
+            addRowToSummary(summary, this.data());
+        });
+        setSummary(summary);
+
+        const loadedTime = loadedAt
+            ? new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(loadedAt)
+            : null;
+        const loadedScope = loadedPeriod.fecha_inicio
+            ? `${loadedPeriod.fecha_inicio} a ${loadedPeriod.fecha_fin || 'hoy'}`
+            : `Hist\u00f3rico hasta ${loadedPeriod.fecha_fin || 'hoy'}`;
+        document.getElementById('atlasExpedientesMeta').textContent = loadedAt
+            ? `${number(filteredRows.count())} de ${number(allRows.length)} expediente(s) \u00b7 ${loadedScope} \u00b7 Actualizado ${loadedTime}`
+            : 'Sin consultar';
+    };
+
     const rowActions = (row) => {
         const creditId = Number(row.credito_id || 0);
         const current = String(row.estatus || 'pendiente');
@@ -523,73 +639,22 @@ $atlasApiReady = !empty($atlas_admin_configurada);
     const loadDataTable = () => {
         table = window.jQuery('#atlasExpedientesTable').DataTable({
             processing: false,
-            serverSide: true,
+            serverSide: false,
+            deferRender: true,
+            data: [],
             responsive: false,
             autoWidth: false,
             ordering: false,
             pageLength: 25,
             lengthMenu: [10, 25, 50, 100],
-            searchDelay: 300,
-            ajax: async (request, callback) => {
-                if (!apiReady || !validateDateRange(false)) {
-                    callback({ draw: request.draw, data: [], recordsTotal: 0, recordsFiltered: 0 });
-                    return;
-                }
-                const params = new URLSearchParams({
-                    page: String(Math.floor(request.start / request.length) + 1),
-                    page_size: String(request.length),
-                });
-                if (startInput.value) params.set('fecha_inicio', startInput.value);
-                if (endInput.value) params.set('fecha_fin', endInput.value);
-                if (statusSelect.value) params.set('estatus', statusSelect.value);
-                if (branchSelect.value) params.set('fk_sucursal', branchSelect.value);
-                if (request.search?.value) params.set('search', request.search.value);
-                refreshButton.disabled = true;
-                showExpedientesLoading();
-                try {
-                    const response = await fetch(`/Atlas/getExpedientes?${params.toString()}`, {
-                        headers: { Accept: 'application/json' },
-                    });
-                    const payload = await response.json();
-                    if (!response.ok || !payload.success) {
-                        throw new Error(payload.mensaje || 'API-COMERCIAL devolvio un error.');
-                    }
-                    const data = payload.datos || {};
-                    const pagination = data.paginacion || {};
-                    updateCatalogs(data.catalogos || {});
-                    setSummary(data.resumen || {});
-                    const period = data.periodo || {};
-                    const scope = period.fecha_inicio
-                        ? `${period.fecha_inicio} a ${period.fecha_fin || 'hoy'}`
-                        : `Hist\u00f3rico hasta ${period.fecha_fin || 'hoy'}`;
-                    document.getElementById('atlasExpedientesMeta').textContent =
-                        `${number(pagination.total_filtrados)} expediente(s) \u00b7 ${scope}`;
-                    lastError = '';
-                    pendingTableError = '';
-                    callback({
-                        draw: request.draw,
-                        data: Array.isArray(data.filas) ? data.filas : [],
-                        recordsTotal: Number(pagination.total_registros || 0),
-                        recordsFiltered: Number(pagination.total_filtrados || 0),
-                    });
-                } catch (error) {
-                    setSummary({});
-                    document.getElementById('atlasExpedientesMeta').textContent = 'No disponible';
-                    callback({ draw: request.draw, data: [], recordsTotal: 0, recordsFiltered: 0 });
-                    const message = error.message || 'No se pudieron consultar los expedientes.';
-                    if (message !== lastError) {
-                        lastError = message;
-                        pendingTableError = message;
-                    }
-                } finally {
-                    refreshButton.disabled = false;
-                    hideExpedientesLoading();
-                }
-            },
+            searchDelay: 0,
             columns: [
                 {
                     data: null,
                     render: (_data, type, row) => {
+                        if (type === 'filter') {
+                            return row._search_text || '';
+                        }
                         if (type !== 'display') return row.numero_credito || row.credito_id;
                         return `<div class="atlas-expedientes-main">#${escapeHtml(row.numero_credito || row.credito_id)}</div>
                             <div class="atlas-expedientes-sub">ID oferta ${escapeHtml(row.credito_id)}</div>`;
@@ -597,14 +662,16 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 },
                 {
                     data: null,
+                    searchable: false,
                     render: (_data, type, row) => {
-                        if (type !== 'display') return row.cliente_nombre;
-                        return `<div class="atlas-expedientes-main">${escapeHtml(row.cliente_nombre || 'Cliente sin nombre')}</div>
-                            <div class="atlas-expedientes-sub">ID cliente ${escapeHtml(row.cliente_id || 'Sin dato')}</div>`;
+                        if (type !== 'display') return row.gestor_nombre || '';
+                        return `<div class="atlas-expedientes-main"><i class="fa-solid fa-user-tie text-primary me-1"></i>${escapeHtml(row.gestor_nombre || 'Sin gestor asignado')}</div>
+                            <div class="atlas-expedientes-sub">${row.gestor_persona_id ? `ID persona ${escapeHtml(row.gestor_persona_id)}` : 'Sin asignaci&oacute;n activa'}</div>`;
                     },
                 },
                 {
                     data: null,
+                    searchable: false,
                     render: (_data, type, row) => {
                         if (type !== 'display') return row.sucursal;
                         return `<div class="atlas-expedientes-main">${escapeHtml(row.sucursal || 'Sin sucursal')}</div>
@@ -613,6 +680,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 },
                 {
                     data: null,
+                    searchable: false,
                     render: (_data, type, row) => {
                         if (type !== 'display') return row.etapa_credito;
                         return `<div class="atlas-expedientes-main">${escapeHtml(row.etapa_credito || 'Sin etapa')}</div>
@@ -622,14 +690,23 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 {
                     data: 'monto_financiar',
                     className: 'text-end',
+                    searchable: false,
                     render: (value, type) => type === 'display' ? `<strong>${money(value)}</strong>` : Number(value || 0),
                 },
                 {
                     data: 'estatus',
+                    searchable: false,
                     render: (value, type) => type === 'display' ? statusBadge(value) : value,
                 },
                 {
+                    data: 'origen_cambio',
+                    defaultContent: 'legacy',
+                    searchable: false,
+                    render: (value, type) => type === 'display' ? changeOriginBadge(value) : value,
+                },
+                {
                     data: 'fecha_activacion_s2',
+                    searchable: false,
                     render: (value, type, row) => {
                         if (type !== 'display') return value || '';
                         return `<div class="atlas-expedientes-main">${escapeHtml(dateTime(value))}</div>
@@ -651,7 +728,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 zeroRecords: 'No se encontraron expedientes',
                 lengthMenu: 'Mostrar _MENU_ expedientes',
                 search: 'Buscar:',
-                searchPlaceholder: 'Credito, cliente o sucursal...',
+                searchPlaceholder: 'Credito, gestor o sucursal...',
                 paginate: {
                     first: 'Primero',
                     last: 'Ultimo',
@@ -660,12 +737,95 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 },
             },
         });
+
+        window.jQuery('#atlasExpedientesTable')
+            .off('draw.dt.atlasExpedientesLocal')
+            .on('draw.dt.atlasExpedientesLocal', updateFilteredState);
+    };
+
+    const loadAllExpedientes = async () => {
+        if (!apiReady) {
+            allRows = [];
+            loadedPeriod = {};
+            loadedAt = null;
+            table?.clear().draw();
+            document.getElementById('atlasExpedientesMeta').textContent = 'Servicio no disponible';
+            return;
+        }
+
+        listRequest?.abort();
+        const requestController = new AbortController();
+        listRequest = requestController;
+        refreshButton.disabled = true;
+        showExpedientesLoading();
+        try {
+            const response = await fetch('/Atlas/getExpedientes?all=1', {
+                headers: { Accept: 'application/json' },
+                cache: 'no-store',
+                signal: requestController.signal,
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload.success) {
+                const detail = Array.isArray(payload.detail)
+                    ? payload.detail.map((item) => item?.msg || String(item)).join(' | ')
+                    : payload.detail;
+                throw new Error(
+                    payload.mensaje
+                    || payload.message
+                    || detail
+                    || 'API-COMERCIAL devolvio un error.'
+                );
+            }
+            if (listRequest !== requestController) return;
+
+            const data = payload.datos || payload.data || {};
+            allRows = normalizeListingRows(data);
+            loadedPeriod = data.periodo || {};
+            loadedAt = new Date();
+            pendingTableError = '';
+            updateCatalogs(data.catalogos || {});
+            table.clear();
+            table.rows.add(allRows);
+            table.draw(false);
+        } catch (error) {
+            if (error.name === 'AbortError') return;
+            allRows = [];
+            loadedPeriod = {};
+            loadedAt = null;
+            table?.clear().draw();
+            document.getElementById('atlasExpedientesMeta').textContent = 'No disponible';
+            pendingTableError = error.message || 'No se pudieron consultar los expedientes.';
+        } finally {
+            if (listRequest === requestController) {
+                listRequest = null;
+                refreshButton.disabled = false;
+            }
+            hideExpedientesLoading();
+        }
     };
 
     const currentRow = (creditId) => {
         if (!table) return null;
-        const rows = table.rows().data().toArray();
-        return rows.find((row) => Number(row.credito_id) === Number(creditId)) || null;
+        return table.row((_index, row) => Number(row.credito_id) === Number(creditId)).data() || null;
+    };
+
+    const updateLocalStatus = (creditId, status) => {
+        const changedAt = new Date().toISOString();
+        const update = {
+            estatus: status,
+            estatus_label: statusDefinition(status).label,
+            origen_cambio: 'sparta_manual',
+            fecha_estado: changedAt,
+        };
+        const cachedRow = allRows.find((row) => Number(row.credito_id) === Number(creditId));
+        if (cachedRow) Object.assign(cachedRow, update);
+
+        table?.rows((_index, row) => Number(row.credito_id) === Number(creditId)).every(function () {
+            const row = this.data();
+            Object.assign(row, update);
+            this.data(row).invalidate();
+        });
+        table?.draw(false);
     };
 
     const postMovement = async (creditId, action, values = {}) => {
@@ -696,7 +856,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
             movementModal?.hide();
             showSuccess(payload.mensaje);
-            table.ajax.reload(null, false);
+            updateLocalStatus(creditId, action);
         } catch (error) {
             showError(error.message || 'No se pudo guardar el movimiento.');
         } finally {
@@ -740,7 +900,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         document.getElementById('atlasExpedientesMovementAction').value = action;
         document.getElementById('atlasExpedientesMovementTitle').textContent = definition.title;
         document.getElementById('atlasExpedientesMovementMeta').textContent =
-            `Credito #${row.numero_credito || row.credito_id} - ${row.cliente_nombre || 'Cliente sin nombre'}`;
+            `Credito #${row.numero_credito || row.credito_id} - ${row.gestor_nombre || 'Sin gestor asignado'}`;
         document.getElementById('atlasExpedientesMovementReason').placeholder = definition.placeholder;
         movementModal?.show();
     };
@@ -869,6 +1029,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                                 ${statusBadge(event.estatus_anterior)}
                                 <i class="fa-solid fa-arrow-right mx-2 text-muted"></i>
                                 ${statusBadge(event.estatus_nuevo)}
+                                ${changeOriginBadge(event.origen_cambio)}
                             </div>
                             <div class="atlas-expedientes-event-meta mt-2">
                                 ${escapeHtml(event.usuario_nombre || 'Usuario Sparta')} - ${escapeHtml(dateTime(event.fecha_evento))}
@@ -889,6 +1050,11 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         const detailContent = document.getElementById('atlasExpedientesDetailContent');
         document.getElementById('atlasExpedientesDetailMeta').textContent =
             `Credito #${expediente.numero_credito || expediente.credito_id || ''}`;
+        document.getElementById('atlasExpedientesDetailGestor').textContent =
+            expediente.gestor_nombre || 'Sin gestor asignado';
+        document.getElementById('atlasExpedientesDetailGestorMeta').textContent = expediente.gestor_persona_id
+            ? `ID persona ${expediente.gestor_persona_id}`
+            : 'Sin asignacion operativa';
         detailContent.innerHTML = `
             <div class="atlas-expedientes-detail-grid">
                 ${detailItem('ID credito', expediente.credito_id)}
@@ -902,7 +1068,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 ${detailItem('Activacion S2Credit', dateTime(expediente.fecha_activacion_s2))}
                 <div class="atlas-expedientes-detail-item">
                     <div class="atlas-expedientes-detail-label">Estatus actual</div>
-                    <div class="atlas-expedientes-detail-value">${statusBadge(expediente.estatus)}</div>
+                    <div class="atlas-expedientes-detail-value">${statusBadge(expediente.estatus)} ${changeOriginBadge(expediente.origen_cambio)}</div>
                 </div>
             </div>
             ${renderEvidenceGallery(data, requestedCreditId)}
@@ -913,6 +1079,8 @@ $atlasApiReady = !empty($atlas_admin_configurada);
 
     const openDetail = async (creditId) => {
         document.getElementById('atlasExpedientesDetailMeta').textContent = `Credito #${creditId}`;
+        document.getElementById('atlasExpedientesDetailGestor').textContent = 'Consultando gestor...';
+        document.getElementById('atlasExpedientesDetailGestorMeta').textContent = '';
         document.getElementById('atlasExpedientesDetailContent').innerHTML =
             '<div class="py-5 text-center text-muted fw-semibold"><span class="spinner-border spinner-border-sm me-2"></span>Consultando expediente...</div>';
         detailModal?.show();
@@ -926,6 +1094,8 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             }
             renderDetail(payload.datos || {}, creditId);
         } catch (error) {
+            document.getElementById('atlasExpedientesDetailGestor').textContent = 'No disponible';
+            document.getElementById('atlasExpedientesDetailGestorMeta').textContent = '';
             document.getElementById('atlasExpedientesDetailContent').innerHTML =
                 `<div class="alert alert-danger mb-0">${escapeHtml(error.message || 'No se pudo consultar el expediente.')}</div>`;
         }
@@ -958,14 +1128,14 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
             importModal?.hide();
             importForm.reset();
-            table?.ajax.reload(null, false);
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     icon: 'success',
                     title: 'Layout aplicado',
                     html: `<strong>${number(summary.actualizados)}</strong> actualizado(s) &middot; `
                         + `<strong>${number(summary.sin_cambios)}</strong> sin cambios &middot; `
-                        + `<strong>${number(summary.ya_procesados)}</strong> ya procesado(s)`,
+                        + `<strong>${number(summary.ya_procesados)}</strong> ya procesado(s)`
+                        + '<div class="small text-muted mt-2">Pulsa Actualizar para consultar los cambios aplicados.</div>',
                 });
             }
         } catch (error) {
@@ -976,9 +1146,9 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         }
     };
 
-    const reloadFromStart = () => {
+    const applyLocalFilters = () => {
         if (!validateDateRange(false) || !table) return;
-        table.ajax.reload(null, true);
+        table.draw();
     };
 
     const initialize = () => {
@@ -1001,14 +1171,20 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             ? bootstrap.Modal.getOrCreateInstance(importModalElement)
             : null;
         initializeSelects();
+        expedienteMatchesFilters.atlasExpedientesLocal = true;
+        const dataTableFilters = window.jQuery.fn.dataTable.ext.search;
+        for (let index = dataTableFilters.length - 1; index >= 0; index--) {
+            if (dataTableFilters[index].atlasExpedientesLocal) dataTableFilters.splice(index, 1);
+        }
+        dataTableFilters.push(expedienteMatchesFilters);
         loadDataTable();
 
         window.jQuery([statusSelect, branchSelect])
             .off('change.atlasExpedientes')
-            .on('change.atlasExpedientes', reloadFromStart);
-        [startInput, endInput].forEach((input) => input.addEventListener('change', reloadFromStart));
+            .on('change.atlasExpedientes', applyLocalFilters);
+        [startInput, endInput].forEach((input) => input.addEventListener('change', applyLocalFilters));
         refreshButton.addEventListener('click', () => {
-            if (validateDateRange(true)) table?.ajax.reload(null, false);
+            if (validateDateRange(true)) loadAllExpedientes();
         });
         document.getElementById('atlasExpedientesClear').addEventListener('click', () => {
             startInput.value = initialStart;
@@ -1016,8 +1192,7 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             [statusSelect, branchSelect].forEach((select) => {
                 window.jQuery(select).val('').trigger('change.select2');
             });
-            table.search('');
-            reloadFromStart();
+            table.search('').draw();
         });
         importOpenButton.disabled = !apiReady;
         importOpenButton.addEventListener('click', () => {
@@ -1062,6 +1237,8 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 }
             );
         });
+
+        loadAllExpedientes();
     };
 
     if (document.readyState === 'loading') {

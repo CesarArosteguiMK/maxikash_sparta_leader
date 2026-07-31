@@ -23,7 +23,42 @@ final class AtlasExpedientesTest extends TestCase
         $this->assertStringContainsString('Cr&eacute;ditos activos en S2Credit', $this->view);
         $this->assertStringNotContainsString('id="atlasExpedientesStage"', $this->view);
         $this->assertStringNotContainsString("params.set('etapa'", $this->view);
-        $this->assertStringContainsString("if (startInput.value) params.set('fecha_inicio'", $this->view);
+        $this->assertStringContainsString("const activationDate = String(row.fecha_activacion_s2", $this->view);
+    }
+
+    public function testListingLoadsOnceAndSearchesAndFiltersInTheBrowser(): void
+    {
+        $this->assertStringContainsString("fetch('/Atlas/getExpedientes?all=1'", $this->view);
+        $this->assertSame(1, substr_count($this->view, "fetch('/Atlas/getExpedientes?all=1'"));
+        $this->assertStringContainsString('serverSide: false', $this->view);
+        $this->assertStringContainsString('deferRender: true', $this->view);
+        $this->assertStringContainsString('data: []', $this->view);
+        $this->assertStringContainsString('expedienteMatchesFilters', $this->view);
+        $this->assertStringContainsString("table.rows({ search: 'applied' })", $this->view);
+        $this->assertStringContainsString("dataTableFilters.push(expedienteMatchesFilters)", $this->view);
+        $this->assertStringNotContainsString('serverSide: true', $this->view);
+        $this->assertStringNotContainsString('table.ajax.reload', $this->view);
+        $this->assertStringNotContainsString("params.set('estatus'", $this->view);
+        $this->assertStringNotContainsString("params.set('fk_sucursal'", $this->view);
+        $this->assertStringNotContainsString("params.set('search'", $this->view);
+    }
+
+    public function testCompleteListingIsAggregatedBySpartaForOneBrowserResponse(): void
+    {
+        $this->assertStringContainsString("(int)(\$_GET['all'] ?? 0) === 1", $this->controllerSource);
+        $this->assertStringContainsString("['completo' => 1, 'compacto' => 1, 'actualizar' => 1]", $this->controllerSource);
+        $this->assertStringContainsString('normalizeListingRows', $this->view);
+        $this->assertStringContainsString("data.formato === 'columnar'", $this->view);
+        $this->assertStringContainsString('payload.datos || payload.data || {}', $this->view);
+        $this->assertStringContainsString("CURLOPT_ENCODING => ''", $this->controllerSource);
+        $this->assertStringNotContainsString('atlasAdminExpedientesCompleto', $this->controllerSource);
+        $this->assertStringNotContainsString('La carga completa supera el limite operativo permitido.', $this->controllerSource);
+        $this->assertStringContainsString('streamAtlasExpedientesSnapshot($bulkQuery)', $this->controllerSource);
+        $this->assertStringContainsString("'Accept-Encoding: gzip'", $this->controllerSource);
+        $this->assertStringContainsString('CURLOPT_HTTP_CONTENT_DECODING => false', $this->controllerSource);
+        $this->assertStringContainsString("(\$responseHeaders['x-atlas-format'] ?? '') !== 'columnar'", $this->controllerSource);
+        $this->assertStringContainsString("header('Content-Encoding: ' . \$responseHeaders['content-encoding'])", $this->controllerSource);
+        $this->assertStringContainsString('Pulsa Actualizar para consultar los cambios aplicados.', $this->view);
     }
 
     public function testLayoutUploadStaysServerToServer(): void
@@ -92,5 +127,29 @@ final class AtlasExpedientesTest extends TestCase
         } finally {
             @unlink($path);
         }
+    }
+
+    public function testChangeOriginIsDisplayedAndCannotBeSpoofedFromSparta(): void
+    {
+        $this->assertStringContainsString('const changeOriginDefinition', $this->view);
+        $this->assertStringContainsString('Cambio realizado mediante carga de layout', $this->view);
+        $this->assertStringContainsString("data: 'origen_cambio'", $this->view);
+        $this->assertStringContainsString("defaultContent: 'legacy'", $this->view);
+        $this->assertStringContainsString('changeOriginBadge(event.origen_cambio)', $this->view);
+        $this->assertStringContainsString('changeOriginBadge(expediente.origen_cambio)', $this->view);
+        $this->assertStringContainsString(
+            "unset(\$payload['credito_id'], \$payload['origen_cambio'], \$payload['document_change_source']);",
+            $this->controllerSource
+        );
+    }
+
+    public function testListingShowsTheManagerAndKeepsTheClientInsideTheDetailModal(): void
+    {
+        $this->assertStringContainsString('<th>Gestor a cargo</th>', $this->view);
+        $this->assertStringNotContainsString('<th>Cliente</th>', $this->view);
+        $this->assertStringContainsString("row.gestor_nombre || 'Sin gestor asignado'", $this->view);
+        $this->assertStringContainsString('id="atlasExpedientesDetailGestor"', $this->view);
+        $this->assertStringContainsString("detailItem('Cliente', expediente.cliente_nombre)", $this->view);
+        $this->assertStringContainsString("expediente.gestor_nombre || 'Sin gestor asignado'", $this->view);
     }
 }
