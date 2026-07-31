@@ -10,6 +10,9 @@ use Services\AtlasVentasReportService;
 
 class Atlas extends Controller
 {
+    private const MODULO_ATLAS_VENTAS = 3051;
+    private const MODULO_ATLAS_EXPEDIENTES = 3052;
+
     public function atlas()
     {
         header('Location: /Atlas/sucursales', true, 302);
@@ -3173,7 +3176,7 @@ class Atlas extends Controller
     private function validarAccesoExpedientes(bool $json = false): void
     {
         $modulos = array_map('intval', (array)($_SESSION['modulos'] ?? []));
-        if (in_array(139, $modulos, true)) {
+        if (in_array(self::MODULO_ATLAS_EXPEDIENTES, $modulos, true)) {
             return;
         }
         if ($json) {
@@ -3191,7 +3194,7 @@ class Atlas extends Controller
     private function validarAccesoVentas(bool $json = false): void
     {
         $modulos = array_map('intval', (array)($_SESSION['modulos'] ?? []));
-        if (in_array(139, $modulos, true)) {
+        if (in_array(self::MODULO_ATLAS_VENTAS, $modulos, true)) {
             return;
         }
         if ($json) {
