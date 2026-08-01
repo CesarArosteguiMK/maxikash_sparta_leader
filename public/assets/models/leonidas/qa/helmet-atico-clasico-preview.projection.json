@@ -1,0 +1,68 @@
+{
+  "front": {
+    "path": "C:\\xampp\\htdocs\\sparta_ledger\\storage\\leonidas-helmet-reconstruction\\hunyuan3d-2mv\\helmet-atico-clasico-inputs\\front.png",
+    "bbox": [
+      104,
+      50,
+      547,
+      574
+    ],
+    "size": [
+      627,
+      627
+    ]
+  },
+  "right": {
+    "path": "C:\\xampp\\htdocs\\sparta_ledger\\storage\\leonidas-helmet-reconstruction\\hunyuan3d-2mv\\helmet-atico-clasico-inputs\\right.png",
+    "bbox": [
+      110,
+      31,
+      508,
+      576
+    ],
+    "size": [
+      627,
+      627
+    ]
+  },
+  "back": {
+    "path": "C:\\xampp\\htdocs\\sparta_ledger\\storage\\leonidas-helmet-reconstruction\\hunyuan3d-2mv\\helmet-atico-clasico-inputs\\back.png",
+    "bbox": [
+      165,
+      33,
+      416,
+      527
+    ],
+    "size": [
+      627,
+      627
+    ]
+  },
+  "left": {
+    "path": "C:\\xampp\\htdocs\\sparta_ledger\\storage\\leonidas-helmet-reconstruction\\hunyuan3d-2mv\\helmet-atico-clasico-inputs\\left.png",
+    "bbox": [
+      117,
+      41,
+      534,
+      526
+    ],
+    "size": [
+      627,
+      627
+    ]
+  },
+  "mesh": {
+    "vertices": 37502,
+    "faces": 75000,
+    "bounds_min": [
+      -0.8485246300697327,
+      -0.8566740155220032,
+      -0.9999881386756897
+    ],
+    "bounds_max": [
+      0.8228280544281006,
+      0.8689759373664856,
+      0.9710560441017151
+    ]
+  }
+}

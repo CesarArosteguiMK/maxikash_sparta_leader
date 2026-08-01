@@ -202,7 +202,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
                 <div>
                     <h4 class="fw-bold mb-1">
-                        <i class="fa-solid fa-file-signature me-2 text-primary"></i>Estadísticas Convenios
+                        <i class="fa-solid fa-file-signature me-2 text-primary"></i>Estadísticas de Convenios
                     </h4>
                     <p id="cvEstSubtitulo" class="text-muted mb-0 small">—</p>
                 </div>
@@ -217,7 +217,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                             placeholder="Selecciona inicio y fin" autocomplete="off"
                             title="No se pueden elegir fechas posteriores a hoy." />
                         <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" id="btnCvEstRestablecerPeriodo"
-                            title="Volver al periodo por defecto: lunes de esta semana hasta hoy">
+                            title="Volver al período por defecto: lunes de esta semana hasta hoy">
                             Restablecer
                         </button>
                     </div>

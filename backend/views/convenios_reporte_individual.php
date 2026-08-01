@@ -118,14 +118,14 @@ $idCreditoInicial = isset($_GET['id_credito']) ? (int) $_GET['id_credito'] : 0;
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
             <h4 class="cvi-title mb-1"><i class="fa-solid fa-timeline me-2"></i>Reporte individual de convenio</h4>
-            <div class="text-muted">Ficha completa, amortizacion y bitacora del convenio seleccionado.</div>
+            <div class="text-muted">Ficha completa, amortización y bitácora del convenio seleccionado.</div>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <a class="btn btn-outline-secondary" href="/convenios/reporteria">
-                <i class="fa-solid fa-arrow-left me-1"></i>Reporteria
+                <i class="fa-solid fa-arrow-left me-1"></i>Reportería
             </a>
             <a class="btn btn-outline-primary" href="/convenios/reporteHistorico">
-                <i class="fa-solid fa-table-list me-1"></i>Historico
+                <i class="fa-solid fa-table-list me-1"></i>Histórico
             </a>
         </div>
     </div>
@@ -137,7 +137,7 @@ $idCreditoInicial = isset($_GET['id_credito']) ? (int) $_GET['id_credito'] : 0;
                 <input type="number" min="1" class="form-control" name="id_convenio" value="<?= $idConvenioInicial > 0 ? htmlspecialchars((string) $idConvenioInicial, ENT_QUOTES, 'UTF-8') : ''; ?>" placeholder="Ej. 694">
             </div>
             <div class="col-12 col-md-4">
-                <label class="form-label fw-bold">ID credito</label>
+                <label class="form-label fw-bold">ID crédito</label>
                 <input type="number" min="1" class="form-control" name="id_credito" value="<?= $idCreditoInicial > 0 ? htmlspecialchars((string) $idCreditoInicial, ENT_QUOTES, 'UTF-8') : ''; ?>" placeholder="Ej. 1940735">
             </div>
             <div class="col-12 col-md-2 d-grid">
@@ -153,7 +153,7 @@ $idCreditoInicial = isset($_GET['id_credito']) ? (int) $_GET['id_credito'] : 0;
     </div>
 
     <div id="cviMessage" class="cvi-empty p-4 text-center">
-        <i class="fa-solid fa-circle-info me-1"></i>Ingresa un ID de convenio o ID de credito para consultar.
+        <i class="fa-solid fa-circle-info me-1"></i>Ingresa un ID de convenio o ID de crédito para consultar.
     </div>
 
     <div id="cviContent" class="d-none">
@@ -280,11 +280,11 @@ $idCreditoInicial = isset($_GET['id_credito']) ? (int) $_GET['id_credito'] : 0;
     function renderInfo(convenio) {
         const items = [
             ['ID convenio', convenio.id_convenio],
-            ['ID credito', convenio.id_credito],
+            ['ID crédito', convenio.id_credito],
             ['Fecha convenio', fmtDate(convenio.fecha_acuerdo || convenio.fecha_alta)],
             ['Primer pago', fmtDate(convenio.fecha_primer_pago)],
             ['Ultimo pago', fmtDate(convenio.fecha_ultimo_pago)],
-            ['Celula', convenio.celula],
+            ['Célula', convenio.celula],
             ['Usuario alta', convenio.usuario_alta],
             ['Calendario', convenio.tipo_calendario || convenio.frecuencia],
             ['Base calculo', convenio.base_calculo || '--'],
@@ -300,7 +300,7 @@ $idCreditoInicial = isset($_GET['id_credito']) ? (int) $_GET['id_credito'] : 0;
     function renderAmortizacion(rows) {
         const tbody = document.getElementById('cviAmortizacion');
         if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Sin tabla de amortizacion registrada.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Sin tabla de amortización registrada.</td></tr>';
             return;
         }
         tbody.innerHTML = rows.map((row) => {
@@ -383,7 +383,7 @@ $idCreditoInicial = isset($_GET['id_credito']) ? (int) $_GET['id_credito'] : 0;
         if (!idConvenio && !idCredito) {
             content.classList.add('d-none');
             message.classList.remove('d-none');
-            message.innerHTML = '<i class="fa-solid fa-circle-info me-1"></i>Ingresa un ID de convenio o ID de credito para consultar.';
+            message.innerHTML = '<i class="fa-solid fa-circle-info me-1"></i>Ingresa un ID de convenio o ID de crédito para consultar.';
             return;
         }
 

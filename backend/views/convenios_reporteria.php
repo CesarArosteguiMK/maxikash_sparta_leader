@@ -5,24 +5,24 @@ $nombreUsuario = isset($_SESSION['usuario_nombre'])
 
 $reportes = [
     [
-        'titulo' => 'Historico de convenios',
+        'titulo' => 'Histórico de convenios',
         'texto' => 'Consulta todos los convenios generados con monto original, oferta, descuento, monto pactado y acceso al detalle individual.',
         'url' => '/convenios/reporteHistorico',
-        'btn' => 'Abrir historico',
+        'btn' => 'Abrir histórico',
         'icon' => 'fa-table-list',
     ],
     [
         'titulo' => 'Reporte individual',
-        'texto' => 'Revisa un convenio por ID de convenio o ID de credito, incluyendo amortizacion, seguimiento de cierre y bitacora.',
+        'texto' => 'Revisa un convenio por ID de convenio o ID de crédito, incluyendo amortización, seguimiento de cierre y bitácora.',
         'url' => '/convenios/reporteIndividual',
         'btn' => 'Abrir individual',
         'icon' => 'fa-timeline',
     ],
     [
-        'titulo' => 'Estadisticas',
-        'texto' => 'Indicadores operativos de convenios, cierre de credito y recuperacion por periodo.',
+        'titulo' => 'Estadísticas',
+        'texto' => 'Indicadores operativos de convenios, cierre de crédito y recuperación por período.',
         'url' => '/convenios/estadisticas',
-        'btn' => 'Ver estadisticas',
+        'btn' => 'Ver estadísticas',
         'icon' => 'fa-chart-simple',
     ],
 ];
@@ -62,8 +62,8 @@ $reportes = [
     <div class="conv-report-head p-4 mb-3">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div>
-                <h4 class="mb-1 fw-bold"><i class="fa-solid fa-building-columns me-2 text-primary"></i>Reporteria de Convenios</h4>
-                <p class="mb-0 text-muted">Hola, <?= $nombreUsuario; ?>. Aqui se concentran los reportes historicos e individuales del sistema de convenios.</p>
+                <h4 class="mb-1 fw-bold"><i class="fa-solid fa-building-columns me-2 text-primary"></i>Reportería de Convenios</h4>
+                <p class="mb-0 text-muted">Hola, <?= $nombreUsuario; ?>. Aquí se concentran los reportes históricos e individuales del sistema de convenios.</p>
             </div>
             <a href="/convenios/consulta" class="btn btn-outline-primary">
                 <i class="fa-solid fa-magnifying-glass me-1"></i>Ir a consulta

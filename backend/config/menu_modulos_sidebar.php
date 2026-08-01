@@ -89,8 +89,8 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['section' => 'Operacion de convenios'],
                     ['label' => 'Crear Convenio', 'url' => '/convenios/consulta', 'modulos' => [46]],
                     ['label' => 'Cierre de Crédito', 'url' => '/CierreCredito/consulta', 'modulos' => [51]],
-                    ['section' => 'Reporteria'],
-                    ['label' => 'Reporteria', 'url' => '/convenios/reporteria', 'modulos' => [186]],
+                    ['section' => 'Reportería'],
+                    ['label' => 'Reportería', 'url' => '/convenios/reporteria', 'modulos' => [186]],
                     ['label' => 'Estadísticas', 'url' => '/convenios/estadisticas', 'modulos' => [56]],
                 ],
             ],
@@ -460,9 +460,9 @@ if (!function_exists('enriquecerPerfilesModulosConMenuSidebar')) {
                 && (str_contains($nbCierreCel, 'despachos')
                     || str_contains($nbCierreCel, 'call center')
                     || str_contains($nbCierreCel, 'cartera'));
-            $cierreCelulaPorId = $mid > 0 && in_array($mid, [56, 57, 59], true);
+            $cierreCelulaPorId = $mid > 0 && in_array($mid, [57, 59], true);
             if ($cierreCelulaPorId || $pareceCierreCelulaPorNombre) {
-                $ordenCierreCelula = [56 => 801, 57 => 802, 59 => 803];
+                $ordenCierreCelula = [57 => 802, 59 => 803];
                 $orden = $ordenCierreCelula[$mid] ?? 805;
                 if (!$cierreCelulaPorId) {
                     if (str_contains($nbCierreCel, 'despachos')) {
