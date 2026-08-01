@@ -352,12 +352,12 @@
 <div class="container-fluid py-3 cvh-shell">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
-            <h4 class="cvh-title mb-1"><i class="fa-solid fa-table-list me-2"></i>Historico de convenios</h4>
+            <h4 class="cvh-title mb-1"><i class="fa-solid fa-table-list me-2"></i>Histórico de convenios</h4>
             <div class="text-muted">Convenios generados con monto original, oferta, descuento aplicado y monto pactado.</div>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <a class="btn btn-outline-secondary" href="/convenios/reporteria">
-                <i class="fa-solid fa-arrow-left me-1"></i>Reporteria
+                <i class="fa-solid fa-arrow-left me-1"></i>Reportería
             </a>
             <button type="button" id="cvhExportExcel" class="btn btn-outline-primary">
                 <i class="fa-solid fa-file-excel me-1"></i>Exportar XLSX
@@ -385,14 +385,14 @@
                 </select>
             </div>
             <div class="col-12 col-md-2">
-                <label class="form-label fw-bold">Celula</label>
+                <label class="form-label fw-bold">Célula</label>
                 <input type="hidden" name="celula" id="cvhCelula" value="">
                 <div class="cvh-search-select" id="cvhCelulaDropdown">
                     <button type="button" class="cvh-search-button" id="cvhCelulaButton">
                         <span>Todas</span><i class="fa-solid fa-chevron-down"></i>
                     </button>
                     <div class="cvh-search-panel">
-                        <input type="text" class="cvh-search-input" id="cvhCelulaSearch" placeholder="Buscar celula">
+                        <input type="text" class="cvh-search-input" id="cvhCelulaSearch" placeholder="Buscar célula">
                         <div class="cvh-search-options" id="cvhCelulaOptions"></div>
                     </div>
                 </div>
@@ -424,7 +424,7 @@
                 </div>
             </div>
             <div class="col-6 col-md-1">
-                <label class="form-label fw-bold">Limite</label>
+                <label class="form-label fw-bold">Límite</label>
                 <select class="form-select" name="limit">
                     <option value="0" selected>Todos</option>
                     <option value="300">300</option>
@@ -435,7 +435,7 @@
             </div>
             <div class="col-12 col-md-11">
                 <label class="form-label fw-bold">Buscar</label>
-                <input type="text" class="form-control" name="q" placeholder="Cliente, credito, convenio">
+                <input type="text" class="form-control" name="q" placeholder="Cliente, crédito, convenio">
             </div>
         </div>
     </form>
@@ -456,7 +456,7 @@
                 <strong>Original / Descuento / Pagado</strong>
             </div>
         </div>
-        <div class="cvh-combo-bar" aria-label="Grafica combinada de importes">
+        <div class="cvh-combo-bar" aria-label="Gráfica combinada de importes">
             <span id="chartOriginalBar" class="cvh-combo-segment original" title="Monto original"></span>
             <span id="chartDescuentoBar" class="cvh-combo-segment descuento" title="Descuento"></span>
             <span id="chartPagadoBar" class="cvh-combo-segment pagado" title="Pagado"></span>
@@ -484,18 +484,18 @@
                     <tr>
                         <th>Fecha convenio</th>
                         <th>Cliente</th>
-                        <th>ID credito</th>
+                        <th>ID crédito</th>
                         <th>Monto original</th>
                         <th>Oferta seleccionada</th>
                         <th>Descuento aplicado</th>
                         <th>Monto convenio</th>
                         <th>Pagado / Restante</th>
                         <th>Estatus</th>
-                        <th>Accion</th>
+                        <th>Acción</th>
                     </tr>
                 </thead>
                 <tbody id="cvhRows">
-                    <tr><td colspan="10" class="text-center text-muted py-4">Cargando informacion...</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted py-4">Cargando información...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -514,7 +514,7 @@
                     <h5 class="modal-title cvi-title mb-0">
                         <i class="fa-solid fa-timeline me-2"></i>Reporte individual de convenio
                     </h5>
-                    <div class="text-muted small">Ficha completa, amortizacion y bitacora del convenio seleccionado.</div>
+                    <div class="text-muted small">Ficha completa, amortización y bitácora del convenio seleccionado.</div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" data-dismiss="modal" aria-label="Cerrar"></button>
             </div>
@@ -872,11 +872,11 @@
     function renderDetalleInfo(convenio) {
         const items = [
             ['ID convenio', convenio.id_convenio],
-            ['ID credito', convenio.id_credito],
+            ['ID crédito', convenio.id_credito],
             ['Fecha convenio', fmtDate(convenio.fecha_acuerdo || convenio.fecha_alta)],
             ['Primer pago', fmtDate(convenio.fecha_primer_pago)],
             ['Ultimo pago', fmtDate(convenio.fecha_ultimo_pago)],
-            ['Celula', convenio.celula],
+            ['Célula', convenio.celula],
             ['Usuario alta', convenio.usuario_alta],
             ['Calendario', convenio.tipo_calendario || convenio.frecuencia],
             ['Base calculo', convenio.base_calculo || '--'],
@@ -891,7 +891,7 @@
 
     function renderDetalleAmortizacion(rows) {
         if (!rows.length) {
-            detalleHtml('cviModalAmortizacion', '<tr><td colspan="6" class="text-center text-muted py-4">Sin tabla de amortizacion registrada.</td></tr>');
+            detalleHtml('cviModalAmortizacion', '<tr><td colspan="6" class="text-center text-muted py-4">Sin tabla de amortización registrada.</td></tr>');
             return;
         }
         detalleHtml('cviModalAmortizacion', rows.map((row) => {
@@ -1097,7 +1097,7 @@
     async function loadHistorico() {
         const seq = ++requestSeq;
         const params = new URLSearchParams(new FormData(form));
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">Cargando informacion...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">Cargando información...</td></tr>';
         try {
             const response = await fetch(`/convenios/reporteHistoricoDatos?${params.toString()}`, {
                 headers: { 'Accept': 'application/json' }

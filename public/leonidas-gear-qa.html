@@ -9,7 +9,7 @@
         html, body { margin: 0; min-height: 100%; background: #dce2ea; }
         body { display: grid; place-items: center; padding: 24px; font-family: Arial, sans-serif; }
         #leonidasAssistant {
-            position: relative; width: 680px; height: 860px; overflow: hidden;
+            position: relative; width: 760px; height: 900px; overflow: hidden;
             border-radius: 24px;
             background: radial-gradient(circle at 50% 25%, #4e6d94 0%, #263f63 36%, #15243b 100%);
         }
@@ -24,15 +24,78 @@
             display: flex; gap: 12px; padding: 8px 12px; border-radius: 999px;
             color: white; background: rgba(10, 20, 38, .74); font-weight: 700;
         }
+        .helmet-lab {
+            position: absolute; z-index: 4; right: 18px; top: 68px; width: 250px;
+            padding: 16px; border: 1px solid rgba(255, 255, 255, .18); border-radius: 16px;
+            color: #f8fafc; background: rgba(8, 18, 34, .88); backdrop-filter: blur(12px);
+            box-shadow: 0 16px 38px rgba(0, 0, 0, .24);
+        }
+        .helmet-lab h2 { margin: 0 0 4px; font-size: 17px; }
+        .helmet-lab p { margin: 0 0 12px; color: #b9c6d8; font-size: 12px; line-height: 1.35; }
+        .helmet-lab select, .helmet-lab button {
+            width: 100%; min-height: 38px; border: 1px solid #526987; border-radius: 9px;
+            color: white; background: #182b46; font: inherit;
+        }
+        .helmet-control { display: grid; grid-template-columns: 70px 1fr 42px; gap: 8px; align-items: center; margin-top: 10px; }
+        .helmet-control span { color: #d8e1ed; font-size: 12px; }
+        .helmet-control output { color: #e5c36c; font-size: 11px; text-align: right; }
+        .helmet-control input { width: 100%; accent-color: #d6aa45; }
+        .helmet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+        .helmet-actions button { cursor: pointer; font-size: 12px; }
+        .helmet-lab-status { display: block; min-height: 30px; margin-top: 10px; color: #b8c9dd; font-size: 11px; line-height: 1.35; }
+        .helmet-check { display: flex; gap: 8px; align-items: center; margin-top: 10px; color: #d8e1ed; font-size: 12px; }
     </style>
 </head>
 <body>
-    <div id="leonidasAssistant" class="is-appearance-preview-live">
-        <div class="label">Casco original · manos corregidas · v84</div>
+    <div id="leonidasAssistant" class="is-appearance-preview-live" data-leonidas-helmet-lab>
+        <div class="label">Laboratorio de cascos · no productivo</div>
         <div class="qa-controls">
             <label><input type="checkbox" data-qa-gear="escudo_visible"> Escudo</label>
             <label><input type="checkbox" data-qa-gear="lanza_visible"> Lanza</label>
         </div>
+        <section class="helmet-lab" aria-label="Pruebas de casco">
+            <h2>Probar casco</h2>
+            <p>Solo cambia esta vista QA. Arrastra a Leónidas para revisar todos los ángulos.</p>
+            <select data-qa-helmet>
+                <option value="original">Casco original</option>
+                <option value="aqueo">Aqueo oscuro — candidato</option>
+                <option value="atico">Ático clásico — candidato</option>
+            </select>
+            <label class="helmet-control">
+                <span>Escala</span>
+                <input type="range" min="0.45" max="1.65" step="0.01" value="1" data-qa-helmet-control="scale">
+                <output data-qa-output="scale">1.00</output>
+            </label>
+            <label class="helmet-control">
+                <span>Lateral</span>
+                <input type="range" min="-1" max="1" step="0.01" value="0" data-qa-helmet-control="offsetX">
+                <output data-qa-output="offsetX">0.00</output>
+            </label>
+            <label class="helmet-control">
+                <span>Altura</span>
+                <input type="range" min="-1" max="1" step="0.01" value="0" data-qa-helmet-control="offsetY">
+                <output data-qa-output="offsetY">0.00</output>
+            </label>
+            <label class="helmet-control">
+                <span>Profundidad</span>
+                <input type="range" min="-1" max="1" step="0.01" value="0" data-qa-helmet-control="offsetZ">
+                <output data-qa-output="offsetZ">0.00</output>
+            </label>
+            <label class="helmet-control">
+                <span>Giro</span>
+                <input type="range" min="-180" max="180" step="1" value="0" data-qa-helmet-control="rotationY">
+                <output data-qa-output="rotationY">0°</output>
+            </label>
+            <label class="helmet-check">
+                <input type="checkbox" checked data-qa-hide-original>
+                Ocultar casco original
+            </label>
+            <div class="helmet-actions">
+                <button type="button" data-qa-reset-helmet>Restablecer</button>
+                <button type="button" data-qa-center-view>Centrar vista</button>
+            </div>
+            <output class="helmet-lab-status" data-qa-helmet-status>Esperando a Leónidas…</output>
+        </section>
         <canvas data-leonidas-canvas></canvas>
     </div>
     <script>
@@ -61,7 +124,78 @@
                 }));
             });
         });
+        var helmetSelect = document.querySelector('[data-qa-helmet]');
+        var hideOriginal = document.querySelector('[data-qa-hide-original]');
+        var helmetStatus = document.querySelector('[data-qa-helmet-status]');
+        var helmetControls = Array.from(document.querySelectorAll('[data-qa-helmet-control]'));
+        var helmetDefaults = {
+            original: { scale: 1, offsetX: 0, offsetY: 0, offsetZ: 0, rotationY: 0 },
+            aqueo: { scale: 1, offsetX: 0, offsetY: 0, offsetZ: 0, rotationY: 0 },
+            atico: { scale: 1, offsetX: 0, offsetY: 0.25, offsetZ: 0, rotationY: 0 }
+        };
+
+        function setHelmetControls(values) {
+            helmetControls.forEach(function (input) {
+                var key = input.dataset.qaHelmetControl;
+                input.value = values[key];
+                var output = document.querySelector('[data-qa-output="' + key + '"]');
+                if (!output) return;
+                output.value = key === 'rotationY'
+                    ? Math.round(Number(values[key])) + '°'
+                    : Number(values[key]).toFixed(2);
+            });
+        }
+
+        function helmetDetail() {
+            var detail = {
+                id: helmetSelect.value,
+                hideOriginal: hideOriginal.checked
+            };
+            helmetControls.forEach(function (input) {
+                detail[input.dataset.qaHelmetControl] = Number(input.value);
+            });
+            return detail;
+        }
+
+        function emitHelmet() {
+            var detail = helmetDetail();
+            helmetStatus.value = detail.id === 'original' ? 'Casco original activo.' : 'Cargando candidato…';
+            qaRoot.dispatchEvent(new CustomEvent('leonidas:qa-helmet', { detail: detail }));
+        }
+
+        helmetSelect.addEventListener('change', function () {
+            setHelmetControls(helmetDefaults[helmetSelect.value] || helmetDefaults.original);
+            emitHelmet();
+        });
+        hideOriginal.addEventListener('change', emitHelmet);
+        helmetControls.forEach(function (input) {
+            input.addEventListener('input', function () {
+                var output = document.querySelector('[data-qa-output="' + input.dataset.qaHelmetControl + '"]');
+                output.value = input.dataset.qaHelmetControl === 'rotationY'
+                    ? Math.round(Number(input.value)) + '°'
+                    : Number(input.value).toFixed(2);
+                emitHelmet();
+            });
+        });
+        document.querySelector('[data-qa-reset-helmet]').addEventListener('click', function () {
+            setHelmetControls(helmetDefaults[helmetSelect.value] || helmetDefaults.original);
+            emitHelmet();
+        });
+        document.querySelector('[data-qa-center-view]').addEventListener('click', function () {
+            qaRoot.dispatchEvent(new CustomEvent('leonidas:preview-layout'));
+        });
+        qaRoot.addEventListener('leonidas:model-ready', emitHelmet);
+        qaRoot.addEventListener('leonidas:qa-helmet-ready', function (event) {
+            var labels = { original: 'Casco original', aqueo: 'Aqueo oscuro', atico: 'Ático clásico' };
+            helmetStatus.value = (labels[event.detail.id] || event.detail.id)
+                + ' listo. Escala calculada: '
+                + Number(event.detail.fittedScale || 1).toFixed(3);
+        });
+        qaRoot.addEventListener('leonidas:qa-helmet-error', function () {
+            helmetStatus.value = 'No se pudo cargar el candidato.';
+        });
+        setHelmetControls(helmetDefaults.original);
     </script>
-    <script type="module" src="/assets/js/leonidas-3d.js?v=84"></script>
+    <script type="module" src="/assets/js/leonidas-3d.js?v=helmet-lab-43"></script>
 </body>
 </html>

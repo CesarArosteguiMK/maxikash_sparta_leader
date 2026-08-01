@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Laboratorio de componentes · Leónidas</title>
+    <style>
+        * { box-sizing: border-box; }
+        html, body { margin: 0; min-height: 100%; background: #dce2ea; }
+        body { padding: 24px; color: #eaf0f8; font: 14px/1.4 Arial, sans-serif; }
+        .shell { display: grid; grid-template-columns: minmax(390px, 690px) minmax(320px, 440px); gap: 18px; width: min(1160px, 100%); margin: auto; }
+        #leonidasAssistant { position: relative; height: 860px; overflow: hidden; border-radius: 22px; background: radial-gradient(circle at 50% 25%, #4e6d94 0%, #263f63 36%, #15243b 100%); }
+        canvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+        .badge { position: absolute; z-index: 3; top: 18px; left: 18px; padding: 8px 12px; border-radius: 999px; background: rgba(10,20,38,.78); font-weight: 700; }
+        .panel { min-height: 860px; padding: 24px; border-radius: 22px; color: #263a56; background: #fff; box-shadow: 0 18px 55px rgba(15,31,51,.18); }
+        .eyebrow { margin: 0; color: #a56812; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+        h1 { margin: 5px 0 4px; font-size: 24px; }
+        .description { margin: 0 0 18px; color: #697b93; }
+        .notice { margin: 15px 0; padding: 11px 13px; border: 1px solid #d9e2ee; border-radius: 11px; color: #536a86; background: #f6f9fc; font-size: 12px; }
+        .control, .color-control { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #e2e8f0; font-weight: 700; }
+        input[type="checkbox"] { width: 20px; height: 20px; accent-color: #356ac3; }
+        input[type="color"] { width: 52px; height: 34px; padding: 2px; border: 1px solid #b9c7d9; border-radius: 7px; background: white; }
+        h2 { margin: 24px 0 7px; font-size: 16px; }
+        .checks { display: grid; gap: 8px; }
+        .check { display: grid; grid-template-columns: 20px 1fr; gap: 9px; align-items: start; padding: 10px; border: 1px solid #e0e7f0; border-radius: 10px; color: #425873; background: #fbfcfe; }
+        .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 20px; }
+        button, a { min-height: 40px; padding: 10px 12px; border: 1px solid #b9c8d9; border-radius: 9px; color: #2b4260; background: white; font-weight: 750; text-align: center; text-decoration: none; cursor: pointer; }
+        button.primary { color: white; border-color: #1f3556; background: #1f3556; }
+        .readout { margin-top: 14px; color: #74849a; font: 11px/1.45 ui-monospace, monospace; }
+        @media (max-width: 850px) { .shell { grid-template-columns: 1fr; } #leonidasAssistant, .panel { min-height: 720px; height: 720px; } }
+    </style>
+</head>
+<body>
+<main class="shell">
+    <section id="leonidasAssistant" class="is-appearance-preview-live" data-leonidas-component-lab>
+        <div class="badge" data-badge>Laboratorio aislado</div>
+        <canvas data-leonidas-canvas aria-label="Gira a Leónidas arrastrando"></canvas>
+    </section>
+    <aside class="panel">
+        <p class="eyebrow">Control de calidad 3D</p>
+        <h1 data-title>Componente</h1>
+        <p class="description" data-description></p>
+        <div class="notice">Este espacio no guarda preferencias ni sustituye archivos de producción. Sirve para inspeccionar, anotar y aprobar un componente antes de integrarlo.</div>
+        <div data-controls></div>
+        <h2>Contrato de aceptación</h2>
+        <div class="checks" data-checks></div>
+        <div class="actions">
+            <button type="button" data-center>Centrar vista</button>
+            <button type="button" class="primary" data-evaluate>Evaluar revisión</button>
+            <a href="/leonidas-laboratorio.html">Volver al centro</a>
+            <button type="button" data-reset>Restablecer</button>
+        </div>
+        <div class="readout" data-readout>Esperando el modelo validado…</div>
+    </aside>
+</main>
+<script>
+    var root = document.getElementById('leonidasAssistant');
+    var baseAppearance = {
+        id: 'qa-lab', color_principal: '#A91E2C', color_secundario: '#6F4328', color_metal: '#D8B37B',
+        casco_visible: true, pechera_visible: true, cabello_visible: true, escudo_visible: false, lanza_visible: false
+    };
+    root._leonidasAppearance = Object.assign({}, baseAppearance);
+    var labId = new URLSearchParams(location.search).get('lab') || 'chest';
+    var visibilityFields = { chest: 'pechera_visible', hair: 'cabello_visible', shield: 'escudo_visible', spear: 'lanza_visible' };
+    if (visibilityFields[labId]) root._leonidasAppearance[visibilityFields[labId]] = true;
+    if (labId === 'hair') root._leonidasAppearance.casco_visible = false;
+    var descriptions = {
+        chest: 'Pechera, correas y contacto con el torso.', hair: 'Cabello, barba y compatibilidad con la cabeza.',
+        shield: 'Escudo, lectura del emblema y relación con la mano.', spear: 'Lanza, punta, asta y agarre.',
+        pose: 'Manos, flexión de codos, apoyo y silueta completa.', materials: 'Separación de piel, tela, cuero y metal.',
+        camera: 'Centrado, giro, escala y encuadre del avatar.'
+    };
+
+    function emitAppearance() {
+        root.dispatchEvent(new CustomEvent('leonidas:appearance', { detail: root._leonidasAppearance }));
+    }
+    function addToggle(container, label, field) {
+        var row = document.createElement('label'); row.className = 'control'; row.textContent = label;
+        var input = document.createElement('input'); input.type = 'checkbox'; input.checked = root._leonidasAppearance[field];
+        input.addEventListener('change', function () { root._leonidasAppearance[field] = input.checked; emitAppearance(); });
+        row.appendChild(input); container.appendChild(row);
+    }
+    function addColor(container, label, field) {
+        var row = document.createElement('label'); row.className = 'color-control'; row.textContent = label;
+        var input = document.createElement('input'); input.type = 'color'; input.value = root._leonidasAppearance[field];
+        input.addEventListener('input', function () { root._leonidasAppearance[field] = input.value; emitAppearance(); });
+        row.appendChild(input); container.appendChild(row);
+    }
+    fetch('/assets/models/leonidas/qa/component-labs.json', { cache: 'no-store' }).then(function (response) { return response.json(); }).then(function (manifest) {
+        var lab = manifest.labs.find(function (item) { return item.id === labId; }) || manifest.labs[1];
+        document.title = 'Laboratorio de ' + lab.name + ' · Leónidas';
+        document.querySelector('[data-title]').textContent = lab.name;
+        document.querySelector('[data-badge]').textContent = lab.name + ' · inspección aislada';
+        document.querySelector('[data-description]').textContent = descriptions[lab.id] || lab.roles.join(', ');
+        var controls = document.querySelector('[data-controls]');
+        if (visibilityFields[lab.id]) addToggle(controls, 'Componente visible', visibilityFields[lab.id]);
+        if (lab.id === 'hair') addToggle(controls, 'Casco visible', 'casco_visible');
+        if (lab.id === 'shield' || lab.id === 'spear') addToggle(controls, 'Pechera visible', 'pechera_visible');
+        if (['chest','shield','spear','materials'].includes(lab.id)) {
+            addColor(controls, 'Tela principal', 'color_principal');
+            addColor(controls, 'Cuero y detalles', 'color_secundario');
+            addColor(controls, 'Metal', 'color_metal');
+        }
+        if (!controls.children.length) controls.innerHTML = '<div class="notice">Arrastra el avatar para revisar frente, perfiles y espalda.</div>';
+        var checks = document.querySelector('[data-checks]');
+        lab.acceptance.forEach(function (text) {
+            var label = document.createElement('label'); label.className = 'check';
+            label.innerHTML = '<input type="checkbox" data-acceptance><span></span>';
+            label.querySelector('span').textContent = text; checks.appendChild(label);
+        });
+    });
+    root.addEventListener('leonidas:model-ready', function () { emitAppearance(); });
+    root.addEventListener('leonidas:capabilities', function (event) {
+        document.querySelector('[data-readout]').textContent = 'Modelo: ' + (root.dataset.leonidasModel || 'desconocido') + ' · modular validado: ' + (event.detail.validated ? 'sí' : 'no');
+    });
+    document.querySelector('[data-center]').addEventListener('click', function () { root.dispatchEvent(new CustomEvent('leonidas:preview-layout')); });
+    document.querySelector('[data-reset]').addEventListener('click', function () { root._leonidasAppearance = Object.assign({}, baseAppearance); location.reload(); });
+    document.querySelector('[data-evaluate]').addEventListener('click', function () {
+        var all = Array.from(document.querySelectorAll('[data-acceptance]'));
+        var passed = all.filter(function (input) { return input.checked; }).length;
+        document.querySelector('[data-readout]').textContent = passed === all.length
+            ? 'Revisión visual completa: ' + passed + '/' + all.length + '. Lista para validación humana; aún no publicada.'
+            : 'Revisión incompleta: ' + passed + '/' + all.length + '. No se puede aprobar el componente.';
+    });
+</script>
+<script type="module" src="/assets/js/leonidas-3d.js?v=component-labs-1"></script>
+</body>
+</html>

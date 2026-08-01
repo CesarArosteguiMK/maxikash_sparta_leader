@@ -3298,8 +3298,9 @@ class CapHum extends Controller
                     document.getElementById("modalEditPerfilLabel").innerHTML = '<i class="fa fa-user-shield me-2 text-white"></i>Administrar puestos y módulos del usuario';
                     document.getElementById("modalEditPerfil_subtitle").innerHTML = esc(nombreCompleto) + ' / ' + esc(nombreArea) + ' / ' + esc(nombrePuestoHeader);
 
-                    // Cierre celulas / Cartera (ids 56-59 y 92): pestana Permisos especiales, tarjeta Convenios.
-                    const MODULOS_WEB_CIERRE_CELULA_CARTERA_EC = new Set([56, 57, 59, 92]);
+                    // Estadísticas (56) y células / cartera de Cierre (57, 59 y 92) se muestran en Permisos especiales > Convenios.
+                    const MODULOS_WEB_CIERRE_CELULA_CARTERA_EC = new Set([57, 59, 92]);
+                    const MODULOS_WEB_CONVENIOS_PERMISOS_ESPECIALES = new Set([56, 57, 59, 92]);
                     function esNombreModuloCierreCelulaCarteraEc(m) {
                         const nom = String(m.modulo_nombre || '')
                             .toLowerCase()
@@ -3314,7 +3315,7 @@ class CapHum extends Controller
                         const p = String(m.pestana || '').trim();
                         if (p === 'Permisos especiales') return false;
                         const id = Number(m.modulo_id);
-                        if (MODULOS_WEB_CIERRE_CELULA_CARTERA_EC.has(id)) return false;
+                        if (MODULOS_WEB_CONVENIOS_PERMISOS_ESPECIALES.has(id)) return false;
                         if (esNombreModuloCierreCelulaCarteraEc(m)) return false;
                         return true;
                     }
@@ -3322,7 +3323,7 @@ class CapHum extends Controller
                         const p = String(m.pestana || '').trim();
                         if (p === 'Permisos especiales') return true;
                         const id = Number(m.modulo_id);
-                        if (MODULOS_WEB_CIERRE_CELULA_CARTERA_EC.has(id)) return true;
+                        if (MODULOS_WEB_CONVENIOS_PERMISOS_ESPECIALES.has(id)) return true;
                         if (esNombreModuloCierreCelulaCarteraEc(m)) return true;
                         return false;
                     }
@@ -5021,7 +5022,7 @@ class CapHum extends Controller
             function esModuloCierreCelulaCarteraEnGrupoConveniosModal(grupoNombre, mod) {
                 if (normalizarTextoPermisoModal(grupoNombre) !== 'convenios') return false;
                 const id = Number(mod?.modulo_id ?? mod?.id ?? 0);
-                if (id === 56 || id === 57 || id === 59 || id === 92) return true;
+                if (id === 57 || id === 59 || id === 92) return true;
                 const lab = normalizarTextoPermisoModal(mod?.modulo_nombre || '');
                 if (lab.includes('descargar') && lab.includes('excel')) return true;
                 if (!lab.includes('cierre')) return false;

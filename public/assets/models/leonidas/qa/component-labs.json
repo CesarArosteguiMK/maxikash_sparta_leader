@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "productionIsolation": true,
+  "defaultLab": "helmet",
+  "labs": [
+    {
+      "id": "helmet",
+      "name": "Casco",
+      "icon": "⛑",
+      "status": "operational",
+      "roles": ["helmet", "headUnderlay", "hair"],
+      "tools": ["candidate", "visibility", "scale", "position", "rotation", "turntable"],
+      "url": "/leonidas-gear-qa.html",
+      "acceptance": ["No atraviesa el rostro", "Respeta ojos, nariz y barba", "La cresta conserva volumen", "Cierra correctamente en nuca y mejillas"]
+    },
+    {
+      "id": "chest",
+      "name": "Pechera y correas",
+      "icon": "🛡",
+      "status": "inspection",
+      "roles": ["chest", "torsoUnderlay"],
+      "tools": ["visibility", "materials", "turntable", "checklist"],
+      "url": "/leonidas-component-qa.html?lab=chest",
+      "acceptance": ["No invade cuello ni brazos", "Sigue la anatomía del torso", "Las correas no flotan", "El material conserva relieve"]
+    },
+    {
+      "id": "hair",
+      "name": "Cabello y barba",
+      "icon": "✂",
+      "status": "inspection",
+      "roles": ["hair", "headUnderlay"],
+      "tools": ["visibility", "color", "turntable", "checklist"],
+      "url": "/leonidas-component-qa.html?lab=hair",
+      "acceptance": ["No atraviesa cráneo ni orejas", "Funciona con el casco oculto", "La silueta es espartana", "Barba y cabello mantienen el mismo lenguaje visual"]
+    },
+    {
+      "id": "shield",
+      "name": "Escudo",
+      "icon": "◉",
+      "status": "inspection",
+      "roles": ["shield"],
+      "tools": ["visibility", "materials", "turntable", "checklist"],
+      "url": "/leonidas-component-qa.html?lab=shield",
+      "acceptance": ["No tapa el rostro en reposo", "La mano coincide con el agarre", "El grosor es creíble", "El emblema conserva orientación y relieve"]
+    },
+    {
+      "id": "spear",
+      "name": "Lanza",
+      "icon": "⌁",
+      "status": "inspection",
+      "roles": ["spear"],
+      "tools": ["visibility", "materials", "turntable", "checklist"],
+      "url": "/leonidas-component-qa.html?lab=spear",
+      "acceptance": ["La mano coincide con el asta", "La punta tiene volumen metálico", "No atraviesa el cuerpo", "La longitud cabe en el encuadre de revisión"]
+    },
+    {
+      "id": "pose",
+      "name": "Manos y pose",
+      "icon": "✊",
+      "status": "inspection",
+      "roles": ["leftHand", "rightHand", "arms", "legs"],
+      "tools": ["turntable", "symmetry", "checklist"],
+      "url": "/leonidas-component-qa.html?lab=pose",
+      "acceptance": ["Codos ligeramente flexionados", "Manos relajadas y simétricas", "Pies completamente visibles", "La pose funciona desde frente, perfil y espalda"]
+    },
+    {
+      "id": "materials",
+      "name": "Materiales y colores",
+      "icon": "🎨",
+      "status": "inspection",
+      "roles": ["primary", "secondary", "metal", "skin", "hair"],
+      "tools": ["color", "preset", "turntable", "checklist"],
+      "url": "/leonidas-component-qa.html?lab=materials",
+      "acceptance": ["La piel nunca recibe color de armadura", "Tela, cuero y metal están separados", "El metal conserva luces y sombras", "Los zapatos y bordes no contaminan la piel"]
+    },
+    {
+      "id": "camera",
+      "name": "Encuadre y giro",
+      "icon": "◫",
+      "status": "inspection",
+      "roles": ["camera", "characterAnchor"],
+      "tools": ["turntable", "framing", "screenshots", "checklist"],
+      "url": "/leonidas-component-qa.html?lab=camera",
+      "acceptance": ["Cabeza y pies permanecen visibles", "El avatar queda centrado", "El giro no cambia la escala", "El encuadre funciona en escritorio y modal"]
+    }
+  ]
+}

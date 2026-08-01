@@ -88,6 +88,38 @@ if (root && canvas) {
         let activeModel = null;
         let activeUsesRigTexture = false;
         let modularParts = null;
+        let qaHelmetContainer = null;
+        let qaHelmetRequest = 0;
+        let qaHelmetState = {
+            id: 'original',
+            scale: 1,
+            offsetX: 0,
+            offsetY: 0,
+            offsetZ: 0,
+            rotationY: 0,
+            hideOriginal: true
+        };
+        const qaHelmetPaths = Object.freeze({
+            aqueo: '/assets/models/leonidas/qa/helmet-aqueo-dimensioned-v7.glb?v=12',
+            atico: '/assets/models/leonidas/qa/helmet-atico-longitudinal-preview.glb?v=1'
+        });
+        const qaHelmetFitNodes = Object.freeze({
+            aqueo: 'Aqueo_FitReference'
+        });
+        const qaHelmetFitMultipliers = Object.freeze({
+            // Calibración visual sobre la cabeza modular. Los límites del GLB
+            // incluyen cresta, carrilleras y ornamentos; por eso cada silueta
+            // necesita una corrección propia además del ajuste por anchura.
+            aqueo: 1,
+            atico: 1.35
+        });
+        const qaHelmetAxisMultipliers = Object.freeze({
+            // La reconstrucción nueva usa la bóveda como contrato. Su ancho
+            // coincide con la cabeza de Leónidas; profundidad y altura se
+            // corrigen por separado para conservar espacio interior sin
+            // convertir la cresta en la referencia de tamaño.
+            aqueo: Object.freeze({ x: 1, y: 1, z: 1 })
+        });
         let currentAppearance = normalizeAppearance(root._leonidasAppearance);
         let rigAppearanceTexture = null;
         let rigSourceTexture = leonidasColorTexture;
@@ -222,7 +254,12 @@ if (root && canvas) {
 
         const applyModularVisibility = () => {
             if (!modularParts) return;
-            modularParts.helmet.visible = currentAppearance.casco_visible;
+            modularParts.helmet.visible = currentAppearance.casco_visible
+                && !(
+                    qaHelmetContainer
+                    && qaHelmetState.id !== 'original'
+                    && qaHelmetState.hideOriginal
+                );
             modularParts.chest.visible = currentAppearance.pechera_visible;
             if (modularParts.headUnderlay) {
                 // La anatomía permanece separada detrás de la careta y nunca
@@ -1500,6 +1537,192 @@ if (root && canvas) {
             if (root.classList.contains('is-appearance-preview-live')) {
                 previewRotationTarget = 0;
             }
+        });
+
+        const disposeQaHelmet = () => {
+            if (!qaHelmetContainer) return;
+            qaHelmetContainer.parent?.remove(qaHelmetContainer);
+            qaHelmetContainer.traverse((node) => {
+                if (!node.isMesh) return;
+                node.geometry?.dispose?.();
+                const materials = Array.isArray(node.material) ? node.material : [node.material];
+                materials.filter(Boolean).forEach((material) => material.dispose?.());
+            });
+            qaHelmetContainer = null;
+        };
+
+        const normalizeQaHelmetState = (value = {}) => ({
+            id: qaHelmetPaths[value.id] ? value.id : 'original',
+            scale: THREE.MathUtils.clamp(Number(value.scale) || 1, 0.45, 1.65),
+            offsetX: THREE.MathUtils.clamp(Number(value.offsetX) || 0, -1, 1),
+            offsetY: THREE.MathUtils.clamp(Number(value.offsetY) || 0, -1, 1),
+            offsetZ: THREE.MathUtils.clamp(Number(value.offsetZ) || 0, -1, 1),
+            rotationY: THREE.MathUtils.clamp(Number(value.rotationY) || 0, -180, 180),
+            hideOriginal: value.hideOriginal !== false
+        });
+
+        const fitQaHelmet = () => {
+            if (!qaHelmetContainer || !modularParts?.helmet || !activeModel) return;
+            // Medir con la rotación raíz neutral evita que la caja AABB cambie
+            // de anchura según el ángulo desde el que se seleccionó el casco.
+            // La operación es síncrona: se restaura antes del siguiente frame.
+            const displayedRotationY = activeModel.rotation.y;
+            activeModel.rotation.y = 0;
+            activeModel.updateMatrixWorld(true);
+            const targetBox = new THREE.Box3().setFromObject(modularParts.helmet);
+            if (targetBox.isEmpty()) {
+                activeModel.rotation.y = displayedRotationY;
+                activeModel.updateMatrixWorld(true);
+                return;
+            }
+            const targetSize = targetBox.getSize(new THREE.Vector3());
+            const targetCenterWorld = targetBox.getCenter(new THREE.Vector3());
+            // El candidato vive bajo la transformación raíz del modelo. El
+            // padre inmediato de la malla original puede ser un nodo técnico
+            // con ejes importados (por ejemplo, corrección Y-up/Z-up); usarlo
+            // deformaría la orientación del candidato. La raíz es exactamente
+            // el objeto que rota cuando el usuario arrastra a Leónidas.
+            const anchor = activeModel;
+            anchor.updateMatrixWorld(true);
+            const targetCenter = anchor.worldToLocal(targetCenterWorld.clone());
+            const anchorWorldScale = anchor.getWorldScale(new THREE.Vector3());
+            const localTargetSize = targetSize.clone().set(
+                targetSize.x / Math.max(Math.abs(anchorWorldScale.x), 0.001),
+                targetSize.y / Math.max(Math.abs(anchorWorldScale.y), 0.001),
+                targetSize.z / Math.max(Math.abs(anchorWorldScale.z), 0.001)
+            );
+            activeModel.rotation.y = displayedRotationY;
+            activeModel.updateMatrixWorld(true);
+            const candidateSize = qaHelmetContainer.userData.candidateSize;
+            const widthScale = localTargetSize.x / Math.max(candidateSize.x, 0.001);
+            // Fit the metal shell by width. The candidates include long crests
+            // and rear ornaments, so using their full depth would shrink the
+            // actual head opening until it disappeared inside the skull.
+            const fittedScale = widthScale
+                * (qaHelmetFitMultipliers[qaHelmetState.id] || 1)
+                * qaHelmetState.scale;
+            const axisScale = qaHelmetAxisMultipliers[qaHelmetState.id]
+                || { x: 1, y: 1, z: 1 };
+            qaHelmetContainer.scale.set(
+                fittedScale * axisScale.x,
+                fittedScale * axisScale.y,
+                fittedScale * axisScale.z
+            );
+            qaHelmetContainer.position.copy(targetCenter);
+            qaHelmetContainer.position.x += localTargetSize.x * qaHelmetState.offsetX;
+            qaHelmetContainer.position.y += localTargetSize.y * qaHelmetState.offsetY;
+            qaHelmetContainer.position.z += localTargetSize.z * qaHelmetState.offsetZ;
+            qaHelmetContainer.rotation.set(
+                0,
+                THREE.MathUtils.degToRad(qaHelmetState.rotationY),
+                0
+            );
+            root.dataset.leonidasQaHelmetFit = JSON.stringify({
+                targetCenter: targetCenter.toArray().map((value) => Number(value.toFixed(4))),
+                targetSize: targetSize.toArray().map((value) => Number(value.toFixed(4))),
+                localTargetSize: localTargetSize.toArray().map((value) => Number(value.toFixed(4))),
+                anchor: anchor.name || anchor.type || 'activeModel',
+                anchorWorldScale: anchorWorldScale.toArray().map((value) => Number(value.toFixed(4))),
+                candidateSize: candidateSize.toArray().map((value) => Number(value.toFixed(4))),
+                axisScale,
+                position: qaHelmetContainer.position.toArray().map((value) => Number(value.toFixed(4))),
+                fittedScale: Number(fittedScale.toFixed(5))
+            });
+            applyModularVisibility();
+            root.dataset.leonidasQaHelmet = qaHelmetState.id;
+            root.dispatchEvent(new CustomEvent('leonidas:qa-helmet-ready', {
+                detail: { ...qaHelmetState, fittedScale }
+            }));
+        };
+
+        const loadQaHelmet = () => {
+            if (!root.hasAttribute('data-leonidas-helmet-lab')) return;
+            const path = qaHelmetPaths[qaHelmetState.id];
+            if (!path) {
+                qaHelmetRequest += 1;
+                disposeQaHelmet();
+                applyModularVisibility();
+                root.dataset.leonidasQaHelmet = 'original';
+                root.dispatchEvent(new CustomEvent('leonidas:qa-helmet-ready', {
+                    detail: { ...qaHelmetState, fittedScale: 1 }
+                }));
+                return;
+            }
+            if (!activeModel || !modularParts?.helmet) return;
+            if (qaHelmetContainer?.userData?.helmetId === qaHelmetState.id) {
+                fitQaHelmet();
+                return;
+            }
+            const request = ++qaHelmetRequest;
+            root.dataset.leonidasQaHelmet = 'loading';
+            loader.load(
+                path,
+                (gltf) => {
+                    if (request !== qaHelmetRequest) {
+                        gltf.scene.traverse((node) => node.geometry?.dispose?.());
+                        return;
+                    }
+                    disposeQaHelmet();
+                    const candidate = gltf.scene;
+                    candidate.updateMatrixWorld(true);
+                    const candidateBox = new THREE.Box3().setFromObject(candidate);
+                    const fitNodeName = qaHelmetFitNodes[qaHelmetState.id];
+                    const fitNode = fitNodeName ? candidate.getObjectByName(fitNodeName) : null;
+                    const candidateFitBox = fitNode
+                        ? new THREE.Box3().setFromObject(fitNode)
+                        : candidateBox;
+                    const candidateSize = candidateFitBox.getSize(new THREE.Vector3());
+                    const candidateCenter = candidateFitBox.getCenter(new THREE.Vector3());
+                    const container = new THREE.Group();
+                    container.name = `LeonidasQaHelmet_${qaHelmetState.id}`;
+                    container.userData.helmetId = qaHelmetState.id;
+                    container.userData.candidateSize = candidateSize;
+                    container.userData.fitNode = fitNode?.name || 'full-candidate';
+                    candidate.position.set(
+                        -candidateCenter.x,
+                        -candidateCenter.y,
+                        -candidateCenter.z
+                    );
+                    candidate.traverse((node) => {
+                        if (!node.isMesh) return;
+                        if (node.name === 'Aqueo_FitReference') {
+                            node.visible = false;
+                        }
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+                        node.frustumCulled = false;
+                        // Las placas curvas del laboratorio tienen grosor real,
+                        // pero algunas caras espejadas conservan el winding del
+                        // lado opuesto. Renderizar ambas caras evita perder una
+                        // carrillera completa sin alterar su volumen ni ajuste.
+                        const materials = Array.isArray(node.material)
+                            ? node.material
+                            : [node.material];
+                        materials.filter(Boolean).forEach((material) => {
+                            material.side = THREE.DoubleSide;
+                            material.needsUpdate = true;
+                        });
+                    });
+                    container.add(candidate);
+                    activeModel.add(container);
+                    qaHelmetContainer = container;
+                    fitQaHelmet();
+                },
+                undefined,
+                () => {
+                    if (request !== qaHelmetRequest) return;
+                    root.dataset.leonidasQaHelmet = 'error';
+                    root.dispatchEvent(new CustomEvent('leonidas:qa-helmet-error', {
+                        detail: { id: qaHelmetState.id }
+                    }));
+                }
+            );
+        };
+
+        root.addEventListener('leonidas:qa-helmet', (event) => {
+            if (!root.hasAttribute('data-leonidas-helmet-lab')) return;
+            qaHelmetState = normalizeQaHelmetState(event.detail);
+            loadQaHelmet();
         });
 
         root.addEventListener('leonidas:preview-layout', () => {

@@ -73,17 +73,17 @@ def palette() -> dict[str, bpy.types.Material]:
     return {
         "dark_metal": material(
             "Aqueo_BlackenedIron",
-            (0.042, 0.057, 0.076, 1.0),
-            0.92,
-            0.24,
+            (0.085, 0.105, 0.135, 1.0),
+            0.88,
+            0.30,
             7.5,
             0.16,
         ),
         "dark_metal_soft": material(
             "Aqueo_BlackenedIronSoft",
-            (0.065, 0.078, 0.094, 1.0),
-            0.86,
-            0.34,
+            (0.12, 0.145, 0.18, 1.0),
+            0.82,
+            0.38,
             11.0,
             0.10,
         ),
@@ -554,12 +554,30 @@ def create_aqueo(mats: dict[str, bpy.types.Material]) -> list[bpy.types.Object]:
         create_open_dome(
             "Aqueo_Shell",
             mats["dark_metal_soft"],
-            brow_z=0.52,
-            front_cut_y=-0.48,
+            ry=1.0,
+            # La bóveda debe abrazar el cráneo hasta la frente. La abertura
+            # anterior empieza en la máscara, no a mitad de la cabeza.
+            brow_z=0.30,
+            front_cut_y=-0.66,
             bottom_z=-0.07,
         )
     )
-    objects.append(rear_skirt("Aqueo_NeckGuard", 0.70, 0.76, 0.10, -0.45, 0.038, mats["dark_metal_soft"]))
+    # Tapa craneal independiente: cubre 360° la frente y coronilla sin cerrar
+    # la abertura de ojos/nariz de la máscara exterior. Al ser simétrica no
+    # puede trasladar el hueco de un perfil al otro al girar a Leónidas.
+    objects.append(
+        create_open_dome(
+            "Aqueo_CranialCap",
+            mats["dark_metal_soft"],
+            rx=0.82,
+            ry=1.12,
+            rz=0.90,
+            brow_z=-10.0,
+            front_cut_y=-10.0,
+            bottom_z=0.24,
+        )
+    )
+    objects.append(rear_skirt("Aqueo_NeckGuard", 0.70, 0.98, 0.10, -0.45, 0.038, mats["dark_metal_soft"]))
     curvature = 0.34
     y_front = -0.775
 

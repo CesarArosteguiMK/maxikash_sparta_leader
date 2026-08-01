@@ -893,14 +893,14 @@ class Convenios extends Controller
     public function reporteria()
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        self::set('titulo', 'Reporteria Convenios ' . $emp);
+        self::set('titulo', 'Reportería de Convenios ' . $emp);
         self::render('convenios_reporteria');
     }
 
     public function reporteHistorico()
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        self::set('titulo', 'Historico de convenios ' . $emp);
+        self::set('titulo', 'Histórico de convenios ' . $emp);
         self::render('convenios_reporte_historico');
     }
 
@@ -925,7 +925,7 @@ class Convenios extends Controller
             $r = ConveniosDAO::obtenerReporteHistoricoConvenios($_GET);
             if (empty($r['success'])) {
                 http_response_code(500);
-                die($r['mensaje'] ?? 'Error al obtener el reporte historico de convenios.');
+                die($r['mensaje'] ?? 'Error al obtener el reporte histórico de convenios.');
             }
 
             require_once LIBRERIAS . '/PhpSpreadsheet/PhpSpreadsheet.php';
@@ -982,9 +982,9 @@ class Convenios extends Controller
             $columnas = [
                 \PHPSpreadsheet::ColumnaExcel('fecha_convenio', 'FECHA CONVENIO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
                 \PHPSpreadsheet::ColumnaExcel('id_convenio', 'ID CONVENIO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
-                \PHPSpreadsheet::ColumnaExcel('id_credito', 'ID CREDITO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('id_credito', 'ID CRÉDITO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
                 \PHPSpreadsheet::ColumnaExcel('nombre_cliente', 'CLIENTE', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_izquierda')]),
-                \PHPSpreadsheet::ColumnaExcel('celula', 'CELULA', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('celula', 'CÉLULA', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
                 \PHPSpreadsheet::ColumnaExcel('monto_original', 'MONTO ORIGINAL', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda'), 'total' => true]),
                 \PHPSpreadsheet::ColumnaExcel('oferta_seleccionada', 'OFERTA SELECCIONADA', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_izquierda')]),
                 \PHPSpreadsheet::ColumnaExcel('porcentaje_descuento', 'DESCUENTO %', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
@@ -1009,7 +1009,7 @@ class Convenios extends Controller
             \PHPSpreadsheet::DescargaExcel(
                 'Historico_Convenios_' . date('Ymd_His'),
                 'Historico',
-                'Reporte Historico de Convenios',
+                'Reporte Histórico de Convenios',
                 $columnas,
                 $datos
             );
@@ -1017,7 +1017,7 @@ class Convenios extends Controller
         } catch (\Throwable $e) {
             error_log('Convenios::reporteHistoricoExcel -> ' . $e->getMessage());
             http_response_code(500);
-            die('Error al generar el reporte historico de convenios.');
+            die('Error al generar el reporte histórico de convenios.');
         }
     }
 

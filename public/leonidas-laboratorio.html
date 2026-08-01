@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Laboratorios de Leónidas</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; padding: 42px; color: #eef3fb; background: #101b2d; font: 15px/1.45 system-ui, sans-serif; }
+        main { width: min(1120px, 100%); margin: auto; }
+        h1 { margin: 0; font-size: clamp(28px, 4vw, 46px); }
+        .lead { max-width: 720px; margin: 8px 0 28px; color: #aebdd0; }
+        .labs { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 16px; }
+        .lab { min-height: 180px; padding: 20px; border: 1px solid #304562; border-radius: 18px; background: linear-gradient(145deg, #1a2d48, #14243a); }
+        .lab.is-operational { border-color: #d6aa45; box-shadow: 0 14px 34px rgba(0,0,0,.2); }
+        .lab.is-inspection { border-color: #496b94; }
+        .icon { font-size: 26px; }
+        h2 { margin: 9px 0 3px; font-size: 19px; }
+        .status { color: #8da2bb; font-size: 12px; }
+        .tools { min-height: 42px; margin: 12px 0; color: #c3cfdd; font-size: 12px; }
+        a { display: inline-flex; padding: 9px 13px; border-radius: 9px; color: #101b2d; background: #e1b84f; font-weight: 750; text-decoration: none; }
+        .pending { color: #8da2bb; font-size: 12px; }
+        .legend { display: flex; flex-wrap: wrap; gap: 9px; margin: 0 0 22px; color: #aebdd0; font-size: 12px; }
+        .legend span { padding: 6px 9px; border: 1px solid #304562; border-radius: 999px; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Laboratorios de Leónidas</h1>
+    <p class="lead">Cada componente se prueba de forma aislada. Ningún cambio de este espacio modifica el vestuario activo ni las preferencias de los usuarios.</p>
+    <div class="legend">
+        <span>Operativo: admite candidatos 3D</span>
+        <span>Inspección: visor y contrato de aceptación</span>
+        <span>Producción aislada</span>
+    </div>
+    <section class="labs" data-labs aria-live="polite"></section>
+</main>
+<script type="module">
+    const target = document.querySelector('[data-labs]');
+    const manifest = await fetch('/assets/models/leonidas/qa/component-labs.json', { cache: 'no-store' }).then((response) => response.json());
+    manifest.labs.forEach((lab) => {
+        const article = document.createElement('article');
+        article.className = `lab is-${lab.status}`;
+        const action = lab.url
+            ? `<a href="${lab.url}">Abrir laboratorio</a>`
+            : '<span class="pending">Implementación pendiente</span>';
+        const statuses = { operational: 'Operativo', inspection: 'Inspección aislada', registered: 'Registrado' };
+        article.innerHTML = `
+            <span class="icon" aria-hidden="true">${lab.icon}</span>
+            <h2>${lab.name}</h2>
+            <div class="status">${statuses[lab.status] || lab.status}</div>
+            <div class="tools">${lab.tools.join(' · ')}</div>
+            ${action}
+        `;
+        target.appendChild(article);
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+{
+  "front": {
+    "path": "C:\\xampp\\htdocs\\sparta_ledger\\storage\\leonidas-helmet-reconstruction\\hunyuan3d-2mv\\helmet-aqueo-oscuro-inputs\\front.png",
+    "bbox": [
+      113,
+      0,
+      494,
+      626
+    ],
+    "size": [
+      627,
+      627
+    ]
+  },
+  "right": {
+    "path": "C:\\xampp\\htdocs\\sparta_ledger\\storage\\leonidas-helmet-reconstruction\\hunyuan3d-2mv\\helmet-aqueo-oscuro-inputs\\right.png",
+    "bbox": [
+      118,
+      0,
+      502,
+      626
+    ],
+    "size": [
+      627,
+      627
+    ]
+  },
+  "back": {
+    "path": "C:\\xampp\\htdocs\\sparta_ledger\\storage\\leonidas-helmet-reconstruction\\hunyuan3d-2mv\\helmet-aqueo-oscuro-inputs\\back.png",
+    "bbox": [
+      134,
+      2,
+      484,
+      626
+    ],
+    "size": [
+      627,
+      627
+    ]
+  },
+  "left": {
+    "path": "C:\\xampp\\htdocs\\sparta_ledger\\storage\\leonidas-helmet-reconstruction\\hunyuan3d-2mv\\helmet-aqueo-oscuro-inputs\\left.png",
+    "bbox": [
+      100,
+      0,
+      581,
+      626
+    ],
+    "size": [
+      627,
+      627
+    ]
+  },
+  "mesh": {
+    "vertices": 37484,
+    "faces": 75000,
+    "bounds_min": [
+      -0.45876139402389526,
+      -0.8716610670089722,
+      -0.9997459053993225
+    ],
+    "bounds_max": [
+      0.43304944038391113,
+      0.8720061779022217,
+      0.9724992513656616
+    ]
+  }
+}

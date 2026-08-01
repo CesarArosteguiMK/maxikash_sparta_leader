@@ -970,7 +970,7 @@ body.dark-mode .manual-faq-modal .manual-pill { background: rgba(167,139,250,.16
                                    <th id="thSemanalCapital">Semanal / Capital</th>
                                    <th>Pago Realizado</th>
                                    <th>Estatus</th>
-                                           <th>Accion</th>
+                                           <th>Acción</th>
 
                                 </tr>
                             </thead>
@@ -1977,10 +1977,6 @@ function seleccionarCredito(idCredito) {
                             _estatusConvenio = (respConvenio.success && respConvenio.datos)
                                 ? (respConvenio.datos.estatus === 'activo' ? 'activo' : (respConvenio.datos.estatus === 'completado' ? 'completado' : 'sin_convenio'))
                                 : 'sin_convenio';
-                            // Si reactivado + sólo convenios completados, usar badge neutro
-                            if (estaReactivado && _estatusConvenio === 'completado') {
-                                _estatusConvenio = 'sin_convenio';
-                            }
                             renderCreditoBanner(credito);
                             var bloqueados = datos.productos_bloqueados || [];
                             renderOfertas(ofertas, bloqueados);
@@ -2001,11 +1997,12 @@ function seleccionarCredito(idCredito) {
 
                             verificarSaldado();
 
-                            // Solo congelar si hay convenio activo (no congelar en créditos reactivados con convenio completado)
+                            // Un convenio completado siempre conserva el mismo cierre visual,
+                            // aunque provenga de una oferta reactivada.
                             if (respConvenio.success && respConvenio.datos &&
                                 respConvenio.datos.estatus === 'activo') {
                                 congelarModulo(respConvenio.datos);
-                            } else if (!estaReactivado && respConvenio.success && respConvenio.datos &&
+                            } else if (respConvenio.success && respConvenio.datos &&
                                 respConvenio.datos.estatus === 'completado') {
                                 congelarModulo(respConvenio.datos);
                             }
@@ -2037,9 +2034,6 @@ function seleccionarCredito(idCredito) {
                             _estatusConvenio = (respConvenio.success && respConvenio.datos)
                                 ? (respConvenio.datos.estatus === 'activo' ? 'activo' : (respConvenio.datos.estatus === 'completado' ? 'completado' : 'sin_convenio'))
                                 : 'sin_convenio';
-                            if (estaReactivado && _estatusConvenio === 'completado') {
-                                _estatusConvenio = 'sin_convenio';
-                            }
                             renderCreditoBanner(credito);
                             var bloqueados = datos.productos_bloqueados || [];
                             renderOfertas(ofertas, bloqueados);
@@ -2049,7 +2043,7 @@ function seleccionarCredito(idCredito) {
                             if (respConvenio.success && respConvenio.datos &&
                                 respConvenio.datos.estatus === 'activo') {
                                 congelarModulo(respConvenio.datos);
-                            } else if (!estaReactivado && respConvenio.success && respConvenio.datos &&
+                            } else if (respConvenio.success && respConvenio.datos &&
                                 respConvenio.datos.estatus === 'completado') {
                                 congelarModulo(respConvenio.datos);
                             }
@@ -2147,7 +2141,8 @@ function _actualizarBotonReactivacion() {
 
     var hayPermiso = _permSolicitarReactivacion || _permReactivarOfertas;
     var hayOfertas = Array.isArray(_ofertasReactivables) && _ofertasReactivables.length > 0;
-    var puedeMostrar = hayPermiso && hayOfertas && _estatusConvenio !== 'activo';
+    var puedeMostrar = hayPermiso && hayOfertas &&
+        _estatusConvenio !== 'activo' && _estatusConvenio !== 'completado';
 
     btn.style.display = puedeMostrar ? 'inline-block' : 'none';
     if (puedeMostrar) {
@@ -4764,7 +4759,7 @@ function _migBloquearPorBucket(credito, info) {
             '<i class="fas fa-ban fa-lg mt-1 text-warning"></i>' +
             '<div>' +
             '<strong>No cumple condicion para convenio</strong><br>' +
-            '<span>' + ((credito && credito.Nombre_cliente) || 'Cliente') + ' &mdash; Credito #' + ((credito && credito.Id_credito) || '') + '</span><br>' +
+            '<span>' + ((credito && credito.Nombre_cliente) || 'Cliente') + ' &mdash; Crédito #' + ((credito && credito.Id_credito) || '') + '</span><br>' +
             '<small class="d-block mt-1"><strong>Condición:</strong> solo créditos en bucket 8 días o más pueden registrar un convenio existente.</small>' +
             '<small class="d-block text-muted">Bucket actual: <strong>' + bucket + '</strong>; no cumple porque ' + motivo + ', por debajo del minimo requerido.</small>' +
             '</div>' +
