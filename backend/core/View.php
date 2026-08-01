@@ -4,6 +4,10 @@ $titulo = $titulo ?? "Inicio | "  . CONFIGURACION['EMPRESA'];
 $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'Usuario';
 /** Si la vista lo define (p. ej. estado de cuenta), se omiten CSS/JS vendor masivos para acelerar carga */
 $layoutVendorLite = isset($layoutVendorLite) && $layoutVendorLite;
+$layoutPreloadSweetAlert = isset($layoutPreloadSweetAlert) && $layoutPreloadSweetAlert;
+$layoutPreloadSweetAlertTitle = (string)($layoutPreloadSweetAlertTitle ?? 'Cargando informaci&oacute;n');
+$layoutPreloadSweetAlertText = (string)($layoutPreloadSweetAlertText ?? 'Preparando los datos...');
+$layoutSelect2 = isset($layoutSelect2) && $layoutSelect2;
 /** Rastreo embebido desde Estado de cuenta: ocultar menú/navbar (solo con ?chromeless=1 en consulta Analítica) */
 $layoutChromelessReporteriaEmbed = isset($layoutChromelessReporteriaEmbed) && $layoutChromelessReporteriaEmbed;
 
@@ -564,11 +568,18 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
     <link rel="stylesheet" href="/assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css">
     <link rel="stylesheet" href="/assets/vendor/libs/flatpickr/flatpickr.css">
     <link rel="stylesheet" href="/assets/vendor/libs/sweetalert2/sweetalert2.css">
+    <?php if ($layoutSelect2): ?>
+    <link rel="stylesheet" href="/assets/vendor/libs/select2/select2.css">
+    <?php endif; ?>
     <link rel="stylesheet" href="/assets/css/swal-liquid-glass.css?v=<?= $__assetsVer ?>">
     <?php endif; ?>
 
     <!-- Page CSS -->
     <?= $css ?? ''; ?>
+
+    <?php if ($layoutPreloadSweetAlert): ?>
+    <script src="/assets/vendor/libs/sweetalert2/sweetalert2.js"></script>
+    <?php endif; ?>
 
     <!-- Iconos del menú lateral en blanco y negro (mismo color para todos) -->
     <style>
@@ -706,6 +717,27 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
 
 <body<?= $layoutChromelessReporteriaEmbed ? ' class="layout-chromeless-reporteria-embed"' : '' ?>>
     <script>(function(){var d=document,e=d.documentElement,b=d.body,v=localStorage.getItem('darkMode')==='enabled';if(v){e.classList.add('dark-mode');if(b)b.classList.add('dark-mode');}})();</script>
+    <?php if ($layoutPreloadSweetAlert): ?>
+    <script>
+    (function () {
+        if (typeof Swal === 'undefined') return;
+        var startedAt = performance.now();
+        window.__atlasVentasPreload = { active: true, startedAt: startedAt };
+        try {
+            Swal.fire({
+                title: <?= json_encode(html_entity_decode($layoutPreloadSweetAlertTitle, ENT_QUOTES, 'UTF-8'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+                text: <?= json_encode(html_entity_decode($layoutPreloadSweetAlertText, ENT_QUOTES, 'UTF-8'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: function () { Swal.showLoading(); }
+            });
+        } catch (error) {
+            window.__atlasVentasPreload = null;
+        }
+    })();
+    </script>
+    <?php endif; ?>
     <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
@@ -992,7 +1024,9 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
     <script src="/assets/vendor/libs/select2/select2.js"></script>
     <script src="/assets/vendor/libs/shepherd/shepherd.js"></script>
     <script src="/assets/vendor/libs/sortablejs/sortable.js"></script>
+    <?php if (!$layoutPreloadSweetAlert): ?>
     <script src="/assets/vendor/libs/sweetalert2/sweetalert2.js"></script>
+    <?php endif; ?>
     <script src="/assets/vendor/libs/swiper/swiper.js"></script>
     <script src="/assets/vendor/libs/tagify/tagify.js"></script>
     <script type="module">
@@ -1007,7 +1041,12 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
     <script>
     (function(){if(typeof flatpickr==='undefined')return;if(!flatpickr.l10ns)flatpickr.l10ns={};if(!flatpickr.l10ns.es){flatpickr.l10ns.es={weekdays:{shorthand:['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],longhand:['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']},months:{shorthand:['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],longhand:['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']},firstDayOfWeek:1,ordinal:function(){return'.';}};}try{flatpickr.localize(flatpickr.l10ns.es);}catch(e){}})();
     </script>
+    <?php if ($layoutSelect2): ?>
+    <script src="/assets/vendor/libs/select2/select2.js"></script>
+    <?php endif; ?>
+    <?php if (!$layoutPreloadSweetAlert): ?>
     <script src="/assets/vendor/libs/sweetalert2/sweetalert2.js"></script>
+    <?php endif; ?>
     <script src="/assets/vendor/libs/moment/moment.js"></script>
     <script src="/assets/vendor/libs/numeral/numeral.js"></script>
     <?php endif; ?>

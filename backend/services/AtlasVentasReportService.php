@@ -55,7 +55,7 @@ final class AtlasVentasReportService
             $this->setInteger($sheet, 'A' . $row, $venta['id_persona'] ?? 0);
             $this->setInteger($sheet, 'B' . $row, $venta['id_oferta'] ?? 0);
             $sheet->setCellValueExplicit('C' . $row, (string)($venta['nombre_cliente'] ?? ''), DataType::TYPE_STRING);
-            $this->setDate($sheet, 'D' . $row, $venta['fecha_contabilizacion_venta'] ?? null);
+            $this->setDate($sheet, 'D' . $row, $venta['fecha_dispersion'] ?? null);
             $sheet->setCellValueExplicit('E' . $row, (string)($venta['sucursal'] ?? ''), DataType::TYPE_STRING);
             $sheet->setCellValueExplicit('F' . $row, (string)($venta['distribuidor'] ?? ''), DataType::TYPE_STRING);
             $this->setDate($sheet, 'G' . $row, $venta['fecha_oferta'] ?? null);
