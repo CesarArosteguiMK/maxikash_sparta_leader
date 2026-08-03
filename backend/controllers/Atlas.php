@@ -10,8 +10,8 @@ use Services\AtlasVentasReportService;
 
 class Atlas extends Controller
 {
-    private const MODULO_ATLAS_VENTAS = 3051;
-    private const MODULO_ATLAS_EXPEDIENTES = 3052;
+    private const MODULO_ATLAS_VENTAS = 202;
+    private const MODULO_ATLAS_EXPEDIENTES = 203;
 
     public function atlas()
     {

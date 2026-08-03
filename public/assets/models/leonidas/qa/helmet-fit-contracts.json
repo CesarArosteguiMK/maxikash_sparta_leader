@@ -1,0 +1,179 @@
+{
+  "version": 1,
+  "productionIsolation": true,
+  "sourceOfTruth": "measured LeonidasHeadUnderlay and validated stage-01 dome",
+  "sourceChecksumsSha256": {
+    "headContract": "fa57eaf573184d5e58441bd89a7eb8a8dd135583c659da6d681ef2c415673793",
+    "domeReport": "9400e7c4f5c343c326b8513f169dffef5630fcf40f956a7b8bb5657566da19cd",
+    "domeValidation": "182642ee1a6bf55776ac64e9d87eed0833417120c166fe9ade7b9949ea1bbb13"
+  },
+  "contracts": {
+    "aqueo_oscuro": {
+      "id": "aqueo_oscuro",
+      "name": "Áqueo oscuro",
+      "version": 1,
+      "status": "measurements_locked_rebuild_required",
+      "productionReady": false,
+      "anchor": {
+        "model": "leonidas-spartan-modular-v2.glb",
+        "anatomyObject": "LeonidasHeadUnderlay",
+        "armature": "LeonidasRig",
+        "bone": "mixamorig:Head",
+        "axes": {
+          "right": "+X",
+          "left": "-X",
+          "up": "+Y",
+          "front": "+Z",
+          "back": "-Z"
+        },
+        "centerBoneLocal": [
+          0.0,
+          0.06826,
+          0.021647
+        ]
+      },
+      "headReference": {
+        "contract": "storage/leonidas-helmet-designs/measurements/leonidas-head-contract-v1.json",
+        "robustWorld": {
+          "min": [
+            -0.085447,
+            -0.020592,
+            1.085971
+          ],
+          "max": [
+            0.048922,
+            0.142908,
+            1.315937
+          ],
+          "center": [
+            -0.018262,
+            0.061158,
+            1.200954
+          ],
+          "extent": {
+            "x": 0.134369,
+            "y": 0.1635,
+            "z": 0.229965
+          }
+        },
+        "exactWorld": {
+          "min": [
+            -0.095018,
+            -0.02831,
+            1.061748
+          ],
+          "max": [
+            0.058493,
+            0.158741,
+            1.321879
+          ],
+          "center": [
+            -0.018262,
+            0.065216,
+            1.191813
+          ],
+          "extent": {
+            "x": 0.15351,
+            "y": 0.187051,
+            "z": 0.260131
+          }
+        },
+        "clearanceMeters": {
+          "side_x_each": 0.01,
+          "front_negative_y": 0.012,
+          "back_positive_y": 0.014,
+          "top_positive_z": 0.014,
+          "minimum_shell_thickness": 0.0035
+        }
+      },
+      "approvedDomeReference": {
+        "asset": "/assets/models/leonidas/qa/leonidas-helmet-dome-stage-01.glb",
+        "object": "LeonidasHelmetDomeStage01",
+        "sourceBlend": "storage/leonidas-helmet-designs/stage-01-dome/leonidas-helmet-dome-stage-01.blend",
+        "worldParametersMeters": {
+          "axis_x": -0.01588,
+          "center_y": 0.04886,
+          "center_z": 1.2251,
+          "radius_x": 0.089138,
+          "front_radius": 0.08093,
+          "back_radius": 0.08293,
+          "radius_z": 0.110779,
+          "top_z": 1.335879,
+          "fit_scale": 1.0,
+          "covered_head_points": 1651.0,
+          "max_occupancy": 0.909969,
+          "collision_count": 0.0
+        },
+        "shellBoundsWorldMeters": {
+          "min": [
+            -0.108488,
+            -0.033433,
+            1.178995
+          ],
+          "max": [
+            0.076727,
+            0.135278,
+            1.339379
+          ]
+        },
+        "shellBoundsBoneLocalMeters": {
+          "min": [
+            -0.092608,
+            0.022155,
+            -0.064771
+          ],
+          "max": [
+            0.092607,
+            0.182539,
+            0.10394
+          ],
+          "extent": [
+            0.185215,
+            0.160384,
+            0.168711
+          ]
+        },
+        "shellThicknessMeters": 0.0035,
+        "validation": {
+          "valid": true,
+          "collisions": 0,
+          "coveredHeadPoints": 1651,
+          "maxOccupancy": 0.909969,
+          "manifold": true,
+          "symmetryRatio": 0.999675
+        }
+      },
+      "legacyCandidate": {
+        "asset": "/assets/models/leonidas/qa/helmet-aqueo-dimensioned-v7.glb",
+        "fitNode": "Aqueo_FitReference",
+        "status": "unverified_do_not_promote",
+        "requiresRebuildAgainstApprovedDome": true
+      },
+      "fitPolicy": {
+        "strategy": "rebuild_shell_against_approved_dome",
+        "runtimeGlobalScaleIsFinalFit": false,
+        "runtimeOffsetsAreQaOnly": true,
+        "crestMayDefineScale": false,
+        "maskMayDefineScale": false,
+        "requiredFitNode": "Aqueo_FitReference",
+        "requiredSymmetryAxis": "Head local X"
+      },
+      "acceptance": {
+        "maximumBoundsDeviationMeters": 0.003,
+        "maximumAnchorDeviationMeters": 0.002,
+        "maximumOccupancy": 0.965,
+        "allowedCollisionCount": 0,
+        "requiresClosedManifold": true,
+        "requiresFrontLeftRightBackTopCutawayReview": true,
+        "requiresHumanVisualApproval": true
+      },
+      "pendingStages": [
+        "rebuild black shell against dome",
+        "design facial opening and mask",
+        "design crest and plume",
+        "bind rigidly to Head bone",
+        "validate on animated Leonidas"
+      ]
+    }
+  }
+}
