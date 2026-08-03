@@ -79,17 +79,58 @@
 
 /* Breadcrumb page header */
 .onboarding-header { margin-bottom: 1.5rem; }
+
+/* Primera migracion visual del portal: usa variables y componentes de Sparta. */
+.onboarding-hero { position: relative; overflow: hidden; border: 1px solid rgba(var(--bs-primary-rgb), .18); background: linear-gradient(120deg, rgba(var(--bs-primary-rgb), .11), rgba(var(--bs-primary-rgb), .025)); }
+.onboarding-hero::after { content: ''; position: absolute; width: 220px; height: 220px; right: -70px; top: -110px; border-radius: 50%; background: rgba(var(--bs-primary-rgb), .08); }
+.onboarding-hero > * { position: relative; z-index: 1; }
+.onboarding-kicker { font-size: .72rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--bs-primary); }
+.onboarding-hero-title { max-width: 760px; }
+.onboarding-route-card { height: 100%; border: 1px solid var(--bs-border-color); border-radius: .6rem; background: var(--bs-body-bg); transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.onboarding-route-card.is-current { border-color: rgba(var(--bs-primary-rgb), .45); box-shadow: 0 .25rem .8rem rgba(var(--bs-primary-rgb), .08); }
+.onboarding-route-card:hover { transform: translateY(-2px); border-color: rgba(var(--bs-primary-rgb), .5); }
+.onboarding-route-icon { width: 2.35rem; height: 2.35rem; display: inline-flex; align-items: center; justify-content: center; border-radius: .55rem; background: rgba(var(--bs-primary-rgb), .1); color: var(--bs-primary); }
+.onboarding-route-card.is-pending { opacity: .72; }
+.onboarding-route-card .btn { white-space: nowrap; }
+@media (max-width: 575.98px) { .onboarding-hero .card-body { padding: 1.25rem !important; } }
 </style>
 
 
 <!-- ── Main grid ──────────────────────────────────────────────────────────── -->
+<?php $nombreOnboarding = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? '')); ?>
+
+<!-- Portal: primera capa del prototipo, adaptada al sistema visual de Sparta. -->
+<section class="card onboarding-hero mb-4">
+    <div class="card-body p-4 p-lg-5">
+        <div class="row align-items-center">
+            <div class="col-12">
+                <div class="onboarding-kicker mb-2"><i class="fa-solid fa-graduation-cap me-1"></i>Portal de onboarding</div>
+                <h3 class="mb-2 onboarding-hero-title"><?= $nombreOnboarding !== '' ? 'Bienvenido, ' . htmlspecialchars($nombreOnboarding, ENT_QUOTES, 'UTF-8') : 'Bienvenido a Maxikash' ?></h3>
+                <p class="text-muted mb-0">Completa los contenidos asignados para conocer el equipo, las herramientas y la forma de trabajo de Cobranza.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+        <div><h5 class="mb-1">Tu ruta de aprendizaje</h5><p class="text-muted small mb-0">La primera etapa ya est&aacute; disponible; las siguientes se activar&aacute;n conforme se incorporen al portal.</p></div>
+        <span class="badge bg-label-primary">Primera etapa</span>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-4"><div class="onboarding-route-card is-current p-3"><div class="d-flex justify-content-between gap-2 mb-3"><span class="onboarding-route-icon"><i class="fa-solid fa-circle-play"></i></span><span class="badge bg-label-success">Disponible</span></div><div class="fw-semibold">1. Inducci&oacute;n a Cobranza</div><small class="text-muted d-block mt-1 mb-3">Video, puntos clave y recorrido inicial del &aacute;rea.</small><button type="button" id="btnAbrirModuloOnboarding" class="btn btn-sm btn-primary"><i class="fa-solid fa-play me-1"></i>Abrir m&oacute;dulo</button></div></div>
+        <div class="col-md-4"><div class="onboarding-route-card is-pending p-3"><div class="d-flex justify-content-between gap-2 mb-3"><span class="onboarding-route-icon"><i class="fa-solid fa-book-open"></i></span><span class="badge bg-label-secondary">Pr&oacute;ximamente</span></div><div class="fw-semibold">2. Material de consulta</div><small class="text-muted d-block mt-1">Documentos, glosario y respuestas a dudas frecuentes.</small></div></div>
+        <div class="col-md-4"><div class="onboarding-route-card is-pending p-3"><div class="d-flex justify-content-between gap-2 mb-3"><span class="onboarding-route-icon"><i class="fa-solid fa-clipboard-check"></i></span><span class="badge bg-label-secondary">Pr&oacute;ximamente</span></div><div class="fw-semibold">3. Evaluaci&oacute;n final</div><small class="text-muted d-block mt-1">Cuestionario y constancia al completar la inducci&oacute;n.</small></div></div>
+    </div>
+</section>
+
 <div class="row g-6">
 
     <!-- ════════════════════════════════ LEFT COLUMN ════════════════════════ -->
-    <div class="col-12 col-lg-8">
+    <div class="col-12 col-lg-8 d-flex flex-column">
 
         <!-- Course title & meta ─────────────────────────────────────────── -->
-        <div class="card mb-4">
+        <div class="card mb-4 d-none" aria-hidden="true">
             <div class="card-body">
                 <div class="d-flex flex-wrap gap-2 mb-3">
                     <span class="badge bg-label-primary course-badge">Bienvenido!</span>
@@ -101,7 +142,7 @@
         </div>
 
         <!-- Video player ─────────────────────────────────────────────────── -->
-        <div class="card mb-4">
+        <div id="onboarding-video-card" class="d-none" aria-hidden="true">
             <div class="card-body p-0">
                 <div class="course-video-wrapper" id="videoWrapper">
                     <!-- Overlay inicial -->
@@ -360,6 +401,22 @@
 
 </div><!-- /row -->
 
+<!-- El reproductor vive dentro del modulo, no como contenido permanente de la pagina. -->
+<div class="modal fade" id="modalModuloOnboarding" tabindex="-1" aria-labelledby="modalModuloOnboardingTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <span class="badge bg-label-primary mb-1">M&oacute;dulo 1</span>
+                    <h5 class="modal-title" id="modalModuloOnboardingTitulo">Inducci&oacute;n a Cobranza</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0" id="onboardingVideoMount"></div>
+        </div>
+    </div>
+</div>
+
 <script>
 (function () {
     'use strict';
@@ -507,5 +564,30 @@
 
     updateSidebarProgress();
 
+})();
+</script>
+
+<script>
+(function () {
+    var boton = document.getElementById('btnAbrirModuloOnboarding');
+    var modalEl = document.getElementById('modalModuloOnboarding');
+    var tarjetaVideo = document.getElementById('onboarding-video-card');
+    var destino = document.getElementById('onboardingVideoMount');
+    if (!boton || !modalEl || !tarjetaVideo || !destino || !window.bootstrap || !bootstrap.Modal) return;
+
+    var cuerpoVideo = tarjetaVideo.querySelector('.card-body');
+    if (!cuerpoVideo) return;
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+    boton.addEventListener('click', function () {
+        destino.appendChild(cuerpoVideo);
+        modal.show();
+    });
+
+    modalEl.addEventListener('hidden.bs.modal', function () {
+        var video = document.getElementById('courseVideo');
+        if (video && !video.paused) video.pause();
+        tarjetaVideo.appendChild(cuerpoVideo);
+    });
 })();
 </script>

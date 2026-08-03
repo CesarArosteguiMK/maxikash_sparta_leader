@@ -434,6 +434,10 @@ def render_views(helmet_asset: Path) -> None:
     bpy.context.scene.frame_set(0)
     bpy.ops.import_scene.gltf(filepath=os.fspath(helmet_asset))
     helmet_objects = [obj for obj in bpy.context.scene.objects if obj not in original and obj.type == "MESH"]
+    for obj in helmet_objects:
+        if obj.name == "Aqueo_FitReference":
+            obj.hide_render = True
+            obj.hide_viewport = True
 
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_EEVEE"

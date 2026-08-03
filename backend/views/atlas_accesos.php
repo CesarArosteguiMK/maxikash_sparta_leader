@@ -1,4 +1,4 @@
-﻿<div class="container-fluid py-4 atlas-access-page">
+<div class="container-fluid py-4 atlas-access-page">
     <style>
         .atlas-access-page { color:#22303e; }
         .atlas-access-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
@@ -25,8 +25,8 @@
         .gestion-avatar-btn { border:0; background:transparent; padding:0; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; line-height:1; width:46px; height:46px; min-width:46px; flex:0 0 auto; }
         .gestion-avatar-btn:hover .gestion-personal-avatar,
         .gestion-avatar-btn:hover .gestion-personal-avatar-fallback { transform:translateY(-1px) scale(1.03); box-shadow:0 8px 22px rgba(30,41,59,.22); }
-        .gestion-foto-stage { min-height:22rem; display:flex; align-items:center; justify-content:center; background:#f8fafc; border-radius:.75rem; overflow:hidden; }
-        .gestion-foto-img { max-width:100%; max-height:70vh; object-fit:contain; }
+        .gestion-foto-stage { width:min(100%,28rem); aspect-ratio:1 / 1; min-height:0; margin:0 auto; display:flex; align-items:center; justify-content:center; background:#f8fafc; border-radius:0; overflow:hidden; }
+        .gestion-foto-img { width:100%; height:100%; max-width:none; max-height:none; object-fit:cover; border-radius:0 !important; clip-path:none !important; mask-image:none !important; -webkit-mask-image:none !important; }
         .gestion-foto-fallback { width:10rem; height:10rem; border-radius:999px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:2.4rem; font-weight:800; background:linear-gradient(135deg,#24324d 0%,#0d6efd 100%); }
         .atlas-access-credential-card { border:1px solid #e2e8f0; border-radius:.65rem; background:#f8fafc; padding:.9rem; }
         .atlas-access-module-list { border:0; border-radius:0; overflow:visible; }

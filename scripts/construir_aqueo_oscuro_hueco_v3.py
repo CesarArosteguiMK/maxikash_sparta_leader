@@ -34,7 +34,8 @@ MASK_CENTER = Vector((CX, 0.050, 1.208))
 MASK_RADII = Vector((0.086, 0.142, 0.130))
 MASK_THICKNESS = 0.0035
 FACE_FRONT_LIMIT_Y = -0.077526
-MASK_FRONT_AT_CENTER_Y = MASK_CENTER.y - MASK_RADII.y
+MASK_FRONT_AT_CENTER_Y = -0.090
+MASK_SAFE_OUTER_Y = -0.082
 
 
 def clear_scene() -> None:
@@ -86,59 +87,180 @@ def boolean_difference(target: bpy.types.Object, cutter: bpy.types.Object, name:
     bpy.data.objects.remove(cutter, do_unlink=True)
 
 
+def face_y(x: float, z: float, offset: float = 0.0) -> float:
+    """Curvatura frontal somera que conserva holgura en toda la máscara."""
+    lateral = abs(x - CX) / 0.084
+    vertical = abs(z - 1.220) / 0.106
+    forehead = max(0.0, min(1.0, (z - 1.240) / 0.086))
+    return (
+        -0.090
+        + 0.018 * lateral * lateral
+        + 0.004 * vertical * vertical
+        + 0.053 * forehead**1.45
+        + offset
+    )
+
+
+def curved_plate(
+    name: str,
+    outline: list[tuple[float, float]],
+    steel: bpy.types.Material,
+) -> bpy.types.Object:
+    """Placa hueca cuya cara sigue el elipsoide y no un plano pegado."""
+    front = [(x, face_y(x, z, -0.0012), z) for x, z in outline]
+    back = [(x, face_y(x, z, MASK_THICKNESS), z) for x, z in outline]
+    count = len(outline)
+    vertices = front + back
+    faces: list[tuple[int, ...]] = [
+        tuple(range(count)),
+        tuple(range(count, count * 2))[::-1],
+    ]
+    for index in range(count):
+        following = (index + 1) % count
+        faces.append((index, following, following + count, index + count))
+    mesh = bpy.data.meshes.new(f"{name}Mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.materials.append(steel)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    bevel = obj.modifiers.new("ForgedRoundedEdges", "BEVEL")
+    bevel.width = 0.00135
+    bevel.segments = 4
+    bevel.limit_method = "ANGLE"
+    apply_modifier(obj, bevel)
+    for polygon in obj.data.polygons:
+        polygon.use_smooth = True
+    return obj
+
+
+def side_bridge(
+    name: str,
+    side: float,
+    steel: bpy.types.Material,
+) -> bpy.types.Object:
+    """Cierra la sien entre máscara frontal y cúpula sin tocar la cabeza."""
+    center_x = CX + side * 0.085
+    half_thickness = 0.0022
+    profile = [
+        (-0.071, 1.200),
+        (-0.058, 1.255),
+        (-0.038, 1.309),
+        (0.018, 1.312),
+        (0.030, 1.225),
+        (0.018, 1.184),
+    ]
+    front = [(center_x - half_thickness, y, z) for y, z in profile]
+    back = [(center_x + half_thickness, y, z) for y, z in profile]
+    count = len(profile)
+    vertices = front + back
+    faces: list[tuple[int, ...]] = [
+        tuple(range(count)),
+        tuple(range(count, count * 2))[::-1],
+    ]
+    for index in range(count):
+        following = (index + 1) % count
+        faces.append((index, following, following + count, index + count))
+    mesh = bpy.data.meshes.new(f"{name}Mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.materials.append(steel)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    bevel = obj.modifiers.new("ForgedRoundedEdges", "BEVEL")
+    bevel.width = 0.0012
+    bevel.segments = 3
+    apply_modifier(obj, bevel)
+    for polygon in obj.data.polygons:
+        polygon.use_smooth = True
+    return obj
+
+
 def make_face_mask(steel: bpy.types.Material) -> bpy.types.Object:
-    """Máscara convexa con T limpia y 14.5 mm delante de nariz/barba."""
-    bpy.ops.mesh.primitive_uv_sphere_add(
-        segments=128,
-        ring_count=80,
-        location=MASK_CENTER,
-        scale=MASK_RADII,
-    )
-    mask = bpy.context.object
-    mask.name = "AqueoDarkV3_AnatomicalFaceMask"
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    """Carcasa facial continua con una T controlada y nasal independiente."""
+    x_steps = 88
+    z_steps = 106
+    x_min = CX - 0.090
+    x_max = CX + 0.090
+    z_min = 1.115
+    z_max = 1.326
 
-    # Dos ventanas oculares independientes preservan el nasal central.
-    eye_z = 1.245
-    left_eye = rounded_cube(
-        "AqueoDarkV3_LeftEyeCutter",
-        (CX - 0.036, MASK_FRONT_AT_CENTER_Y, eye_z),
-        (0.052, 0.180, 0.023),
-        bevel=0.009,
-        rotation_y=math.radians(-6.0),
-    )
-    right_eye = rounded_cube(
-        "AqueoDarkV3_RightEyeCutter",
-        (CX + 0.036, MASK_FRONT_AT_CENTER_Y, eye_z),
-        (0.052, 0.180, 0.023),
-        bevel=0.009,
-        rotation_y=math.radians(6.0),
-    )
-    boolean_difference(mask, left_eye, "OpenLeftEye")
-    boolean_difference(mask, right_eye, "OpenRightEye")
+    def half_width(z: float) -> float:
+        if z >= 1.274:
+            t = (z - 1.274) / (z_max - 1.274)
+            return 0.084 * (1.0 - t) + 0.055 * t
+        if z <= 1.165:
+            t = (z - z_min) / (1.165 - z_min)
+            return 0.065 * (1.0 - t) + 0.084 * t
+        return 0.084
 
-    # Boca/barba abierta; el puente nasal permanece como una pieza continua.
-    mouth = rounded_cube(
-        "AqueoDarkV3_MouthCutter",
-        (CX, MASK_FRONT_AT_CENTER_Y, 1.158),
-        (0.060, 0.180, 0.084),
-        bevel=0.015,
-    )
-    boolean_difference(mask, mouth, "OpenMouthAndBeard")
+    def surface_y(x: float, z: float) -> float:
+        lateral = abs(x - CX) / 0.084
+        vertical = abs(z - 1.220) / 0.106
+        forehead = max(0.0, min(1.0, (z - 1.240) / 0.086))
+        return (
+            -0.090
+            + 0.018 * lateral * lateral
+            + 0.004 * vertical * vertical
+            + 0.053 * forehead**1.45
+        )
 
-    # La semiesfera posterior e inferior no forman parte de la máscara.
+    vertices: list[tuple[float, float, float]] = []
+    for zi in range(z_steps + 1):
+        z = z_min + (z_max - z_min) * zi / z_steps
+        for xi in range(x_steps + 1):
+            x = x_min + (x_max - x_min) * xi / x_steps
+            vertices.append((x, surface_y(x, z), z))
+
+    def index(xi: int, zi: int) -> int:
+        return zi * (x_steps + 1) + xi
+
+    faces: list[tuple[int, int, int, int]] = []
+    for zi in range(z_steps):
+        z0 = z_min + (z_max - z_min) * zi / z_steps
+        z1 = z_min + (z_max - z_min) * (zi + 1) / z_steps
+        zc = (z0 + z1) * 0.5
+        width = half_width(zc)
+        for xi in range(x_steps):
+            x0 = x_min + (x_max - x_min) * xi / x_steps
+            x1 = x_min + (x_max - x_min) * (xi + 1) / x_steps
+            xc = (x0 + x1) * 0.5
+            dx = abs(xc - CX)
+            top_at_x = z_max - 0.034 * min(1.0, dx / 0.084) ** 1.8
+            inside_silhouette = dx <= width and zc <= top_at_x
+            eye_opening = False
+            for side in (-1.0, 1.0):
+                eye_center_x = CX + side * 0.036
+                local_x = (xc - eye_center_x) / 0.030
+                eye_line = 1.222 - side * 0.045 * (xc - eye_center_x)
+                local_z = (zc - eye_line) / 0.0115
+                if local_x * local_x + local_z * local_z <= 1.0:
+                    eye_opening = True
+            vertical_opening = zc <= 1.219 and dx <= 0.029
+            if inside_silhouette and not eye_opening and not vertical_opening:
+                faces.append(
+                    (
+                        index(xi, zi),
+                        index(xi + 1, zi),
+                        index(xi + 1, zi + 1),
+                        index(xi, zi + 1),
+                    )
+                )
+
+    mesh = bpy.data.meshes.new("AqueoDarkV3_ContinuousFaceShellMesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.materials.append(steel)
+    mesh.update()
+    mask = bpy.data.objects.new("AqueoDarkV3_ContinuousFaceShell", mesh)
+    bpy.context.scene.collection.objects.link(mask)
     bm = bmesh.new()
     bm.from_mesh(mask.data)
-    remove = []
-    for face in bm.faces:
-        center = mask.matrix_world @ face.calc_center_median()
-        if center.y > 0.018 or center.z < 1.105:
-            remove.append(face)
-    bmesh.ops.delete(bm, geom=remove, context="FACES")
+    loose = [vertex for vertex in bm.verts if not vertex.link_faces]
+    if loose:
+        bmesh.ops.delete(bm, geom=loose, context="VERTS")
     bm.to_mesh(mask.data)
     bm.free()
     mask.data.update()
-
     solidify = mask.modifiers.new("RealShellThickness", "SOLIDIFY")
     solidify.thickness = MASK_THICKNESS
     solidify.offset = 0.0
@@ -146,12 +268,29 @@ def make_face_mask(steel: bpy.types.Material) -> bpy.types.Object:
     apply_modifier(mask, solidify)
     bevel = mask.modifiers.new("ForgedRoundedEdges", "BEVEL")
     bevel.width = 0.00135
-    bevel.segments = 3
+    bevel.segments = 4
     bevel.limit_method = "ANGLE"
     apply_modifier(mask, bevel)
-    mask.data.materials.append(steel)
     for polygon in mask.data.polygons:
         polygon.use_smooth = True
+
+    nasal = [
+        (CX - 0.010, 1.239),
+        (CX + 0.010, 1.239),
+        (CX + 0.009, 1.183),
+        (CX, 1.168),
+        (CX - 0.009, 1.183),
+    ]
+    nose = curved_plate("AqueoDarkV3_Nasal", nasal, steel)
+    left_bridge = side_bridge("AqueoDarkV3_LeftTempleBridge", -1.0, steel)
+    right_bridge = side_bridge("AqueoDarkV3_RightTempleBridge", 1.0, steel)
+    bpy.ops.object.select_all(action="DESELECT")
+    for part in (mask, nose, left_bridge, right_bridge):
+        part.select_set(True)
+    bpy.context.view_layer.objects.active = mask
+    bpy.ops.object.join()
+    mask = bpy.context.object
+    mask.name = "AqueoDarkV3_AnatomicalFaceMask"
     return mask
 
 
@@ -162,10 +301,7 @@ def make_brow_ridge(steel: bpy.types.Material) -> bpy.types.Object:
         t = index / 24.0
         x = CX - 0.072 + 0.144 * t
         z = 1.279 + 0.010 * (1.0 - ((x - CX) / 0.072) ** 2)
-        normalized_x = (x - MASK_CENTER.x) / MASK_RADII.x
-        normalized_z = (z - MASK_CENTER.z) / MASK_RADII.z
-        radial = max(0.0, 1.0 - normalized_x**2 - normalized_z**2)
-        y = MASK_CENTER.y - MASK_RADII.y * math.sqrt(radial) - 0.0016
+        y = face_y(x, z, -0.0016)
         points.append((x, y, z))
     return preview.curve_object(
         "AqueoDarkV3_BrowReinforcement",
@@ -204,6 +340,11 @@ def extract_plume(hair: bpy.types.Material) -> bpy.types.Object:
     bm.from_mesh(donor.data)
     remove = [face for face in bm.faces if face.calc_center_median().z < 1.326]
     bmesh.ops.delete(bm, geom=remove, context="FACES")
+    # El donante genera un penacho exagerado. Se compacta alrededor de su base
+    # sin alterar la cúpula ni usar el penacho para escalar el casco.
+    for vertex in bm.verts:
+        vertex.co.x = CX + (vertex.co.x - CX) * 0.62
+        vertex.co.z = 1.326 + (vertex.co.z - 1.326) * 0.78
     bm.to_mesh(donor.data)
     bm.free()
     donor.data.update()
@@ -222,6 +363,34 @@ def make_fit_reference(shell: bpy.types.Object) -> bpy.types.Object:
     bpy.context.scene.collection.objects.link(fit)
     fit["leonidasQaRole"] = "aqueo-fit-reference"
     return fit
+
+
+def expand_dome_for_render_pose(shell: bpy.types.Object) -> None:
+    """Compensa la diferencia entre REST y la pose real del laboratorio."""
+    center = Vector((CX, 0.0509225, 1.259187))
+    factors = Vector((1.035, 1.055, 1.035))
+    for vertex in shell.data.vertices:
+        delta = vertex.co - center
+        vertex.co = center + Vector(
+            (
+                delta.x * factors.x,
+                delta.y * factors.y,
+                delta.z * factors.z,
+            )
+        )
+    shell.data.update()
+    shell["leonidasRenderPoseExpansion"] = tuple(factors)
+
+
+def enlarge_dome_face_opening(shell: bpy.types.Object) -> None:
+    """Retira el borde REST que cruza frente y sienes en la pose renderizada."""
+    cutter = rounded_cube(
+        "AqueoDarkV3_DomeFaceOpeningCutter",
+        (CX, -0.060, 1.239),
+        (0.172, 0.165, 0.106),
+        bevel=0.011,
+    )
+    boolean_difference(shell, cutter, "RenderPoseFaceOpening")
 
 
 def mesh_audit(obj: bpy.types.Object) -> dict[str, int]:
@@ -251,6 +420,8 @@ def main() -> None:
     shell.data.materials.clear()
     shell.data.materials.append(materials["steel_soft"])
     fit_reference = make_fit_reference(shell)
+    expand_dome_for_render_pose(shell)
+    enlarge_dome_face_opening(shell)
     mask = make_face_mask(materials["steel"])
     brow = make_brow_ridge(materials["edge"])
     plume = extract_plume(materials["hair"])
@@ -286,6 +457,7 @@ def main() -> None:
         "maskFrontAtCenterMeters": MASK_FRONT_AT_CENTER_Y,
         "faceFrontLimitMeters": FACE_FRONT_LIMIT_Y,
         "centralClearanceMeters": FACE_FRONT_LIMIT_Y - MASK_FRONT_AT_CENTER_Y,
+        "minimumFaceClearanceMeters": FACE_FRONT_LIMIT_Y - (MASK_SAFE_OUTER_Y + MASK_THICKNESS),
         "maskThicknessMeters": MASK_THICKNESS,
         "audits": {obj.name: mesh_audit(obj) for obj in (shell, mask)},
         "productionIntegrated": False,

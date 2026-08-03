@@ -18,8 +18,8 @@ $usernameVal = $datos['username'] ?? '';
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
 <style>
 .pf-mkx .card{border-radius:14px;border:1px solid var(--bs-border-color-translucent, #e2e8f0);}
-.pf-mkx .pf-photo-wrap .pf-preview-circle{width:96px;height:96px;border-radius:6px;overflow:hidden;flex-shrink:0;border:1px solid rgba(99,102,241,.24);background:#eef2ff;}
-.pf-mkx .pf-photo-wrap .pf-preview-circle img{width:100%;height:100%;object-fit:cover;display:block;}
+.pf-mkx .pf-photo-wrap .pf-preview-circle{width:96px;height:96px;border-radius:50%;overflow:hidden;flex-shrink:0;border:1px solid rgba(99,102,241,.24);background:#eef2ff;}
+.pf-mkx .pf-photo-wrap .pf-preview-circle img{width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit;}
 .pf-mkx .pf-photo-wrap .pf-preview-circle{cursor:pointer;}
 .pf-mkx .pf-photo-wrap .pf-preview-circle:hover{opacity:0.9;}
 .pf-mkx .pf-photo-panel-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
@@ -43,11 +43,11 @@ body.dark-mode .pf-mkx .pf-file-hint{color:#94a3b8;}
 .pf-crop-modal .pf-crop-container{height:420px;background:#111;}
 .pf-crop-modal .pf-crop-container img{max-width:100%;display:block;}
 .pf-crop-modal .pf-crop-actions{margin-top:16px;display:flex;gap:10px;justify-content:flex-end;}
-.pf-crop-modal .cropper-view-box,.pf-crop-modal .cropper-face{border-radius:8px;}
+.pf-crop-modal .cropper-view-box,.pf-crop-modal .cropper-face{border-radius:0;}
 .pf-crop-modal .cropper-drag-box{background:transparent;}
 .pf-crop-modal .cropper-modal{opacity:0.5;}
 .pf-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px;cursor:pointer;}
-.pf-lightbox img{max-width:100%;max-height:90vh;width:auto;height:auto;object-fit:contain;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.5);cursor:default;pointer-events:none;}
+.pf-lightbox img{width:min(88vw,72vh);height:min(88vw,72vh);max-width:100%;max-height:90vh;object-fit:cover;border-radius:0 !important;clip-path:none !important;mask-image:none !important;-webkit-mask-image:none !important;box-shadow:0 12px 40px rgba(0,0,0,.5);cursor:default;pointer-events:none;}
 .pf-lightbox .pf-lightbox-close{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.5);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background .2s,border-color .2s;}
 .pf-lightbox .pf-lightbox-close:hover{background:rgba(255,255,255,.35);border-color:#fff;}
 .pf-lightbox .pf-lightbox-hint{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.8);font-size:13px;}
@@ -146,7 +146,7 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
 
 <div class="pf-crop-modal" id="cropModal" style="display:none;" aria-hidden="true">
   <div class="pf-crop-box">
-    <p class="mb-2 small text-muted">Mueve y acerca la imagen para elegir qué parte se verá en el círculo de perfil.</p>
+    <p class="mb-2 small text-muted">Mueve y acerca la imagen para elegir el encuadre cuadrado de la foto.</p>
     <div class="pf-crop-container">
       <img id="cropImage" src="" alt="Recortar" />
     </div>
@@ -218,7 +218,7 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
         cropImage.onload = function(){
           cropImage.onload = null;
           cropper = new Cropper(cropImage, {
-            aspectRatio: NaN,
+            aspectRatio: 1,
             viewMode: 1,
             dragMode: 'move',
             autoCropArea: 0.85,
@@ -246,7 +246,7 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
 
     cropApply.addEventListener('click', function(){
       if (!cropper) return;
-      var canvas = cropper.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200, imageSmoothingEnabled: true, fillColor: '#fff' });
+      var canvas = cropper.getCroppedCanvas({ width: 1200, height: 1200, imageSmoothingEnabled: true, fillColor: '#fff' });
       fotoBase64.value = canvas.toDataURL('image/png');
       previewFoto.src = fotoBase64.value;
       inputFoto.value = '';

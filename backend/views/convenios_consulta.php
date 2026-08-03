@@ -5900,25 +5900,16 @@ window.migModoGloboChange = function (modo) {
     if (esLibre) {
         if (colFechaInicioEl) colFechaInicioEl.style.display = 'none';
         if (noticeFechaEl) noticeFechaEl.classList.remove('d-none');
-<<<<<<< HEAD
         if (colAd) colAd.style.display = 'none';
-        if (inputAd) { inputAd.disabled = true; inputAd.value = ''; }
+        if (inputAd) { inputAd.disabled = true; inputAd.value = ''; delete inputAd.dataset.autoPagoExistente; }
         _migConfigurarPanelTotalManual(true);
-=======
-        if (colAd) colAd.style.display = '';
-        if (inputAd) { inputAd.disabled = false; inputAd.value = ''; delete inputAd.dataset.autoPagoExistente; }
->>>>>>> e27257dac32bd943e19899ba20afaf06e8a19751
         window.migLibreGenerarFilas();
     } else {
         if (colFechaInicioEl) colFechaInicioEl.style.display = '';
         if (noticeFechaEl) noticeFechaEl.classList.add('d-none');
         if (colAd) colAd.style.display = 'none';
-<<<<<<< HEAD
-        if (inputAd) { inputAd.disabled = true; inputAd.value = ''; }
-        _migConfigurarPanelTotalManual(false);
-=======
         if (inputAd) { inputAd.disabled = true; inputAd.value = ''; delete inputAd.dataset.autoPagoExistente; }
->>>>>>> e27257dac32bd943e19899ba20afaf06e8a19751
+        _migConfigurarPanelTotalManual(false);
     }
 
     // Ocultar preview y botón guardar al cambiar de modo

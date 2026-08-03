@@ -100,12 +100,13 @@ if (root && canvas) {
             hideOriginal: true
         };
         const qaHelmetPaths = Object.freeze({
-            aqueo: '/assets/models/leonidas/qa/helmet-aqueo-dimensioned-v7.glb?v=12',
+            aqueo: '/assets/models/leonidas/qa/leonidas-aqueo-dark-hollow-v3.glb?v=1',
             atico: '/assets/models/leonidas/qa/helmet-atico-longitudinal-preview.glb?v=1'
         });
         const qaHelmetFitNodes = Object.freeze({
             aqueo: 'Aqueo_FitReference'
         });
+        const qaHelmetAuthoredFits = new Set(['aqueo']);
         const qaHelmetFitMultipliers = Object.freeze({
             // Calibración visual sobre la cabeza modular. Los límites del GLB
             // incluyen cresta, carrilleras y ornamentos; por eso cada silueta
@@ -1593,6 +1594,33 @@ if (root && canvas) {
             );
             activeModel.rotation.y = displayedRotationY;
             activeModel.updateMatrixWorld(true);
+            if (qaHelmetContainer.userData.authoredFit) {
+                const authoredScale = qaHelmetState.scale;
+                qaHelmetContainer.scale.setScalar(authoredScale);
+                qaHelmetContainer.position.set(
+                    localTargetSize.x * qaHelmetState.offsetX,
+                    localTargetSize.y * qaHelmetState.offsetY,
+                    localTargetSize.z * qaHelmetState.offsetZ
+                );
+                qaHelmetContainer.rotation.set(
+                    0,
+                    THREE.MathUtils.degToRad(qaHelmetState.rotationY),
+                    0
+                );
+                root.dataset.leonidasQaHelmetFit = JSON.stringify({
+                    mode: 'authored-1-to-1',
+                    targetSize: targetSize.toArray().map((value) => Number(value.toFixed(4))),
+                    localTargetSize: localTargetSize.toArray().map((value) => Number(value.toFixed(4))),
+                    position: qaHelmetContainer.position.toArray().map((value) => Number(value.toFixed(4))),
+                    fittedScale: Number(authoredScale.toFixed(5))
+                });
+                applyModularVisibility();
+                root.dataset.leonidasQaHelmet = qaHelmetState.id;
+                root.dispatchEvent(new CustomEvent('leonidas:qa-helmet-ready', {
+                    detail: { ...qaHelmetState, fittedScale: authoredScale }
+                }));
+                return;
+            }
             const candidateSize = qaHelmetContainer.userData.candidateSize;
             const widthScale = localTargetSize.x / Math.max(candidateSize.x, 0.001);
             // Fit the metal shell by width. The candidates include long crests
@@ -1678,11 +1706,16 @@ if (root && canvas) {
                     container.userData.helmetId = qaHelmetState.id;
                     container.userData.candidateSize = candidateSize;
                     container.userData.fitNode = fitNode?.name || 'full-candidate';
-                    candidate.position.set(
-                        -candidateCenter.x,
-                        -candidateCenter.y,
-                        -candidateCenter.z
-                    );
+                    container.userData.authoredFit = qaHelmetAuthoredFits.has(qaHelmetState.id);
+                    if (container.userData.authoredFit) {
+                        candidate.position.set(0, 0, 0);
+                    } else {
+                        candidate.position.set(
+                            -candidateCenter.x,
+                            -candidateCenter.y,
+                            -candidateCenter.z
+                        );
+                    }
                     candidate.traverse((node) => {
                         if (!node.isMesh) return;
                         if (node.name === 'Aqueo_FitReference') {

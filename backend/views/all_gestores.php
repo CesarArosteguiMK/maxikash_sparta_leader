@@ -973,9 +973,12 @@
     }
 
     .gestion-foto-stage {
-      height: min(58vh, 28rem);
-      min-height: 18rem;
-      border-radius: .85rem;
+      width: min(100%, 28rem);
+      aspect-ratio: 1 / 1;
+      height: auto;
+      min-height: 0;
+      margin: 0 auto;
+      border-radius: 0;
       background: #0f172a;
       display: flex;
       align-items: center;
@@ -984,11 +987,11 @@
     }
 
     .gestion-foto-img {
-      max-width: 100%;
-      max-height: 100%;
-      width: auto;
-      height: auto;
-      object-fit: contain;
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      max-height: none;
+      object-fit: cover;
       display: block;
       border-radius: 0 !important;
       clip-path: none !important;
