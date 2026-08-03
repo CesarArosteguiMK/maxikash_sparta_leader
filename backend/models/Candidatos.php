@@ -2392,15 +2392,22 @@ class Candidatos extends Model
         for ($v = 2; $v <= 12; $v++) {
             $prefixes[] = 'doc_candidato_v' . $v . '_';
         }
+        // Algunas respuestas dependen del usuario (p. ej. la excepción de
+        // lectura de carta de compromiso), por lo que llevan un sufijo propio.
+        $sufijos = ['', '_lectura_carta'];
         foreach ($prefixes as $prefix) {
-            $file = $cacheDir . '/' . $prefix . $id_candidato . '.json';
-            if (is_file($file)) {
-                @unlink($file);
+            foreach ($sufijos as $sufijo) {
+                $file = $cacheDir . '/' . $prefix . $id_candidato . $sufijo . '.json';
+                if (is_file($file)) {
+                    @unlink($file);
+                }
             }
         }
         if (function_exists('apcu_delete')) {
             foreach ($prefixes as $prefix) {
-                @apcu_delete($prefix . $id_candidato);
+                foreach ($sufijos as $sufijo) {
+                    @apcu_delete($prefix . $id_candidato . $sufijo);
+                }
             }
         }
     }
