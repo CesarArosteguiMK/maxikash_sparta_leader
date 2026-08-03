@@ -238,9 +238,10 @@ final class AtlasVentasTest extends TestCase
             self::assertStringContainsString($detailField, $view);
         }
         self::assertStringNotContainsString('atlas-sales-rule-tag', $view);
-        foreach (['fa-wallet', 'fa-motorcycle', 'fa-user-tie', 'fa-link'] as $modalIcon) {
-            self::assertStringContainsString($modalIcon, $view);
-        }
+        self::assertStringNotContainsString('atlas-sales-detail-section-icon', $view);
+        self::assertStringContainsString('font-size:1.3rem', $view);
+        self::assertStringContainsString('font-size:.975rem', $view);
+        self::assertStringContainsString('btn btn-label-secondary', $view);
     }
 
     public function testSpartaExposesTheViewQueryAndExportRoutes(): void

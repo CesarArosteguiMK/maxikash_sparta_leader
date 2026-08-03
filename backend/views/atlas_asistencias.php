@@ -516,6 +516,43 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         loadingAlertOpen = false;
         if (Swal.isVisible()) Swal.close();
     };
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const isTransientNetworkError = (error) => {
+        const message = String(error?.message || error || '').toLowerCase();
+        return error instanceof TypeError
+            || message.includes('failed to fetch')
+            || message.includes('network')
+            || message.includes('load failed')
+            || message.includes('err_network_changed');
+    };
+    const fetchJsonWithNetworkRetry = async (url, options = {}, retries = 2) => {
+        let lastError = null;
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                const response = await fetch(url, {
+                    cache: 'no-store',
+                    ...options,
+                });
+                const text = await response.text();
+                let payload = null;
+                if (text.trim() !== '') {
+                    try {
+                        payload = JSON.parse(text);
+                    } catch (parseError) {
+                        payload = null;
+                    }
+                }
+                return { response, payload };
+            } catch (error) {
+                lastError = error;
+                if (attempt >= retries || !isTransientNetworkError(error)) {
+                    throw error;
+                }
+                await wait(600 * (attempt + 1));
+            }
+        }
+        throw lastError;
+    };
     const formatBytes = (value) => {
         const bytes = Number(value || 0);
         if (!bytes) return 'Tamaño sin dato';
@@ -904,8 +941,8 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 signal: coverageAbortController.signal,
             });
             const payload = await response.json();
-            if (!response.ok || !payload.success) {
-                throw new Error(payload.mensaje || 'No se pudo consultar la cobertura mensual.');
+            if (!response.ok || !payload?.success) {
+                throw new Error(payload?.mensaje || 'No se pudo consultar la cobertura mensual.');
             }
             if (activeDetailGroup?.key !== requestGroupKey || coverageMonthSelect.value !== month) return;
             renderCoverageSummary(payload.datos || {});
@@ -953,8 +990,8 @@ $atlasApiReady = !empty($atlas_admin_configurada);
                 signal: controller.signal,
             });
             const payload = await response.json();
-            if (!response.ok || !payload.success) {
-                throw new Error(payload.mensaje || 'No se pudieron consultar los estados de créditos.');
+            if (!response.ok || !payload?.success) {
+                throw new Error(payload?.mensaje || 'No se pudieron consultar los estados de créditos.');
             }
             if (activeDetailGroup?.key !== requestGroupKey) return;
 
@@ -1198,14 +1235,14 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             const headers = { Accept: 'application/json' };
             const response = await fetch(`/Atlas/getRutasUsuarioSpartan?${params.toString()}`, { headers });
             const payload = await response.json();
-            const data = payload.datos || {};
-            if (!response.ok || !payload.success) {
-                const status = Number(payload.status || response.status || 0);
+            const data = payload?.datos || {};
+            if (!response.ok || !payload?.success) {
+                const status = Number(payload?.status || response.status || 0);
                 if ([204, 404].includes(status) && Array.isArray(data.rutas) && Number(data.total || 0) === 0) {
                     renderSpartanRoutes([]);
                     return;
                 }
-                throw new Error(payload.mensaje || 'No se pudieron consultar rutas Spartan.');
+                throw new Error(payload?.mensaje || 'No se pudieron consultar rutas Spartan.');
             }
             renderSpartanRoutes(data.rutas || []);
         } catch (error) {
@@ -1638,12 +1675,11 @@ $atlasApiReady = !empty($atlas_admin_configurada);
         destroyAttendanceTable();
         body.innerHTML = '<tr><td class="atlas-attendance-empty" colspan="5">Consultando asistencias...</td></tr>';
         try {
-            const response = await fetch(`/Atlas/getReporteAsistencias?${datasetQuery().toString()}`, {
+            const { response, payload } = await fetchJsonWithNetworkRetry(`/Atlas/getReporteAsistencias?${datasetQuery().toString()}`, {
                 headers: { Accept: 'application/json' }
             });
-            const payload = await response.json();
-            if (!response.ok || !payload.success) {
-                throw new Error('No pudimos cargar el reporte en este momento. Intenta de nuevo más tarde o avísanos para revisarlo.');
+            if (!response.ok || !payload?.success) {
+                throw new Error(payload?.mensaje || 'No pudimos cargar el reporte en este momento. Intenta de nuevo mas tarde o avisanos para revisarlo.');
             }
             const data = payload.datos || {};
             const rows = Array.isArray(data.filas) ? data.filas : [];
@@ -1677,7 +1713,10 @@ $atlasApiReady = !empty($atlas_admin_configurada);
             renderFilteredTable();
         } catch (error) {
             hideAttendanceLoading();
-            reportError(error.message || 'No se pudo consultar el reporte.');
+            const message = isTransientNetworkError(error)
+                ? 'La conexion cambio mientras se consultaban las asistencias. Revisa la red y vuelve a intentar.'
+                : (error.message || 'No se pudo consultar el reporte.');
+            reportError(message);
         } finally {
             hideAttendanceLoading();
             loading = false;

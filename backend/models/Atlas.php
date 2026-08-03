@@ -5805,6 +5805,12 @@ class Atlas extends Model
                 }
             }
             $faltantes = array_values($faltantesPorFk);
+            $preservadasPorFk = [];
+            foreach ($faltantesPorFk as $fkFaltante => $_faltante) {
+                if (isset($actualesPorFk[$fkFaltante])) {
+                    $preservadasPorFk[$fkFaltante] = $actualesPorFk[$fkFaltante];
+                }
+            }
 
             $clasificacionesPorNombre = self::getClasificacionesAtlasPorNombre($db);
             $personasPorNombre = self::getPersonasPresupuestoPorNombre($db);
@@ -5830,10 +5836,14 @@ class Atlas extends Model
                 $totalesAntes['cash'] += self::decimalPresupuesto($detalleActual['meta_cash'] ?? 0);
             }
             $totalesDespues = [
-                'sucursales' => count($filasUnicas),
+                'sucursales' => count($filasUnicas) + count($preservadasPorFk),
                 'creditos' => 0.0,
                 'cash' => 0.0,
             ];
+            foreach ($preservadasPorFk as $detallePreservado) {
+                $totalesDespues['creditos'] += self::decimalPresupuesto($detallePreservado['meta_creditos'] ?? 0);
+                $totalesDespues['cash'] += self::decimalPresupuesto($detallePreservado['meta_cash'] ?? 0);
+            }
 
             foreach ($filasUnicas as $fkSucursal => $fila) {
                 $excelRow = (int)($fila['_excel_row'] ?? 0);
@@ -6010,12 +6020,27 @@ class Atlas extends Model
                 ];
             }
 
+            $advertencias = [];
+            $mensajeFaltantes = $presupuestoId > 0
+                ? 'Las sucursales ausentes conservaran sin cambios su presupuesto actual; la ausencia no se interpreta como una orden de eliminacion.'
+                : 'Las sucursales ausentes simplemente no se crearan en este presupuesto; la ausencia no se interpreta como una orden de eliminacion.';
+            foreach ([
+                'extras' => [count($extras), 'Las PK que no existen en el catalogo se omitiran; las demas filas pueden aplicarse.'],
+                'faltantes' => [count($faltantes), $mensajeFaltantes],
+                'asignaciones' => [count($erroresAsignacion), 'El presupuesto puede cargarse, pero esas filas no actualizaran la asignacion operativa; se conservara la actual cuando exista.'],
+            ] as $tipo => [$cantidad, $mensaje]) {
+                if ($cantidad > 0) {
+                    $advertencias[] = [
+                        'tipo' => $tipo,
+                        'cantidad' => $cantidad,
+                        'mensaje' => $mensaje,
+                    ];
+                }
+            }
+
             $bloqueos = [];
             foreach ([
                 'duplicadas' => [count($duplicadas), 'El archivo contiene sucursales duplicadas. Deja una sola fila por PK.'],
-                'extras' => [count($extras), 'El archivo contiene PK de sucursales que no existen en el catalogo vigente.'],
-                'faltantes' => [count($faltantes), 'Faltan sucursales del presupuesto mensual. Descarga el template del mes y conserva todas sus filas; la ausencia no se interpreta como una orden de eliminacion.'],
-                'asignaciones' => [count($erroresAsignacion), 'Hay responsables que no se pudieron identificar de forma unica.'],
                 'clasificaciones' => [count($erroresClasificacion), 'Hay clasificaciones que no existen en el catalogo principal.'],
                 'presupuestos' => [count($erroresPresupuesto), 'Hay importes negativos o invalidos en el archivo.'],
                 'operacion' => [count($erroresOperacion), 'Hay sucursales cuyo estado operativo impide aplicar el presupuesto indicado.'],
@@ -6034,6 +6059,7 @@ class Atlas extends Model
             $huellaAnalisis = hash('sha256', (string)json_encode([
                 'presupuesto' => $huellaPresupuesto,
                 'objetivo' => $objetivoHuella,
+                'advertencias' => $advertencias,
                 'bloqueos' => $bloqueos,
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
             $totalCambios = count($comparativo);
@@ -6042,7 +6068,9 @@ class Atlas extends Model
             return [
                 'success' => true,
                 'mensaje' => $puedeConfirmar
-                    ? 'Analisis listo. Revisa el comparativo antes de confirmar el reajuste.'
+                    ? ($advertencias
+                        ? 'Analisis listo con observaciones informativas. Revisa el comparativo antes de confirmar el reajuste.'
+                        : 'Analisis listo. Revisa el comparativo antes de confirmar el reajuste.')
                     : ($totalCambios > 0
                         ? 'El archivo tiene cambios, pero requiere correcciones antes de poder aplicarlos.'
                         : 'El archivo coincide con el presupuesto actual y no contiene cambios por aplicar.'),
@@ -6083,6 +6111,7 @@ class Atlas extends Model
                         'cash' => $totalesDespues['cash'] - $totalesAntes['cash'],
                     ],
                     'comparativo' => $comparativo,
+                    'advertencias' => $advertencias,
                     'bloqueos' => $bloqueos,
                     'detalle_duplicadas' => $duplicadas,
                     'detalle_extras' => $extras,
@@ -6418,7 +6447,7 @@ class Atlas extends Model
 
             if (
                 $esReajusteMasivo
-                && ($duplicadas || $extras || $faltantes || $omitidasInvalidas > 0 || $erroresAsignacion)
+                && ($duplicadas || $omitidasInvalidas > 0)
             ) {
                 $db->rollback();
                 return [

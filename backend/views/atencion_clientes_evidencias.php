@@ -1263,8 +1263,7 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
 .aev-btn-enviar:disabled { opacity: .5; }
 #aeTabAprobados .ac-btn-dictaminar { display: none !important; }
 #modalAevValidarEvidencias.aev-modo-lectura #aev-btn-enviar,
-#modalAevValidarEvidencias.aev-modo-lectura #aev-vista-panel-dictamen,
-#modalAevValidarEvidencias.aev-modo-lectura .aev-btn-reemplazo-gestor {
+#modalAevValidarEvidencias.aev-modo-lectura #aev-vista-panel-dictamen {
     display: none !important;
 }
 body.dark-mode .aev-ev-slots-wrap { background: #0f172a; border-color: #334155; }
@@ -4153,7 +4152,9 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 if (replGestor) {
                     ev.preventDefault();
                     ev.stopPropagation();
-                    if (_aevStore.soloLectura) return;
+                    // El modo solo lectura bloquea dictamenes y envios, pero el
+                    // permiso especial 79 permite reemplazar evidencias incluso
+                    // desde Aprobados. El endpoint vuelve a validar el permiso.
                     aevAbrirReemplazoGestor(
                         replGestor.getAttribute('data-aev-reemplazar-gestor'),
                         replGestor.getAttribute('data-aev-reemplazar-lbl') || ''

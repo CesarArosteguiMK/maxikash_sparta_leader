@@ -83,11 +83,10 @@ $atlasVentasColumnCount = count($atlasVentasHeaders);
         .atlas-sales-text-success { color:#16834d; }
         .atlas-sales-details-button { width:2rem; height:2rem; padding:0; }
         .atlas-sales-detail-header { min-width:0; }
-        .atlas-sales-detail-client { margin:0; color:#22303e; font-size:1rem; font-weight:900; overflow-wrap:anywhere; }
+        .atlas-sales-detail-client { margin:0; color:var(--bs-heading-color, #384551); font-size:1.3rem; font-weight:600; overflow-wrap:anywhere; }
         .atlas-sales-detail-offer { margin:.15rem 0 0; color:#8a99aa; font-size:.72rem; font-weight:700; }
         .atlas-sales-detail-section + .atlas-sales-detail-section { margin-top:1.25rem; padding-top:1rem; border-top:1px solid #e5e7eb; }
-        .atlas-sales-detail-section-title { display:flex; align-items:center; gap:.45rem; margin:0 0 .75rem; color:#566a7f; font-size:.75rem; font-weight:900; text-transform:uppercase; }
-        .atlas-sales-detail-section-icon { display:inline-grid; width:1.7rem; height:1.7rem; place-items:center; border-radius:.4rem; font-size:.72rem; }
+        .atlas-sales-detail-section-title { margin:0 0 .9rem; color:var(--bs-heading-color, #384551); font-size:.975rem; font-weight:600; text-transform:uppercase; }
         .atlas-sales-detail-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.75rem 1rem; margin:0; }
         .atlas-sales-detail-item { display:grid; grid-template-columns:2rem minmax(0, 1fr); align-items:center; gap:.55rem; min-width:0; }
         .atlas-sales-detail-item-icon { display:inline-grid; width:2rem; height:2rem; place-items:center; border-radius:.45rem; font-size:.76rem; }
@@ -287,7 +286,7 @@ $atlasVentasColumnCount = count($atlasVentasHeaders);
                 </div>
                 <div class="modal-body" id="atlasSalesDetailsContent"></div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -601,14 +600,9 @@ const initializeAtlasSales = () => {
             </div>
         </div>`;
 
-    const detailSection = (title, icon, tone, items) => `
+    const detailSection = (title, items) => `
         <section class="atlas-sales-detail-section">
-            <h3 class="atlas-sales-detail-section-title">
-                <span class="atlas-sales-detail-section-icon atlas-sales-tone-${escapeHtml(tone)}">
-                    <i class="${escapeHtml(icon)}"></i>
-                </span>
-                <span>${escapeHtml(title)}</span>
-            </h3>
+            <h3 class="atlas-sales-detail-section-title">${escapeHtml(title)}</h3>
             <dl class="atlas-sales-detail-grid">${items.join('')}</dl>
         </section>`;
 
@@ -616,22 +610,22 @@ const initializeAtlasSales = () => {
         elements.detailsTitle.textContent = row.nombre_cliente || 'Detalle de venta';
         elements.detailsOffer.textContent = `ID de oferta: ${row.id_oferta || 'Sin dato'}`;
         elements.detailsContent.innerHTML = [
-            detailSection('Cr\u00e9dito', 'fa-solid fa-wallet', 'primary', [
+            detailSection('Cr\u00e9dito', [
                 detailItem('Precio de moto', currency.format(Number(row.precio_moto || 0)), 'fa-solid fa-tags', 'danger'),
                 detailItem('Enganche', currency.format(Number(row.enganche || 0)), 'fa-solid fa-hand-holding-dollar', 'success'),
                 detailItem('Monto financiado', currency.format(Number(row.monto_financiar || 0)), 'fa-solid fa-money-bill-transfer', 'primary'),
                 detailItem('Plazo', row.semanas ? `${row.semanas} semanas` : 'Sin dato', 'fa-regular fa-calendar', 'warning'),
                 detailItem('Oferta', row.oferta, 'fa-solid fa-receipt', 'info'),
             ]),
-            detailSection('Motocicleta', 'fa-solid fa-motorcycle', 'success', [
+            detailSection('Motocicleta', [
                 detailItem('Modelo de moto', row.modelo_moto, 'fa-solid fa-motorcycle', 'success'),
                 detailItem('Marca de moto', row.marca_moto, 'fa-solid fa-industry', 'info'),
             ]),
-            detailSection('Responsable', 'fa-solid fa-user-tie', 'info', [
+            detailSection('Responsable', [
                 detailItem('Usuario', row.usuario, 'fa-regular fa-user', 'primary'),
                 detailItem('Vendedor', row.nombre_vendedor, 'fa-solid fa-user-tie', 'success'),
             ]),
-            detailSection('Referencias', 'fa-solid fa-link', 'warning', [
+            detailSection('Referencias', [
                 detailItem('ID de sucursal', row.pk_sucursal, 'fa-solid fa-store', 'info'),
                 detailItem('ID de distribuidor', row.fk_distribuidor, 'fa-solid fa-building', 'secondary'),
             ]),

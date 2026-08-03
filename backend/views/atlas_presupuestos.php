@@ -2068,6 +2068,7 @@
                 const puedeConfirmar = Number(datos.puede_confirmar || 0) === 1;
                 const cambios = Array.isArray(datos.comparativo) ? datos.comparativo : [];
                 const bloqueos = Array.isArray(datos.bloqueos) ? datos.bloqueos : [];
+                const advertencias = Array.isArray(datos.advertencias) ? datos.advertencias : [];
                 const motivo = document.getElementById('atlasPresComparativoMotivo');
                 motivo.value = '';
                 motivo.disabled = false;
@@ -2081,7 +2082,7 @@
                     `${this.number(cambios.length)} cambio${cambios.length === 1 ? '' : 's'}`;
 
                 const estado = document.getElementById('atlasPresComparativoEstado');
-                estado.className = `alert d-flex align-items-start gap-2 mb-3 ${bloqueos.length ? 'alert-warning' : 'alert-info'}`;
+                estado.className = `alert d-flex align-items-start gap-2 mb-3 ${bloqueos.length ? 'alert-danger' : 'alert-info'}`;
                 document.getElementById('atlasPresComparativoMensaje').textContent =
                     mensaje || (puedeConfirmar
                         ? 'El comparativo está listo para revisión.'
@@ -2240,7 +2241,8 @@
             renderBloqueosComparativoReajuste(datos) {
                 const contenedor = document.getElementById('atlasPresComparativoBloqueos');
                 const bloqueos = Array.isArray(datos.bloqueos) ? datos.bloqueos : [];
-                if (!bloqueos.length) {
+                const advertencias = Array.isArray(datos.advertencias) ? datos.advertencias : [];
+                if (!bloqueos.length && !advertencias.length) {
                     contenedor.innerHTML = `
                         <div class="alert alert-info d-flex align-items-start gap-2 mb-0">
                             <i class="fa-solid fa-circle-check mt-1"></i>
@@ -2249,11 +2251,13 @@
                     return;
                 }
                 const detalles = this.detallesBloqueoReajuste(datos);
+                const soloAdvertencias = !bloqueos.length;
+                const observaciones = soloAdvertencias ? advertencias : bloqueos;
                 contenedor.innerHTML = `
-                    <div class="alert alert-warning mb-0">
-                        <div class="fw-bold mb-2"><i class="fa-solid fa-circle-info me-2"></i>Observaciones por corregir</div>
+                    <div class="alert ${soloAdvertencias ? 'alert-info' : 'alert-danger'} mb-0">
+                        <div class="fw-bold mb-2"><i class="fa-solid ${soloAdvertencias ? 'fa-circle-info' : 'fa-triangle-exclamation'} me-2"></i>${soloAdvertencias ? 'Observaciones del archivo' : 'Observaciones por corregir'}</div>
                         <div class="atlas-pres-adjust-blockers">
-                            ${bloqueos.map(item => `
+                            ${observaciones.map(item => `
                                 <div class="atlas-pres-adjust-blocker">
                                     <i class="fa-solid fa-circle-info"></i>
                                     <div><strong>${this.number(item.cantidad || 0)}</strong> · ${this.escape(item.mensaje || '')}</div>
@@ -2261,6 +2265,7 @@
                             `).join('')}
                         </div>
                         ${detalles ? `<div class="small fw-semibold mt-2">${detalles}</div>` : ''}
+                        ${soloAdvertencias ? '<div class="small fw-bold mt-2">Puedes confirmar el reajuste: se aplicaran solamente los cambios validos indicados en el comparativo.</div>' : ''}
                     </div>`;
             },
 

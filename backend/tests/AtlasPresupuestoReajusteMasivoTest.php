@@ -79,12 +79,32 @@ final class AtlasPresupuestoReajusteMasivoTest extends TestCase
             $this->model
         );
         $this->assertStringContainsString("'puede_confirmar' => \$puedeConfirmar ? 1 : 0", $this->model);
-        $this->assertStringContainsString("'faltantes' => [count(\$faltantes)", $this->model);
+        $this->assertStringContainsString("'faltantes' => [count(\$faltantes), \$mensajeFaltantes]", $this->model);
+        $this->assertStringContainsString("'advertencias' => \$advertencias", $this->model);
+        $this->assertStringContainsString('$preservadasPorFk', $this->model);
         $this->assertStringContainsString('if (!$esReajusteMasivo) {', $this->model);
         $this->assertStringContainsString(
             'if ($esRecarga && $detallesAnteriores && !$esReajusteMasivo) {',
             $this->model
         );
+    }
+
+    public function testOperationalWarningsDoNotBlockValidBudgetChanges(): void
+    {
+        $this->assertStringContainsString(
+            "'extras' => [count(\$extras), 'Las PK que no existen en el catalogo se omitiran; las demas filas pueden aplicarse.']",
+            $this->model
+        );
+        $this->assertStringContainsString(
+            "'asignaciones' => [count(\$erroresAsignacion), 'El presupuesto puede cargarse, pero esas filas no actualizaran la asignacion operativa; se conservara la actual cuando exista.']",
+            $this->model
+        );
+        $this->assertStringContainsString(
+            '&& ($duplicadas || $omitidasInvalidas > 0)',
+            $this->model
+        );
+        $this->assertStringContainsString('const advertencias = Array.isArray(datos.advertencias)', $this->view);
+        $this->assertStringContainsString('Puedes confirmar el reajuste', $this->view);
     }
 
     public function testExistingMonthRequiresOnlyItsCurrentBudgetBranches(): void
