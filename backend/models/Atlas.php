@@ -5915,7 +5915,8 @@ class Atlas extends Model
                     $db,
                     $fkSucursal,
                     $metaCreditos,
-                    $metaCash
+                    $metaCash,
+                    $sucursalEsperada
                 );
                 if (empty($validacionDistribuidor['success'])) {
                     $erroresOperacion[] = [
@@ -6518,7 +6519,8 @@ class Atlas extends Model
                     $db,
                     (int)$fkSucursal,
                     (float)$datos['meta_creditos'],
-                    (float)$datos['meta_cash']
+                    (float)$datos['meta_cash'],
+                    $sucursalEsperada
                 );
                 if (!($validacionDistribuidor['success'] ?? false)) {
                     $db->rollback();
@@ -7206,10 +7208,17 @@ class Atlas extends Model
         return $row ?: null;
     }
 
-    private static function validarPresupuestoSucursalDistribuidorOperativo(Database $db, int $fkSucursal, float $metaCreditos, float $metaCash): array
+    private static function validarPresupuestoSucursalDistribuidorOperativo(
+        Database $db,
+        int $fkSucursal,
+        float $metaCreditos,
+        float $metaCash,
+        ?array $distribuidor = null
+    ): array
     {
-        $distribuidor = self::getDistribuidorSucursalPresupuesto($db, $fkSucursal);
-        if (!$distribuidor || !self::distribuidorDetieneOperacion($distribuidor['estatus'] ?? null)) {
+        $distribuidor = $distribuidor ?: self::getDistribuidorSucursalPresupuesto($db, $fkSucursal);
+        $estatusDistribuidor = $distribuidor['estatus'] ?? $distribuidor['distribuidor_estatus'] ?? null;
+        if (!$distribuidor || !self::distribuidorDetieneOperacion($estatusDistribuidor)) {
             return ['success' => true];
         }
 
@@ -7217,8 +7226,8 @@ class Atlas extends Model
             return ['success' => true, 'distribuidor' => $distribuidor];
         }
 
-        $nombre = self::strVal($distribuidor['nombre'] ?? 'El distribuidor');
-        $estatus = self::strVal($distribuidor['estatus'] ?? 'detenido');
+        $nombre = self::strVal($distribuidor['nombre'] ?? $distribuidor['distribuidor'] ?? 'El distribuidor');
+        $estatus = self::strVal($estatusDistribuidor ?? 'detenido');
         return [
             'success' => false,
             'mensaje' => "$nombre esta $estatus. Mientras el distribuidor este pausado, bloqueado o inhabilitado, sus sucursales solo pueden quedar con presupuesto 0.",
@@ -7329,6 +7338,7 @@ class Atlas extends Model
             SELECT
                 s.fk_sucursal,
                 COALESCE(d.nombre, '') AS distribuidor,
+                COALESCE(d.estatus, 'activo') AS distribuidor_estatus,
                 COALESCE(s.sucursal, '') AS sucursal,
                 '' AS divisional,
                 '' AS regional,

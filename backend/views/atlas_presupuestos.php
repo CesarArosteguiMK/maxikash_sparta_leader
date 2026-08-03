@@ -153,9 +153,23 @@
         .atlas-pres-adjust-totals { min-width:42rem; margin-bottom:0; }
         .atlas-pres-adjust-totals th,
         .atlas-pres-adjust-totals td { vertical-align:middle; white-space:nowrap; }
-        .atlas-pres-adjust-table { min-width:82rem; margin-bottom:0; }
+        .atlas-pres-adjust-table-shell { overflow:hidden; background:#fff; }
+        .atlas-pres-adjust-table { min-width:89rem; margin-bottom:0; table-layout:fixed; }
         .atlas-pres-adjust-table th { white-space:nowrap; background:#f8fafc; }
         .atlas-pres-adjust-table td { vertical-align:middle; }
+        .atlas-pres-adjust-table th:nth-child(1) { width:5rem; }
+        .atlas-pres-adjust-table th:nth-child(2) { width:14rem; }
+        .atlas-pres-adjust-table th:nth-child(3) { width:15rem; }
+        .atlas-pres-adjust-table th:nth-child(4) { width:10rem; }
+        .atlas-pres-adjust-table th:nth-child(5) { width:12rem; }
+        .atlas-pres-adjust-table th:nth-child(6) { width:11rem; }
+        .atlas-pres-adjust-table th:nth-child(7) { width:11rem; }
+        .atlas-pres-adjust-table th:nth-child(8) { width:11rem; }
+        .atlas-pres-adjust-pagination { border-top:1px solid #e5e7eb; background:#f8fafc; padding:.65rem .8rem; display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
+        .atlas-pres-adjust-pagination-copy { color:#64748b; font-size:.76rem; font-weight:800; }
+        .atlas-pres-adjust-pagination-controls { display:flex; align-items:center; gap:.45rem; }
+        .atlas-pres-adjust-pagination-controls .form-select { width:auto; min-width:4.6rem; }
+        .atlas-pres-adjust-pagination-controls .btn { width:2rem; height:2rem; padding:0; display:inline-flex; align-items:center; justify-content:center; }
         .atlas-pres-adjust-change { display:grid; gap:.18rem; min-width:9rem; }
         .atlas-pres-adjust-before { color:#64748b; font-size:.72rem; font-weight:700; line-height:1.2; }
         .atlas-pres-adjust-after { color:#22303e; font-size:.78rem; font-weight:900; line-height:1.2; }
@@ -164,6 +178,17 @@
         .atlas-pres-adjust-blockers { display:grid; gap:.45rem; }
         .atlas-pres-adjust-blocker { display:flex; align-items:flex-start; gap:.55rem; color:#475569; font-size:.8rem; font-weight:700; }
         .atlas-pres-adjust-blocker i { color:#2563eb; margin-top:.12rem; }
+        .swal2-popup.atlas-pres-analysis-popup { width:min(30rem, calc(100vw - 2rem)); padding:1.35rem; }
+        .atlas-pres-analysis { text-align:left; }
+        .atlas-pres-analysis-head { display:flex; align-items:center; gap:.75rem; margin-bottom:1rem; }
+        .atlas-pres-analysis-head > div { min-width:0; }
+        .atlas-pres-analysis-icon { width:2.5rem; height:2.5rem; flex:0 0 2.5rem; border-radius:.5rem; display:inline-flex; align-items:center; justify-content:center; background:#eaf2ff; color:#2563eb; font-size:1.05rem; }
+        .atlas-pres-analysis-title { color:#22303e; font-size:1.05rem; font-weight:900; line-height:1.2; }
+        .atlas-pres-analysis-file { color:#64748b; font-size:.75rem; font-weight:700; line-height:1.25; margin-top:.16rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:22rem; }
+        .atlas-pres-analysis-status { min-height:2.7rem; color:#475569; font-size:.86rem; font-weight:700; line-height:1.35; }
+        .atlas-pres-analysis-progress { height:.55rem; background:#e2e8f0; margin:.85rem 0 .65rem; }
+        .atlas-pres-analysis-progress .progress-bar { background:#2563eb; transition:width .45s ease; }
+        .atlas-pres-analysis-meta { display:flex; align-items:center; justify-content:space-between; gap:.35rem .75rem; flex-wrap:wrap; color:#64748b; font-size:.72rem; font-weight:800; }
         .atlas-pres-timeline { display:flex; flex-direction:column; gap:.7rem; }
         .atlas-pres-timeline-row { border:1px solid #e5e7eb; border-radius:.65rem; background:#fff; padding:.75rem .85rem; display:grid; grid-template-columns:2.1rem 1fr auto; gap:.75rem; align-items:start; }
         .atlas-pres-timeline-icon { width:2.1rem; height:2.1rem; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:#fff; background:#26344e; }
@@ -397,22 +422,38 @@
                         <strong><i class="fa-solid fa-table-list me-2 text-primary"></i>Cambios por sucursal</strong>
                         <span class="atlas-pres-badge atlas-pres-badge-info" id="atlasPresComparativoConteo">0 cambios</span>
                     </div>
-                    <div class="table-responsive border rounded mb-3">
-                        <table class="table table-sm atlas-pres-adjust-table">
-                            <thead>
-                                <tr>
-                                    <th>PK</th>
-                                    <th>Sucursal</th>
-                                    <th>Responsable</th>
-                                    <th>Créditos</th>
-                                    <th>Cash</th>
-                                    <th>Presupuesto base</th>
-                                    <th>Clasificación</th>
-                                    <th>Cambios</th>
-                                </tr>
-                            </thead>
-                            <tbody id="atlasPresComparativoBody"></tbody>
-                        </table>
+                    <div class="atlas-pres-adjust-table-shell border rounded mb-3">
+                        <div class="table-responsive">
+                            <table class="table table-sm atlas-pres-adjust-table">
+                                <thead>
+                                    <tr>
+                                        <th>PK</th>
+                                        <th>Sucursal</th>
+                                        <th>Responsable</th>
+                                        <th>Créditos</th>
+                                        <th>Cash</th>
+                                        <th>Presupuesto base</th>
+                                        <th>Clasificación</th>
+                                        <th>Cambios</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="atlasPresComparativoBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="atlas-pres-adjust-pagination" id="atlasPresComparativoPaginacion">
+                            <span class="atlas-pres-adjust-pagination-copy" id="atlasPresComparativoRango">Sin registros</span>
+                            <div class="atlas-pres-adjust-pagination-controls">
+                                <button type="button" class="btn btn-sm btn-label-secondary" id="atlasPresComparativoAnterior" aria-label="Página anterior" title="Página anterior">
+                                    <i class="fa-solid fa-chevron-left"></i>
+                                </button>
+                                <label class="visually-hidden" for="atlasPresComparativoPagina">Página</label>
+                                <select class="form-select form-select-sm" id="atlasPresComparativoPagina" aria-label="Página del comparativo"></select>
+                                <span class="atlas-pres-adjust-pagination-copy" id="atlasPresComparativoPaginas">de 1</span>
+                                <button type="button" class="btn btn-sm btn-label-secondary" id="atlasPresComparativoSiguiente" aria-label="Página siguiente" title="Página siguiente">
+                                    <i class="fa-solid fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div id="atlasPresComparativoBloqueos" class="mb-3"></div>
@@ -672,6 +713,11 @@
             eliminacionOrigen: null,
             eliminacionDestino: null,
             reajusteAnalisis: null,
+            comparativoCambios: [],
+            comparativoPagina: 1,
+            comparativoPorPagina: 50,
+            analisisProgreso: null,
+            analisisDuracionStorageKey: 'atlas_presupuesto_analisis_duracion_ms',
             modalImport: null,
             modalComparativo: null,
             modalEdit: null,
@@ -784,6 +830,12 @@
                 document.getElementById('atlasPresImportForm').addEventListener('submit', (ev) => this.importar(ev));
                 document.getElementById('atlasPresComparativoForm').addEventListener('submit', (ev) => this.confirmarReajusteMasivo(ev));
                 document.getElementById('atlasPresComparativoMotivo').addEventListener('input', () => this.actualizarEstadoConfirmacionReajuste());
+                document.getElementById('atlasPresComparativoAnterior').addEventListener('click', () => this.cambiarPaginaComparativoReajuste(-1));
+                document.getElementById('atlasPresComparativoSiguiente').addEventListener('click', () => this.cambiarPaginaComparativoReajuste(1));
+                document.getElementById('atlasPresComparativoPagina').addEventListener('change', (ev) => {
+                    this.comparativoPagina = parseInt(ev.target.value, 10) || 1;
+                    this.renderFilasComparativoReajuste();
+                });
                 document.getElementById('atlasPresEditForm').addEventListener('submit', (ev) => this.guardarDetalle(ev));
                 document.getElementById('atlasPresReasignarForm').addEventListener('submit', (ev) => this.reasignarPresupuesto(ev));
                 document.getElementById('atlasPresReasignarOrigen').addEventListener('change', () => this.actualizarReasignacion());
@@ -1980,30 +2032,152 @@
                 this.modalEdit.show();
             },
 
+            relojAnalisis() {
+                return window.performance && typeof window.performance.now === 'function'
+                    ? window.performance.now()
+                    : Date.now();
+            },
+
+            estimarDuracionAnalisis(archivo) {
+                const megabytes = Math.max(0, Number(archivo?.size || 0) / (1024 * 1024));
+                const estimadoPorTamano = 15000 + Math.min(45000, megabytes * 6000);
+                let duracionAnterior = 0;
+                try {
+                    duracionAnterior = Number(window.localStorage.getItem(this.analisisDuracionStorageKey) || 0);
+                } catch (err) {
+                    duracionAnterior = 0;
+                }
+                const estimado = duracionAnterior >= 3000 && duracionAnterior <= 120000
+                    ? (duracionAnterior * .65) + (estimadoPorTamano * .35)
+                    : estimadoPorTamano;
+                return Math.round(Math.min(90000, Math.max(12000, estimado)) / 1000) * 1000;
+            },
+
+            guardarDuracionAnalisis(duracionMs) {
+                if (!Number.isFinite(duracionMs) || duracionMs < 1000 || duracionMs > 120000) return;
+                try {
+                    window.localStorage.setItem(this.analisisDuracionStorageKey, String(Math.round(duracionMs)));
+                } catch (err) {
+                    // El estimado puede funcionar sin almacenamiento local.
+                }
+            },
+
+            mostrarProgresoAnalisis(archivo) {
+                const estimadoMs = this.estimarDuracionAnalisis(archivo);
+                this.analisisProgreso = {
+                    inicio: this.relojAnalisis(),
+                    estimadoMs,
+                    timer: null
+                };
+                if (typeof Swal === 'undefined') return;
+
+                Swal.fire({
+                    title: '',
+                    html: `
+                        <div class="atlas-pres-analysis">
+                            <div class="atlas-pres-analysis-head">
+                                <span class="atlas-pres-analysis-icon"><i class="fa-solid fa-file-excel"></i></span>
+                                <div class="min-w-0">
+                                    <div class="atlas-pres-analysis-title">Revisando presupuesto</div>
+                                    <div class="atlas-pres-analysis-file">${this.escape(archivo?.name || 'Archivo Excel')}</div>
+                                </div>
+                            </div>
+                            <div class="atlas-pres-analysis-status" id="atlasPresAnalisisEstado" role="status" aria-live="polite">
+                                Estamos cargando y preparando el archivo...
+                            </div>
+                            <div class="progress atlas-pres-analysis-progress" role="progressbar" aria-label="Avance estimado del análisis" aria-valuemin="0" aria-valuemax="100" aria-valuenow="6" id="atlasPresAnalisisProgreso">
+                                <div class="progress-bar" id="atlasPresAnalisisBarra" style="width:6%"></div>
+                            </div>
+                            <div class="atlas-pres-analysis-meta">
+                                <span id="atlasPresAnalisisEstimado">Tiempo estimado: ${Math.ceil(estimadoMs / 1000)} s</span>
+                                <span id="atlasPresAnalisisTranscurrido">Transcurrido: 0 s</span>
+                            </div>
+                        </div>`,
+                    customClass: { popup: 'atlas-pres-analysis-popup' },
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        this.actualizarProgresoAnalisis();
+                        if (this.analisisProgreso) {
+                            this.analisisProgreso.timer = window.setInterval(() => this.actualizarProgresoAnalisis(), 500);
+                        }
+                    }
+                });
+            },
+
+            actualizarProgresoAnalisis() {
+                const progreso = this.analisisProgreso;
+                if (!progreso) return;
+                const transcurridoMs = Math.max(0, this.relojAnalisis() - progreso.inicio);
+                const proporcion = transcurridoMs / progreso.estimadoMs;
+                const porcentaje = proporcion <= 1
+                    ? Math.min(86, 6 + (80 * proporcion))
+                    : Math.min(94, 86 + ((proporcion - 1) * 8));
+                let mensaje = 'Estamos cargando y preparando el archivo...';
+                if (proporcion >= .15) mensaje = 'Estamos revisando las sucursales y sus datos...';
+                if (proporcion >= .4) mensaje = 'Estamos validando responsables y presupuestos...';
+                if (proporcion >= .7) mensaje = 'Estamos comparando los cambios contra el presupuesto actual...';
+                if (proporcion >= .95) mensaje = 'Ya falta poco, estamos preparando el comparativo...';
+                if (proporcion >= 1.25) mensaje = 'El archivo es grande; seguimos revisándolo de forma segura...';
+
+                const barra = document.getElementById('atlasPresAnalisisBarra');
+                const contenedor = document.getElementById('atlasPresAnalisisProgreso');
+                const estado = document.getElementById('atlasPresAnalisisEstado');
+                const transcurrido = document.getElementById('atlasPresAnalisisTranscurrido');
+                if (barra) barra.style.width = `${porcentaje.toFixed(1)}%`;
+                if (contenedor) contenedor.setAttribute('aria-valuenow', String(Math.round(porcentaje)));
+                if (estado) estado.textContent = mensaje;
+                if (transcurrido) transcurrido.textContent = `Transcurrido: ${Math.floor(transcurridoMs / 1000)} s`;
+            },
+
+            detenerProgresoAnalisis() {
+                const progreso = this.analisisProgreso;
+                if (!progreso) return 0;
+                if (progreso.timer) window.clearInterval(progreso.timer);
+                progreso.timer = null;
+                return Math.max(0, this.relojAnalisis() - progreso.inicio);
+            },
+
+            completarProgresoAnalisis(duracionMs) {
+                this.detenerProgresoAnalisis();
+                this.guardarDuracionAnalisis(duracionMs);
+                const barra = document.getElementById('atlasPresAnalisisBarra');
+                const contenedor = document.getElementById('atlasPresAnalisisProgreso');
+                const estado = document.getElementById('atlasPresAnalisisEstado');
+                const transcurrido = document.getElementById('atlasPresAnalisisTranscurrido');
+                if (barra) barra.style.width = '100%';
+                if (contenedor) contenedor.setAttribute('aria-valuenow', '100');
+                if (estado) estado.textContent = 'Comparativo listo. Estamos abriendo la revisión...';
+                if (transcurrido) transcurrido.textContent = `Completado en ${Math.max(1, Math.round(duracionMs / 1000))} s`;
+                return new Promise(resolve => window.setTimeout(resolve, 250));
+            },
+
+            cancelarProgresoAnalisis() {
+                this.detenerProgresoAnalisis();
+                this.analisisProgreso = null;
+                if (typeof Swal !== 'undefined') Swal.close();
+            },
+
             importar(ev) {
                 ev.preventDefault();
                 const form = ev.currentTarget;
                 const submitBtn = form.querySelector('button[type="submit"]');
+                const submitBtnHtml = submitBtn?.innerHTML || '';
+                const archivo = form.querySelector('input[name="archivo"]')?.files?.[0] || null;
                 const anioImportacion = parseInt(document.getElementById('atlasPresImportAnio').value, 10);
                 const mesImportacion = parseInt(document.getElementById('atlasPresImportMes').value, 10);
                 if (!anioImportacion || !mesImportacion) {
                     showError('Selecciona un mes disponible para cargar.');
                     return;
                 }
-                if (submitBtn) submitBtn.disabled = true;
-                const fd = new FormData(form);
-                let loaderImportacionActivo = false;
-                if (typeof Swal !== 'undefined') {
-                    loaderImportacionActivo = true;
-                    Swal.fire({
-                        title: 'Analizando Excel',
-                        text: 'Estamos comparando el archivo contra el presupuesto actual.',
-                        imageUrl: '/assets/img/wait.svg',
-                        allowOutsideClick: false,
-                        allowEscapeKey: false,
-                        showConfirmButton: false
-                    });
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Analizando...';
                 }
+                const fd = new FormData(form);
+                let loaderImportacionActivo = true;
+                this.mostrarProgresoAnalisis(archivo);
                 http.request({
                     endpoint: '/Atlas/importarPresupuesto',
                     metodo: 'POST',
@@ -2012,31 +2186,41 @@
                     processData: false,
                     showLoader: false,
                     timeout: 120000,
+                    retry: 0,
                     onSuccess: (resp) => {
+                        const duracionMs = this.detenerProgresoAnalisis();
                         if (!resp || resp.success === false) {
                             loaderImportacionActivo = false;
-                            if (typeof Swal !== 'undefined') Swal.close();
+                            this.cancelarProgresoAnalisis();
                             showError(resp?.mensaje || 'No se pudo importar el presupuesto.');
                             return;
                         }
                         loaderImportacionActivo = false;
-                        if (typeof Swal !== 'undefined') Swal.close();
                         const datosImportacion = resp.datos || {};
                         form.reset();
                         document.getElementById('atlasPresImportAnio').value = document.getElementById('atlasPresAnio').value;
-                        this.cerrarModalImportacion().then(() => {
+                        const cierreImportacion = this.cerrarModalImportacion();
+                        Promise.all([
+                            cierreImportacion,
+                            this.completarProgresoAnalisis(duracionMs)
+                        ]).then(() => {
+                            this.analisisProgreso = null;
+                            if (typeof Swal !== 'undefined') Swal.close();
                             this.abrirComparativoReajuste(datosImportacion, resp.mensaje || '');
                         });
                     },
                     onError: (mensaje) => {
                         loaderImportacionActivo = false;
-                        if (typeof Swal !== 'undefined') Swal.close();
+                        this.cancelarProgresoAnalisis();
                         showError(mensaje || 'No se pudo importar el presupuesto.');
                     },
                     onAlways: () => {
-                        if (submitBtn) submitBtn.disabled = false;
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = submitBtnHtml;
+                        }
                         if (loaderImportacionActivo && typeof Swal !== 'undefined') {
-                            Swal.close();
+                            this.cancelarProgresoAnalisis();
                         }
                     }
                 });
@@ -2080,6 +2264,8 @@
                     `Comparativo disponible por ${Math.round(Number(datos.expira_en_segundos || 1800) / 60)} minutos`;
                 document.getElementById('atlasPresComparativoConteo').textContent =
                     `${this.number(cambios.length)} cambio${cambios.length === 1 ? '' : 's'}`;
+                this.comparativoCambios = cambios;
+                this.comparativoPagina = 1;
 
                 const estado = document.getElementById('atlasPresComparativoEstado');
                 estado.className = `alert d-flex align-items-start gap-2 mb-3 ${bloqueos.length ? 'alert-danger' : 'alert-info'}`;
@@ -2109,10 +2295,15 @@
                     </div>
                 `;
                 this.renderTotalesComparativoReajuste(datos);
-                this.renderFilasComparativoReajuste(cambios);
+                document.getElementById('atlasPresComparativoBody').innerHTML =
+                    '<tr><td colspan="8" class="atlas-pres-empty">Preparando la primera página...</td></tr>';
+                this.renderPaginacionComparativoReajuste(cambios.length);
                 this.renderBloqueosComparativoReajuste(datos);
                 this.actualizarEstadoConfirmacionReajuste();
                 this.modalComparativo.show();
+                window.requestAnimationFrame(() => {
+                    window.requestAnimationFrame(() => this.renderFilasComparativoReajuste());
+                });
             },
 
             renderTotalesComparativoReajuste(datos) {
@@ -2142,13 +2333,23 @@
                 return `<strong class="${clase}">${prefijo}${numero < 0 ? '-' : ''}${absolutoFormateado}</strong>`;
             },
 
-            renderFilasComparativoReajuste(cambios) {
+            renderFilasComparativoReajuste(cambios = null) {
+                if (Array.isArray(cambios)) {
+                    this.comparativoCambios = cambios;
+                    this.comparativoPagina = 1;
+                }
+                const registros = Array.isArray(this.comparativoCambios) ? this.comparativoCambios : [];
                 const body = document.getElementById('atlasPresComparativoBody');
-                if (!cambios.length) {
+                const totalPaginas = Math.max(1, Math.ceil(registros.length / this.comparativoPorPagina));
+                this.comparativoPagina = Math.min(totalPaginas, Math.max(1, this.comparativoPagina));
+                const inicio = (this.comparativoPagina - 1) * this.comparativoPorPagina;
+                const visibles = registros.slice(inicio, inicio + this.comparativoPorPagina);
+                if (!registros.length) {
                     body.innerHTML = '<tr><td colspan="8" class="atlas-pres-empty">No hay diferencias por aplicar.</td></tr>';
+                    this.renderPaginacionComparativoReajuste(0);
                     return;
                 }
-                body.innerHTML = cambios.map(item => {
+                body.innerHTML = visibles.map(item => {
                     const antes = item.antes || null;
                     const despues = item.despues || {};
                     const campos = Array.isArray(item.campos) ? item.campos : [];
@@ -2195,6 +2396,37 @@
                         </tr>
                     `;
                 }).join('');
+                this.renderPaginacionComparativoReajuste(registros.length);
+            },
+
+            renderPaginacionComparativoReajuste(totalRegistros) {
+                const total = Math.max(0, Number(totalRegistros) || 0);
+                const totalPaginas = Math.max(1, Math.ceil(total / this.comparativoPorPagina));
+                this.comparativoPagina = Math.min(totalPaginas, Math.max(1, this.comparativoPagina));
+                const inicio = total ? ((this.comparativoPagina - 1) * this.comparativoPorPagina) + 1 : 0;
+                const fin = total ? Math.min(total, this.comparativoPagina * this.comparativoPorPagina) : 0;
+                const select = document.getElementById('atlasPresComparativoPagina');
+                const anterior = document.getElementById('atlasPresComparativoAnterior');
+                const siguiente = document.getElementById('atlasPresComparativoSiguiente');
+                document.getElementById('atlasPresComparativoRango').textContent = total
+                    ? `Mostrando ${this.number(inicio)} a ${this.number(fin)} de ${this.number(total)} cambios`
+                    : 'Sin cambios para mostrar';
+                document.getElementById('atlasPresComparativoPaginas').textContent = `de ${this.number(totalPaginas)}`;
+                select.innerHTML = Array.from({ length: totalPaginas }, (_, index) => {
+                    const pagina = index + 1;
+                    return `<option value="${pagina}"${pagina === this.comparativoPagina ? ' selected' : ''}>${pagina}</option>`;
+                }).join('');
+                select.disabled = totalPaginas <= 1;
+                anterior.disabled = this.comparativoPagina <= 1;
+                siguiente.disabled = this.comparativoPagina >= totalPaginas;
+            },
+
+            cambiarPaginaComparativoReajuste(direccion) {
+                const totalPaginas = Math.max(1, Math.ceil(this.comparativoCambios.length / this.comparativoPorPagina));
+                const pagina = Math.min(totalPaginas, Math.max(1, this.comparativoPagina + direccion));
+                if (pagina === this.comparativoPagina) return;
+                this.comparativoPagina = pagina;
+                this.renderFilasComparativoReajuste();
             },
 
             renderSucursalComparativoReajuste(item, campos) {
