@@ -74,13 +74,13 @@ class LeonidasConveniosService
             if ($this->contiene($normalizado, ['tiempo', 'cuando', 'cuantos dias', 'cuanto tarda', 'plazo'])) {
                 return $this->respuesta(
                     'tiempo_cancelacion',
-                    'La cancelacion automatica procede cuando la primera cuota que sigue pendiente tiene mas de 3 dias naturales de vencida. Antes de cancelar, Sparta consulta S2. Si encuentra el pago de esa cuota o el credito liquidado, no cancela. Si no hay respaldo, cancela el convenio y las cuotas que continuaban pendientes. La cancelacion manual no espera esos 3 dias, pero requiere motivo, permiso y auditoria.'
+                    'La cancelacion automatica por vencimiento esta desactivada. Una cuota puede permanecer vencida sin que el paso de los dias cancele el convenio; Sparta conserva su seguimiento y conciliacion contra S2. Para cancelar se debe usar el flujo manual, que requiere motivo, permiso y auditoria, ya sea mediante solicitud autorizada o cancelacion directa con permiso especial.'
                 );
             }
 
             return $this->respuesta(
                 'causas_cancelacion',
-                'En automatico, Sparta considera la primera cuota pendiente, que tenga mas de 3 dias naturales de atraso y que S2 no muestre su pago ni el credito liquidado. Solo al cumplirse las tres condiciones cancela el convenio. En manual, un usuario autorizado registra un motivo y, segun su permiso, genera una solicitud o cancela directamente. Un convenio completado o ya cancelado no vuelve a cancelarse.'
+                'Sparta no cancela automaticamente un convenio por cuotas vencidas ni por el paso del tiempo. La cancelacion se realiza manualmente: un usuario registra el motivo y, segun sus permisos, genera una solicitud para autorizacion o cancela directamente. El seguimiento de pagos y la conciliacion contra S2 siguen activos, y un convenio completado o ya cancelado no vuelve a cancelarse.'
             );
         }
 
@@ -111,7 +111,7 @@ class LeonidasConveniosService
             'plazo' => 'Dinamico por producto y rango de adeudo; sin rango usa periodo_fin.',
             'elegibilidad' => 'Credito existente, sin convenio activo ni completado bloqueante, producto activo, bucket permitido y avance minimo cuando aplique.',
             'reactivacion' => 'Reactiva la oferta para crear un convenio nuevo; no revive el convenio anterior.',
-            'cancelacion_automatica' => 'Primera cuota pendiente con mas de 3 dias naturales de atraso y sin pago o liquidacion confirmada en S2.',
+            'cancelacion_automatica' => 'Desactivada; las cuotas vencidas permanecen en seguimiento y conciliacion.',
             'cancelacion_manual' => 'Requiere motivo, permiso y auditoria; puede pasar por solicitud o ejecutarse directamente.',
             'pendiente_conciliar' => 'Existe comprobante, pero el pago aun no esta confirmado ni conciliado.',
             'modificacion' => 'Las condiciones de un convenio activo no se editan libremente; se cancela y se genera uno nuevo.',

@@ -796,11 +796,53 @@ class Convenios extends Model
                 if (!is_array($pagos) || count($pagos) === 0) {
                     return self::resultado(false, 'Se requieren las fechas y montos de los pagos.');
                 }
+                if (count($pagos) > 15) {
+                    return self::resultado(false, 'El calendario permite un máximo de 15 pagos.');
+                }
 
-                $semanas         = count($pagos);
-                $fechaPrimerPago = $pagos[0]['fecha'];
-                $fechaUltimoPago = $pagos[$semanas - 1]['fecha'];
-                $totalAPagar     = (float) $datos['total_a_pagar'];
+                // El calendario libre es la fuente del total: se normaliza y se
+                // recalculan sus diferencias para evitar que lleguen montos alterados.
+                $pagosNormalizados = [];
+                $totalAPagar       = 0.0;
+                $fechaAnterior     = null;
+                foreach ($pagos as $indice => $pago) {
+                    $fecha = trim((string) ($pago['fecha'] ?? ''));
+                    $monto = round((float) ($pago['monto'] ?? 0), 2);
+                    $fechaObj = \DateTime::createFromFormat('!Y-m-d', $fecha);
+
+                    if (!$fechaObj || $fechaObj->format('Y-m-d') !== $fecha) {
+                        return self::resultado(false, 'Cada pago debe tener una fecha válida.');
+                    }
+                    if (!is_finite($monto) || $monto <= 0) {
+                        return self::resultado(false, 'Cada pago debe tener un monto mayor a cero.');
+                    }
+                    if ($fechaAnterior !== null && $fecha <= $fechaAnterior) {
+                        return self::resultado(false, 'Las fechas de pago deben estar en orden ascendente y sin repetirse.');
+                    }
+
+                    $pagosNormalizados[] = ['fecha' => $fecha, 'monto' => $monto];
+                    $totalAPagar = round($totalAPagar + $monto, 2);
+                    $fechaAnterior = $fecha;
+                }
+
+                $pagos            = $pagosNormalizados;
+                $semanas          = count($pagos);
+                $fechaPrimerPago  = $pagos[0]['fecha'];
+                $fechaUltimoPago  = $pagos[$semanas - 1]['fecha'];
+                $fechaAcuerdo     = $fechaPrimerPago;
+                $adeudoOriginal   = round((float) ($datos['adeudo_total_original'] ?? 0), 2);
+                $totalSolicitado  = round((float) ($datos['total_a_pagar'] ?? 0), 2);
+
+                if (!is_finite($adeudoOriginal) || $adeudoOriginal <= 0) {
+                    return self::resultado(false, 'El adeudo base debe ser mayor a cero.');
+                }
+                if (!is_finite($totalSolicitado) || $totalSolicitado <= 0 || abs($totalSolicitado - $totalAPagar) > 0.01) {
+                    return self::resultado(false, 'El total del convenio no coincide con la suma de sus pagos.');
+                }
+
+                $descuentoMonto      = round($adeudoOriginal - $totalAPagar, 2);
+                $porcentajeDescuento = round(($descuentoMonto / $adeudoOriginal) * 100, 2);
+                $montoAdicional      = max(0, round($totalAPagar - $adeudoOriginal, 2));
                 $pagoPromedio    = $semanas > 0 ? round($totalAPagar / $semanas, 2) : $totalAPagar;
 
                 $pdfAdjunto = isset($datos['pdf_adjunto']) ? $datos['pdf_adjunto'] : null;
@@ -833,11 +875,11 @@ class Convenios extends Model
                         'bucket'            => $datos['bucket_morosidad_real'],
                         'dias_mora'         => (int) $datos['dias_mora'],
                         'avance_pago'       => $datos['avance_pago_plazo'],
-                        'adeudo_original'   => (float) $datos['adeudo_total_original'],
-                        'pct_descuento'     => (float) $datos['porcentaje_descuento'],
-                        'descuento_monto'   => (float) $datos['descuento_monto'],
+                        'adeudo_original'   => $adeudoOriginal,
+                        'pct_descuento'     => $porcentajeDescuento,
+                        'descuento_monto'   => $descuentoMonto,
                         'total_pagar'       => $totalAPagar,
-                        'monto_adicional'   => isset($datos['monto_adicional']) ? (float) $datos['monto_adicional'] : 0.0,
+                        'monto_adicional'   => $montoAdicional,
                         'pago_inicial'      => isset($datos['pago_inicial_monto']) ? (float) $datos['pago_inicial_monto'] : null,
                         'num_semanas'       => $semanas,
                         'pago_semanal'      => $pagoPromedio,
@@ -1005,8 +1047,8 @@ public static function getConvenioActivo($id_credito)
             return self::resultado(true, 'Sin convenio activo.', null);
         }
 
-        // Para convenios ya completados no aplicar lógica de auto-cancelación.
-        // Sí cargar la amortización y correr auto-conciliación S2 por si hay
+        // Para convenios completados cargar la amortización y correr
+        // auto-conciliación S2 por si hay
         // semanas que siguen en pendiente_conciliar o pendiente/vencido
         // (ej: convenio recreado desde BD con estatus=completado pero filas sin conciliar).
         if ($convenio['estatus'] === 'completado') {
@@ -1136,79 +1178,9 @@ public static function getConvenioActivo($id_credito)
             return self::resultado(true, 'Convenio completado.', $convenio);
         }
 
-        // ── Auto-cancelación por incumplimiento (3 días corridos) ──
-        // IMPORTANTE: verificar conciliación S2 ANTES de cancelar para evitar
-        // marcar como cancelado un convenio cuyo pago sí consta en S2Movil.
-        $hoy          = new \DateTime();
-        $primerVencida = $db->queryOne(
-            "SELECT id, numero_semana, fecha_pago
-             FROM convenio_cliente_amortizacion
-             WHERE id_convenio_cliente = :id
-               AND estatus_pago = 'pendiente'
-             ORDER BY numero_semana ASC
-             LIMIT 1",
-            ['id' => (int) $convenio['id']]
-        );
-
-        if ($primerVencida) {
-            $fechaPago   = new \DateTime($primerVencida['fecha_pago']);
-            $diasVencido = (int) $hoy->diff($fechaPago)->days;
-            $yaVencio    = $hoy > $fechaPago;
-
-            if ($yaVencio && $diasVencido > 3) {
-                // Antes de cancelar: cruzar con S2 para confirmar incumplimiento real
-                $amortParaVerif = $db->queryAll(
-                    "SELECT * FROM convenio_cliente_amortizacion
-                     WHERE id_convenio_cliente = :id ORDER BY numero_semana",
-                    ['id' => (int) $convenio['id']]
-                );
-                $s2Verif      = self::_getPagosS2Movil((int) $id_credito);
-                $rawVerif     = $s2Verif['raw'];
-                $s2YaSaldado  = self::_estadoCuentaS2EstaSaldado($s2Verif['estadoCuenta'] ?? null);
-                $fechaFiltroVerif = self::_fechaFiltroPagosConvenio($convenio['fecha_acuerdo'] ?? null);
-                if ($fechaFiltroVerif) {
-                    // Mantener la tolerancia previa al acuerdo para no cancelar
-                    // un convenio cuyo pago bancario se registró antes de capturarlo.
-                    $rawVerif = array_values(array_filter($rawVerif, function ($p) use ($fechaFiltroVerif) {
-                        $fechaPago = self::_fechaPagoS2Corta($p);
-                        return !empty($fechaPago) && $fechaPago >= $fechaFiltroVerif;
-                    }));
-                }
-                $resultadoVerif  = self::_mapearPagosS2Waterfall($rawVerif, $amortParaVerif);
-                $mapaVerif       = $resultadoVerif['mapa'];
-                $numSemVencida   = (int) $primerVencida['numero_semana'];
-                $pagoConfirmadoS2 = $s2YaSaldado || isset($mapaVerif[$numSemVencida]);
-
-                if ($pagoConfirmadoS2) {
-                    // El pago existe en S2 — no cancelar; continuar y mostrar estado conciliado
-                } else {
-                    $db->CRUD(
-                        "UPDATE convenio_cliente SET
-                            estatus                   = 'cancelado',
-                            fecha_cancelacion         = :fecha,
-                            numero_semana_cancelacion = :semana,
-                            usuario_cancela           = 'sistema_auto',
-                            fecha_modifica            = NOW()
-                         WHERE id = :id",
-                        [
-                            'fecha'  => $hoy->format('Y-m-d'),
-                            'semana' => $primerVencida['numero_semana'],
-                            'id'     => (int) $convenio['id'],
-                        ]
-                    );
-
-                    $db->CRUD(
-                        "UPDATE convenio_cliente_amortizacion SET
-                            estatus_pago = 'cancelado'
-                         WHERE id_convenio_cliente = :id
-                           AND estatus_pago = 'pendiente'",
-                        ['id' => (int) $convenio['id']]
-                    );
-
-                    return self::resultado(true, 'Convenio cancelado por incumplimiento.', null);
-                }
-            }
-        }
+        // Los vencimientos se conservan para seguimiento y conciliación.
+        // Ya no provocan la cancelación automática del convenio.
+        $hoy = new \DateTime();
 
         $amortizacion = $db->queryAll(
             "SELECT * FROM convenio_cliente_amortizacion

@@ -50,8 +50,9 @@ assertConvenio(str_contains($reactivacion['mensaje'], 'oferta'), 'Debe distingui
 assertConvenio(str_contains($reactivacion['mensaje'], 'convenio nuevo'), 'Debe explicar que se crea un convenio nuevo.');
 
 $cancelacion = $service->resolver($casos['tiempo_cancelacion']);
-assertConvenio(str_contains($cancelacion['mensaje'], 'mas de 3 dias naturales'), 'Debe explicar el plazo exacto de cancelacion automatica.');
-assertConvenio(str_contains($cancelacion['mensaje'], 'S2'), 'Debe explicar la verificacion en S2.');
+assertConvenio(str_contains($cancelacion['mensaje'], 'esta desactivada'), 'Debe explicar que la cancelacion automatica esta desactivada.');
+assertConvenio(str_contains($cancelacion['mensaje'], 'flujo manual'), 'Debe explicar que la cancelacion requiere el flujo manual.');
+assertConvenio(!str_contains($cancelacion['mensaje'], 'mas de 3 dias naturales'), 'No debe conservar la regla eliminada de tres dias.');
 
 $conciliacion = $service->resolver($casos['pago_pendiente_conciliar']);
 assertConvenio(str_contains($conciliacion['mensaje'], 'no esta confirmado como pagado'), 'Debe explicar el estado real del comprobante.');

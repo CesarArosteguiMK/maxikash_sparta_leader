@@ -9,6 +9,8 @@ use Models\Usuarios as UsuariosDao;
 
 class Inicio extends Controller
 {
+    private const MONITOREO_PERSONA_ID = 877;
+
     public function index()
     {
         if (UsuarioFantasmaReporteria::es()) {
@@ -43,6 +45,14 @@ class Inicio extends Controller
                     'bg' => 'bg-success',
                 ];
             }
+        }
+        if ($personaIdInicio === self::MONITOREO_PERSONA_ID) {
+            $accesosRapidos[] = [
+                'url' => '/monitoreo',
+                'label' => 'Monitoreo',
+                'icon' => 'fa-solid fa-heart-pulse',
+                'bg' => 'bg-primary',
+            ];
         }
         $this->set('accesosRapidos', $accesosRapidos);
         // Botones de diagnóstico (Segundómetro y BD alternas): solo usuario id 1 y si config lo permite

@@ -19,7 +19,7 @@ La reactivación habilita nuevamente una oferta para crear un convenio nuevo. No
 
 ## Cancelación
 
-La cancelación automática toma la primera cuota pendiente. Cuando han pasado más de 3 días naturales desde su vencimiento, consulta S2. Si existe pago o el crédito ya está liquidado, no cancela. Si no existe respaldo de pago, cancela el convenio y las cuotas no pagadas.
+La cancelación automática por vencimiento está desactivada. Las cuotas vencidas permanecen en seguimiento y continúan conciliándose contra S2.
 
 La cancelación manual requiere un motivo. Puede pasar por solicitud y autorización o ejecutarse directamente cuando el usuario tiene el permiso especial correspondiente.
 

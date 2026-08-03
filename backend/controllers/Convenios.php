@@ -531,35 +531,32 @@ class Convenios extends Controller
         $nombreCliente  = htmlspecialchars($convenio['nombre_cliente'] ?? '');
         $idCredito      = (int) $convenio['id_credito'];
         $fechaAcuerdo   = $convenio['fecha_acuerdo'];
-        $adeudoOrig     = number_format((float) $convenio['adeudo_total_original'], 2);
-        $pctDescuento   = (float) $convenio['porcentaje_descuento'];
-        $montoAdicional = (float) ($convenio['monto_adicional'] ?? 0);
-        $totalPagarNum  = (float) $convenio['total_a_pagar'];
-        $totalInicial   = $totalPagarNum - $montoAdicional;
-        $descuentoNum   = (float) $convenio['descuento_monto'];
-        // Base real usada en el cálculo = saldo capital (no el adeudo total con recargos)
-        $saldoCapital   = $totalInicial + $descuentoNum;
-        $saldoCapitalFmt = number_format($saldoCapital, 2);
-        $descuento      = number_format($descuentoNum, 2);
-        $totalPagar     = number_format($totalPagarNum, 2);
-        $pagoSemanal    = number_format((float) $convenio['pago_semanal'], 2);
+        $adeudoOriginalNum = (float) $convenio['adeudo_total_original'];
+        $totalPagarNum     = (float) $convenio['total_a_pagar'];
+        // El PDF muestra la diferencia real entre la base y el total pactado.
+        $diferenciaNum      = round($adeudoOriginalNum - $totalPagarNum, 2);
+        $esIncremento       = $diferenciaNum < -0.009;
+        $etiquetaDiferencia = $esIncremento ? 'Incremento' : 'Descuento';
+        $porcentajeDiferencia = $adeudoOriginalNum > 0
+            ? abs(round(($diferenciaNum / $adeudoOriginalNum) * 100, 2))
+            : 0;
+        $porcentajeDiferenciaFmt = number_format($porcentajeDiferencia, 2);
+        $adeudoMostrado     = '$' . number_format($adeudoOriginalNum, 2);
+        $diferenciaMostrada = ($esIncremento ? '+$' : '-$') . number_format(abs($diferenciaNum), 2);
+        $totalPagarMostrado = '$' . number_format($totalPagarNum, 2);
+        $esCalendarioLibre = ($convenio['tipo_calendario'] ?? '') === 'libre';
+        $etiquetaFila      = $esCalendarioLibre ? 'Pago' : 'Semana';
+        $etiquetaPago      = $esCalendarioLibre ? 'Pago por fecha' : 'Pago semanal';
+        $etiquetaPlazo     = $esCalendarioLibre ? 'Número de pagos' : 'Número de semanas';
+        $pagoSemanalMostrado = '$' . number_format((float) $convenio['pago_semanal'], 2);
         $numSemanas     = (int) $convenio['numero_semanas'];
         $pagoInicial    = $convenio['pago_inicial_monto'] ? '$' . number_format((float) $convenio['pago_inicial_monto'], 2) : 'No aplica';
-
-        $totalInicialFmt    = number_format($totalInicial, 2);
-        $montoAdicionalFmt  = number_format($montoAdicional, 2);
-
-        // Filas extra solo cuando hay monto adicional
-        $filasAdicionales = $montoAdicional > 0
-            ? "<tr><td>Total inicial</td><td>\$$totalInicialFmt</td></tr>
-                <tr><td>Adicionales</td><td>+\$$montoAdicionalFmt</td></tr>"
-            : '';
 
         $filasHtml = '';
         foreach ($amortizacion as $row) {
             $filasHtml .= '
             <tr>
-                <td>Semana ' . (int) $row['numero_semana'] . '</td>
+                <td>' . $etiquetaFila . ' ' . (int) $row['numero_semana'] . '</td>
                 <td>' . date('d/m/Y', strtotime($row['fecha_pago'])) . '</td>
                 <td>$' . number_format((float) $row['pago_semanal'], 2) . '</td>
                 <td>$' . number_format((float) $row['capital'], 2) . '</td>
@@ -593,20 +590,19 @@ class Convenios extends Controller
             <table class="resumen">
                 <tr><td>Cliente</td><td>$nombreCliente</td></tr>
                 <tr><td>Fecha de acuerdo</td><td>$fechaAcuerdo</td></tr>
-                <tr><td>Deuda original</td><td>$$saldoCapitalFmt</td></tr>
-                <tr><td>Descuento</td><td>$pctDescuento%</td></tr>
-                $filasAdicionales
-                <tr><td>Descuento aplicado</td><td>-$$descuento</td></tr>
-                <tr><td>Total a pagar</td><td>$$totalPagar</td></tr>
+                <tr><td>Base de referencia</td><td>$adeudoMostrado</td></tr>
+                <tr><td>$etiquetaDiferencia</td><td>$porcentajeDiferenciaFmt%</td></tr>
+                <tr><td>$etiquetaDiferencia aplicado</td><td>$diferenciaMostrada</td></tr>
+                <tr><td>Total a pagar</td><td>$totalPagarMostrado</td></tr>
                 <tr><td>Primer pago (inicial)</td><td>$pagoInicial</td></tr>
-                <tr><td>Pago semanal</td><td>$$pagoSemanal</td></tr>
-                <tr><td>Número de semanas</td><td>$numSemanas</td></tr>
+                <tr><td>$etiquetaPago</td><td>$pagoSemanalMostrado</td></tr>
+                <tr><td>$etiquetaPlazo</td><td>$numSemanas</td></tr>
             </table>
 
             <table class="amort">
                 <thead>
                     <tr>
-                        <th>Semana</th>
+                        <th>$etiquetaFila</th>
                         <th>Fecha de Pago</th>
                         <th>Pago Semanal</th>
                         <th>Capital</th>
