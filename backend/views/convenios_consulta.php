@@ -8,6 +8,33 @@
 #migLibreNumPagos::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 #migLibreNumPagos { -moz-appearance: textfield; appearance: textfield; }
 
+<?php if (!empty($calendarioDinamicoActivo)): ?>
+/* Selector de corte histórico: mismo calendario usado por Estado de cuenta. */
+.flatpickr-calendar .flatpickr-monthDropdown-months {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background-image: none !important;
+}
+.flatpickr-calendar {
+    z-index: 99999 !important;
+    position: fixed !important;
+    transform: scale(1.08);
+    transform-origin: top left;
+}
+.flatpickr-calendar.open {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+.flatpickr-calendar .flatpickr-day.today {
+    border-color: #696cff !important;
+    border-width: 2px !important;
+    font-weight: 600 !important;
+    background-color: #f0f0ff !important;
+}
+<?php endif; ?>
+
 .conv-header-gradient {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 1rem;
@@ -803,17 +830,39 @@ body.dark-mode .manual-faq-modal .manual-pill { background: rgba(167,139,250,.16
     <!-- BUSCADOR -->
    <div class="card mb-3">
     <div class="card-body">
-        <label class="form-label fw-semibold">Buscar crédito por ID</label>
-        <div class="d-flex gap-3">
-            <div class="input-group">
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-lg-7">
+                <label class="form-label fw-semibold" for="inputBusqueda">Buscar crédito por ID</label>
                 <input type="number" id="inputBusqueda" class="form-control"
                        placeholder="Ej: 123456"
                        autocomplete="off"
                        min="1">
-                <button class="btn btn-primary" id="btnBuscar" onclick="window.buscarCredito()">
+            </div>
+            <?php if (!empty($calendarioDinamicoActivo)): ?>
+            <div class="col-12 col-sm-7 col-lg-3">
+                <label class="form-label fw-semibold" for="fechaCorteConvenio">
+                    <i class="fa-regular fa-calendar me-1"></i>Fecha de consulta S2
+                    <button type="button" id="btnAyudaFechaCorteConvenio"
+                            class="btn p-0 border-0 bg-transparent text-muted ms-1 align-middle"
+                            aria-label="Información sobre la fecha de consulta">
+                        <i class="fa fa-info-circle" aria-hidden="true"></i>
+                    </button>
+                </label>
+                <input type="text" id="fechaCorteConvenio"
+                       class="form-control flatpickr-fecha-corte"
+                       placeholder="Hoy (fecha actual)"
+                       autocomplete="off" readonly
+                       title="Selecciona la fecha en que deseas consultar el crédito">
+                <div class="form-text">Vacío consulta el estado actual.</div>
+            </div>
+            <?php endif; ?>
+            <div class="col-12 col-sm-5 col-lg-2">
+                <button class="btn btn-primary w-100" id="btnBuscar" onclick="window.buscarCredito()">
                     <i class="fa-solid fa-magnifying-glass me-1"></i> Buscar
                 </button>
             </div>
+        </div>
+        <div class="d-flex gap-3 flex-wrap mt-3">
             <?php if (!empty($permisoRegistrarConvenioExistente)): ?>
             <button type="button" class="btn btn-outline-warning"
                     id="btnRegistrarConvenioExistente"
@@ -1526,7 +1575,11 @@ body.dark-mode .manual-faq-modal .manual-pill { background: rgba(167,139,250,.16
                   <div class="col-6" id="colFechaInicio">
                     <label class="form-label">Fecha Inicio</label>
                     <input type="date" id="migFechaInicio" class="form-control"
-                           oninput="window.migCalcular()">
+                           max="<?= date('Y-m-d') ?>"
+                           <?= !empty($calendarioDinamicoActivo) ? 'onchange="window.migFechaInicioChange()"' : 'oninput="window.migCalcular()"' ?>>
+                    <?php if (!empty($calendarioDinamicoActivo)): ?>
+                    <small id="migFechaCorteEstado" class="form-text text-muted">El monto se consultará en S2 para esta fecha.</small>
+                    <?php endif; ?>
                   </div>
                   <div id="noticeFechaLibre" class="col-12 d-none">
                     <small class="text-muted"><i class="fas fa-info-circle me-1"></i>La fecha de inicio del convenio se toma del primer pago de la tabla.</small>
@@ -1753,9 +1806,81 @@ var _rayoModo = null; // 'unico' | 'quincenas' | 'semanal'
 // var _pollingInterval = null;
 var _estatusS2 = null;
 var _estatusConvenio = null;
+var _fechaCorteConsulta = null;
+var _consultaHistorica = false;
+// Interruptor temporal: el calendario histórico permanece pausado hasta solicitar su reactivación.
+var _calendarioDinamicoActivo = <?= !empty($calendarioDinamicoActivo) ? 'true' : 'false' ?>;
 var _permSolicitarReactivacion = <?= !empty($permisoSolicitarReactivacionOferta) ? 'true' : 'false' ?>;
 var _permReactivarOfertas = <?= !empty($permisoReactivarOfertas) ? 'true' : 'false' ?>;
 var _permCancelamientoDirecto = <?= !empty($permisoCancelamientoDirecto) ? 'true' : 'false' ?>;
+
+function _fechaLocalYmd(fecha) {
+    var d = fecha || new Date();
+    return d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+}
+
+function _fechaCorteSeleccionada() {
+    if (!_calendarioDinamicoActivo) return _fechaLocalYmd();
+    var input = document.getElementById('fechaCorteConvenio');
+    return input && input.value ? input.value : _fechaLocalYmd();
+}
+
+function _inicializarFechaCorteConvenio() {
+    if (!_calendarioDinamicoActivo) return;
+    var input = document.getElementById('fechaCorteConvenio');
+    if (!input) return;
+
+    if (typeof flatpickr !== 'undefined' && !input._flatpickr) {
+        flatpickr(input, {
+            dateFormat: 'Y-m-d',
+            maxDate: _fechaLocalYmd(),
+            allowInput: false,
+            clickOpens: true,
+            appendTo: document.body,
+            locale: (flatpickr.l10ns && flatpickr.l10ns.es) ? flatpickr.l10ns.es : 'es',
+        });
+    }
+
+    input.addEventListener('change', function () {
+        _fechaCorteConsulta = null;
+        _consultaHistorica = false;
+        if (_credito) {
+            _credito = null;
+            _ofertas = [];
+            _ofertaActiva = null;
+            document.getElementById('convContenido').style.display = 'none';
+            document.getElementById('btnHistorialWrap').style.display = 'none';
+            Swal.fire({
+                icon: 'info',
+                title: 'Fecha de consulta actualizada',
+                text: 'Vuelve a buscar el crédito para cargar su fotografía de S2 en la nueva fecha.',
+                confirmButtonColor: '#764ba2',
+            });
+        }
+    });
+
+    var ayuda = document.getElementById('btnAyudaFechaCorteConvenio');
+    if (ayuda) {
+        ayuda.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            Swal.fire({
+                icon: 'info',
+                title: 'Fecha de consulta S2',
+                text: 'La fecha elegida recupera el estado que tenía el crédito en ese corte. Las ofertas y la fecha del convenio se calcularán con esa misma fotografía.',
+                confirmButtonColor: '#764ba2',
+            });
+        });
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _inicializarFechaCorteConvenio);
+} else {
+    _inicializarFechaCorteConvenio();
+}
 
 // ── Helpers de badge para el banner ──
 function _renderS2Badge(s2) {
@@ -1868,6 +1993,7 @@ function verificarSaldado() {
 // ══════════════════════════════════════════════════════
 window.buscarCredito = function () {
     var id = document.getElementById('inputBusqueda').value.trim();
+    var fechaCorte = _fechaCorteSeleccionada();
 
     if (!id || isNaN(id) || parseInt(id) < 1) {
         Swal.fire({
@@ -1879,7 +2005,14 @@ window.buscarCredito = function () {
         return;
     }
 
-    seleccionarCredito(parseInt(id));                      
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaCorte) || fechaCorte > _fechaLocalYmd()) {
+        Swal.fire('Fecha no válida', 'Selecciona una fecha igual o anterior a hoy.', 'warning');
+        return;
+    }
+
+    _fechaCorteConsulta = fechaCorte;
+    _consultaHistorica = fechaCorte < _fechaLocalYmd();
+    seleccionarCredito(parseInt(id), fechaCorte);
 };
 
 document.getElementById('inputBusqueda').addEventListener('keydown', function (e) {
@@ -1889,7 +2022,10 @@ document.getElementById('inputBusqueda').addEventListener('keydown', function (e
 // ══════════════════════════════════════════════════════
 //  SELECCIONAR CRÉDITO → ofertas + convenio activo
 // ══════════════════════════════════════════════════════
-function seleccionarCredito(idCredito) {
+function seleccionarCredito(idCredito, fechaCorte) {
+    fechaCorte = fechaCorte || _fechaCorteConsulta || _fechaCorteSeleccionada();
+    _fechaCorteConsulta = fechaCorte;
+    _consultaHistorica = fechaCorte < _fechaLocalYmd();
     document.getElementById('convContenido').style.display = 'none';
     document.getElementById('btnHistorialWrap').style.display = 'none';
     var _btnRegConvSel = document.getElementById('btnRegistrarConvenioExistente');
@@ -1909,7 +2045,7 @@ function seleccionarCredito(idCredito) {
     http.request({
         endpoint: '/convenios/getEstatusS2',
         method: 'POST',
-        data: { id_credito: idCredito },
+        data: { id_credito: idCredito, fecha_corte: fechaCorte },
         showLoader: false,
         onSuccess: function (respS2) {
             _estatusS2 = (respS2.success && respS2.datos) ? respS2.datos : null;
@@ -1923,7 +2059,7 @@ function seleccionarCredito(idCredito) {
     http.request({
         endpoint: '/convenios/getOfertasCredito',
         method: 'POST',
-        data: { id_credito: idCredito },
+        data: { id_credito: idCredito, fecha_corte: fechaCorte },
         onSuccess: function (respOfertas) {
             if (!respOfertas.success) {
                 _errManejadoSel = true;
@@ -1941,6 +2077,8 @@ function seleccionarCredito(idCredito) {
             var elegible = datos.elegible;
             var razon = datos.razon;
             var estaReactivado = !!datos.reactivado;
+            _fechaCorteConsulta = datos.fecha_corte || fechaCorte;
+            _consultaHistorica = !!datos.consulta_historica;
 
             _credito = credito;
             _ofertas = ofertas;
@@ -2064,7 +2202,7 @@ function seleccionarCredito(idCredito) {
             // Si el convenio ya está completado, saltar la validación de despacho
             // (el crédito pudo regularizarse y ya no está en asigna_creditos_despacho activo)
             // También si el crédito fue reactivado, saltar la validación de despacho
-            if (datos.razon === 'convenio_completado' || estaReactivado) {
+            if (datos.razon === 'convenio_completado' || estaReactivado || _consultaHistorica) {
                 _lanzarHistorial();
                 return;
             }
@@ -2158,14 +2296,23 @@ function renderCreditoBanner(c) {
     var avance = (_estatusS2 && _estatusS2.statusCredito === 'Saldado') ? '100.0' : avanceRaw;
     var adeudo = parseFloat(c.Adeudo_total || 0);
     var fmt = function (v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
+    var fechaCorte = c.Fecha_corte_consulta || _fechaCorteConsulta || _fechaLocalYmd();
+    var partesFecha = fechaCorte.split('-');
+    var fechaCorteMx = partesFecha.length === 3 ? (partesFecha[2] + '/' + partesFecha[1] + '/' + partesFecha[0]) : fechaCorte;
+    var etiquetaCorte = _consultaHistorica ? 'Corte histórico S2' : 'Corte actual S2';
 
     document.getElementById('creditoBanner').innerHTML =
+        '<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3 pb-2" style="border-bottom:1px solid rgba(255,255,255,.16);">' +
+        '<span class="badge" style="background:' + (_consultaHistorica ? '#f59e0b' : '#3b82f6') + ';font-size:.76rem;">' +
+        '<i class="fa-solid fa-calendar-day me-1"></i>' + etiquetaCorte + '</span>' +
+        '<span style="font-size:.84rem;color:#e2e8f0;">Información del crédito al <strong>' + _convEsc(fechaCorteMx) + '</strong></span>' +
+        '</div>' +
         '<div class="row g-3">' +
         '<div class="col-6 col-md-2"><div class="label">Crédito</div><div class="valor">#' + c.Id_credito + '</div></div>' +
         '<div class="col-6 col-md-2"><div class="label">Cliente</div><div class="valor" style="font-size:0.9rem;">' + c.Nombre_cliente + '</div></div>' +
         '<div class="col-6 col-md-2"><div class="label">Bucket</div><span class="bucket-badge ' + bucketColor(c.Bucket_Morosidad_Real) + '">' + c.Bucket_Morosidad_Real + '</span></div>' +
         '<div class="col-6 col-md-1"><div class="label">Avance pago</div><div class="valor" id="avancePagoVal">' + avance + '%</div></div>' +
-        '<div class="col-6 col-md-2"><div class="label">Adeudo total Actual</div><div class="valor" id="adeudoTotalVal" style="color:' + (_estatusS2 !== null ? (parseFloat(_estatusS2.adeudoTotal||0) === 0 ? '#22c55e' : '#4ade80') : '#4ade80') + ';">' + (_estatusS2 !== null ? ('$' + parseFloat(_estatusS2.adeudoTotal||0).toLocaleString('es-MX',{minimumFractionDigits:2})) : fmt(adeudo)) + '</div></div>' +
+        '<div class="col-6 col-md-2"><div class="label">Adeudo total al corte</div><div class="valor" id="adeudoTotalVal" style="color:' + (_estatusS2 !== null ? (parseFloat(_estatusS2.adeudoTotal||0) === 0 ? '#22c55e' : '#4ade80') : '#4ade80') + ';">' + (_estatusS2 !== null ? ('$' + parseFloat(_estatusS2.adeudoTotal||0).toLocaleString('es-MX',{minimumFractionDigits:2})) : fmt(adeudo)) + '</div></div>' +
         '<div class="col-6 col-md-2"><div class="label">Estatus convenio</div><div class="valor" id="convenioStatusVal">' + _renderConvenioBadge(_estatusConvenio) + '</div></div>' +
         '<div class="col-6 col-md-1"><div class="label">Estatus S2</div><div class="valor" id="s2StatusVal">' + (_estatusS2 ? _renderS2Badge(_estatusS2) : '<span class="badge bg-secondary" style="font-size:.7rem;"><i class="fa fa-spinner fa-spin"></i></span>') + '</div></div>' +
         '</div>';
@@ -3605,7 +3752,7 @@ window.verTablaAmortizacion = function () {
     var o = _ofertaActiva;
     var total = parseFloat(o.total_a_pagar);
     var fmt = function (v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
-    var hoy = new Date().toISOString().split('T')[0];
+    var hoy = _fechaCorteConsulta || _fechaLocalYmd();
 
     // ← PRIMERO declarar esto
     var esLiquidacionRayo = o.id_producto === 4;
@@ -3688,7 +3835,7 @@ window.verTablaAmortizacion = function () {
 
     } else if (esLiquidacionRayo && _rayoModo === 'semanal') {
         // ── 4 semanas semanales ──────────────────────
-        var añadirDias = function (fecha, dias) {
+        var anadirDias = function (fecha, dias) {
             var d = new Date(fecha + 'T00:00:00');
             d.setDate(d.getDate() + dias);
             return d.toISOString().split('T')[0];
@@ -3698,7 +3845,7 @@ window.verTablaAmortizacion = function () {
         var semanal = parseFloat((total / 4).toFixed(2));
 
         for (var s = 1; s <= 4; s++) {
-            var fechaPago = añadirDias(hoy, (s - 1) * 7 + 8);
+            var fechaPago = anadirDias(hoy, (s - 1) * 7 + 8);
             var capital = (s < 4) ? semanal : parseFloat(saldo.toFixed(2));
             saldo = parseFloat((saldo - capital).toFixed(2));
             if (saldo < 0) saldo = 0;
@@ -3717,7 +3864,7 @@ window.verTablaAmortizacion = function () {
 
     } else {
         // ── Resto de productos — semanas normales ────
-        var añadirDias = function (fecha, dias) {
+        var anadirDias = function (fecha, dias) {
             var d = new Date(fecha + 'T00:00:00');
             d.setDate(d.getDate() + dias);
             return d.toISOString().split('T')[0];
@@ -3727,7 +3874,7 @@ window.verTablaAmortizacion = function () {
         var semanal = parseFloat((total / _semanasActual).toFixed(2));
 
         for (var s = 1; s <= _semanasActual; s++) {
-            var fechaPago = añadirDias(hoy, (s - 1) * 7 + 8);
+            var fechaPago = anadirDias(hoy, (s - 1) * 7 + 8);
             var capital = (s < _semanasActual) ? semanal : parseFloat(saldo.toFixed(2));
             saldo = parseFloat((saldo - capital).toFixed(2));
             if (saldo < 0) saldo = 0;
@@ -3915,7 +4062,7 @@ window.amortTotalFinalChanged = function () {
 function _amortRegenerarTabla(totalFinal, adicional) {
     if (!_ofertaActiva) return;
     var o = _ofertaActiva;
-    var hoy = new Date().toISOString().split('T')[0];
+    var hoy = _fechaCorteConsulta || _fechaLocalYmd();
     var esLiquidacionRayo = o.id_producto === 4;
     var fmt = function (v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
 
@@ -3986,7 +4133,7 @@ function _amortRegenerarTabla(totalFinal, adicional) {
         }
     }
 
-    var añadirDias = function (fecha, dias) {
+    var anadirDias = function (fecha, dias) {
         var d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() + dias); return d.toISOString().split('T')[0];
     };
     var filasHtml = '';
@@ -4022,7 +4169,7 @@ function _amortRegenerarTabla(totalFinal, adicional) {
         var _saldoR4 = totalFinal;
         var _sem4 = parseFloat((totalFinal / 4).toFixed(2));
         for (var s = 1; s <= 4; s++) {
-            var fpR4 = añadirDias(hoy, (s - 1) * 7 + 8);
+            var fpR4 = anadirDias(hoy, (s - 1) * 7 + 8);
             var capR4 = (s < 4) ? _sem4 : parseFloat(_saldoR4.toFixed(2));
             _saldoR4 = parseFloat((_saldoR4 - capR4).toFixed(2));
             if (_saldoR4 < 0) _saldoR4 = 0;
@@ -4040,7 +4187,7 @@ function _amortRegenerarTabla(totalFinal, adicional) {
         var _saldoN = totalFinal;
         var _residuoN = _semN > 0 ? Math.round((totalFinal - Math.floor(totalFinal / _semN) * _semN) * 100) / 100 : 0;
         for (var s = 1; s <= _semanasActual; s++) {
-            var fpN = añadirDias(hoy, (s - 1) * 7 + 8);
+            var fpN = anadirDias(hoy, (s - 1) * 7 + 8);
             var esUltN = s === _semanasActual;
             var capN = (esUltN && _residuoN >= 1.00) ? parseFloat(_saldoN.toFixed(2)) : _semN;
             _saldoN = Math.round((_saldoN - capN) * 100) / 100;
@@ -4065,7 +4212,7 @@ function _amortRegenerarTabla(totalFinal, adicional) {
 window.guardarConvenio = function () {
     if (!_ofertaActiva || !_credito) return;
 
-    var hoy     = new Date().toISOString().split('T')[0];
+    var hoy     = _fechaCorteConsulta || _fechaLocalYmd();
     var esLibre = _ofertaActiva.tipo_calendario === 'libre';
 
     // ── MODO LIBRE ────────────────────────────────────────────
@@ -4711,6 +4858,8 @@ var _migCredito = null;
 var _migDetalle = null;
 var _migSemanas = 0;
 var _migBloqueadoPorBucket = false;
+var _migFechaConfirmada = null;
+var _migFechaRequestSeq = 0;
 
 function _bucketMinimoDiasConvenio(bucket) {
     var txt = String(bucket || '').toLowerCase();
@@ -4737,21 +4886,50 @@ function _migBloquearPorBucket(credito, info) {
         : 'no tiene un bucket de morosidad valido';
 
     _migBloqueadoPorBucket = true;
-    _migCredito = null;
+    _migCredito = credito || null;
     _migDetalle = null;
     _migOfertas = [];
+    _migFechaConfirmada = null;
+
+    // Calendario dinámico pausado: mantener el bloqueo tradicional sin habilitar cortes históricos.
+    if (!_calendarioDinamicoActivo) {
+        var step2Legacy = document.getElementById('migStep2');
+        if (step2Legacy) step2Legacy.classList.add('d-none');
+        var previewLegacy = document.getElementById('migPreview');
+        if (previewLegacy) previewLegacy.classList.add('d-none');
+        var guardarLegacy = document.getElementById('migBtnGuardar');
+        if (guardarLegacy) guardarLegacy.style.display = 'none';
+        if (info) {
+            info.classList.remove('d-none');
+            info.className = 'alert alert-warning';
+            info.innerHTML = '<i class="fas fa-ban me-2"></i><strong>Este crédito no cumple la condición para convenio.</strong><br>' +
+                '<small>Solo créditos con bucket de 8 días o más pueden registrar un convenio existente. Bucket actual: <strong>' + bucket + '</strong>.</small>';
+        }
+        return;
+    }
 
     var migStep2 = document.getElementById('migStep2');
-    if (migStep2) migStep2.classList.add('d-none');
+    if (migStep2) migStep2.classList.remove('d-none');
+
+    var fechaInput = document.getElementById('migFechaInicio');
+    if (fechaInput) {
+        fechaInput.value = (credito && credito.Fecha_corte_consulta)
+            || _fechaCorteConsulta
+            || _fechaCorteSeleccionada()
+            || _fechaLocalYmd();
+    }
+
+    var fechaEstado = document.getElementById('migFechaCorteEstado');
+    if (fechaEstado) {
+        fechaEstado.className = 'form-text text-warning fw-semibold';
+        fechaEstado.innerHTML = '<i class="fas fa-calendar-day me-1"></i>Selecciona una fecha pasada para consultar cuándo el crédito sí tenía 8 días o más de mora.';
+    }
 
     var migPreview = document.getElementById('migPreview');
     if (migPreview) migPreview.classList.add('d-none');
 
     var migBtnGuardar = document.getElementById('migBtnGuardar');
     if (migBtnGuardar) migBtnGuardar.style.display = 'none';
-
-    var migBuscadorWrap = document.getElementById('migBuscadorWrap');
-    if (migBuscadorWrap) migBuscadorWrap.style.display = 'none';
 
     if (info) {
         info.classList.remove('d-none');
@@ -4760,15 +4938,150 @@ function _migBloquearPorBucket(credito, info) {
             '<div class="d-flex align-items-start gap-2">' +
             '<i class="fas fa-ban fa-lg mt-1 text-warning"></i>' +
             '<div>' +
-            '<strong>No cumple condicion para convenio</strong><br>' +
+            '<strong>Este corte no cumple la condición para convenio</strong><br>' +
             '<span>' + ((credito && credito.Nombre_cliente) || 'Cliente') + ' &mdash; Crédito #' + ((credito && credito.Id_credito) || '') + '</span><br>' +
             '<small class="d-block mt-1"><strong>Condición:</strong> solo créditos en bucket 8 días o más pueden registrar un convenio existente.</small>' +
-            '<small class="d-block text-muted">Bucket actual: <strong>' + bucket + '</strong>; no cumple porque ' + motivo + ', por debajo del minimo requerido.</small>' +
+            '<small class="d-block text-muted">Bucket del corte: <strong>' + bucket + '</strong>; no cumple porque ' + motivo + ', por debajo del mínimo requerido.</small>' +
+            '<small class="d-block mt-2 fw-semibold"><i class="fas fa-arrow-down me-1"></i>Usa Fecha Inicio para consultar una fecha pasada en S2.</small>' +
             '</div>' +
             '</div>';
     }
 }
 var _migOfertas = [];  // ofertas del crédito activo en el modal
+
+function _migRenderCreditoInfo(credito, fechaCorte, consultaHistorica, validacionTexto) {
+    var info = document.getElementById('migInfoCliente');
+    if (!info || !credito) return;
+    var adeudo = parseFloat(credito.Adeudo_total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+    var fechaPartes = String(fechaCorte || '').split('-');
+    var fechaMx = fechaPartes.length === 3 ? (fechaPartes[2] + '/' + fechaPartes[1] + '/' + fechaPartes[0]) : fechaCorte;
+
+    info.className = 'alert alert-success';
+    info.innerHTML =
+        '<div class="d-flex align-items-start gap-2">' +
+        '<i class="fas fa-check-circle fa-lg mt-1 text-success"></i>' +
+        '<div>' +
+        '<strong>' + _convEsc(credito.Nombre_cliente) + '</strong> — Crédito #' + _convEsc(credito.Id_credito) + '<br>' +
+        '<small>' +
+        '<span class="me-3"><i class="fas fa-calendar-day me-1"></i>' + (consultaHistorica ? 'Corte histórico' : 'Corte actual') + ': <strong>' + _convEsc(fechaMx) + '</strong></span>' +
+        '<span class="me-3"><i class="fas fa-exclamation-circle me-1"></i>Bucket: ' + _convEsc(credito.Bucket_Morosidad_Real || '—') + '</span>' +
+        '<span><i class="fas fa-dollar-sign me-1"></i>' + (_calendarioDinamicoActivo ? 'Adeudo S2' : 'Adeudo') + ': $' + adeudo + '</span>' +
+        '</small><br>' +
+        '<small class="text-success fw-semibold">✓ ' + _convEsc(validacionTexto || 'Cumple condiciones para registrar un convenio.') + '</small>' +
+        '</div>' +
+        '</div>';
+}
+
+function _migAplicarCreditoCorte(datos, validacionTexto) {
+    var credito = datos && datos.credito;
+    if (!credito) return false;
+
+    var baseAnterior = _migGetBaseSeleccionada();
+    _migCredito = credito;
+    _migOfertas = (datos.ofertas || []).filter(function (o) { return o.nombre !== 'Convenio Pago Mixto'; });
+    _migBloqueadoPorBucket = false;
+    _migFechaConfirmada = datos.fecha_corte || credito.Fecha_corte_consulta || _fechaLocalYmd();
+
+    var fechaInput = document.getElementById('migFechaInicio');
+    if (fechaInput) fechaInput.value = _migFechaConfirmada;
+    var bucketInput = document.getElementById('migBucket');
+    if (bucketInput) bucketInput.value = credito.Bucket_Morosidad_Real || '';
+
+    _migMostrarBaseSelector();
+    var radioId = baseAnterior === 'saldo_total_capital' ? 'migBase_capital'
+        : (baseAnterior === 'interes' ? 'migBase_interes' : 'migBase_total');
+    var radio = document.getElementById(radioId);
+    if (radio) radio.checked = true;
+    _migOnBaseChange();
+
+    _migRenderCreditoInfo(credito, _migFechaConfirmada, !!datos.consulta_historica, validacionTexto);
+    var estado = document.getElementById('migFechaCorteEstado');
+    if (estado) {
+        estado.className = 'form-text text-success';
+        estado.innerHTML = '<i class="fas fa-circle-check me-1"></i>' +
+            (_calendarioDinamicoActivo
+                ? 'Montos actualizados desde S2 para '
+                : 'Montos operativos actuales para ') + _convEsc(_migFechaConfirmada) + '.';
+    }
+    return true;
+}
+
+window.migFechaInicioChange = function () {
+    if (!_calendarioDinamicoActivo) {
+        if (typeof window.migCalcular === 'function') window.migCalcular();
+        return;
+    }
+    var input = document.getElementById('migFechaInicio');
+    var fechaCorte = input ? input.value : '';
+    var idCredito = _migCredito ? parseInt(_migCredito.Id_credito) : parseInt((document.getElementById('migIdCredito') || {}).value);
+    if (!idCredito || !fechaCorte) return;
+    if (fechaCorte > _fechaLocalYmd()) {
+        Swal.fire('Fecha no válida', 'La fecha de inicio no puede ser posterior a hoy.', 'warning');
+        return;
+    }
+
+    var requestSeq = ++_migFechaRequestSeq;
+    _migFechaConfirmada = null;
+    _migBloqueadoPorBucket = true;
+    var guardar = document.getElementById('migBtnGuardar');
+    if (guardar) guardar.style.display = 'none';
+    var estado = document.getElementById('migFechaCorteEstado');
+    if (estado) {
+        estado.className = 'form-text text-primary';
+        estado.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Consultando la fotografía de S2...';
+    }
+
+    http.request({
+        endpoint: '/convenios/getOfertasCredito',
+        method: 'POST',
+        data: { id_credito: idCredito, fecha_corte: fechaCorte },
+        showLoader: false,
+        onSuccess: function (respOfertas) {
+            if (requestSeq !== _migFechaRequestSeq) return;
+            var datos = respOfertas && respOfertas.datos;
+            var credito = datos && datos.credito;
+            if (!respOfertas.success || !credito || !_creditoCumpleBucketConvenio(credito)) {
+                _migCredito = credito || _migCredito;
+                if (estado) {
+                    estado.className = 'form-text text-danger';
+                    estado.innerHTML = '<i class="fas fa-circle-xmark me-1"></i>' + _convEsc(respOfertas.mensaje || 'El crédito no tenía al menos 8 días de mora en esa fecha.');
+                }
+                Swal.fire('Corte no elegible', respOfertas.mensaje || 'El crédito no tenía al menos 8 días de mora en esa fecha.', 'warning');
+                return;
+            }
+
+            http.request({
+                endpoint: '/convenios/validarDespacho',
+                method: 'POST',
+                data: { id_credito: idCredito, fecha_corte: fechaCorte },
+                showLoader: false,
+                onSuccess: function (respValidacion) {
+                    if (requestSeq !== _migFechaRequestSeq) return;
+                    if (!respValidacion.success) {
+                        if (estado) {
+                            estado.className = 'form-text text-danger';
+                            estado.textContent = respValidacion.mensaje || 'El corte no es elegible.';
+                        }
+                        Swal.fire('Corte no elegible', respValidacion.mensaje || 'El crédito no cumple las condiciones en esa fecha.', 'warning');
+                        return;
+                    }
+                    _migAplicarCreditoCorte(datos, respValidacion.mensaje);
+                },
+                onError: function () {
+                    if (requestSeq !== _migFechaRequestSeq) return;
+                    if (estado) estado.textContent = 'No se pudo validar la fecha seleccionada.';
+                }
+            });
+        },
+        onError: function () {
+            if (requestSeq !== _migFechaRequestSeq) return;
+            if (estado) {
+                estado.className = 'form-text text-danger';
+                estado.textContent = 'No se pudo consultar S2 para esa fecha.';
+            }
+        }
+    });
+};
 
 // ── Selector de base de cálculo (Capital / Interés / Total) ──
 function _migMostrarBaseSelector() {
@@ -5029,6 +5342,8 @@ window.abrirModalMigracion = function () {
     _migDetalle = null;
     _globoCredito = null;
     _migBloqueadoPorBucket = false;
+    _migFechaConfirmada = null;
+    _migFechaRequestSeq++;
 
     // ── LIMPIAR PESTAÑA "CONVENIO NORMAL" ──────────────────────────
     var migIdCredito = document.getElementById('migIdCredito');
@@ -5198,6 +5513,11 @@ function migCargarProductos() {
 window.migBuscarCredito = function () {
     var idCredito = parseInt(document.getElementById('migIdCredito').value);
     var info = document.getElementById('migInfoCliente');
+    var fechaConsulta = (document.getElementById('migFechaInicio') || {}).value
+        || _fechaCorteConsulta
+        || _fechaCorteSeleccionada()
+        || _fechaLocalYmd();
+    if (!_calendarioDinamicoActivo) fechaConsulta = _fechaLocalYmd();
 
     if (!idCredito || idCredito < 1) {
         Swal.fire('Campo requerido', 'Ingresa un ID de crédito válido.', 'warning');
@@ -5210,9 +5530,13 @@ window.migBuscarCredito = function () {
     _migSemanas = 0;
     _migOfertas = [];
     _migBloqueadoPorBucket = false;
+    _migFechaConfirmada = null;
+    _migFechaRequestSeq++;
 
     // Limpiar todos los campos del formulario (paso 2)
     window.migResetearFormulario();
+    var fechaInicio = document.getElementById('migFechaInicio');
+    if (fechaInicio) fechaInicio.value = fechaConsulta;
 
     // Ocultar paso 2 mientras buscamos
     var migStep2 = document.getElementById('migStep2');
@@ -5230,7 +5554,7 @@ window.migBuscarCredito = function () {
     http.request({
         endpoint: '/convenios/getOfertasCredito',
         method: 'POST',
-        data: { id_credito: idCredito },
+        data: { id_credito: idCredito, fecha_corte: fechaConsulta },
         onSuccess: function (respOfertas) {
 
             if (!respOfertas.success || !respOfertas.datos || !respOfertas.datos.credito) {
@@ -5267,7 +5591,7 @@ window.migBuscarCredito = function () {
             http.request({
                 endpoint: '/convenios/validarDespacho',
                 method: 'POST',
-                data: { id_credito: idCredito },
+                data: { id_credito: idCredito, fecha_corte: fechaConsulta },
                 onSuccess: function (respDespacho) {
 
                     if (!respDespacho.success) {
@@ -5304,32 +5628,7 @@ window.migBuscarCredito = function () {
                             }
 
                             // ✅ Todo válido
-                            _migCredito = credito;
-                            _migMostrarBaseSelector();
-
-                            var adeudo = parseFloat(credito.Adeudo_total || 0)
-                                .toLocaleString('es-MX', { minimumFractionDigits: 2 });
-
-                            info.className = 'alert alert-success';
-                            info.innerHTML =
-                                '<div class="d-flex align-items-start gap-2">' +
-                                '<i class="fas fa-check-circle fa-lg mt-1 text-success"></i>' +
-                                '<div>' +
-                                '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
-                                '<small>' +
-                                '<span class="me-3"><i class="fas fa-exclamation-circle me-1"></i>Bucket: ' + (credito.Bucket_Morosidad_Real || '—') + '</span>' +
-                                '<span><i class="fas fa-dollar-sign me-1"></i>Adeudo S2: $' + adeudo + '</span>' +
-                                '</small><br>' +
-                                '<small class="text-success fw-semibold">✓ Crédito en despacho activo. Cumple condiciones para registrar un convenio.</small>' +
-                                '</div>' +
-                                '</div>';
-
-                            // Asignar valores a los campos
-                            var migAdeudo = document.getElementById('migAdeudo');
-                            if (migAdeudo) migAdeudo.value = parseFloat(credito.Adeudo_total || 0).toFixed(2);
-
-                            var migBucket = document.getElementById('migBucket');
-                            if (migBucket) migBucket.value = credito.Bucket_Morosidad_Real || '';
+                            _migAplicarCreditoCorte(respOfertas.datos, respDespacho.mensaje);
 
                             // Mostrar el paso 2
                             var migStep2El = document.getElementById('migStep2');
@@ -5337,19 +5636,7 @@ window.migBuscarCredito = function () {
                         },
                         onError: function () {
                             // Si falla getConvenioActivo, habilitamos igualmente
-                            _migCredito = credito;
-                            _migMostrarBaseSelector();
-
-                            info.className = 'alert alert-success';
-                            info.innerHTML =
-                                '<i class="fas fa-check-circle me-2"></i>' +
-                                '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito;
-
-                            var migAdeudo = document.getElementById('migAdeudo');
-                            if (migAdeudo) migAdeudo.value = parseFloat(credito.Adeudo_total || 0).toFixed(2);
-
-                            var migBucket = document.getElementById('migBucket');
-                            if (migBucket) migBucket.value = credito.Bucket_Morosidad_Real || '';
+                            _migAplicarCreditoCorte(respOfertas.datos, 'Crédito validado para registrar un convenio.');
 
                             var migStep2El = document.getElementById('migStep2');
                             if (migStep2El) migStep2El.classList.remove('d-none');
@@ -5374,7 +5661,6 @@ window.migBuscarCredito = function () {
             });
         },
         onError: function () {
-            if (_errManejadoMig) return;
             info.className = 'alert alert-danger d-none';
             Swal.fire('Error de conexión', 'No se pudo verificar el crédito. Intenta de nuevo.', 'error');
         }
@@ -5533,7 +5819,7 @@ window.migProductoChange = function () {
         var colMigMontoAdNormal = document.getElementById('colMigMontoAdicional');
         var migMontoAdNormal = document.getElementById('migMontoAdicional');
         if (colMigMontoAdNormal) colMigMontoAdNormal.style.display = '';
-        if (migMontoAdNormal) { migMontoAdNormal.disabled = false; migMontoAdNormal.value = ''; }
+        if (migMontoAdNormal) { migMontoAdNormal.disabled = false; migMontoAdNormal.value = ''; delete migMontoAdNormal.dataset.autoPagoExistente; }
 
         if (colBucket) {
             var labelBucket = document.getElementById('labelBucketMorosidad');
@@ -5614,16 +5900,25 @@ window.migModoGloboChange = function (modo) {
     if (esLibre) {
         if (colFechaInicioEl) colFechaInicioEl.style.display = 'none';
         if (noticeFechaEl) noticeFechaEl.classList.remove('d-none');
+<<<<<<< HEAD
         if (colAd) colAd.style.display = 'none';
         if (inputAd) { inputAd.disabled = true; inputAd.value = ''; }
         _migConfigurarPanelTotalManual(true);
+=======
+        if (colAd) colAd.style.display = '';
+        if (inputAd) { inputAd.disabled = false; inputAd.value = ''; delete inputAd.dataset.autoPagoExistente; }
+>>>>>>> e27257dac32bd943e19899ba20afaf06e8a19751
         window.migLibreGenerarFilas();
     } else {
         if (colFechaInicioEl) colFechaInicioEl.style.display = '';
         if (noticeFechaEl) noticeFechaEl.classList.add('d-none');
         if (colAd) colAd.style.display = 'none';
+<<<<<<< HEAD
         if (inputAd) { inputAd.disabled = true; inputAd.value = ''; }
         _migConfigurarPanelTotalManual(false);
+=======
+        if (inputAd) { inputAd.disabled = true; inputAd.value = ''; delete inputAd.dataset.autoPagoExistente; }
+>>>>>>> e27257dac32bd943e19899ba20afaf06e8a19751
     }
 
     // Ocultar preview y botón guardar al cambiar de modo
@@ -6111,7 +6406,7 @@ window.migCalcular = function () {
         var migMontoAd = document.getElementById('migMontoAdicional');
         var colMigMontoAd = document.getElementById('colMigMontoAdicional');
         if (migTotalBase) migTotalBase.value = totalConGlobo.toFixed(2);
-        if (migMontoAd) { migMontoAd.value = ''; migMontoAd.disabled = true; }
+        if (migMontoAd) { migMontoAd.value = ''; migMontoAd.disabled = true; delete migMontoAd.dataset.autoPagoExistente; }
         if (colMigMontoAd) colMigMontoAd.style.display = 'none';
         if (migTotalFinal) migTotalFinal.value = totalConGlobo.toFixed(2);
 
@@ -6222,14 +6517,35 @@ migGenerarPreamort(filasGlobo);
     }
 
     var descuento = Math.round(adeudo * (pct / 100) * 100) / 100;
-    var total = Math.round((adeudo - descuento) * 100) / 100;
+    var totalBase = Math.round((adeudo - descuento) * 100) / 100;
+    var migMontoAdicional = document.getElementById('migMontoAdicional');
+    var adicional = parseFloat((migMontoAdicional || {}).value) || 0;
 
+    // Cuando el pago ya existe y supera el total descontado, el excedente forma
+    // parte del convenio como monto adicional. Así, por ejemplo, un pago único
+    // de $14,000 sobre una base de $6,637.40 registra $7,362.60 adicionales.
+    if (migMontoAdicional && migMontoAdicional.dataset.autoPagoExistente === '1') {
+        adicional = Math.max(0, Math.round((semanal - totalBase) * 100) / 100);
+    }
+
+    var total = Math.round((totalBase + adicional) * 100) / 100;
     if (semanal > total) {
-        mostrarError('migPagoSemanal',
-            'El pago semanal ($' + semanal.toLocaleString('es-MX', { minimumFractionDigits: 2 }) +
-            ') no puede ser mayor al total a pagar ($' +
-            total.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + ').');
-        return;
+        var adicionalRequerido = Math.round((semanal - totalBase) * 100) / 100;
+        if (adicionalRequerido > 10000) {
+            mostrarError('migPagoSemanal',
+                'El excedente requerido como monto adicional ($' +
+                adicionalRequerido.toLocaleString('es-MX', { minimumFractionDigits: 2 }) +
+                ') supera el máximo autorizado de $10,000.00.');
+            return;
+        }
+        adicional = adicionalRequerido;
+        total = semanal;
+        if (migMontoAdicional) {
+            migMontoAdicional.value = adicional.toFixed(2);
+            migMontoAdicional.dataset.autoPagoExistente = '1';
+        }
+    } else if (migMontoAdicional && migMontoAdicional.dataset.autoPagoExistente === '1') {
+        migMontoAdicional.value = adicional > 0 ? adicional.toFixed(2) : '';
     }
 
     var semanasEnt = Math.floor(total / semanal);
@@ -6270,6 +6586,11 @@ migGenerarPreamort(filasGlobo);
             '<div class="col-6 col-md-3"><div class="border rounded p-2">'
             + '<div class="small text-muted">Descuento (' + pct + '%)</div>'
             + '<div class="fw-bold text-danger">-' + fmt(descuento) + '</div></div></div>' +
+            (adicional > 0
+                ? '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
+                  '<div class="small text-muted">Monto adicional</div>' +
+                  '<div class="fw-bold text-info">+' + fmt(adicional) + '</div></div></div>'
+                : '') +
             '<div class="col-6 col-md-3"><div class="border rounded p-2">'
             + '<div class="small text-muted">Total a Pagar</div>'
             + '<div class="fw-bold text-success">' + fmt(total) + '</div></div></div>' +
@@ -6285,10 +6606,7 @@ migGenerarPreamort(filasGlobo);
     if (guardarBtn) guardarBtn.style.display = 'inline-block';
 
     var migTotalBase = document.getElementById('migTotalBase');
-    if (migTotalBase) migTotalBase.value = total.toFixed(2);
-
-    var migMontoAdicional = document.getElementById('migMontoAdicional');
-    if (migMontoAdicional) migMontoAdicional.value = '';
+    if (migTotalBase) migTotalBase.value = totalBase.toFixed(2);
 
     var migTotalFinal = document.getElementById('migTotalFinal');
     if (migTotalFinal) migTotalFinal.value = total.toFixed(2);
@@ -6326,7 +6644,8 @@ window.migRecalcularTotal = function () {
                                                                                                                                                                                         
     var base = parseFloat(document.getElementById('migTotalBase').value) || 0;
     var elAdicMig = document.getElementById('migMontoAdicional');
-    var _maxAdicMig = parseFloat((document.getElementById('migAdeudo') || {}).value) || base;
+    if (elAdicMig) delete elAdicMig.dataset.autoPagoExistente;
+    var _maxAdicMig = 10000;
     if (!_sanitizarMonto(elAdicMig, _maxAdicMig)) return;
     var adicional = parseFloat(elAdicMig.value) || 0;
     if (adicional > 10000) {
@@ -6366,7 +6685,7 @@ window.migRecalcularTotal = function () {
     // ── CORRECCIÓN: recalcular % de descuento real ────────────────
     var adeudoBase = parseFloat(document.getElementById('migAdeudo').value) || 0;
     if (adeudoBase > 0 && totalFinal > 0) {
-        var descuentoReal = Math.round((adeudoBase - totalFinal) * 100) / 100;
+        var descuentoReal = Math.round((adeudoBase - base) * 100) / 100;
         var pctReal = Math.round((descuentoReal / adeudoBase) * 10000) / 100;
 
         // Actualizar card de descuento en resumen
@@ -6624,6 +6943,16 @@ window.migGuardar = function () {
     var migPagoFinal = document.getElementById('migPagoFinal');
     var esModoLibreMig = esGloboMig && !!(document.getElementById('migModoRadioLibre') && document.getElementById('migModoRadioLibre').checked);
 
+    var fechaInicioSeleccionada = (document.getElementById('migFechaInicio') || {}).value || '';
+    if (_calendarioDinamicoActivo && !esModoLibreMig && (!fechaInicioSeleccionada || fechaInicioSeleccionada !== _migFechaConfirmada)) {
+        Swal.fire(
+            'Fecha pendiente de validar',
+            'Espera a que termine la consulta de S2 para la fecha de inicio seleccionada antes de registrar el convenio.',
+            'warning'
+        );
+        return;
+    }
+
     // Si es Pago Mixto semanal pero faltan elementos, mostrar error
     if (esGloboMig && !esModoLibreMig && (!migSemanasGlobo || !migPagoFinal)) {
         Swal.fire('Error', 'La interfaz de Convenio Pago Mixto está incompleta. Contacta al administrador.', 'error');
@@ -6783,7 +7112,9 @@ window.migGuardar = function () {
     var _semanal = parseFloat(document.getElementById('migPagoSemanal')?.value) || 0;
     var _adeudo = parseFloat(document.getElementById('migAdeudo')?.value) || 0;
     var _pct = parseFloat(document.getElementById('migPorcentaje')?.value) || 0;
-    var _total = Math.round((_adeudo - Math.round(_adeudo * (_pct / 100) * 100) / 100) * 100) / 100;
+    // La cantidad de semanas se valida contra el total final, que ya incluye el
+    // monto adicional aplicado por un pago existente mayor al total descontado.
+    var _total = parseFloat(document.getElementById('migTotalFinal')?.value) || 0;
     var _semanas = _semanal > 0 ? Math.ceil(_total / _semanal) : -1;
 
     if (!esGloboMig && (_semanal <= 0 || _semanas < 1 || _semanas > 52)) {
@@ -6862,6 +7193,7 @@ window.migGuardar = function () {
                 formData.append('dias_mora', _migCredito.Dias_mora || 0);
                 formData.append('avance_pago_plazo', _migCredito.Avance_Pago_Plazo || '');
                 formData.append('adeudo_total_original', adeudo);
+                formData.append('base_calculo', _migGetBaseSeleccionada());
                 formData.append('total_a_pagar', _totalGloboCalculado.toFixed(2));
                 formData.append('pago_inicial_monto', _pagoInicialGlobo.toFixed(2));
                 formData.append('pagos_iguales_cantidad', semanasGlobo - 1);
@@ -6966,6 +7298,7 @@ window.migGuardar = function () {
                     dias_mora: _migCredito.Dias_mora || 0,
                     avance_pago_plazo: _migCredito.Avance_Pago_Plazo || '',
                     adeudo_total_original: adeudo,
+                    base_calculo: _migGetBaseSeleccionada(),
                     total_a_pagar: _totalGloboCalculado.toFixed(2),
                     pago_inicial_monto: _pagoInicialGlobo.toFixed(2),
                     pagos_iguales_cantidad: semanasGlobo - 1,
@@ -8348,7 +8681,11 @@ window.migResetearFormulario = function () {
     var migTotalFinal = document.getElementById('migTotalFinal');
     if (migTotalFinal) migTotalFinal.value = '';
     var migMontoAdicional = document.getElementById('migMontoAdicional');
-    if (migMontoAdicional) { migMontoAdicional.value = ''; migMontoAdicional.disabled = false; }
+    if (migMontoAdicional) {
+        migMontoAdicional.value = '';
+        migMontoAdicional.disabled = false;
+        delete migMontoAdicional.dataset.autoPagoExistente;
+    }
     var colMigMontoAd = document.getElementById('colMigMontoAdicional');
     if (colMigMontoAd) colMigMontoAd.style.display = '';
 
@@ -8373,6 +8710,11 @@ window.migResetearFormulario = function () {
     if (migPagoSemanal) { migPagoSemanal.value = ''; migPagoSemanal.readOnly = false; migPagoSemanal.style.background = ''; migPagoSemanal.classList.remove('is-invalid'); }
     var migFechaInicio = document.getElementById('migFechaInicio');
     if (migFechaInicio) migFechaInicio.value = '';
+    var migFechaCorteEstado = document.getElementById('migFechaCorteEstado');
+    if (migFechaCorteEstado) {
+        migFechaCorteEstado.className = 'form-text text-muted';
+        migFechaCorteEstado.textContent = 'Al cambiar la fecha se consultan en S2 el saldo, interés, bucket y mora de ese corte.';
+    }
     var migAdeudoEl = document.getElementById('migAdeudo');
     if (migAdeudoEl) migAdeudoEl.value = '';
     _migOcultarBaseSelector();

@@ -17,6 +17,25 @@ class Convenios extends Controller
     private const MOD_CELULA_DESPACHOS   = 58;
     private const MOD_CELULA_CALL_CENTER = 57;
 
+    private function normalizarFechaNoFutura($valor, bool $usarHoySiVacia = false): ?string
+    {
+        $valor = trim((string) $valor);
+        if ($valor === '' && $usarHoySiVacia) {
+            return date('Y-m-d');
+        }
+        if ($valor === '') {
+            return null;
+        }
+
+        $fecha = \DateTimeImmutable::createFromFormat('!Y-m-d', $valor);
+        $errores = \DateTimeImmutable::getLastErrors();
+        if (!$fecha || ($errores !== false && ($errores['warning_count'] > 0 || $errores['error_count'] > 0))) {
+            return null;
+        }
+
+        return ($fecha->format('Y-m-d') === $valor && $valor <= date('Y-m-d')) ? $valor : null;
+    }
+
     /**
      * Retorna el id_celula del usuario según sus módulos de sesión.
      * 1 = Despachos, 2 = Call Center, null = sin célula específica.
@@ -98,6 +117,7 @@ class Convenios extends Controller
     public function consulta()
     {
         $this->set('permisoRegistrarConvenioExistente', $this->usuarioTienePermisoRegistrarConvenioExistente());
+        $this->set('calendarioDinamicoActivo', ConveniosDAO::CALENDARIO_DINAMICO_ACTIVO);
         $this->set('permisoSolicitarReactivacionOferta', $this->usuarioTienePermisoSolicitarReactivacion());
         $this->set('permisoReactivarOfertas', $this->usuarioTienePermisoReactivarOferta());
         $this->set('permisoCancelamientoDirecto', $this->usuarioTienePermisoCancelamientoDirecto());
@@ -134,7 +154,13 @@ class Convenios extends Controller
             self::respuestaJSON(self::respuesta(false, 'ID de crédito inválido.'));
         }
 
-        $r = ConveniosDAO::getOfertasElegibles($idCredito);
+        $fechaCorte = $this->normalizarFechaNoFutura($_POST['fecha_corte'] ?? '', true);
+        if ($fechaCorte === null) {
+            self::respuestaJSON(self::respuesta(false, 'La fecha de consulta no es válida o es posterior a hoy.'));
+            return;
+        }
+
+        $r = ConveniosDAO::getOfertasElegibles($idCredito, $fechaCorte);
         self::respuestaJSON($r);
     }
 
@@ -158,6 +184,13 @@ class Convenios extends Controller
             }
             $datos[$campo] = $_POST[$campo];
         }
+
+        $fechaAcuerdo = $this->normalizarFechaNoFutura($datos['fecha_acuerdo'] ?? '');
+        if ($fechaAcuerdo === null) {
+            self::respuestaJSON(self::respuesta(false, 'La fecha del convenio no es válida o es posterior a hoy.'));
+            return;
+        }
+        $datos['fecha_acuerdo'] = $fechaAcuerdo;
 
         // Pago inicial es opcional
         $datos['pago_inicial_monto'] = isset($_POST['pago_inicial_monto']) && $_POST['pago_inicial_monto'] !== ''
@@ -256,7 +289,13 @@ class Convenios extends Controller
             self::respuestaJSON(self::respuesta(false, 'ID de crédito inválido.'));
         }
 
-        $r = ConveniosDAO::getEstatusS2($idCredito);
+        $fechaCorte = $this->normalizarFechaNoFutura($_POST['fecha_corte'] ?? '', true);
+        if ($fechaCorte === null) {
+            self::respuestaJSON(self::respuesta(false, 'La fecha de consulta no es válida o es posterior a hoy.'));
+            return;
+        }
+
+        $r = ConveniosDAO::getEstatusS2($idCredito, $fechaCorte);
         self::respuestaJSON($r);
     }
 
@@ -399,7 +438,13 @@ class Convenios extends Controller
             return;
         }
 
-        $r = ConveniosDAO::validarCreditoEnDespacho($idCredito);
+        $fechaCorte = $this->normalizarFechaNoFutura($_POST['fecha_corte'] ?? '', true);
+        if ($fechaCorte === null) {
+            self::respuestaJSON(self::respuesta(false, 'La fecha de consulta no es válida o es posterior a hoy.'));
+            return;
+        }
+
+        $r = ConveniosDAO::validarCreditoEnDespacho($idCredito, $fechaCorte);
         self::respuestaJSON($r);
     }
 
@@ -421,15 +466,6 @@ class Convenios extends Controller
             return;
         }
 
-        // ── Validación de despacho antes de cualquier otra operación ──
-        // El crédito debe existir en asigna_creditos_despacho con estatus = 1.
-        // Si está current (estatus = 0) o no existe, se rechaza.
-        $validacion = ConveniosDAO::validarCreditoEnDespacho($idCredito);
-        if (!$validacion['success']) {
-            self::respuestaJSON($validacion);
-            return;
-        }
-
         // Campos requeridos (comunes a ambos flujos)
         $campos = [
             'id_credito', 'nombre_cliente', 'id_producto_convenio',
@@ -442,6 +478,66 @@ class Convenios extends Controller
                 self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
                 return;
             }
+        }
+
+        $fechaInicio = $this->normalizarFechaNoFutura($_POST['fecha_inicio'] ?? '');
+        if ($fechaInicio === null) {
+            self::respuestaJSON(self::respuesta(false, 'La fecha de inicio no es válida o es posterior a hoy.'));
+            return;
+        }
+
+        // Hoy se conserva la validación operativa de despacho. Para cortes pasados,
+        // la elegibilidad se demuestra con la fotografía histórica de S2.
+        $validacion = ConveniosDAO::validarCreditoEnDespacho(
+            $idCredito,
+            ConveniosDAO::CALENDARIO_DINAMICO_ACTIVO ? $fechaInicio : null
+        );
+        if (empty($validacion['success'])) {
+            self::respuestaJSON($validacion);
+            return;
+        }
+
+        // Calendario dinámico pausado: se conserva el flujo operativo original.
+        $_POST['fecha_inicio'] = $fechaInicio;
+        if (ConveniosDAO::CALENDARIO_DINAMICO_ACTIVO) {
+        $creditoCorte = $validacion['datos']['credito'] ?? null;
+        if (!$creditoCorte) {
+            $snapshot = ConveniosDAO::getCreditoS2PorFecha($idCredito, $fechaInicio);
+            if (empty($snapshot['success']) || empty($snapshot['datos']['credito'])) {
+                self::respuestaJSON($snapshot);
+                return;
+            }
+            $creditoCorte = $snapshot['datos']['credito'];
+        }
+
+        if ((int) ($creditoCorte['Dias_mora'] ?? 0) < 8) {
+            self::respuestaJSON(self::respuesta(false, 'En la fecha seleccionada el crédito no tenía al menos 8 días de mora.'));
+            return;
+        }
+
+        // La base monetaria y los datos de mora se toman otra vez de S2 al guardar.
+        // Así no pueden quedar montos actuales asociados a una fecha histórica.
+        $baseCalculo = in_array($_POST['base_calculo'] ?? '', ['saldo_total_capital', 'interes', 'adeudo_total'], true)
+            ? (string) $_POST['base_calculo']
+            : 'adeudo_total';
+        $capitalCorte = (float) ($creditoCorte['Saldo_total_capital'] ?? 0);
+        $totalCorte = (float) ($creditoCorte['Adeudo_total'] ?? 0);
+        $interesCorte = max(0, $totalCorte - $capitalCorte);
+        $adeudoBaseCorte = $baseCalculo === 'saldo_total_capital'
+            ? $capitalCorte
+            : ($baseCalculo === 'interes' ? $interesCorte : $totalCorte);
+
+        if ($adeudoBaseCorte <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'S2 no devolvió un monto válido para la base seleccionada en esa fecha.'));
+            return;
+        }
+
+        $_POST['nombre_cliente'] = $creditoCorte['Nombre_cliente'] ?? $_POST['nombre_cliente'];
+        $_POST['bucket_morosidad_real'] = $creditoCorte['Bucket_Morosidad_Real'] ?? '';
+        $_POST['dias_mora'] = (int) ($creditoCorte['Dias_mora'] ?? 0);
+        $_POST['avance_pago_plazo'] = $creditoCorte['Avance_Pago_Plazo'] ?? '';
+        $_POST['adeudo_base'] = round($adeudoBaseCorte, 2);
+        $_POST['base_calculo'] = $baseCalculo;
         }
 
         // ── Procesar PDF adjunto si viene en la petición ──
@@ -812,6 +908,9 @@ class Convenios extends Controller
 
     $frecuencia           = isset($_POST['frecuencia'])             ?           trim($_POST['frecuencia'])            : 'semanal';
     $fechaPrimerPago      = isset($_POST['fecha_primer_pago'])      ?           trim($_POST['fecha_primer_pago'])     : '';
+    $baseCalculo          = in_array($_POST['base_calculo'] ?? '', ['saldo_total_capital', 'interes', 'adeudo_total'], true)
+        ? (string) $_POST['base_calculo']
+        : 'adeudo_total';
     $usuarioAlta          = isset($_POST['usuario_alta'])           ?           trim($_POST['usuario_alta'])          : ($_SESSION['usuario'] ?? 'sistema');
 
     // ── 3. Validaciones básicas ──────────────────────────────────
@@ -823,6 +922,45 @@ class Convenios extends Controller
     if (empty($fechaPrimerPago) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaPrimerPago)) {
         echo json_encode(['success' => false, 'mensaje' => 'Fecha del primer pago inválida. Formato esperado: YYYY-MM-DD.']);
         return;
+    }
+
+    $fechaPrimerPago = $this->normalizarFechaNoFutura($fechaPrimerPago);
+    if ($fechaPrimerPago === null) {
+        echo json_encode(['success' => false, 'mensaje' => 'La fecha de inicio no es válida o es posterior a hoy.']);
+        return;
+    }
+
+    if (ConveniosDAO::CALENDARIO_DINAMICO_ACTIVO) {
+    $validacion = ConveniosDAO::validarCreditoEnDespacho($idCredito, $fechaPrimerPago);
+    if (empty($validacion['success'])) {
+        self::respuestaJSON($validacion);
+        return;
+    }
+
+    $creditoCorte = $validacion['datos']['credito'] ?? null;
+    if (!$creditoCorte) {
+        $snapshot = ConveniosDAO::getCreditoS2PorFecha($idCredito, $fechaPrimerPago);
+        if (empty($snapshot['success']) || empty($snapshot['datos']['credito'])) {
+            self::respuestaJSON($snapshot);
+            return;
+        }
+        $creditoCorte = $snapshot['datos']['credito'];
+    }
+
+    if ((int) ($creditoCorte['Dias_mora'] ?? 0) < 8) {
+        self::respuestaJSON(self::respuesta(false, 'En la fecha seleccionada el crédito no tenía al menos 8 días de mora.'));
+        return;
+    }
+
+    $capitalCorte = (float) ($creditoCorte['Saldo_total_capital'] ?? 0);
+    $totalCorte = (float) ($creditoCorte['Adeudo_total'] ?? 0);
+    $adeudoOriginal = $baseCalculo === 'saldo_total_capital'
+        ? $capitalCorte
+        : ($baseCalculo === 'interes' ? max(0, $totalCorte - $capitalCorte) : $totalCorte);
+    $nombreCliente = $creditoCorte['Nombre_cliente'] ?? $nombreCliente;
+    $bucketMorosidad = $creditoCorte['Bucket_Morosidad_Real'] ?? $bucketMorosidad;
+    $diasMora = (int) ($creditoCorte['Dias_mora'] ?? 0);
+    $avancePagoPlazo = $creditoCorte['Avance_Pago_Plazo'] ?? $avancePagoPlazo;
     }
 
     if ($pagosIgualesCantidad < 1) {
@@ -872,6 +1010,8 @@ class Convenios extends Controller
         'pago_inicial_monto'    => $pagoInicialMonto,
         'frecuencia'            => $frecuencia,
         'fecha_primer_pago'     => $fechaPrimerPago,
+        'fecha_acuerdo'         => $fechaPrimerPago,
+        'base_calculo'          => $baseCalculo,
         'usuario_alta'          => $usuarioAlta,
         'id_peticion_reactivacion' => isset($_POST['id_peticion_reactivacion']) ? (int) $_POST['id_peticion_reactivacion'] : 0,
     ]);

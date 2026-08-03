@@ -9,6 +9,10 @@
 - La base de cálculo puede ser adeudo total o saldo total de capital, según el producto.
 - Si el producto tuvo un convenio cancelado, la oferta queda bloqueada hasta aprobar una reactivación.
 
+## Consulta por fecha
+
+El calendario dinámico de S2 está temporalmente pausado. El módulo usa el corte operativo actual y conserva el código histórico detrás del interruptor `Convenios::CALENDARIO_DINAMICO_ACTIVO`; solo debe cambiarse a `true` cuando se solicite explícitamente reactivarlo.
+
 ## Plazo
 
 No hay un máximo global de semanas. El plazo máximo depende del producto y del rango del monto adeudado. Si no existe una regla por monto, se usa el periodo final configurado en el producto.

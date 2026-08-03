@@ -9,6 +9,10 @@ use Models\SolicitudAdjudicacion as SolicitudDAO;
 
 class SolicitudAdjudicacion extends Controller
 {
+    private const MODULO_BANDEJA_SOLICITUDES = 204;
+    private const MODULO_ATC_SOLICITUDES = 205;
+    private const MODULO_DESPACHOS_SOLICITUDES = 206;
+
     private SolicitudDAO $model;
     private AdjudicacionDAO $creditos;
     private MotosAdjudicadasDAO $motos;
@@ -425,10 +429,10 @@ class SolicitudAdjudicacion extends Controller
     {
         $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
         $permisos = [
-            'ATC' => [69],
+            'ATC' => [self::MODULO_ATC_SOLICITUDES],
             'CALLCENTER' => [35],
-            'DESPACHOS' => [20, 45],
-            'BANDEJA' => [62, 63, 80],
+            'DESPACHOS' => [self::MODULO_DESPACHOS_SOLICITUDES],
+            'BANDEJA' => [self::MODULO_BANDEJA_SOLICITUDES],
         ];
         if (array_intersect($permisos[$canal] ?? [], $modulos)) {
             return true;
@@ -449,7 +453,11 @@ class SolicitudAdjudicacion extends Controller
     private function autorizarConsultaMotoFactura(): bool
     {
         $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
-        if (array_intersect([69, 35, 20, 45], $modulos)) {
+        if (array_intersect([
+            self::MODULO_ATC_SOLICITUDES,
+            35,
+            self::MODULO_DESPACHOS_SOLICITUDES,
+        ], $modulos)) {
             return true;
         }
 

@@ -75,6 +75,10 @@ class CapHum extends Controller
     ];
     private const DOCUMENTO_CARTA_COMPROMISO_GESTOR = 27;
     private const TIPO_CARTA_COMPROMISO_GESTOR = 'Carta de compromiso del Gestor';
+    // Excepción de consulta solicitada para Sandra Yunueth (usuario SABUESOS).
+    // Solo permite conservar visible la carta en validación final; no concede
+    // permisos adicionales para modificar el expediente.
+    private const USUARIO_CARTA_COMPROMISO_GESTOR_LECTURA_ID = 797;
     private const DOCUMENTOS_SENSIBLES_RRHH = [28, 29, 31, 37, 38];
     private const DOCUMENTOS_SOLO_BAJA_RRHH = [37, 38];
     private const DOCUMENTOS_SIN_DUPLICADO_RRHH = [30];
@@ -1522,6 +1526,17 @@ class CapHum extends Controller
         $estatus = mb_strtolower(trim((string) $estatus), 'UTF-8');
         $estatus = str_replace(['á', 'é', 'í', 'ó', 'ú'], ['a', 'e', 'i', 'o', 'u'], $estatus);
         return in_array($estatus, ['pendiente de validacion final', 'ingreso programado'], true);
+    }
+
+    private static function esUsuarioExcepcionLecturaCartaCompromisoGestor(): bool
+    {
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        if ($idUsuario > 0) {
+            return $idUsuario === self::USUARIO_CARTA_COMPROMISO_GESTOR_LECTURA_ID;
+        }
+
+        // Respaldo para sesiones antiguas que todavía no expongan el id de persona.
+        return strtoupper(trim((string) ($_SESSION['usuario'] ?? ''))) === 'SABUESOS';
     }
 
     private static function candidatoEsDireccionCobranza(array $candidato): bool
@@ -14774,7 +14789,8 @@ class CapHum extends Controller
 
             function renderDocumentoExtraGestor(bloque, documento) {
                 if (!bloque) return;
-                if (!documento || !documento.id) {
+                var pendiente = !!(documento && documento.pendiente);
+                if (!documento || (!documento.id && !pendiente)) {
                     bloque.classList.add("d-none");
                     bloque.innerHTML = "";
                     return;
@@ -14793,7 +14809,25 @@ class CapHum extends Controller
                 var estatus = candidato && candidato.estatus ? String(candidato.estatus) : "";
                 var puedeGestionar = !!(candidato && candidato.puede_validar_documental)
                     && estatus !== "Pendiente de validacion final"
-                    && estatus !== "Ingreso programado";
+                    && estatus !== "Ingreso programado"
+                    && !documento.solo_lectura;
+                if (pendiente) {
+                    var btnSubir = puedeGestionar
+                        ? "<button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-subir-carta-extra-gestor\" title=\"Subir PDF manualmente\"><i class=\"fa fa-upload me-1\"></i>Subir manualmente</button>"
+                        : "<span class=\"badge bg-secondary\">Pendiente</span>";
+                    bloque.innerHTML = "<div class=\"border-top pt-3 mt-3\">" +
+                        "<div class=\"d-flex flex-wrap align-items-center justify-content-between gap-2\">" +
+                        "<div><strong><i class=\"fa fa-file-signature me-1 text-primary\"></i>Documento adicional</strong><span class=\"badge bg-info text-dark ms-2\">Carta compromiso del Gestor</span><br><small class=\"text-muted\">Documento no subido por el candidato.</small></div>" +
+                        "<div>" + btnSubir + "</div></div></div>";
+                    bloque.classList.remove("d-none");
+                    var btnSubirCarta = bloque.querySelector(".btn-subir-carta-extra-gestor");
+                    if (btnSubirCarta) {
+                        btnSubirCarta.addEventListener("click", function() {
+                            subirDocumentoManualCandidato(idCandidato, 11, "CARTA DE COMPROMISO DEL GESTOR");
+                        });
+                    }
+                    return;
+                }
                 var validado = parseInt(documento.validado, 10) === 1;
                 var btnAbrir = disponible
                     ? "<button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-ver-doc-extra-gestor\" data-url=\"/caphum/verDocumentoCandidato/" + encodeURIComponent(String(documento.id)) + "\" data-title=\"Carta de compromiso del Gestor\" title=\"Abrir carta\"><i class=\"fa fa-eye\"></i></button>"
@@ -19251,7 +19285,10 @@ class CapHum extends Controller
         $cacheDir = defined('RAIZ') ? (RAIZ . '/storage/cache') : (__DIR__ . '/../storage/cache');
         // La respuesta ahora separa la carta extra del Gestor de los diez documentos.
         // Cambiar la versión evita reutilizar una lista anterior durante el TTL.
-        $cacheKey = 'doc_candidato_v8_' . $id_candidato;
+        // La excepción de lectura de la carta depende del usuario; no se debe
+        // reutilizar su respuesta cacheada para el resto del personal.
+        $lecturaCartaExcepcion = self::esUsuarioExcepcionLecturaCartaCompromisoGestor();
+        $cacheKey = 'doc_candidato_v9_' . $id_candidato . ($lecturaCartaExcepcion ? '_lectura_carta' : '');
         $ttl = 45;
         $cacheControl = strtolower((string) ($_SERVER['HTTP_CACHE_CONTROL'] ?? ''));
         $skipCache = isset($_GET['_'])
@@ -19318,15 +19355,19 @@ class CapHum extends Controller
             }
         }
 
+        $requiereCartaCompromisoGestor = $this->candidatoRequiereCartaCompromisoGestor($candidato);
+        $enValidacionFinal = self::estatusCandidatoEsValidacionFinal($candidato['estatus'] ?? '');
+        $mostrarCartaCompromisoGestor = $requiereCartaCompromisoGestor
+            && (!$enValidacionFinal || $lecturaCartaExcepcion);
         $payload = ['documentos' => $documentos, 'sueldo' => $sueldoDoc];
-        if ($cartaCompromisoGestor !== null
-            && $this->candidatoRequiereCartaCompromisoGestor($candidato)
-            // La carta debe poder aprobarse aun si los diez documentos base ya
-            // cambiaron al candidato a "Validado". Solo deja de mostrarse al
-            // entrar realmente a validación final.
-            && !self::estatusCandidatoEsValidacionFinal($candidato['estatus'] ?? '')
-        ) {
-            $payload['documento_extra_gestor'] = $this->prepararCartaCompromisoGestorModal($cartaCompromisoGestor);
+        if ($mostrarCartaCompromisoGestor) {
+            $payload['documento_extra_gestor'] = $cartaCompromisoGestor !== null
+                ? $this->prepararCartaCompromisoGestorModal($cartaCompromisoGestor)
+                : [
+                    'pendiente' => true,
+                    // En validación final, la excepción es únicamente de lectura.
+                    'solo_lectura' => $enValidacionFinal && $lecturaCartaExcepcion,
+                ];
         }
         if ($verificacion !== null) {
             $payload['verificacion_expediente'] = $verificacion;
@@ -19675,11 +19716,13 @@ class CapHum extends Controller
             8  => 'NUMERO DE SEGURIDAD SOCIAL',
             9  => 'HOJA DE RETENCION FONACOT O INFONAVIT',
             10 => 'ESTADO DE CUENTA',
+            11 => 'CARTA DE COMPROMISO DEL GESTOR',
         ];
         $slugPorTipo = [
             1 => 'solicitud_interna', 2 => 'cv', 3 => 'acta_nacimiento', 4 => 'curp',
             5 => 'identificacion_oficial', 6 => 'comprobante_domicilio', 7 => 'constancia_fiscal',
             8 => 'nss', 9 => 'hoja_retencion', 10 => 'estado_cuenta',
+            11 => 'carta_compromiso_gestor',
         ];
 
         if ($idCandidato <= 0 || !isset($tiposDocumento[$tipoNum])) {
@@ -19694,6 +19737,16 @@ class CapHum extends Controller
         if (!self::puedeGestionarDocumentosCandidatoDatos($resCandidato['datos'])) {
             echo json_encode(self::respuesta(false, 'No tienes permiso para subir documentos de este candidato.'));
             return;
+        }
+        if ($tipoNum === 11) {
+            if (!$this->candidatoRequiereCartaCompromisoGestor($resCandidato['datos'])) {
+                echo json_encode(self::respuesta(false, 'La carta de compromiso solo aplica a gestores de Cobranza.'));
+                return;
+            }
+            if (self::estatusCandidatoEsValidacionFinal($resCandidato['datos']['estatus'] ?? '')) {
+                echo json_encode(self::respuesta(false, 'La carta solo puede cargarse antes de validación final.'));
+                return;
+            }
         }
         if (!isset($_FILES['archivo']) || ($_FILES['archivo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             echo json_encode(self::respuesta(false, 'Selecciona un PDF para subir.'));

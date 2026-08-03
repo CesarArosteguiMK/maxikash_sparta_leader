@@ -7,6 +7,8 @@ use Models\SolicitudAdjudicacion as SolicitudAdjudicacionModel;
 
 class AtencionClientes extends Controller
 {
+    private const MODULO_ATC_SOLICITUDES = 205;
+
     private $model;
 
     public function __construct()
@@ -223,6 +225,15 @@ class AtencionClientes extends Controller
         $tab = strtolower(trim((string) ($_GET['tab'] ?? 'retenciones')));
         if (!in_array($tab, ['retenciones', 'solicitud'], true)) {
             $tab = 'retenciones';
+        }
+
+        if ($tab === 'solicitud') {
+            $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+            if (!in_array(self::MODULO_ATC_SOLICITUDES, $modulos, true)) {
+                http_response_code(403);
+                echo '<div class="alert alert-danger m-4">No tienes permiso para operar solicitudes de ATC.</div>';
+                return;
+            }
         }
 
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';

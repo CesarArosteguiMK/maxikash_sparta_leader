@@ -8,8 +8,238 @@ use Core\DatabaseSegundometro;
 
 class Convenios extends Model
 {
+    private const MONTO_ADICIONAL_MAXIMO = 10000.0;
+
+    /**
+     * Interruptor temporal del calendario dinámico de S2.
+     * Mantener en false conserva el flujo operativo clásico (corte actual).
+     * Cambiar a true únicamente cuando se solicite reactivarlo.
+     */
+    public const CALENDARIO_DINAMICO_ACTIVO = false;
+
     // Buckets elegibles para cualquier oferta (mora 8+ dias)
     private static $BUCKETS_ELEGIBLES = ['c) 8 a 14 dias', 'd) 15 a 21 dias', 'e) 22 a 30 dias', 'f) 31 a 60 dias', 'g) 61 a 90 dias', 'h) 91 a 120 dias', 'i) 121+ dias'];
+
+    private static function _normalizarFechaCorte(?string $fechaCorte): ?string
+    {
+        $fechaCorte = trim((string) $fechaCorte);
+        if ($fechaCorte === '') {
+            return date('Y-m-d');
+        }
+
+        $fecha = \DateTimeImmutable::createFromFormat('!Y-m-d', $fechaCorte);
+        $errores = \DateTimeImmutable::getLastErrors();
+        if (!$fecha || ($errores !== false && ($errores['warning_count'] > 0 || $errores['error_count'] > 0))) {
+            return null;
+        }
+
+        if ($fecha->format('Y-m-d') !== $fechaCorte || $fechaCorte > date('Y-m-d')) {
+            return null;
+        }
+
+        return $fechaCorte;
+    }
+
+    /**
+     * Consulta la fotografia financiera del credito directamente en S2 para la fecha indicada.
+     * Una consulta historica fallida nunca se sustituye silenciosamente con datos actuales.
+     */
+    private static function _consultarEstadoCuentaS2(int $idCredito, string $fechaCorte): array
+    {
+        try {
+            $url = defined('ENDPOINT') && trim((string) ENDPOINT) !== ''
+                ? trim((string) ENDPOINT)
+                : 'https://servicios.s2movil.net/s2maxikash/estadocuenta';
+            $token = defined('TOKEN') ? TOKEN : (getenv('S2_ESTADO_CUENTA_TOKEN') ?: '');
+            $payload = json_encode([
+                'idCredito' => $idCredito,
+                'fechaCorte' => $fechaCorte,
+            ]);
+
+            $ch = curl_init($url);
+            if ($ch === false) {
+                return ['ok' => false, 'mensaje' => 'No fue posible iniciar la consulta a S2.'];
+            }
+
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $payload,
+                CURLOPT_TIMEOUT => 15,
+                CURLOPT_CONNECTTIMEOUT => 8,
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'Token: ' . $token,
+                ],
+            ]);
+
+            $response = curl_exec($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            if ($response === false) {
+                return [
+                    'ok' => false,
+                    'mensaje' => 'No fue posible consultar S2 para la fecha seleccionada.'
+                        . ($curlError !== '' ? ' ' . $curlError : ''),
+                ];
+            }
+
+            $data = json_decode($response, true);
+            if ($httpCode !== 200 || !is_array($data)) {
+                return ['ok' => false, 'mensaje' => 'S2 no respondio correctamente para la fecha seleccionada.'];
+            }
+
+            $estadoCuenta = $data['estadoCuenta'] ?? ($data['data']['estadoCuenta'] ?? null);
+            if (!is_array($estadoCuenta) || (int) ($estadoCuenta['idCredito'] ?? 0) !== $idCredito) {
+                $mensajeS2 = $data['mensaje'] ?? $data['message'] ?? '';
+                if (is_array($mensajeS2)) {
+                    $partesMensaje = [];
+                    array_walk_recursive($mensajeS2, function ($valor) use (&$partesMensaje) {
+                        if (is_scalar($valor)) {
+                            $partesMensaje[] = (string) $valor;
+                        }
+                    });
+                    $mensajeS2 = implode(' ', $partesMensaje);
+                }
+                $mensajeS2 = is_scalar($mensajeS2) ? trim((string) $mensajeS2) : '';
+
+                return [
+                    'ok' => false,
+                    'mensaje' => $mensajeS2 !== ''
+                        ? 'S2 no devolvio el credito para ese corte: ' . $mensajeS2
+                        : 'S2 no devolvio informacion del credito para la fecha seleccionada.',
+                ];
+            }
+
+            return ['ok' => true, 'estadoCuenta' => $estadoCuenta];
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'mensaje' => 'Error al consultar la fotografia del credito en S2.'];
+        }
+    }
+
+    private static function _bucketDesdeDiasMora(int $diasMora): string
+    {
+        if ($diasMora <= 0) return 'a) Current';
+        if ($diasMora <= 7) return 'b) 1 a 7 dias';
+        if ($diasMora <= 14) return 'c) 8 a 14 dias';
+        if ($diasMora <= 21) return 'd) 15 a 21 dias';
+        if ($diasMora <= 30) return 'e) 22 a 30 dias';
+        if ($diasMora <= 60) return 'f) 31 a 60 dias';
+        if ($diasMora <= 90) return 'g) 61 a 90 dias';
+        if ($diasMora <= 120) return 'h) 91 a 120 dias';
+        return 'i) 121+ dias';
+    }
+
+    private static function _primerNumeroS2(array $datos, array $claves, float $default = 0.0): float
+    {
+        foreach ($claves as $clave) {
+            if (array_key_exists($clave, $datos) && is_numeric($datos[$clave])) {
+                return (float) $datos[$clave];
+            }
+        }
+        return $default;
+    }
+
+    private static function _avancePagoPlazoDesdeCuotas(int $pagadas, int $contratadas): string
+    {
+        if ($contratadas <= 0) return '0-21%';
+
+        $porcentaje = ($pagadas / $contratadas) * 100;
+        if ($porcentaje <= 21) return '0-21%';
+        if ($porcentaje <= 40) return '21-40%';
+        if ($porcentaje <= 60) return '41-60%';
+        if ($porcentaje <= 80) return '61-80%';
+        return '81-100%';
+    }
+
+    /** Convierte la respuesta historica de S2 al contrato usado por el calculador de ofertas. */
+    private static function _creditoDesdeEstadoCuentaS2(array $estadoCuenta, string $fechaCorte, ?array $metadata = null): array
+    {
+        $metadata = $metadata ?: [];
+        $saldos = is_array($estadoCuenta['datosSaldos'] ?? null) ? $estadoCuenta['datosSaldos'] : [];
+        $cliente = is_array($estadoCuenta['datosCliente'] ?? null) ? $estadoCuenta['datosCliente'] : [];
+
+        $diasMora = (int) round(self::_primerNumeroS2($saldos, ['diasMoraMaximo', 'diasMora'], 0));
+        $cuotasContratadas = (int) round(self::_primerNumeroS2($saldos, ['cuotasContratadas'], 0));
+        $cuotasPagadas = (int) round(self::_primerNumeroS2($saldos, ['cuotasPagadas'], 0));
+        $adeudoTotal = self::_primerNumeroS2(
+            $saldos,
+            ['adeudoTotal', 'saldoParaLiquidarV2', 'saldoParaLiquidar'],
+            0
+        );
+        // Estado de Cuenta expone el capital pendiente como saldoVigenteCapital.
+        // saldoVencidoCapital, cuando existe, es una porción de ese saldo y no se suma.
+        $saldoCapital = self::_primerNumeroS2(
+            $saldos,
+            ['saldoTotalCapital', 'saldoVigenteCapital', 'saldoCapital', 'saldoVencidoCapital'],
+            0
+        );
+        if ($saldoCapital <= 0 && $adeudoTotal > 0) {
+            $saldoCapital = $adeudoTotal;
+        }
+
+        return [
+            'Id_credito' => (int) ($estadoCuenta['idCredito'] ?? 0),
+            'Nombre_cliente' => trim((string) ($cliente['nombreCliente'] ?? $metadata['Nombre_cliente'] ?? 'Sin nombre')),
+            'Bucket_Morosidad_Real' => self::_bucketDesdeDiasMora($diasMora),
+            'Dias_mora' => $diasMora,
+            'Avance_Pago_Plazo' => self::_avancePagoPlazoDesdeCuotas($cuotasPagadas, $cuotasContratadas),
+            'Numero_amortizaciones' => $cuotasContratadas,
+            'Num_cuotas_pagadas' => $cuotasPagadas,
+            'Saldo_total_capital' => round($saldoCapital, 2),
+            'Adeudo_total' => round($adeudoTotal, 2),
+            'Monto_otorgado' => self::_primerNumeroS2($estadoCuenta, ['montoOtorgado'], (float) ($metadata['Monto_otorgado'] ?? 0)),
+            'Rango_Monto' => $metadata['Rango_Monto'] ?? null,
+            'Sucursal' => $metadata['Sucursal'] ?? ($estadoCuenta['sucursal'] ?? $estadoCuenta['secursal'] ?? null),
+            'Gestor_Asignado' => $metadata['Gestor_Asignado'] ?? null,
+            'Status_credito_s2' => trim((string) ($estadoCuenta['statusCredito'] ?? '')),
+            'Fecha_corte_consulta' => $fechaCorte,
+            'Origen_consulta' => 'S2',
+        ];
+    }
+
+    /** Devuelve exclusivamente la fotografia S2 normalizada para un credito y corte. */
+    public static function getCreditoS2PorFecha($id_credito, $fecha_corte = null): array
+    {
+        $idCredito = (int) $id_credito;
+        $fechaCorte = self::_normalizarFechaCorte($fecha_corte !== null ? (string) $fecha_corte : null);
+        if ($idCredito <= 0) {
+            return self::resultado(false, 'ID de crédito inválido.');
+        }
+        if ($fechaCorte === null) {
+            return self::resultado(false, 'La fecha de consulta no es válida o es posterior a hoy.');
+        }
+
+        try {
+            $metadata = null;
+            try {
+                $fuente = self::_obtenerCreditoSegundometro(new DatabaseSegundometro(), $idCredito);
+                $metadata = $fuente['credito'] ?? null;
+            } catch (\Throwable $e) {
+                // S2 sigue siendo suficiente; Segundometro solo aporta metadata complementaria.
+            }
+
+            $consulta = self::_consultarEstadoCuentaS2($idCredito, $fechaCorte);
+            if (empty($consulta['ok'])) {
+                return self::resultado(false, $consulta['mensaje'] ?? 'No fue posible consultar S2.');
+            }
+
+            return self::resultado(true, 'Fotografía S2 obtenida.', [
+                'credito' => self::_creditoDesdeEstadoCuentaS2(
+                    $consulta['estadoCuenta'],
+                    $fechaCorte,
+                    $metadata
+                ),
+                'fecha_corte' => $fechaCorte,
+                'consulta_historica' => $fechaCorte < date('Y-m-d'),
+                'fuente_consulta' => 'S2',
+            ]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'No fue posible obtener la fotografía del crédito en S2.');
+        }
+    }
 
     /**
      * Resuelve los datos operativos del credito en Segundometro.
@@ -219,22 +449,42 @@ class Convenios extends Model
      * Dado un id_credito, devuelve todas las ofertas activas que aplican
      * según bucket, avance_pago y reglas de cada producto.
      */
-    public static function getOfertasElegibles($id_credito)
+    public static function getOfertasElegibles($id_credito, $fecha_corte = null)
 {
     try {
         $dbSeg = new DatabaseSegundometro();
         $db    = new Database();
 
-        // 1. Datos del crédito
+        $fechaCorte = self::_normalizarFechaCorte($fecha_corte !== null ? (string) $fecha_corte : null);
+        if ($fechaCorte === null) {
+            return self::resultado(false, 'La fecha de consulta no es válida o es posterior a hoy.');
+        }
+
         $fuenteCredito = self::_obtenerCreditoSegundometro($dbSeg, (int) $id_credito);
+        // Calendario dinámico temporalmente desactivado: se conserva la fuente
+        // operativa clásica. El bloque S2 por fecha queda disponible al activar
+        // CALENDARIO_DINAMICO_ACTIVO.
         $credito = $fuenteCredito['credito'] ?? null;
+        if (self::CALENDARIO_DINAMICO_ACTIVO) {
+            $consultaS2 = self::_consultarEstadoCuentaS2((int) $id_credito, $fechaCorte);
+            if (empty($consultaS2['ok'])) {
+                return self::resultado(false, $consultaS2['mensaje'] ?? 'No fue posible consultar S2.');
+            }
+            $credito = self::_creditoDesdeEstadoCuentaS2(
+                $consultaS2['estadoCuenta'],
+                $fechaCorte,
+                $fuenteCredito['credito'] ?? null
+            );
+        } else {
+            $fechaCorte = date('Y-m-d');
+        }
         $convenioPrevio = null;
 
         if (!$fuenteCredito || $fuenteCredito['origen'] !== 'semana') {
             $convenioPrevio = self::_obtenerSnapshotConvenio($db, (int) $id_credito);
         }
 
-        if (!$credito && $convenioPrevio) {
+        if (!self::CALENDARIO_DINAMICO_ACTIVO && !$credito && $convenioPrevio) {
             $credito = self::_creditoDesdeSnapshotConvenio($convenioPrevio);
         }
 
@@ -246,6 +496,9 @@ class Convenios extends Model
                 'elegible'             => false,
                 'razon'                => 'convenio_completado',
                 'productos_bloqueados' => [],
+                'fecha_corte'          => $fechaCorte,
+                'consulta_historica'   => self::CALENDARIO_DINAMICO_ACTIVO && $fechaCorte < date('Y-m-d'),
+                'fuente_consulta'      => self::CALENDARIO_DINAMICO_ACTIVO ? 'S2' : 'Segundometro',
             ]);
         }
 
@@ -424,6 +677,9 @@ class Convenios extends Model
             'productos_bloqueados' => $productosBloqueadosVisibles,
             'reactivado'           => count($reactivacionesAprobadas) > 0,
             'reactivaciones'       => array_values($reactivacionesAprobadas),
+            'fecha_corte'          => $fechaCorte,
+            'consulta_historica'   => self::CALENDARIO_DINAMICO_ACTIVO && $fechaCorte < date('Y-m-d'),
+            'fuente_consulta'      => self::CALENDARIO_DINAMICO_ACTIVO ? 'S2' : 'Segundometro',
         ]);
 
     } catch (\Exception $e) {
@@ -1413,42 +1669,37 @@ public static function getConvenioActivo($id_credito)
  * Retorna solo statusCredito, fechaLiquidacion y motivo desde S2Movil.
  * Llamada ligera para el banner del módulo de convenios.
  */
-public static function getEstatusS2($id_credito)
+public static function getEstatusS2($id_credito, $fecha_corte = null)
 {
     try {
-        $url     = ENDPOINT;
-        $payload = json_encode([
-            'idCredito'  => (int) $id_credito,
-            'fechaCorte' => date('Y-m-d'),
-        ]);
-
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $payload,
-            CURLOPT_TIMEOUT        => 8,
-            CURLOPT_HTTPHEADER     => [
-                'Content-Type: application/json',
-                'Token: ' . TOKEN,
-            ],
-        ]);
-
-        $response = curl_exec($ch);
-        curl_close($ch);
-
-        $data = json_decode($response, true);
-        $ec   = $data['estadoCuenta'] ?? null;
-
-        if (!$ec) {
-            return self::resultado(true, 'Sin datos S2.', null);
+        $fechaCorte = self::_normalizarFechaCorte($fecha_corte !== null ? (string) $fecha_corte : null);
+        if ($fechaCorte === null) {
+            return self::resultado(false, 'La fecha de consulta no es válida o es posterior a hoy.');
         }
+
+        // Calendario dinámico pausado: el banner siempre conserva el corte actual.
+        if (!self::CALENDARIO_DINAMICO_ACTIVO) {
+            $fechaCorte = date('Y-m-d');
+        }
+
+        $consulta = self::_consultarEstadoCuentaS2((int) $id_credito, $fechaCorte);
+        if (empty($consulta['ok'])) {
+            return self::resultado(false, $consulta['mensaje'] ?? 'No fue posible consultar S2.', null);
+        }
+        $ec = $consulta['estadoCuenta'];
 
         return self::resultado(true, 'Estatus S2 obtenido.', [
             'statusCredito'    => $ec['statusCredito']    ?? '',
             'fechaLiquidacion' => $ec['fechaLiquidacion'] ?? null,
             'motivo'           => $ec['motivo']           ?? null,
-            'adeudoTotal'      => (float) ($ec['datosSaldos']['adeudoTotal'] ?? 0),
+            'adeudoTotal'      => self::_primerNumeroS2(
+                is_array($ec['datosSaldos'] ?? null) ? $ec['datosSaldos'] : [],
+                ['adeudoTotal', 'saldoParaLiquidarV2', 'saldoParaLiquidar'],
+                0
+            ),
+            'diasMora'         => (int) ($ec['datosSaldos']['diasMoraMaximo'] ?? $ec['datosSaldos']['diasMora'] ?? 0),
+            'fechaCorte'       => $fechaCorte,
+            'consultaHistorica'=> self::CALENDARIO_DINAMICO_ACTIVO && $fechaCorte < date('Y-m-d'),
         ]);
     } catch (\Exception $e) {
         return self::resultado(false, 'Error al consultar S2.', null);
@@ -3106,9 +3357,38 @@ public static function eliminarConveniosCredito(int $id_credito): array
     //   - El crédito tiene estatus=0 (ya se regularizó / está current)
     // ════════════════════════════════════════════════
 
-    public static function validarCreditoEnDespacho($id_credito)
+    public static function validarCreditoEnDespacho($id_credito, $fecha_corte = null)
     {
         try {
+            $fechaCorte = self::_normalizarFechaCorte($fecha_corte !== null ? (string) $fecha_corte : null);
+            if ($fechaCorte === null) {
+                return self::resultado(false, 'La fecha de consulta no es válida o es posterior a hoy.');
+            }
+
+            // Para un registro histórico, la elegibilidad corresponde al corte S2,
+            // no al estatus que el crédito tenga hoy en asigna_creditos_despacho.
+            // La validación histórica queda pausada junto con el calendario dinámico.
+            if (self::CALENDARIO_DINAMICO_ACTIVO && $fechaCorte < date('Y-m-d')) {
+                $snapshot = self::getCreditoS2PorFecha((int) $id_credito, $fechaCorte);
+                if (empty($snapshot['success'])) {
+                    return $snapshot;
+                }
+                $credito = $snapshot['datos']['credito'] ?? null;
+                if (!$credito || (int) ($credito['Dias_mora'] ?? 0) < 8) {
+                    return self::resultado(false, 'En la fecha seleccionada el crédito no tenía al menos 8 días de mora.', [
+                        'credito' => $credito,
+                        'fecha_corte' => $fechaCorte,
+                        'consulta_historica' => true,
+                    ]);
+                }
+
+                return self::resultado(true, 'Crédito elegible en el corte histórico de S2.', [
+                    'credito' => $credito,
+                    'fecha_corte' => $fechaCorte,
+                    'consulta_historica' => true,
+                ]);
+            }
+
             $db = new Database(); // __SPARTA_SECRET_REDACTED__
 
             $row = $db->queryOne(
@@ -3178,6 +3458,13 @@ public static function migrarConvenio($datos)
 
         $montoAdicional = (float) ($datos['monto_adicional'] ?? 0);
 
+        if ($adeudoBase <= 0 || $pagoSemanal <= 0) {
+            return self::resultado(false, 'El adeudo base y el pago semanal deben ser mayores a cero.');
+        }
+        if ($montoAdicional < 0 || $montoAdicional > self::MONTO_ADICIONAL_MAXIMO) {
+            return self::resultado(false, 'El monto adicional debe estar entre $0.00 y $10,000.00.');
+        }
+
         // Usar el total enviado directamente por el frontend para evitar errores de redondeo
         // al reconvertir desde el porcentaje (que ya estaba redondeado a 2 decimales).
         // El campo 'total_final_con_adicional' es la fuente de verdad.
@@ -3187,14 +3474,31 @@ public static function migrarConvenio($datos)
             // Recalcular pct para que coincida con el total real guardado
             $pctDescuento   = $adeudoBase > 0 ? round(($descuentoMonto / $adeudoBase) * 100, 4) : $pctDescuento;
         } else {
+            if ($pctDescuento < 0 || $pctDescuento > 45) {
+                return self::resultado(false, 'El porcentaje de descuento debe estar entre 0% y 45%.');
+            }
             $descuentoMonto = round($adeudoBase * ($pctDescuento / 100), 2);
             $totalAPagar    = round($adeudoBase - $descuentoMonto + $montoAdicional, 2);
+        }
+
+        $totalBaseConDescuento = round($totalAPagar - $montoAdicional, 2);
+        if ($totalBaseConDescuento <= 0 || $totalBaseConDescuento > $adeudoBase) {
+            return self::resultado(false, 'El total base del convenio no es válido para el adeudo seleccionado.');
+        }
+        if ($pctDescuento < 0 || $pctDescuento > 45) {
+            return self::resultado(false, 'El porcentaje de descuento calculado debe estar entre 0% y 45%.');
+        }
+        if ($pagoSemanal > $totalAPagar) {
+            return self::resultado(false, 'El pago semanal no puede ser mayor al total final del convenio.');
         }
 
         $semanasEnteras = (int) floor($totalAPagar / $pagoSemanal);
         $residuo        = round($totalAPagar - ($semanasEnteras * $pagoSemanal), 2);
         // Solo genera semana extra si el residuo es >= $1.00 (evita cuota fantasma por centavos)
         $semanas        = $residuo >= 1.00 ? $semanasEnteras + 1 : $semanasEnteras;
+        if ($semanas < 1 || $semanas > 52) {
+            return self::resultado(false, 'El convenio debe generar entre 1 y 52 semanas.');
+        }
         $fechaUltimoPago = date('Y-m-d', strtotime($fechaInicio . ' +' . (($semanas - 1) * 7) . ' days'));
 
         // 3. Insertar convenio (ahora con campo pdf_adjunto)
@@ -3906,7 +4210,7 @@ public static function registrarConvenioGlobo($datos)
                 numero_semanas, pago_semanal,
                 frecuencia, tipo, condonacion_aplicada,
                 fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago,
-                estatus, usuario_alta
+                estatus, usuario_alta, base_calculo
             ) VALUES (
                 :id_credito, 6, 7,
                 :nombre_cliente, :bucket, :dias_mora, :avance_pago,
@@ -3915,7 +4219,7 @@ public static function registrarConvenioGlobo($datos)
                 :num_pagos, :pago_semanal,
                 :frecuencia, 'globo', :condonacion,
                 :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago,
-                'activo', :usuario
+                'activo', :usuario, :base_calculo
             )",
             [
                 'id_credito'      => (int)$datos['id_credito'],
@@ -3932,10 +4236,11 @@ public static function registrarConvenioGlobo($datos)
                 'pago_semanal'    => $pagosIgualesMonto,
                 'frecuencia'      => $frecuencia,
                 'condonacion'     => $datos['condonacion_aplicada'] ?? null,
-                'fecha_acuerdo'   => date('Y-m-d'),
+                'fecha_acuerdo'   => $datos['fecha_acuerdo'] ?? $fechaPrimerPago,
                 'fecha_primer_pago' => $fechaPrimerPago,
                 'fecha_ultimo_pago' => $fechaUltimoPago,
                 'usuario'         => $datos['usuario_alta'],
+                'base_calculo'    => $datos['base_calculo'] ?? 'adeudo_total',
             ]
         );
 
