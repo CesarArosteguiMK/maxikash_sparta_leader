@@ -213,12 +213,14 @@ SCRIPT;
         function rastreoEtiquetaReferencia(ref) {
             var fuentes = rastreoFuentesReferencia(ref);
             var esMega = fuentes.indexOf('Megareporte') !== -1;
-            var esIne = fuentes.indexOf('INE / persona') !== -1;
+            var esMaxiProd = fuentes.indexOf('MaxiProd / persona') !== -1
+                || fuentes.indexOf('INE / persona') !== -1
+                || (ref && ref.id === 'ine_persona');
             var esSolicitud = fuentes.indexOf('Solicitud / domicilio actual') !== -1;
-            if (esMega && esIne) return 'Direcci\u00f3n megareporte/INE';
+            if (esMega && esMaxiProd) return 'Direcci\u00f3n megareporte/MaxiProd';
             if (esMega) return 'Direcci\u00f3n megareporte';
             if (esSolicitud) return 'Direcci\u00f3n de la solicitud';
-            if (esIne) return 'Direcci\u00f3n del INE';
+            if (esMaxiProd) return 'Direcci\u00f3n registrada en MaxiProd';
             return 'Direcci\u00f3n adicional';
         }
         function rastreoReferenciaFiltroKey(ref) {
@@ -259,7 +261,7 @@ SCRIPT;
             var fuentes = rastreoFuentesReferencia(ref);
             if (fuentes.indexOf('Solicitud / domicilio actual') !== -1) return '#7c3aed';
             if (fuentes.indexOf('Megareporte') !== -1) return '#000000';
-            if (fuentes.indexOf('INE / persona') !== -1) return '#111827';
+            if (fuentes.indexOf('MaxiProd / persona') !== -1 || fuentes.indexOf('INE / persona') !== -1) return '#111827';
             return '#000000';
         }
         function rastreoPintarReferenciasAdicionales(mapa, bounds, esGrande) {
@@ -754,7 +756,7 @@ JS;
         }
         function rastreoAvisoIneIncompatible() {
             if (!rastreoIneVerificacion || rastreoIneVerificacion.estado !== \'incompatible\') return \'\';
-            return \'<div class="alert alert-warning py-2 px-3 small mb-2"><i class="fa-solid fa-triangle-exclamation me-1"></i>Direcci&oacute;n del INE no disponible: el documento asociado no coincide con el titular del cr&eacute;dito.</div>\';
+            return \'<div class="alert alert-warning py-2 px-3 small mb-2"><i class="fa-solid fa-triangle-exclamation me-1"></i>Archivo de INE no utilizado: la identificaci&oacute;n asociada no coincide con el titular del cr&eacute;dito.</div>\';
         }
         function buildGeoListHtml(puntosGeo) {
             puntosGeo = puntosGeo || [];

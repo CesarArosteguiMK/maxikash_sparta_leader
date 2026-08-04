@@ -283,9 +283,20 @@ class Api extends Controller
                 }
             }
         }
+        GestionesDAO::resetHistoricoDbFalloFlag();
         $eventosGestor = GestionesDAO::getEventosGestorPorCredito($idCredito, $gestorId);
+        $fuentesHistoricasIncompletas = GestionesDAO::huboHistoricoDbFallo();
         $compliance = new GestorComplianceService();
         $out = $compliance->verificarCercaniaGestor($eventosGestor, $todasUbicaciones);
+        if ($fuentesHistoricasIncompletas) {
+            $out['fuentes_incompletas'] = true;
+            $alertas = is_array($out['alertas'] ?? null) ? $out['alertas'] : [];
+            array_unshift(
+                $alertas,
+                'Una fuente histórica de gestiones no respondió. Se muestran los datos disponibles; intente actualizar más tarde.'
+            );
+            $out['alertas'] = array_values(array_unique($alertas));
+        }
         $detalles = $out['detalles'];
         $detalles = array_slice($detalles, 0, 16);
         $out['detalles'] = array_values($detalles);

@@ -17,7 +17,11 @@ $checks = [
     'fallo real cuando no arranca el worker' => "\$res['success'] = false;",
     'validacion del codigo de salida del lanzador' => 'return $exitCode === 0;',
     'recuperacion de documentos guardados en BD' => 'resolverRutaDocumentoCandidatoParaAnalisis',
+    'reevaluacion con lecturas guardadas' => 'identificacionDisponibleEnLecturas',
     'limpieza de copias temporales' => 'array_unique($temporalesAnalisis)',
+    'seguimiento de la nueva corrida por job' => 'docModalExpectedReevaluationByCandidate',
+    'resultado final ligado al job' => "\$payload['job_id'] = \$idJobActual;",
+    'fallback a metadatos y lecturas del servidor' => 'getDocumentosYVerificacion($id_candidato, false, false)',
 ];
 
 foreach ($checks as $descripcion => $needle) {

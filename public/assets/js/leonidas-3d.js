@@ -101,7 +101,7 @@ if (root && canvas) {
             hideOriginal: true
         };
         const qaHelmetPaths = Object.freeze({
-            aqueo: '/assets/models/leonidas/qa/leonidas-aqueo-dark-final-qa-v12.glb?v=12',
+            aqueo: '/assets/models/leonidas/qa/leonidas-aqueo-dark-production-v14.glb?v=14',
             atico: '/assets/models/leonidas/qa/helmet-atico-longitudinal-preview.glb?v=1'
         });
         const qaHelmetFitNodes = Object.freeze({
@@ -1624,6 +1624,7 @@ if (root && canvas) {
                 materials.filter(Boolean).forEach((material) => material.dispose?.());
             });
             qaHelmetContainer = null;
+            delete root.dataset.leonidasQaHelmetAnchor;
         };
 
         const normalizeQaHelmetState = (value = {}) => ({
@@ -1636,8 +1637,28 @@ if (root && canvas) {
             hideOriginal: value.hideOriginal !== false
         });
 
+        const attachQaHelmetToHead = () => {
+            if (!qaHelmetContainer || !activeModel || !head) return;
+            if (qaHelmetContainer.parent === head) return;
+            // Object3D.attach keeps the world transform while moving the
+            // accessory into the animated head hierarchy.
+            activeModel.updateMatrixWorld(true);
+            head.updateWorldMatrix(true, true);
+            head.attach(qaHelmetContainer);
+            qaHelmetContainer.userData.boundToHead = true;
+            root.dataset.leonidasQaHelmetAnchor = head.name || 'Head';
+        };
+
         const fitQaHelmet = () => {
             if (!qaHelmetContainer || !modularParts?.helmet || !activeModel) return;
+            // Refit in the stable model-root coordinate system. If the helmet
+            // was already bound to Head, detach it without changing its world
+            // position and bind it back after recalibration.
+            if (qaHelmetContainer.parent && qaHelmetContainer.parent !== activeModel) {
+                activeModel.updateMatrixWorld(true);
+                activeModel.attach(qaHelmetContainer);
+                qaHelmetContainer.userData.boundToHead = false;
+            }
             // Medir con la rotación raíz neutral evita que la caja AABB cambie
             // de anchura según el ángulo desde el que se seleccionó el casco.
             // La operación es síncrona: se restaura antes del siguiente frame.
@@ -1689,6 +1710,7 @@ if (root && canvas) {
                     fittedScale: Number(authoredScale.toFixed(5))
                 });
                 applyModularVisibility();
+                attachQaHelmetToHead();
                 root.dataset.leonidasQaHelmet = qaHelmetState.id;
                 root.dispatchEvent(new CustomEvent('leonidas:qa-helmet-ready', {
                     detail: { ...qaHelmetState, fittedScale: authoredScale }
@@ -1731,6 +1753,7 @@ if (root && canvas) {
                 fittedScale: Number(fittedScale.toFixed(5))
             });
             applyModularVisibility();
+            attachQaHelmetToHead();
             root.dataset.leonidasQaHelmet = qaHelmetState.id;
             root.dispatchEvent(new CustomEvent('leonidas:qa-helmet-ready', {
                 detail: { ...qaHelmetState, fittedScale }

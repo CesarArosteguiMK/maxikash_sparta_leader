@@ -25,8 +25,47 @@
         if (extraQuery) {
             url += (url.indexOf('?') !== -1 ? '&' : '?') + extraQuery;
         }
-        return fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } })
-            .then(function (r) { return r.json(); });
+        var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var timeoutId = controller ? setTimeout(function () { controller.abort(); }, 35000) : null;
+        return fetch(url, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            signal: controller ? controller.signal : undefined
+        })
+            .then(function (response) {
+                return response.text().then(function (raw) {
+                    var payload = null;
+                    try {
+                        payload = raw ? JSON.parse(raw) : null;
+                    } catch (parseError) {
+                        var pareceLogin = response.redirected || /<title>\s*Login\b/i.test(raw || '');
+                        if (pareceLogin || response.status === 401 || response.status === 403) {
+                            throw new Error('La sesión expiró. Actualice la página e inicie sesión nuevamente.');
+                        }
+                        if (response.status === 503) {
+                            throw new Error('El servicio de datos históricos no está disponible temporalmente. Intente nuevamente.');
+                        }
+                        throw new Error('El servidor no devolvió una respuesta válida para esta analítica.');
+                    }
+                    if (!response.ok) {
+                        throw new Error((payload && payload.mensaje) || ('No se pudo consultar la analítica (HTTP ' + response.status + ').'));
+                    }
+                    if (!payload || typeof payload !== 'object') {
+                        throw new Error('La respuesta de la analítica está vacía.');
+                    }
+                    return payload;
+                });
+            })
+            .catch(function (error) {
+                if (error && error.name === 'AbortError') {
+                    throw new Error('La consulta tardó demasiado. Intente nuevamente.');
+                }
+                throw error;
+            })
+            .finally(function () {
+                if (timeoutId) clearTimeout(timeoutId);
+            });
     }
 
     function showSpinner(modalBody) {
@@ -156,11 +195,11 @@
                     // Oculto: Ver más (JSON) — descomentar la línea siguiente para volver a mostrarlo
                     // body.innerHTML += '<details class="mt-3"><summary class="small">Ver más (JSON)</summary><pre class="small bg-light p-2 mt-2 overflow-auto" style="max-height:200px">' + (JSON.stringify(res.data, null, 2) || '') + '</pre></details>';
                 } else {
-                    body.innerHTML = '<p class="text-danger small">' + (res.mensaje || 'Error al cargar.') + '</p>';
+                    body.innerHTML = '<p class="text-danger small">' + escapeHtml(res.mensaje || 'No se pudo cargar la analítica.') + '</p>';
                 }
             })
             .catch(function (err) {
-                body.innerHTML = '<p class="text-danger small">Error: ' + (err.message || 'No se pudo conectar.') + '</p>';
+                body.innerHTML = '<p class="text-danger small">' + escapeHtml(err.message || 'No se pudo conectar con el servicio de analítica.') + '</p>';
             });
     }
 

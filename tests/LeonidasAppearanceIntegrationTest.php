@@ -63,7 +63,9 @@ appearanceIntegrationAssert(
     str_contains($threeJs, "root.addEventListener('leonidas:appearance'")
         && str_contains($threeJs, 'applyModularPalette')
         && str_contains($threeJs, 'syncAppearanceHelmet')
-        && str_contains($threeJs, 'leonidas-aqueo-dark-final-qa-v12.glb')
+        && str_contains($threeJs, 'leonidas-aqueo-dark-production-v14.glb')
+        && str_contains($threeJs, 'attachQaHelmetToHead')
+        && str_contains($threeJs, 'head.attach(qaHelmetContainer)')
         && str_contains($threeJs, 'useRigTexture: false'),
     'El modelo modular debe aplicar la paleta por materiales, no repintando el atlas.'
 );

@@ -1,6 +1,8 @@
+from io import BytesIO
 from pathlib import Path
 
 import pytest
+from starlette.datastructures import UploadFile
 
 from app.api import routes
 from app.services import alibaba_document_ai as document_ai
@@ -17,6 +19,33 @@ CANDIDATE = "MIGUEL ANGEL CORONA CRUZ"
 CURP = "GOCA850612HDFMPL09"
 RFC = "GOCA850612ABC"
 NSS = "03239629730"
+
+
+@pytest.mark.asyncio
+async def test_identification_quality_without_findings_has_no_manual_review_note(monkeypatch):
+    class ForensicResult:
+        calidad_foto = "ok"
+        brillo_excesivo = False
+        porcentaje_sobreexpuesto = 0
+        borroso = False
+        alertas = []
+
+    class ForensicAnalyzer:
+        @staticmethod
+        def analyze(_image):
+            return ForensicResult()
+
+    class FakeVerificationService:
+        forense_analyzer = ForensicAnalyzer()
+
+    monkeypatch.setattr(routes, "pdf_paginas_a_png_bytes", lambda *_args, **_kwargs: [b"image"])
+    monkeypatch.setattr(routes, "VerificacionService", FakeVerificationService)
+
+    document = UploadFile(filename="identificacion.pdf", file=BytesIO(b"%PDF-1.4"))
+    result = await routes.verificar_calidad_identificacion_pdf(document, api_key="test")
+
+    assert result["aceptado"] is True
+    assert result["notas"] == []
 
 
 def _summary(key, detected_type, **values):

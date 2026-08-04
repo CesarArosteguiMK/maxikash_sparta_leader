@@ -5765,8 +5765,6 @@ async def verificar_calidad_identificacion_pdf(
                 if a and a.strip() and not any(a.strip() in n for n in notas):
                     notas.append("Reverso: " + a.strip())
 
-        if not notas:
-            notas.append("Revisión automática sin observaciones. Revisar identificación manualmente si lo considera necesario.")
     except Exception as e:
         logger.exception(f"verificar_calidad_identificacion_pdf: {e}")
         notas = ["Error al procesar la revisión de calidad. Revisar identificación manualmente."]
