@@ -20,7 +20,8 @@ appearanceAssert(
 appearanceAssert(
     LeonidasAppearanceService::predeterminada()['color_principal'] === '#0048B7'
         && LeonidasAppearanceService::predeterminada()['color_secundario'] === '#D2D854'
-        && LeonidasAppearanceService::predeterminada()['color_metal'] === '#D7E0EA',
+        && LeonidasAppearanceService::predeterminada()['color_metal'] === '#D7E0EA'
+        && LeonidasAppearanceService::predeterminada()['casco_modelo'] === 'original',
     'El tema corporativo debe conservar la paleta Maxikash azul, verde lima y plata.'
 );
 
@@ -51,6 +52,7 @@ appearanceAssert(
 $withoutHelmet = LeonidasAppearanceService::normalizarSolicitud([
     'tema' => 'clasico',
     'casco_visible' => false,
+    'casco_modelo' => 'aqueo',
     'pechera_visible' => true,
     'cabello_visible' => false,
     'escudo_visible' => false,
@@ -58,6 +60,7 @@ $withoutHelmet = LeonidasAppearanceService::normalizarSolicitud([
 ]);
 appearanceAssert(
     $withoutHelmet['casco_visible'] === false
+        && $withoutHelmet['casco_modelo'] === 'aqueo'
         && $withoutHelmet['pechera_visible'] === true
         && $withoutHelmet['cabello_visible'] === false
         && $withoutHelmet['escudo_visible'] === false
@@ -88,5 +91,16 @@ try {
     $invalidVisibility = str_contains($error->getMessage(), 'verdadera o falsa');
 }
 appearanceAssert($invalidVisibility, 'Debe rechazar una visibilidad ambigua.');
+
+$invalidHelmet = false;
+try {
+    LeonidasAppearanceService::normalizarSolicitud([
+        'tema' => 'corporativo',
+        'casco_modelo' => 'desconocido',
+    ]);
+} catch (InvalidArgumentException $error) {
+    $invalidHelmet = str_contains($error->getMessage(), 'modelo de casco');
+}
+appearanceAssert($invalidHelmet, 'Debe rechazar modelos de casco no autorizados.');
 
 echo "LeonidasAppearanceService: OK\n";

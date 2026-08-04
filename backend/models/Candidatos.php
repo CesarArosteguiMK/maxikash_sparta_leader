@@ -2070,7 +2070,7 @@ class Candidatos extends Model
         }
     }
 
-    public static function tomarSiguienteJobVerificacionDocumental(int $staleMinutes = 3)
+    public static function tomarSiguienteJobVerificacionDocumental(int $staleMinutes = 15)
     {
         $staleMinutes = max(1, min(120, $staleMinutes));
         try {

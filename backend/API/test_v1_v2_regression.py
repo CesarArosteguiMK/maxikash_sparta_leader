@@ -288,6 +288,67 @@ def test_consistent_ten_document_expediente_is_approved():
     assert result["checks_ok"] == result["checks_totales"]
 
 
+def test_saved_precheck_page_count_wins_over_degraded_legacy_metadata():
+    documents = _consistent_documents()
+    solicitud = next(doc for doc in documents if doc["key"] == "solicitud_interna")
+    solicitud["paginas_pdf"] = 1
+    solicitud["summary"]["paginas_pdf"] = 1
+    solicitud["summary"]["validacion_previa"]["paginas_pdf"] = 2
+
+    raw = routes._resultado_v2_reglas_expediente(documents, CANDIDATE)
+    result = routes._respuesta_alibaba_expediente(raw, CANDIDATE)
+
+    assert result["documentos_analizados_v2"]["solicitud_interna"]["paginas_pdf"] == 2
+    assert not any(
+        comparison.get("etiqueta") == "Solicitud interna minimo 2 hojas"
+        and comparison.get("coincide") is False
+        for comparison in result["comparaciones_v2"]
+    )
+
+
+def test_real_pdf_page_tree_wins_over_all_stale_metadata():
+    import fitz
+
+    pdf = fitz.open()
+    pdf.new_page()
+    pdf.new_page()
+    pdf_bytes = pdf.tobytes()
+    pdf.close()
+
+    count = routes._v2_pdf_page_count(
+        {
+            "filename": "solicitud_interna.pdf",
+            "bytes": pdf_bytes,
+            "paginas_pdf": 1,
+        },
+        {
+            "paginas_pdf": 1,
+            "validacion_previa": {"paginas_pdf": 1},
+        },
+    )
+
+    assert count == 2
+
+
+def test_real_one_page_internal_application_keeps_critical_alert():
+    documents = _consistent_documents()
+    solicitud = next(doc for doc in documents if doc["key"] == "solicitud_interna")
+    solicitud["paginas_pdf"] = 1
+    solicitud["summary"]["paginas_pdf"] = 1
+    solicitud["summary"]["validacion_previa"]["paginas_pdf"] = 1
+
+    raw = routes._resultado_v2_reglas_expediente(documents, CANDIDATE)
+    result = routes._respuesta_alibaba_expediente(raw, CANDIDATE)
+
+    assert result["documentos_analizados_v2"]["solicitud_interna"]["paginas_pdf"] == 1
+    assert any(
+        comparison.get("etiqueta") == "Solicitud interna minimo 2 hojas"
+        and comparison.get("coincide") is False
+        and comparison.get("severidad") == "critico"
+        for comparison in result["comparaciones_v2"]
+    )
+
+
 def test_curp_document_name_can_be_supported_by_other_documents():
     raw = routes._resultado_v2_reglas_expediente(
         _consistent_documents(curp_document_without_curp=True),

@@ -11044,6 +11044,9 @@ class CapHum extends Controller
             var docModalPollTimer = null;
             var docModalFetchInFlight = false;
             var docModalPendingRefresh = null;
+            var docModalReevaluationRequestInFlight = false;
+            var DOC_MODAL_PROCESS_TIMEOUT_MS = 10 * 60 * 1000;
+            var DOC_MODAL_POLL_INTERVAL_MS = 2000;
             var docSueldoDraftByCandidato = {};
             window.SPARTA_DOC_DEBUG = window.SPARTA_DOC_DEBUG === true;
 
@@ -11078,7 +11081,7 @@ class CapHum extends Controller
                     return;
                 }
                 var intentos = 0;
-                var maxIntentos = 60;
+                var maxIntentos = Math.ceil(DOC_MODAL_PROCESS_TIMEOUT_MS / DOC_MODAL_POLL_INTERVAL_MS) + 5;
                 docModalPollTimer = setInterval(function() {
                     intentos++;
                     if (intentos > maxIntentos) {
@@ -11092,7 +11095,7 @@ class CapHum extends Controller
                         return;
                     }
                     cargarDocumentosModal(idCandidato, { fromPoll: true, forceRefresh: true });
-                }, 2000);
+                }, DOC_MODAL_POLL_INTERVAL_MS);
             }
 
             /* â€â€ KPI Candidatos: contador animado (misma lógica que Gestión kpiAnimateCounter) â€â€ */
@@ -13021,7 +13024,7 @@ class CapHum extends Controller
                     if (!raw) return true;
                     var parsed = Date.parse(raw.replace(" ", "T"));
                     if (!Number.isFinite(parsed)) return true;
-                    return (Date.now() - parsed) > 90000;
+                    return (Date.now() - parsed) > DOC_MODAL_PROCESS_TIMEOUT_MS;
                 }
                 var scoreFrente = v.identificacion_frente_score != null ? Number(v.identificacion_frente_score) : null;
                 var scoreReverso = v.identificacion_reverso_score != null ? Number(v.identificacion_reverso_score) : null;
@@ -13051,7 +13054,9 @@ class CapHum extends Controller
                     else if (confianzaNum >= 50) confianzaClase = "text-warning";
                     else confianzaClase = "text-danger";
                 }
-                var btnHeaderRevalidar = "<button type=\"button\" class=\"btn btn-sm btn-outline-primary px-2 py-1 btn-reintentar-verif-expediente doc-v2-retry-btn\" data-reintentar-api=\"1\" title=\"Reevaluar expediente\"><i class=\"fa fa-sync-alt me-1\"></i>Reevaluar</button>";
+                var btnHeaderRevalidar = verificacionEnProceso
+                    ? "<button type=\"button\" class=\"btn btn-sm btn-outline-primary px-2 py-1 doc-v2-retry-btn\" disabled title=\"La reevaluacion esta en proceso\"><i class=\"fa fa-spinner fa-spin me-1\"></i>En proceso</button>"
+                    : "<button type=\"button\" class=\"btn btn-sm btn-outline-primary px-2 py-1 btn-reintentar-verif-expediente doc-v2-retry-btn\" data-reintentar-api=\"1\" title=\"Reevaluar expediente\"><i class=\"fa fa-sync-alt me-1\"></i>Reevaluar</button>";
                 if (esVerificacionMotorV2(v)) {
                     var docs = docsV2(v);
                     var comps = compsV2(v);
@@ -13410,7 +13415,7 @@ class CapHum extends Controller
                 if (!raw) return true;
                 var parsed = Date.parse(raw.replace(" ", "T"));
                 if (!Number.isFinite(parsed)) return true;
-                return (Date.now() - parsed) > 90000;
+                return (Date.now() - parsed) > DOC_MODAL_PROCESS_TIMEOUT_MS;
             }
 
             function etiquetaDocV2(k) {
@@ -14722,9 +14727,16 @@ class CapHum extends Controller
             }
 
             function ejecutarVerificacionExpedienteCandidatoPost(idC, soloIdentificacion, btn) {
-                if (!idC) return;
+                if (!idC || docModalReevaluationRequestInFlight) return;
+                docModalReevaluationRequestInFlight = true;
                 var prevHtml = btn ? btn.innerHTML : "";
-                if (btn) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin me-1\"></i>Reevaluando"; }
+                var botonesBloqueados = [];
+                document.querySelectorAll("#modalDocumentacionCandidato .btn-reintentar-verif-expediente, #modalDocumentacionCandidato [data-reintentar-api='1'], #modalDocumentacionCandidato #btnReintentarVerifExpediente").forEach(function(boton) {
+                    botonesBloqueados.push({ boton: boton, html: boton.innerHTML });
+                    boton.disabled = true;
+                    boton.innerHTML = "<i class=\"fa fa-spinner fa-spin me-1\"></i>Reevaluando";
+                });
+                if (btn && botonesBloqueados.length === 0) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin me-1\"></i>Reevaluando"; }
                 var fd = new FormData();
                 fd.append("id_candidato", String(idC));
                 fd.append("async", "1");
@@ -14775,7 +14787,13 @@ class CapHum extends Controller
                     })
                     .finally(function() {
                         clearTimeout(tid);
-                        if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; }
+                        docModalReevaluationRequestInFlight = false;
+                        botonesBloqueados.forEach(function(item) {
+                            if (!item.boton || !item.boton.isConnected) return;
+                            item.boton.disabled = false;
+                            item.boton.innerHTML = item.html;
+                        });
+                        if (btn && botonesBloqueados.length === 0 && btn.isConnected) { btn.disabled = false; btn.innerHTML = prevHtml; }
                     });
             }
 
@@ -19131,7 +19149,7 @@ class CapHum extends Controller
             && $this->docVerifResultadoTecnico($nuevo);
     }
 
-    private function docVerifProcesoEnCursoVencido($verificacion, int $segundos = 180): bool
+    private function docVerifProcesoEnCursoVencido($verificacion, int $segundos = 600): bool
     {
         if (!is_array($verificacion)) {
             return false;
@@ -19156,7 +19174,7 @@ class CapHum extends Controller
             return false;
         }
         if (!empty($verificacion['verificacion_en_proceso'])) {
-            return $this->docVerifProcesoEnCursoVencido($verificacion, 180);
+            return $this->docVerifProcesoEnCursoVencido($verificacion, 600);
         }
         if (!empty($verificacion['api_pendiente'])) {
             return true;
@@ -19495,6 +19513,23 @@ class CapHum extends Controller
             );
         }
         $res = CandidatosDAO::encolarVerificacionDocumental((int) $id_candidato, $tiposSubidos, $expedienteCompleto, $origen);
+        if (!empty($res['success'])) {
+            $workerLanzado = $this->lanzarWorkerVerificacionDocumental();
+            if (!isset($res['datos']) || !is_array($res['datos'])) {
+                $res['datos'] = [];
+            }
+            $res['datos']['worker_lanzado'] = $workerLanzado;
+            if (!$workerLanzado) {
+                CandidatosDAO::cancelarJobsVerificacionDocumentalActivos(
+                    (int) $id_candidato,
+                    'No se pudo iniciar el procesador de verificacion documental.'
+                );
+                $res['success'] = false;
+                $res['mensaje'] = 'No se pudo iniciar el procesador de verificacion documental.';
+                $res['error'] = 'El job fue encolado, pero el worker local no pudo arrancar.';
+                error_log('CapHum::encolarVerificacionDocumental: job cancelado porque no se pudo lanzar worker.');
+            }
+        }
         if (!empty($res['success']) && $expedienteCompleto === true) {
             $payloadEnProceso = [
                 'verificacion_en_proceso' => true,
@@ -19518,16 +19553,7 @@ class CapHum extends Controller
             ];
             CandidatosDAO::updateVerificacionExpediente((int) $id_candidato, json_encode($payloadEnProceso));
         }
-        if (!empty($res['success'])) {
-            $workerLanzado = $this->lanzarWorkerVerificacionDocumental();
-            if (!isset($res['datos']) || !is_array($res['datos'])) {
-                $res['datos'] = [];
-            }
-            $res['datos']['worker_lanzado'] = $workerLanzado;
-            if (!$workerLanzado) {
-                error_log('CapHum::encolarVerificacionDocumental: job encolado pero no se pudo lanzar worker.');
-            }
-        } else {
+        if (empty($res['success'])) {
             error_log('CapHum::encolarVerificacionDocumental: ' . ($res['error'] ?? $res['mensaje'] ?? 'error desconocido'));
         }
         return $res;
@@ -19644,10 +19670,9 @@ class CapHum extends Controller
             @unlink($psPath);
             return false;
         }
-        @proc_close($proc);
+        $exitCode = @proc_close($proc);
         @unlink($psPath);
-
-        return true;
+        return $exitCode === 0;
     }
 
     private function psQuoteVerificacionDocumental(string $value): string
@@ -19857,16 +19882,24 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'No hay documentos para verificar.'));
             return;
         }
+        $identificacionDisponibleEnBd = false;
         foreach ($resDocs['datos'] as $d) {
             $rutaRel = trim($d['ruta_archivo'] ?? '');
             $pathAbs = $this->resolverRutaStorageCandidato($rutaRel);
             if ($pathAbs === null) {
+                $tipoSinRuta = trim((string) ($d['tipo_documento'] ?? ''));
+                if (
+                    !empty($d['tiene_contenido'])
+                    && in_array($tipoSinRuta, ['IDENTIFICACIÓN OFICIAL', 'IDENTIFICACION OFICIAL', 'IDENTIFICACIÃ“N OFICIAL'], true)
+                ) {
+                    $identificacionDisponibleEnBd = true;
+                }
                 continue;
             }
             $tipo = trim($d['tipo_documento'] ?? '');
             $this->asignarRutaDocumentoExpediente($rutasParaValidar, $tipo, $pathAbs);
         }
-        if (!$rutasParaValidar['identificacion_pdf']) {
+        if (!$rutasParaValidar['identificacion_pdf'] && !$identificacionDisponibleEnBd) {
             echo json_encode(self::respuesta(false, 'Falta el documento de identificación oficial (PDF con frente y reverso) para poder verificar.'));
             return;
         }
@@ -19890,52 +19923,6 @@ class CapHum extends Controller
                 'job_id' => (int) ($resEncolado['datos']['id_job'] ?? 0),
                 'worker_lanzado' => !empty($resEncolado['datos']['worker_lanzado']),
             ]));
-            return;
-
-            $payloadEnProceso = [
-                'verificacion_en_proceso' => true,
-                'todo_coincide' => null,
-                'foto_rechazada' => false,
-                'checks_ok' => 0,
-                'checks_totales' => 0,
-                'alertas' => ['Verificación automática en proceso. Esta vista se actualizará sola.'],
-                'identificacion_frente_score' => null,
-                'identificacion_reverso_score' => null,
-                'comparaciones' => null,
-                'modo_verificacion' => 'completo',
-                'error_api' => null,
-                'iniciado_en' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
-            ];
-            CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadEnProceso));
-            $respuestaAsync = self::respuesta(true, 'Verificación iniciada en segundo plano. La documentación se actualizará automáticamente.', [
-                'verificacion_en_proceso' => true,
-            ]);
-            $jsonRespuesta = json_encode($respuestaAsync);
-            header('Content-Length: ' . strlen($jsonRespuesta));
-            header('Connection: close');
-            echo $jsonRespuesta;
-            if (function_exists('fastcgi_finish_request')) {
-                fastcgi_finish_request();
-            } else {
-                while (ob_get_level() > 0) {
-                    @ob_end_flush();
-                }
-                flush();
-                if (function_exists('session_write_close')) {
-                    session_write_close();
-                }
-            }
-            ignore_user_abort(true);
-            if (function_exists('set_time_limit')) {
-                @set_time_limit(1200);
-            }
-            register_shutdown_function(function () use ($id_candidato) {
-                try {
-                    $this->ejecutarVerificacionBackground((int) $id_candidato, [], true);
-                } catch (\Throwable $e) {
-                    error_log('CapHum::verificarExpedienteCandidato async error candidato ' . (int) $id_candidato . ': ' . $e->getMessage());
-                }
-            });
             return;
         }
         if (function_exists('session_write_close')) {
@@ -20031,6 +20018,53 @@ class CapHum extends Controller
             }
         }
         return null;
+    }
+
+    /**
+     * Obtiene un archivo utilizable por los motores documentales. Si la copia de
+     * storage ya no existe pero el registro conserva el LONGBLOB, crea una copia
+     * temporal limitada a la vida del worker.
+     */
+    private function resolverRutaDocumentoCandidatoParaAnalisis(array $documento, array &$temporales): ?string
+    {
+        $rutaRelativa = trim((string) ($documento['ruta_archivo'] ?? ''));
+        if ($rutaRelativa !== '') {
+            $rutaStorage = $this->resolverRutaStorageCandidato($rutaRelativa);
+            if ($rutaStorage !== null) {
+                return $rutaStorage;
+            }
+        }
+
+        $idDocumento = (int) ($documento['id'] ?? 0);
+        if ($idDocumento <= 0 || empty($documento['tiene_contenido'])) {
+            return null;
+        }
+        $contenidoRes = CandidatosDAO::getDocumentoContenidoParaVer($idDocumento);
+        $contenido = $contenidoRes['datos']['contenido'] ?? null;
+        if (!is_string($contenido) || $contenido === '') {
+            return null;
+        }
+
+        $temporalBase = tempnam(sys_get_temp_dir(), 'sparta_cand_doc_');
+        if ($temporalBase === false) {
+            return null;
+        }
+        $nombre = (string) ($documento['nombre_archivo'] ?? 'documento.pdf');
+        $extension = strtolower((string) pathinfo($nombre, PATHINFO_EXTENSION));
+        if (!preg_match('/^[a-z0-9]{1,8}$/', $extension)) {
+            $extension = 'pdf';
+        }
+        $temporal = $temporalBase . '.' . $extension;
+        if (!@rename($temporalBase, $temporal)) {
+            $temporal = $temporalBase;
+        }
+        $escritos = @file_put_contents($temporal, $contenido, LOCK_EX);
+        if ($escritos === false || $escritos !== strlen($contenido)) {
+            @unlink($temporal);
+            return null;
+        }
+        $temporales[] = $temporal;
+        return $temporal;
     }
 
     private function guardarErrorArchivosVerificacionExpediente(int $idCandidato, string $mensaje): void
@@ -22892,13 +22926,77 @@ class CapHum extends Controller
         if (!is_file($rutaPdf)) {
             return 0;
         }
-        $contenido = @file_get_contents($rutaPdf);
-        if ($contenido === false || $contenido === '') {
-            return 0;
+
+        // No contar apariciones de "/Type /Page" en los bytes. Los PDF pueden
+        // guardar el arbol de paginas en object streams comprimidos, donde esa
+        // expresion no aparece aunque todas las hojas sean validas. FPDI lee el
+        // catalogo y su nodo /Pages /Count, igual que un visor/parser real.
+        try {
+            $this->cargarComposerParaDocumentos();
+            if (
+                class_exists('\setasign\Fpdi\PdfParser\StreamReader')
+                && class_exists('\setasign\Fpdi\PdfParser\PdfParser')
+                && class_exists('\setasign\Fpdi\PdfReader\PdfReader')
+            ) {
+                $stream = \setasign\Fpdi\PdfParser\StreamReader::createByFile($rutaPdf);
+                $parser = new \setasign\Fpdi\PdfParser\PdfParser($stream);
+                $reader = new \setasign\Fpdi\PdfReader\PdfReader($parser);
+                $paginas = (int) $reader->getPageCount();
+                if ($paginas > 0) {
+                    return $paginas;
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log(
+                'CapHum::contarPaginasPdfCandidato no pudo leer el PDF con FPDI: '
+                . basename($rutaPdf) . ' - ' . $e->getMessage()
+            );
         }
-        if (preg_match_all('/\/Type\s*\/Page\b/', $contenido, $coincidencias)) {
-            return count($coincidencias[0]);
+
+        // Conteo desconocido: el precheck de la API puede aportar paginas_pdf.
+        // Es preferible no afirmar que hay una sola hoja a generar un rechazo
+        // falso usando una busqueda textual que no representa la estructura PDF.
+        return 0;
+    }
+
+    private function resolverPaginasPdfDocumentoCandidato(array $documento, ?string $rutaPdf): int
+    {
+        // Si FPDI soporta la variante del PDF, su PageTree es autoritativo.
+        $paginasArchivo = $rutaPdf ? $this->contarPaginasPdfCandidato($rutaPdf) : 0;
+        if ($paginasArchivo > 0) {
+            return $paginasArchivo;
         }
+
+        // FPDI gratuito no abre todas las variantes con object streams. En ese
+        // caso reutilizar el conteo que el precheck obtuvo con PyMuPDF al cargar
+        // exactamente este documento, en lugar de inventar un valor por regex.
+        foreach ([
+            $documento['verificacion_calidad'] ?? null,
+            $documento['verificacion_calidad_json'] ?? null,
+            $documento['verificacion_fiscal'] ?? null,
+            $documento['verificacion_fiscal_json'] ?? null,
+        ] as $validacionRaw) {
+            $validacion = $this->docVerifJsonArray($validacionRaw);
+            if (!$validacion) {
+                continue;
+            }
+            $fuentes = [$validacion];
+            if (is_array($validacion['validacion_previa'] ?? null)) {
+                $fuentes[] = $validacion['validacion_previa'];
+            }
+            if (is_array($validacion['extraction'] ?? null)) {
+                $fuentes[] = $validacion['extraction'];
+            }
+            foreach ($fuentes as $fuente) {
+                foreach (['paginas_pdf', 'paginas', 'paginas_analizadas'] as $key) {
+                    $valor = $fuente[$key] ?? null;
+                    if (is_numeric($valor) && (int) $valor > 0) {
+                        return (int) $valor;
+                    }
+                }
+            }
+        }
+
         return 0;
     }
 
@@ -24235,7 +24333,7 @@ class CapHum extends Controller
             if (!empty($d['ruta_archivo'])) {
                 $rutaAbs = $this->resolverRutaStorageCandidato((string) $d['ruta_archivo']);
             }
-            $paginas = $rutaAbs ? $this->contarPaginasPdfCandidato($rutaAbs) : 0;
+            $paginas = $this->resolverPaginasPdfDocumentoCandidato($d, $rutaAbs);
             $esperados[$key] = [
                 'key' => $key,
                 'tipo_documento' => (string) ($d['tipo_documento'] ?? ''),
@@ -24304,7 +24402,7 @@ class CapHum extends Controller
             if (!empty($d['ruta_archivo'])) {
                 $rutaAbs = $this->resolverRutaStorageCandidato((string) $d['ruta_archivo']);
             }
-            $paginas = $rutaAbs ? $this->contarPaginasPdfCandidato($rutaAbs) : 0;
+            $paginas = $this->resolverPaginasPdfDocumentoCandidato($d, $rutaAbs);
             $lecturas[$key] = [
                 'key' => $key,
                 'tipo_documento' => $tipo,
@@ -25606,6 +25704,7 @@ class CapHum extends Controller
 
     private function ejecutarVerificacionBackground($id_candidato, array $tiposSubidos = [], ?bool $expedienteCompleto = null, ?int $idJobActual = null)
     {
+        $temporalesAnalisis = [];
         try {
             if (function_exists('set_time_limit')) {
                 @set_time_limit(1200);
@@ -25624,8 +25723,8 @@ class CapHum extends Controller
             if ($revalidarDocumentosIndividuales) {
                 $itemsPrecheckBackground = [];
                 foreach ($resDocs['datos'] as $dPre) {
-                    $rutaRelPre = trim($dPre['ruta_archivo'] ?? '');
-                    if ($rutaRelPre === '' || !is_file($storageRoot . '/' . $rutaRelPre)) {
+                    $pathPre = $this->resolverRutaDocumentoCandidatoParaAnalisis($dPre, $temporalesAnalisis);
+                    if ($pathPre === null) {
                         continue;
                     }
                     $tipoPre = trim($dPre['tipo_documento'] ?? '');
@@ -25636,8 +25735,8 @@ class CapHum extends Controller
                         && in_array($tipoNumPre, $this->tiposPrecheckContenidoCargaCandidato(), true)
                     ) {
                         $itemsPrecheckBackground[$tipoNumPre] = [
-                            'tmp_name' => $storageRoot . '/' . $rutaRelPre,
-                            'nombre_original' => (string) ($dPre['nombre_archivo'] ?? basename($rutaRelPre)),
+                            'tmp_name' => $pathPre,
+                            'nombre_original' => (string) ($dPre['nombre_archivo'] ?? basename($pathPre)),
                         ];
                     }
                 }
@@ -25648,9 +25747,8 @@ class CapHum extends Controller
             }
             $tiposPresentes = [];
             foreach ($resDocs['datos'] as $d) {
-                $rutaRel = trim($d['ruta_archivo'] ?? '');
-                if ($rutaRel === '' || !is_file($storageRoot . '/' . $rutaRel)) continue;
-                $pathAbs = $storageRoot . '/' . $rutaRel;
+                $pathAbs = $this->resolverRutaDocumentoCandidatoParaAnalisis($d, $temporalesAnalisis);
+                if ($pathAbs === null) continue;
                 $tipo = trim($d['tipo_documento'] ?? '');
                 $this->asignarRutaDocumentoExpediente($rutasParaValidar, $tipo, $pathAbs, true);
                 $idDoc = (int) ($d['id'] ?? 0);
@@ -25863,6 +25961,12 @@ class CapHum extends Controller
             $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, $e->getMessage(), ['No se pudo ejecutar el análisis documental.']);
             error_log('CapHum::verificacionBackground: excepción candidato ' . $id_candidato . ': ' . $e->getMessage());
             return false;
+        } finally {
+            foreach (array_unique($temporalesAnalisis) as $temporalAnalisis) {
+                if (is_string($temporalAnalisis) && $temporalAnalisis !== '') {
+                    @unlink($temporalAnalisis);
+                }
+            }
         }
     }
 

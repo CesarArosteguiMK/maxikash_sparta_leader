@@ -19,6 +19,7 @@ if (root && canvas) {
     const leonidasNormalTexture = textureLoader.load('/assets/models/leonidas/leonidas-spartan-normal.webp');
     const clock = new THREE.Clock();
     const baseRotations = new Map();
+    const basePositions = new Map();
     const openFingerRotations = new Map();
     const poseEuler = new THREE.Euler();
     const poseQuaternion = new THREE.Quaternion();
@@ -100,7 +101,7 @@ if (root && canvas) {
             hideOriginal: true
         };
         const qaHelmetPaths = Object.freeze({
-            aqueo: '/assets/models/leonidas/qa/leonidas-aqueo-dark-hollow-v3.glb?v=1',
+            aqueo: '/assets/models/leonidas/qa/leonidas-aqueo-dark-final-qa-v12.glb?v=12',
             atico: '/assets/models/leonidas/qa/helmet-atico-longitudinal-preview.glb?v=1'
         });
         const qaHelmetFitNodes = Object.freeze({
@@ -131,6 +132,9 @@ if (root && canvas) {
         let rigSkinMask = null;
         let pelvis = null;
         let spine = null;
+        let spineLower = null;
+        let spineMiddle = null;
+        let neck = null;
         let head = null;
         let shieldArm = null;
         let shieldForeArm = null;
@@ -140,13 +144,18 @@ if (root && canvas) {
         let rightHand = null;
         let rightUpLeg = null;
         let rightLeg = null;
+        let rightFoot = null;
         let leftUpLeg = null;
         let leftLeg = null;
+        let leftFoot = null;
         let rightFingerBones = [];
         let leftFingerBones = [];
         let greetingHandRotation = null;
         let mixer = null;
-        let nativeAnimationTime = 0.45;
+        const UPRIGHT_ANIMATION_MIN = 6.0;
+        const UPRIGHT_ANIMATION_MAX = 6.24;
+        const UPRIGHT_ANIMATION_CENTER = 6.12;
+        let nativeAnimationTime = UPRIGHT_ANIMATION_CENTER;
         let nativeAnimationDirection = 1;
         let lastPixelCheck = 0;
         let greetingWeight = 0;
@@ -173,6 +182,9 @@ if (root && canvas) {
                 casco_visible: value?.casco_visible !== false
                     && value?.casco_visible !== 0
                     && value?.casco_visible !== '0',
+                casco_modelo: String(value?.casco_modelo || '').toLowerCase() === 'aqueo'
+                    ? 'aqueo'
+                    : 'original',
                 pechera_visible: value?.pechera_visible !== false
                     && value?.pechera_visible !== 0
                     && value?.pechera_visible !== '0',
@@ -261,6 +273,10 @@ if (root && canvas) {
                     && qaHelmetState.id !== 'original'
                     && qaHelmetState.hideOriginal
                 );
+            if (qaHelmetContainer) {
+                qaHelmetContainer.visible = currentAppearance.casco_visible
+                    && qaHelmetState.id !== 'original';
+            }
             modularParts.chest.visible = currentAppearance.pechera_visible;
             if (modularParts.headUnderlay) {
                 // La anatomía permanece separada detrás de la careta y nunca
@@ -343,17 +359,31 @@ if (root && canvas) {
         };
 
         const findBone = (model, candidates) => {
-            let match = null;
+            const normalizedCandidates = candidates.map(normalizedBoneName);
+            for (const candidate of normalizedCandidates) {
+                let exactMatch = null;
+                model.traverse((node) => {
+                    if (exactMatch || !node.isBone) return;
+                    const name = normalizedBoneName(node.name);
+                    if (name === candidate || name.endsWith(candidate)) exactMatch = node;
+                });
+                if (exactMatch) return exactMatch;
+            }
+            let partialMatch = null;
             model.traverse((node) => {
-                if (match || !node.isBone) return;
+                if (partialMatch || !node.isBone) return;
                 const name = normalizedBoneName(node.name);
-                if (candidates.some((candidate) => name.includes(candidate))) match = node;
+                if (normalizedCandidates.some((candidate) => name.includes(candidate))) {
+                    partialMatch = node;
+                }
             });
-            return match;
+            return partialMatch;
         };
 
-        const rememberRotation = (bone) => {
-            if (bone && !baseRotations.has(bone)) baseRotations.set(bone, bone.quaternion.clone());
+        const rememberTransform = (bone) => {
+            if (!bone) return;
+            if (!baseRotations.has(bone)) baseRotations.set(bone, bone.quaternion.clone());
+            if (!basePositions.has(bone)) basePositions.set(bone, bone.position.clone());
         };
 
         const resetBone = (bone) => {
@@ -382,6 +412,24 @@ if (root && canvas) {
                 neutral,
                 THREE.MathUtils.clamp(weight, 0, 1)
             );
+        };
+
+        const settleBone = (bone, rotationWeight = 1, positionWeight = 0) => {
+            if (!bone) return;
+            const neutralRotation = baseRotations.get(bone);
+            const neutralPosition = basePositions.get(bone);
+            if (neutralRotation && rotationWeight > 0.001) {
+                bone.quaternion.slerp(
+                    neutralRotation,
+                    THREE.MathUtils.clamp(rotationWeight, 0, 1)
+                );
+            }
+            if (neutralPosition && positionWeight > 0.001) {
+                bone.position.lerp(
+                    neutralPosition,
+                    THREE.MathUtils.clamp(positionWeight, 0, 1)
+                );
+            }
         };
 
         const aimBoneAtWorldPoint = (bone, child, target, weight = 1) => {
@@ -606,6 +654,24 @@ if (root && canvas) {
             } else {
                 // Apply gestures after the native clip so the offsets build on the
                 // evaluated pose instead of fighting the animation mixer.
+                // La animacion fuente se encorva y flexiona demasiado las rodillas.
+                // Recuperamos la referencia anatomica del rig en toda la cadena
+                // axial y liberamos las piernas solamente durante la caminata.
+                const idleLegWeight = Math.max(0, 1 - walkWeight);
+                settleBone(pelvis, 0.94, 0.92);
+                settleBone(spineLower, 0.94);
+                settleBone(spineMiddle, 0.94);
+                settleBone(spine, 0.92);
+                settleBone(neck, 0.88);
+                settleBone(head, 0.84);
+                settleBone(leftUpLeg, 0.82 * idleLegWeight);
+                settleBone(leftLeg, 0.9 * idleLegWeight);
+                settleBone(leftFoot, 0.72 * idleLegWeight);
+                settleBone(rightUpLeg, 0.82 * idleLegWeight);
+                settleBone(rightLeg, 0.9 * idleLegWeight);
+                settleBone(rightFoot, 0.72 * idleLegWeight);
+                offsetAnimatedBone(spine, breath * 0.006, 0, 0);
+
                 if (victoryWeight > 0.001) {
                     poseArm(swordArm, swordForeArm, rightHand, 'victory', victoryWeight);
                     poseArm(shieldArm, shieldForeArm, leftHand, 'victory', victoryWeight);
@@ -678,22 +744,22 @@ if (root && canvas) {
         const animate = () => {
             const delta = Math.min(clock.getDelta(), 0.05);
             if (mixer) {
-                // The source clip contains a rig calibration pose around seconds
-                // 5-7. Play only its natural body-motion segment and ping-pong it
-                // so Leonidas stays alive without forcing individual limbs.
+                // El intervalo fue medido sobre el propio rig: conserva cabeza y
+                // cadera alineadas. El resto del clip inclina el torso y flexiona
+                // demasiado las rodillas, por eso no debe entrar en el reposo.
                 const speed = root.classList.contains('is-speaking')
-                    ? 0.82
+                    ? 0.22
                     : root.classList.contains('is-victory')
-                        ? 0.72
+                        ? 0.2
                         : root.classList.contains('is-greeting')
-                            ? 0.66
-                            : 0.48;
+                            ? 0.18
+                            : 0.12;
                 nativeAnimationTime += delta * speed * nativeAnimationDirection;
-                if (nativeAnimationTime >= 4.55) {
-                    nativeAnimationTime = 4.55;
+                if (nativeAnimationTime >= UPRIGHT_ANIMATION_MAX) {
+                    nativeAnimationTime = UPRIGHT_ANIMATION_MAX;
                     nativeAnimationDirection = -1;
-                } else if (nativeAnimationTime <= 0.35) {
-                    nativeAnimationTime = 0.35;
+                } else if (nativeAnimationTime <= UPRIGHT_ANIMATION_MIN) {
+                    nativeAnimationTime = UPRIGHT_ANIMATION_MIN;
                     nativeAnimationDirection = 1;
                 }
                 mixer.setTime(nativeAnimationTime);
@@ -1437,8 +1503,11 @@ if (root && canvas) {
             activeModel = model;
             characterAnchor.add(model);
 
-            pelvis = findBone(model, ['pelvis']);
-            spine = findBone(model, ['spine03', 'spine3', 'spine02', 'spine2', 'spine']);
+            pelvis = findBone(model, ['hips', 'pelvis']);
+            spineLower = findBone(model, ['spine']);
+            spineMiddle = findBone(model, ['spine1', 'spine01']);
+            spine = findBone(model, ['spine2', 'spine02', 'spine3', 'spine03']);
+            neck = findBone(model, ['neck']);
             head = findBone(model, ['head']);
             shieldArm = findBone(model, ['upperarml', 'leftarm']);
             shieldForeArm = findBone(model, ['lowerarml', 'leftforearm']);
@@ -1448,8 +1517,10 @@ if (root && canvas) {
             rightHand = findBone(model, ['righthand']);
             rightUpLeg = findBone(model, ['rightupleg']);
             rightLeg = findBone(model, ['rightleg']);
+            rightFoot = findBone(model, ['rightfoot']);
             leftUpLeg = findBone(model, ['leftupleg']);
             leftLeg = findBone(model, ['leftleg']);
+            leftFoot = findBone(model, ['leftfoot']);
             rightFingerBones = [];
             leftFingerBones = [];
             model.traverse((node) => {
@@ -1464,9 +1535,11 @@ if (root && canvas) {
                 openFingerRotations.set(bone, bone.quaternion.clone());
             });
             [
-                pelvis, spine, head, shieldArm, shieldForeArm, swordArm,
-                swordForeArm, leftHand, rightHand, rightUpLeg, rightLeg, leftUpLeg, leftLeg
-            ].forEach(rememberRotation);
+                pelvis, spineLower, spineMiddle, spine, neck, head,
+                shieldArm, shieldForeArm, swordArm, swordForeArm,
+                leftHand, rightHand, rightUpLeg, rightLeg, rightFoot,
+                leftUpLeg, leftLeg, leftFoot
+            ].forEach(rememberTransform);
 
             if (animations.length) {
                 mixer = new THREE.AnimationMixer(model);
@@ -1491,6 +1564,7 @@ if (root && canvas) {
                     spear: Boolean(modularParts?.spear)
                 }
             }));
+            syncAppearanceHelmet();
         };
 
         const finishPreviewRotation = (event) => {
@@ -1664,7 +1738,6 @@ if (root && canvas) {
         };
 
         const loadQaHelmet = () => {
-            if (!root.hasAttribute('data-leonidas-helmet-lab')) return;
             const path = qaHelmetPaths[qaHelmetState.id];
             if (!path) {
                 qaHelmetRequest += 1;
@@ -1752,6 +1825,17 @@ if (root && canvas) {
             );
         };
 
+        const syncAppearanceHelmet = () => {
+            // En el laboratorio manda el calibrador QA. En el editor normal,
+            // la elección guardada por el usuario controla el casco activo.
+            if (root.hasAttribute('data-leonidas-helmet-lab')) return;
+            qaHelmetState = normalizeQaHelmetState({
+                id: currentAppearance.casco_modelo,
+                hideOriginal: true
+            });
+            loadQaHelmet();
+        };
+
         root.addEventListener('leonidas:qa-helmet', (event) => {
             if (!root.hasAttribute('data-leonidas-helmet-lab')) return;
             qaHelmetState = normalizeQaHelmetState(event.detail);
@@ -1773,6 +1857,7 @@ if (root && canvas) {
                 if (activeUsesRigTexture) scheduleRigTexture();
                 else applyModularPalette(activeModel);
                 applyModularVisibility();
+                syncAppearanceHelmet();
             } else if (activeUsesRigTexture) {
                 scheduleRigTexture();
             } else {

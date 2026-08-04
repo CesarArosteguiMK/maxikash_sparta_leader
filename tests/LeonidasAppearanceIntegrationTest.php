@@ -35,6 +35,7 @@ appearanceIntegrationAssert(
 appearanceIntegrationAssert(
     str_contains($appearanceJs, '/Leonidas/obtenerApariencia')
         && str_contains($appearanceJs, '/Leonidas/guardarApariencia')
+        && str_contains($appearanceJs, 'casco_modelo')
         && str_contains($appearanceJs, 'leonidas:appearance'),
     'El editor debe consultar, guardar y propagar la apariencia.'
 );
@@ -49,12 +50,20 @@ appearanceIntegrationAssert(
         && str_contains($threeJs, 'previewRotationTarget')
         && str_contains($threeJs, 'settleHand(leftHand')
         && str_contains($threeJs, 'settleHand(rightHand')
+        && str_contains($threeJs, 'UPRIGHT_ANIMATION_MIN = 6.0')
+        && str_contains($threeJs, 'UPRIGHT_ANIMATION_MAX = 6.24')
+        && str_contains($threeJs, "pelvis = findBone(model, ['hips', 'pelvis'])")
+        && str_contains($threeJs, 'settleBone(spineLower, 0.94)')
+        && str_contains($threeJs, 'settleBone(leftLeg, 0.9 * idleLegWeight)')
+        && str_contains($threeJs, 'settleBone(rightLeg, 0.9 * idleLegWeight)')
         && str_contains($threeJs, 'applyOpenFingers(leftFingerBones, idleElbowWeight'),
-    'La vista previa debe reutilizar el modelo 3D, permitir girarlo y devolverlo al cerrar el editor.'
+    'La vista previa debe girar el modelo y sostener una postura erguida medida sobre el rig.'
 );
 appearanceIntegrationAssert(
     str_contains($threeJs, "root.addEventListener('leonidas:appearance'")
         && str_contains($threeJs, 'applyModularPalette')
+        && str_contains($threeJs, 'syncAppearanceHelmet')
+        && str_contains($threeJs, 'leonidas-aqueo-dark-final-qa-v12.glb')
         && str_contains($threeJs, 'useRigTexture: false'),
     'El modelo modular debe aplicar la paleta por materiales, no repintando el atlas.'
 );
@@ -103,6 +112,8 @@ appearanceIntegrationAssert(
         && str_contains($view, 'data-leonidas-part="cabello_visible"')
         && str_contains($view, 'data-leonidas-part="escudo_visible"')
         && str_contains($view, 'data-leonidas-part="lanza_visible"')
+        && str_contains($view, 'data-leonidas-helmet-model')
+        && str_contains($view, 'Áqueo oscuro')
         && str_contains($appearanceJs, 'cabello_visible')
         && str_contains($appearanceJs, 'escudo_visible')
         && str_contains($appearanceJs, 'lanza_visible')

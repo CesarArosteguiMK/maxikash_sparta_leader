@@ -1113,6 +1113,85 @@ video.leonidas-media-card__preview {
     cursor: pointer;
 }
 
+.leonidas-helmet-selector {
+    margin: .25rem 0 .45rem;
+    padding: .65rem 0 .75rem;
+    border: 0;
+    border-top: 1px solid #e5eaf1;
+    border-bottom: 1px solid #e5eaf1;
+}
+
+.leonidas-helmet-selector legend {
+    margin: 0 0 .45rem;
+    color: #2a3d57;
+    font-size: .72rem;
+    font-weight: 800;
+}
+
+.leonidas-helmet-selector > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .45rem;
+}
+
+.leonidas-helmet-selector label {
+    position: relative;
+    margin: 0;
+    cursor: pointer;
+}
+
+.leonidas-helmet-selector input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.leonidas-helmet-selector label > span {
+    display: flex;
+    min-height: 3.5rem;
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    gap: .1rem;
+    padding: .55rem .65rem;
+    border: 1px solid #d4deeb;
+    border-radius: .65rem;
+    background: #fff;
+    transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+
+.leonidas-helmet-selector label:hover > span {
+    border-color: #8ba9dc;
+}
+
+.leonidas-helmet-selector input:checked + span {
+    border-color: #2f63c4;
+    background: #f3f7ff;
+    box-shadow: 0 0 0 2px rgba(47, 99, 196, .12);
+}
+
+.leonidas-helmet-selector input:focus-visible + span {
+    outline: 2px solid #2f63c4;
+    outline-offset: 2px;
+}
+
+.leonidas-helmet-selector input:disabled + span {
+    opacity: .52;
+    cursor: not-allowed;
+}
+
+.leonidas-helmet-selector strong {
+    color: #2a3d57;
+    font-size: .72rem;
+}
+
+.leonidas-helmet-selector small {
+    margin: 0;
+    line-height: 1.25;
+}
+
 .leonidas-appearance-note {
     display: flex;
     gap: .45rem;
@@ -1161,7 +1240,9 @@ body.dark-mode .leonidas-appearance-theme {
 body.dark-mode .leonidas-appearance-controls h6,
 body.dark-mode .leonidas-appearance-theme__text strong,
 body.dark-mode .leonidas-appearance-custom > label > span:first-child,
-body.dark-mode .leonidas-appearance-gear > label {
+body.dark-mode .leonidas-appearance-gear > label,
+body.dark-mode .leonidas-helmet-selector legend,
+body.dark-mode .leonidas-helmet-selector strong {
     color: #e5e7eb;
 }
 
@@ -1174,8 +1255,19 @@ body.dark-mode .leonidas-appearance-note {
 }
 
 body.dark-mode .leonidas-appearance-gear,
-body.dark-mode .leonidas-appearance-gear > label + label {
+body.dark-mode .leonidas-appearance-gear > label + label,
+body.dark-mode .leonidas-helmet-selector {
     border-color: #334155;
+}
+
+body.dark-mode .leonidas-helmet-selector label > span {
+    border-color: #3b4960;
+    background: #172033;
+}
+
+body.dark-mode .leonidas-helmet-selector input:checked + span {
+    border-color: #6f9aef;
+    background: #1d2b46;
 }
 
 @keyframes leonidas-panel-in {
@@ -1202,6 +1294,7 @@ body.dark-mode .leonidas-appearance-gear > label + label {
     .leonidas-appearance-preview { min-height: 390px; }
     .leonidas-appearance-preview__fallback { height: 350px; }
     .leonidas-appearance-themes { grid-template-columns: 1fr; }
+    .leonidas-helmet-selector > div { grid-template-columns: 1fr; }
     .leonidas-appearance-modal .modal-footer {
         align-items: stretch;
         flex-direction: column;

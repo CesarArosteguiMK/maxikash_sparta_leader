@@ -18,6 +18,7 @@
     var gearControls = modalElement.querySelector('[data-leonidas-gear-controls]');
     var gearNote = modalElement.querySelector('[data-leonidas-gear-note]');
     var gearInputs = modalElement.querySelectorAll('[data-leonidas-part]');
+    var helmetModelInputs = modalElement.querySelectorAll('[data-leonidas-helmet-model]');
     var fallbackImage = root.querySelector('[data-leonidas-fallback]');
     var liveModelCanvas = root.querySelector('[data-leonidas-canvas]');
     var personaId = root.getAttribute('data-leonidas-persona') || '0';
@@ -38,6 +39,7 @@
         color_secundario: '#D2D854',
         color_metal: '#D7E0EA',
         casco_visible: true,
+        casco_modelo: 'original',
         pechera_visible: true,
         cabello_visible: true,
         escudo_visible: false,
@@ -54,6 +56,7 @@
             color_secundario: normalizeHex(appearance && appearance.color_secundario, '#D2D854'),
             color_metal: normalizeHex(appearance && appearance.color_metal, '#D7E0EA'),
             casco_visible: normalizeVisibility(appearance && appearance.casco_visible),
+            casco_modelo: normalizeHelmetModel(appearance && appearance.casco_modelo),
             pechera_visible: normalizeVisibility(appearance && appearance.pechera_visible),
             cabello_visible: normalizeVisibility(appearance && appearance.cabello_visible),
             escudo_visible: normalizeVisibility(appearance && appearance.escudo_visible, false),
@@ -65,6 +68,10 @@
     function normalizeVisibility(value, fallback) {
         if (value === undefined || value === null) return fallback !== false;
         return value !== false && value !== 0 && value !== '0';
+    }
+
+    function normalizeHelmetModel(value) {
+        return String(value || '').toLowerCase() === 'aqueo' ? 'aqueo' : 'original';
     }
 
     function normalizeHex(value, fallback) {
@@ -110,6 +117,9 @@
         if (resetButton) resetButton.disabled = busy;
         colorInputs.forEach(function (input) { input.disabled = busy; });
         gearInputs.forEach(function (input) { input.disabled = busy; });
+        helmetModelInputs.forEach(function (input) {
+            input.disabled = busy || !draftAppearance.casco_visible;
+        });
         if (themesContainer) {
             themesContainer.querySelectorAll('button').forEach(function (button) {
                 button.disabled = busy;
@@ -128,6 +138,10 @@
         gearInputs.forEach(function (input) {
             var field = input.getAttribute('data-leonidas-part');
             input.checked = normalizeVisibility(draftAppearance[field]);
+        });
+        helmetModelInputs.forEach(function (input) {
+            input.checked = input.value === draftAppearance.casco_modelo;
+            input.disabled = !draftAppearance.casco_visible;
         });
         if (appearanceName) appearanceName.textContent = draftAppearance.nombre || 'Personalizado';
         if (themesContainer) {
@@ -349,6 +363,7 @@
             button.addEventListener('click', function () {
                 var selectedTheme = copyAppearance(theme);
                 selectedTheme.casco_visible = draftAppearance.casco_visible;
+                selectedTheme.casco_modelo = draftAppearance.casco_modelo;
                 selectedTheme.pechera_visible = draftAppearance.pechera_visible;
                 selectedTheme.cabello_visible = draftAppearance.cabello_visible;
                 selectedTheme.escudo_visible = draftAppearance.escudo_visible;
@@ -438,6 +453,15 @@
         });
     });
 
+    helmetModelInputs.forEach(function (input) {
+        input.addEventListener('change', function () {
+            if (!input.checked) return;
+            draftAppearance.casco_modelo = normalizeHelmetModel(input.value);
+            setStatus('');
+            applyAppearance(draftAppearance);
+        });
+    });
+
     root.addEventListener('leonidas:capabilities', function (event) {
         var capabilities = event.detail || {};
         var supportsGear = capabilities.validated === true
@@ -463,6 +487,7 @@
                 color_secundario: draftAppearance.color_secundario,
                 color_metal: draftAppearance.color_metal,
                 casco_visible: draftAppearance.casco_visible,
+                casco_modelo: draftAppearance.casco_modelo,
                 pechera_visible: draftAppearance.pechera_visible,
                 cabello_visible: draftAppearance.cabello_visible,
                 escudo_visible: draftAppearance.escudo_visible,

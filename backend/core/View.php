@@ -1984,6 +1984,27 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                                         <input type="checkbox" role="switch" checked
                                                data-leonidas-part="casco_visible">
                                     </label>
+                                    <fieldset class="leonidas-helmet-selector" data-leonidas-helmet-selector>
+                                        <legend>Diseño del casco</legend>
+                                        <div role="radiogroup" aria-label="Diseño del casco de Leónidas">
+                                            <label>
+                                                <input type="radio" name="leonidasHelmetModel" value="original"
+                                                       data-leonidas-helmet-model checked>
+                                                <span>
+                                                    <strong>Original</strong>
+                                                    <small>Casco espartano clásico del avatar.</small>
+                                                </span>
+                                            </label>
+                                            <label>
+                                                <input type="radio" name="leonidasHelmetModel" value="aqueo"
+                                                       data-leonidas-helmet-model>
+                                                <span>
+                                                    <strong>Áqueo oscuro</strong>
+                                                    <small>Acero negro y cresta sagital.</small>
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </fieldset>
                                     <label>
                                         <span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i>Pechera y correas</span>
                                         <input type="checkbox" role="switch" checked

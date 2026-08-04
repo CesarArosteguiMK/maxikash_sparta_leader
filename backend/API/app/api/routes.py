@@ -1142,21 +1142,23 @@ def _v2_choose_curp_principal(values: List[str]) -> Optional[str]:
 
 
 def _v2_pdf_page_count(doc: Dict[str, Any], summary: Any = None) -> Optional[int]:
-    for key in ("paginas_pdf", "paginas", "paginas_analizadas"):
+    # El archivo real, cuando viene en el payload, es la fuente autoritativa.
+    # No permitir que un metadato reconstruido o antiguo anule su PageTree.
+    file_bytes = doc.get("bytes") or b""
+    filename = str(doc.get("filename") or "")
+    if file_bytes and filename.lower().endswith(".pdf"):
         try:
-            value = doc.get(key)
-            if value:
-                return int(value)
+            pdf_doc = fitz.open(stream=file_bytes, filetype="pdf")
+            count = int(pdf_doc.page_count or 0)
+            pdf_doc.close()
+            if count > 0:
+                return count
         except Exception:
             pass
+
     if isinstance(summary, dict):
-        for key in ("paginas_pdf", "paginas", "paginas_analizadas"):
-            try:
-                value = summary.get(key)
-                if value:
-                    return int(value)
-            except Exception:
-                pass
+        # La validacion previa obtuvo paginas_pdf al abrir el PDF durante el
+        # precheck. Debe ganar a la envoltura PHP, que puede ser reconstruida.
         previo = summary.get("validacion_previa")
         if isinstance(previo, dict):
             for key in ("paginas_pdf", "paginas", "paginas_analizadas"):
@@ -1166,17 +1168,24 @@ def _v2_pdf_page_count(doc: Dict[str, Any], summary: Any = None) -> Optional[int
                         return int(value)
                 except Exception:
                     pass
-    file_bytes = doc.get("bytes") or b""
-    filename = str(doc.get("filename") or "")
-    if not file_bytes or not filename.lower().endswith(".pdf"):
-        return None
-    try:
-        pdf_doc = fitz.open(stream=file_bytes, filetype="pdf")
-        count = int(pdf_doc.page_count or 0)
-        pdf_doc.close()
-        return count or None
-    except Exception:
-        return None
+        for key in ("paginas_pdf", "paginas", "paginas_analizadas"):
+            try:
+                value = summary.get(key)
+                if value:
+                    return int(value)
+            except Exception:
+                pass
+
+    # Metadatos del documento son el ultimo recurso: pueden venir de sistemas
+    # legacy y no deben sobreescribir un conteo ya verificado por un parser.
+    for key in ("paginas_pdf", "paginas", "paginas_analizadas"):
+        try:
+            value = doc.get(key)
+            if value:
+                return int(value)
+        except Exception:
+            pass
+    return None
 
 
 def _v2_clean_acta_nombre(value: Optional[str]) -> Optional[str]:
