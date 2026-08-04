@@ -50,7 +50,7 @@ final class AtlasPresupuestoReajusteMasivoTest extends TestCase
             "\$distribuidor['estatus'] ?? \$distribuidor['distribuidor_estatus'] ?? null",
             $this->model
         );
-        $this->assertGreaterThanOrEqual(2, substr_count($this->model, "\$sucursalEsperada\n                );"));
+        $this->assertGreaterThanOrEqual(2, substr_count($this->model, '$sucursalReferencia'));
     }
 
     public function testConfirmationUsesAnOpaqueTokenAndAnExplicitReason(): void
@@ -69,6 +69,35 @@ final class AtlasPresupuestoReajusteMasivoTest extends TestCase
         );
         $this->assertStringContainsString('Confirmar reajuste', $this->view);
         $this->assertStringContainsString('motivo', $this->view);
+    }
+
+    public function testConfirmationIsNeverRetriedAndOnlyChangedRowsArePersisted(): void
+    {
+        $confirmationStart = strpos($this->view, "endpoint: '/Atlas/confirmarReajustePresupuesto'");
+        $confirmationEnd = strpos($this->view, 'cerrarModalComparativo()', $confirmationStart);
+        $this->assertNotFalse($confirmationStart);
+        $this->assertNotFalse($confirmationEnd);
+        $confirmationBlock = substr($this->view, $confirmationStart, $confirmationEnd - $confirmationStart);
+        $this->assertStringContainsString('retry: 0,', $confirmationBlock);
+
+        $importStart = strpos($this->model, 'public static function importarPresupuestoMensual');
+        $skipUnchanged = strpos(
+            $this->model,
+            'if ($esReajusteMasivo && !$cambioMeta && !$cambioDatos)',
+            $importStart
+        );
+        $catalogUpdate = strpos($this->model, 'UPDATE atlas_catalogo_sucursales', $skipUnchanged);
+        $detailUpsert = strpos($this->model, 'INSERT INTO atlas_presupuesto_sucursal_detalle', $skipUnchanged);
+        $this->assertNotFalse($importStart);
+        $this->assertNotFalse($skipUnchanged);
+        $this->assertNotFalse($catalogUpdate);
+        $this->assertNotFalse($detailUpsert);
+        $this->assertLessThan($catalogUpdate, $skipUnchanged);
+        $this->assertLessThan($detailUpsert, $skipUnchanged);
+        $this->assertStringContainsString("'registros_persistidos' => \$registrosPersistidos", $this->model);
+        $this->assertStringContainsString("'registros_sin_cambios' => max(0, \$importadas - \$registrosPersistidos)", $this->model);
+        $this->assertStringContainsString('>Aplicadas</span>', $this->view);
+        $this->assertStringContainsString('resumen.registros_persistidos', $this->view);
     }
 
     public function testAdjustmentReasonRemainsEditableWithoutBypassingConfirmationGuards(): void
@@ -115,7 +144,7 @@ final class AtlasPresupuestoReajusteMasivoTest extends TestCase
     public function testOperationalWarningsDoNotBlockValidBudgetChanges(): void
     {
         $this->assertStringContainsString(
-            "'extras' => [count(\$extras), 'Las PK que no existen en el catalogo se omitiran; las demas filas pueden aplicarse.']",
+            'Las PK nuevas se agregaran al presupuesto mensual.',
             $this->model
         );
         $this->assertStringContainsString(
@@ -128,6 +157,26 @@ final class AtlasPresupuestoReajusteMasivoTest extends TestCase
         );
         $this->assertStringContainsString('const advertencias = Array.isArray(datos.advertencias)', $this->view);
         $this->assertStringContainsString('Puedes confirmar el reajuste', $this->view);
+    }
+
+    public function testNewBranchPksAreLoadedIntoTheMonthlyBudgetInsteadOfBeingDiscarded(): void
+    {
+        $this->assertStringContainsString("'alta_presupuesto'", $this->model);
+        $this->assertStringContainsString("'altas_fuera_catalogo'", $this->model);
+        $this->assertStringContainsString("'fuera_catalogo' => \$sucursalCatalogo ? 0 : 1", $this->model);
+        $this->assertStringContainsString('sucursal(es) nueva(s) se agregaron al presupuesto mensual.', $this->view);
+        $this->assertStringNotContainsString('extra no venían en el template y no se cargaron', $this->view);
+    }
+
+    public function testInactiveCatalogBranchesRemainBlockedAndExcelAmountsUseDatabasePrecision(): void
+    {
+        $this->assertStringContainsString(
+            'La sucursal existe en el catalogo, pero esta inactiva.',
+            $this->model
+        );
+        $this->assertStringContainsString('decimalPresupuestoPersistible', $this->model);
+        $this->assertStringContainsString('nullableDecimalPresupuestoPersistible', $this->model);
+        $this->assertStringContainsString('PHP_ROUND_HALF_UP', $this->model);
     }
 
     public function testExistingMonthRequiresOnlyItsCurrentBudgetBranches(): void
