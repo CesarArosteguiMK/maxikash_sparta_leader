@@ -9,6 +9,21 @@ class Onboarding extends Controller
     /** Nombre histórico (copiado desde backend/uploads). */
     private const VIDEO_PREFERRED = 'YTDown.com_YouTube_Onboarding-Video-for-Kissflow-SaaS-Onboa_Media_0N5xAiHiqFY_001_1080p.mp4';
 
+    /** Catálogo explícito: evita que un parámetro permita leer cualquier archivo de uploads. */
+    private const VIDEOS_MODULO = [
+        'bienvenida'       => 'bienvenida.mp4',
+        'legacyapp'        => 'legacyapp.mp4',
+        'asistencia'       => 'asistencia.mp4',
+        'nomina'           => 'nomine.mp4',
+        'bonos'            => 'bonos.mp4',
+        'recibos_nomina'   => 'recibos_nomina.mp4',
+        'cambio_cuenta'    => 'cambio_cuenta.mp4',
+        'incapacidades'    => 'incapacidades.mp4',
+        'cultura'          => 'nuestra_cultura.mp4',
+        'cultura_corporativa' => 'cultura_corporativa.mp4',
+        'cierre_induccion' => 'cierre_induccion.mp4',
+    ];
+
     public function index()
     {
         $this->set('titulo', 'Onboarding | ' . CONFIGURACION['EMPRESA']);
@@ -22,7 +37,8 @@ class Onboarding extends Controller
      */
     public function video()
     {
-        $file = self::resolverRutaVideoOnboarding();
+        $modulo = isset($_GET['modulo']) ? (string) $_GET['modulo'] : null;
+        $file = self::resolverRutaVideoOnboarding($modulo);
         if ($file === null || !is_readable($file)) {
             http_response_code(404);
             header('Content-Type: text/plain; charset=utf-8');
@@ -90,9 +106,14 @@ class Onboarding extends Controller
      * Ruta absoluta al .mp4 de onboarding o null.
      * Prioridad: public/uploads/{nombre fijo} → public/uploads/onboarding/…
      */
-    public static function resolverRutaVideoOnboarding(): ?string
+    public static function resolverRutaVideoOnboarding(?string $modulo = null): ?string
     {
         $root = rtrim(sparta_uploads_root(), DIRECTORY_SEPARATOR . '/\\');
+
+        if ($modulo !== null && isset(self::VIDEOS_MODULO[$modulo])) {
+            $archivoModulo = sparta_uploads_join('onboarding', self::VIDEOS_MODULO[$modulo]);
+            return is_file($archivoModulo) && is_readable($archivoModulo) ? $archivoModulo : null;
+        }
         $enRaiz = $root . DIRECTORY_SEPARATOR . self::VIDEO_PREFERRED;
         if (is_file($enRaiz) && is_readable($enRaiz)) {
             return $enRaiz;
