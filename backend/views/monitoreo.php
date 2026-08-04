@@ -72,10 +72,22 @@ $modoPlaneador = !empty($modoPlaneador);
       <strong id="monitorKpiAvailability">—</strong>
       <small>Porcentaje de muestras con respuesta</small>
     </article>
-    <article class="monitor-kpi">
+    <article class="monitor-kpi monitor-kpi-latency">
       <div class="monitor-kpi-head"><span>Latencia promedio</span><i class="fa-solid fa-gauge-high"></i></div>
       <strong id="monitorKpiLatency">—</strong>
       <small>Promedio de las últimas 24 horas</small>
+      <details class="monitor-kpi-help">
+        <summary><span>¿Cómo leer la latencia?</span><i class="fa-solid fa-chevron-down"></i></summary>
+        <div class="monitor-kpi-help-panel">
+          <p><b>Latencia:</b> tiempo que tarda la API en responder.</p>
+          <ul>
+            <li class="good"><b>Buena</b><span>Menos de 300 ms</span></li>
+            <li class="average"><b>Promedio</b><span>300 a 800 ms</span></li>
+            <li class="slow"><b>Lenta</b><span>801 a 1,500 ms</span></li>
+            <li class="bad"><b>Mala</b><span>Más de 1,500 ms o no responde</span></li>
+          </ul>
+        </div>
+      </details>
     </article>
     <article class="monitor-kpi">
       <div class="monitor-kpi-head"><span>Incidentes 24 h</span><i class="fa-solid fa-triangle-exclamation"></i></div>
