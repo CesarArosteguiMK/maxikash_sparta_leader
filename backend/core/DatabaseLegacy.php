@@ -48,7 +48,8 @@ class DatabaseLegacy
             ));
             if (DatabaseCliSupport::isCli()
                 || DatabaseCliSupport::esGestionesSeguimientoRequest()
-                || DatabaseCliSupport::esReporteriaGetAsignacionTableroJsonRequest()) {
+                || DatabaseCliSupport::esReporteriaGetAsignacionTableroJsonRequest()
+                || DatabaseCliSupport::esAtencionClientesEvidenciasJsonRequest()) {
                 throw new \RuntimeException(
                     'No se pudo conectar a MySQL (legacy __SPARTA_SECRET_REDACTED__): ' . $e->getMessage(),
                     0,

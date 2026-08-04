@@ -179,4 +179,22 @@ final class DatabaseCliSupport
 
         return (bool) preg_match('#.*/caphum/(?:getresumendocumentoscolaborador|getresumendocumentosrrhh|getdocumentoscandidatolist|validardocumentocandidato|subirdocumentomanualcandidato|eliminardocumentocandidato|verificaractadocumentocandidato|gettokendocumentoscandidato|reactivartokendocumentoscandidato)$#', $path);
     }
+
+    /**
+     * La bandeja de Evidencias intenta sincronizar datos auxiliares desde Legacy
+     * antes de devolver su lista. Si Legacy no responde, esa sincronización debe
+     * degradarse sin interrumpir el JSON de la bandeja local.
+     */
+    public static function esAtencionClientesEvidenciasJsonRequest(): bool
+    {
+        if (isset($_GET['url'])) {
+            $ruta = strtolower(trim(str_replace('\\', '/', (string) $_GET['url']), '/'));
+            if ($ruta === 'atencionclientes/obtenerrecibidos') {
+                return true;
+            }
+        }
+
+        $path = strtolower((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
+        return (bool) preg_match('#.*/atencionclientes/obtenerrecibidos$#', $path);
+    }
 }

@@ -63,22 +63,61 @@ class AtencionClientes
         ];
 
         try {
+            // En la operación normal los cuatro permisos ya existen. Consultarlos
+            // juntos evita hacer lecturas y escrituras idempotentes por cada carga
+            // de la pantalla de Evidencias.
+            $idsActuales = array_keys($permisos);
+            $idsLegacy = [3037, 3038, 3039, 3040];
+            $idsConsulta = array_merge($idsActuales, $idsLegacy);
+            $placeholders = [];
+            $params = [];
+            foreach ($idsConsulta as $indice => $idConsulta) {
+                $param = 'permiso_' . $indice;
+                $placeholders[] = ':' . $param;
+                $params[$param] = (int) $idConsulta;
+            }
+            $existentes = $this->db->queryAll(
+                'SELECT id, nombre, pestana, descripcion, activo
+                   FROM modulos_web
+                  WHERE id IN (' . implode(',', $placeholders) . ')',
+                $params
+            ) ?: [];
+            $porId = [];
+            foreach ($existentes as $existente) {
+                $porId[(int) ($existente['id'] ?? 0)] = $existente;
+            }
+
             foreach ([
                 3037 => self::MODULO_MA_CANCELAR_VISTO_BUENO,
                 3038 => self::MODULO_MA_ENVIAR_BLACKLIST,
                 3039 => self::MODULO_MA_VER_BLACKLIST,
                 3040 => self::MODULO_MA_LIBERAR_BLACKLIST,
             ] as $idViejo => $idNuevo) {
-                $this->renumerarModuloWebId((int)$idViejo, (int)$idNuevo);
+                if (isset($porId[(int) $idViejo])) {
+                    $this->renumerarModuloWebId((int)$idViejo, (int)$idNuevo);
+                    unset($porId[(int) $idViejo]);
+                    $porId[(int) $idNuevo] = $this->db->queryOne(
+                        'SELECT id, nombre, pestana, descripcion, activo FROM modulos_web WHERE id = :id LIMIT 1',
+                        ['id' => (int) $idNuevo]
+                    ) ?: [];
+                }
             }
 
             foreach ($permisos as $id => $permiso) {
-                $this->asegurarModuloWeb([
+                $esperado = [
                     'id' => $id,
                     'nombre' => $permiso['nombre'],
                     'pestana' => 'Permisos especiales',
                     'descripcion' => $permiso['descripcion'],
-                ]);
+                ];
+                $actual = $porId[(int) $id] ?? null;
+                if (!$actual
+                    || (string) ($actual['nombre'] ?? '') !== $esperado['nombre']
+                    || (string) ($actual['pestana'] ?? '') !== $esperado['pestana']
+                    || (string) ($actual['descripcion'] ?? '') !== $esperado['descripcion']
+                    || (int) ($actual['activo'] ?? 0) !== 1) {
+                    $this->asegurarModuloWeb($esperado);
+                }
             }
         } catch (\Throwable $e) {
             // La vista no debe romperse si el usuario de BD no puede tocar modulos_web.
@@ -268,8 +307,19 @@ class AtencionClientes
             'updated_at' => 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at',
         ];
 
+        $columnasExistentes = $this->db->queryAll(
+            "SELECT COLUMN_NAME
+               FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'adj_operacion_blacklist'"
+        ) ?: [];
+        $indiceColumnas = [];
+        foreach ($columnasExistentes as $columnaExistente) {
+            $indiceColumnas[strtolower((string) ($columnaExistente['COLUMN_NAME'] ?? ''))] = true;
+        }
+
         foreach ($columnas as $columna => $definicion) {
-            if (!$this->columnaExiste('adj_operacion_blacklist', $columna)) {
+            if (!isset($indiceColumnas[strtolower($columna)])) {
                 $this->db->CRUD("ALTER TABLE adj_operacion_blacklist ADD COLUMN {$columna} {$definicion}");
             }
         }

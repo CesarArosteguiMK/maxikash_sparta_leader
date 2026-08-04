@@ -313,9 +313,10 @@ class AtencionClientes extends Controller
     {
         header('Content-Type: application/json; charset=utf-8');
         try {
-            // Sincroniza dictamenes 13 de MaxikashApp antes de listar Evidencias.
-            // La bandeja fuerza la revision para no dejar envios recientes esperando el intervalo.
-            $datos = $this->model->obtenerRecibidos(true);
+            // La sincronización con Legacy es auxiliar y puede quedar indisponible.
+            // La bandeja debe responder con los datos locales sin quedar bloqueada
+            // esperando esa conexión remota.
+            $datos = $this->model->obtenerRecibidos(false);
             echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             error_log('[AtencionClientes/obtenerRecibidos] ' . $e->getMessage());
