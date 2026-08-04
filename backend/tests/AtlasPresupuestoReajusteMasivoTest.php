@@ -30,6 +30,29 @@ final class AtlasPresupuestoReajusteMasivoTest extends TestCase
         $this->assertStringContainsString('Analizar archivo', $this->view);
     }
 
+    public function testLargeAnalysisHasEstimatedProgressAndPagedRendering(): void
+    {
+        $this->assertStringContainsString('Tiempo estimado:', $this->view);
+        $this->assertStringContainsString('atlasPresAnalisisProgreso', $this->view);
+        $this->assertStringContainsString('Ya falta poco, estamos preparando el comparativo', $this->view);
+        $this->assertStringContainsString('comparativoPorPagina: 50', $this->view);
+        $this->assertStringContainsString('registros.slice(inicio, inicio + this.comparativoPorPagina)', $this->view);
+        $this->assertStringContainsString('renderPaginacionComparativoReajuste', $this->view);
+        $this->assertStringContainsString('window.requestAnimationFrame', $this->view);
+        $this->assertStringContainsString('retry: 0,', $this->view);
+    }
+
+    public function testBulkAnalysisReusesTheDistributorStatusAlreadyLoadedWithTheCatalog(): void
+    {
+        $this->assertStringContainsString("COALESCE(d.estatus, 'activo') AS distribuidor_estatus", $this->model);
+        $this->assertStringContainsString('?array $distribuidor = null', $this->model);
+        $this->assertStringContainsString(
+            "\$distribuidor['estatus'] ?? \$distribuidor['distribuidor_estatus'] ?? null",
+            $this->model
+        );
+        $this->assertGreaterThanOrEqual(2, substr_count($this->model, "\$sucursalEsperada\n                );"));
+    }
+
     public function testConfirmationUsesAnOpaqueTokenAndAnExplicitReason(): void
     {
         $this->assertStringContainsString(
