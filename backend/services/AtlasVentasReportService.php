@@ -17,7 +17,7 @@ final class AtlasVentasReportService
         'id_persona',
         'id_oferta',
         'Nombre_cliente',
-        'Fecha de dispersion_',
+        'Fecha de dispersión',
         'sucursal',
         'distribuidor',
         'fecha_oferta',
