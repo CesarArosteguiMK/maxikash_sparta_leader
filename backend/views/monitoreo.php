@@ -155,12 +155,14 @@ $modoPlaneador = !empty($modoPlaneador);
   </header>
   <nav class="monitor-tabs" aria-label="Secciones del servicio">
     <button type="button" class="active" data-monitor-tab="overview">Resumen</button>
+    <button type="button" data-monitor-tab="diagnostics">Diagnóstico <span class="monitor-tab-count" id="monitorDiagnosticsBadge" hidden>0</span></button>
     <button type="button" data-monitor-tab="endpoints">Endpoints</button>
     <button type="button" data-monitor-tab="changes">Cambios</button>
     <button type="button" data-monitor-tab="logs" id="monitorLogsTab">Logs</button>
   </nav>
   <div class="monitor-drawer-body">
     <section class="monitor-tab-panel active" data-monitor-panel="overview" id="monitorOverviewPanel"></section>
+    <section class="monitor-tab-panel" data-monitor-panel="diagnostics" id="monitorDiagnosticsPanel"></section>
     <section class="monitor-tab-panel" data-monitor-panel="endpoints">
       <div class="monitor-endpoint-layout">
         <div>
