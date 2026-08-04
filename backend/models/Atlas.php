@@ -682,6 +682,7 @@ class Atlas extends Model
             $db = new Database();
             self::asegurarColumnasPasoSucursal($db);
             self::asegurarResponsablesPersonaAtlas($db);
+            self::asegurarPresupuestosAtlas($db);
             $configuracionCalidad = self::getConfiguracionCalidadSucursales($db);
             $datos = $db->queryAll(
                 "
@@ -726,6 +727,13 @@ class Atlas extends Model
                         THEN 1 ELSE 0
                     END AS es_nuevo_ingreso,
                     s.fecha_actualizacion,
+                    0 AS pendiente_catalogo,
+                    0 AS origen_excel,
+                    NULL AS fecha_carga_excel,
+                    NULL AS fecha_carga_excel_fmt,
+                    NULL AS dias_antiguedad,
+                    'catalogo' AS antiguedad_grupo,
+                    99 AS prioridad_antiguedad,
                     tel.numero_telefono,
                     tel.nombre_contacto
                 FROM atlas_catalogo_sucursales s
@@ -748,8 +756,101 @@ class Atlas extends Model
                 "
             );
 
+            $pendientesCatalogo = $db->queryAll(
+                "
+                SELECT
+                    NULL AS id,
+                    pd.fk_sucursal,
+                    (
+                        SELECT MIN(d2.id)
+                        FROM atlas_catalogo_distribuidores d2
+                        WHERE d2.activo = 1
+                          AND UPPER(TRIM(d2.nombre)) COLLATE utf8mb4_unicode_ci
+                              = UPPER(TRIM(pd.distribuidor)) COLLATE utf8mb4_unicode_ci
+                    ) AS distribuidor_id,
+                    COALESCE(NULLIF(TRIM(pd.distribuidor), ''), 'Sin distribuidor') AS distribuidor_nombre,
+                    COALESCE(NULLIF(TRIM(pd.sucursal), ''), CONCAT('Sucursal ', pd.fk_sucursal)) AS sucursal,
+                    '' AS direccion,
+                    NULL AS coordenadas,
+                    NULL AS latitud,
+                    NULL AS longitud,
+                    NULL AS estado,
+                    NULL AS municipio,
+                    NULL AS localidad,
+                    NULL AS colonia,
+                    NULL AS codigo_postal,
+                    NULL AS asesor_id,
+                    pd.asesor_persona_id,
+                    COALESCE(NULLIF(TRIM(pd.asesor), ''), 'Sin asignar') AS asesor_nombre,
+                    pd.clasificacion_id,
+                    c.nombre AS clasificacion_nombre,
+                    c.icon_font AS clasificacion_icon_font,
+                    c.color_hex AS clasificacion_color_hex,
+                    0 AS paso_datos_completos,
+                    NULL AS paso_datos_completos_at,
+                    NULL AS paso_datos_completos_at_fmt,
+                    0 AS paso_asignacion_completa,
+                    NULL AS paso_asignacion_completa_at,
+                    NULL AS paso_asignacion_completa_at_fmt,
+                    NULL AS calle,
+                    NULL AS numero_exterior,
+                    NULL AS numero_interior,
+                    1 AS activo,
+                    nuevas.fecha_carga_excel AS fecha_alta,
+                    DATE_FORMAT(nuevas.fecha_carga_excel, '%d/%m/%Y %H:%i') AS fecha_alta_fmt,
+                    1 AS es_nuevo_ingreso,
+                    pd.fecha_actualizacion,
+                    1 AS pendiente_catalogo,
+                    1 AS origen_excel,
+                    nuevas.fecha_carga_excel,
+                    DATE_FORMAT(nuevas.fecha_carga_excel, '%d/%m/%Y %H:%i') AS fecha_carga_excel_fmt,
+                    DATEDIFF(CURDATE(), DATE(nuevas.fecha_carga_excel)) AS dias_antiguedad,
+                    CASE
+                        WHEN DATEDIFF(CURDATE(), DATE(nuevas.fecha_carga_excel)) < 7 THEN 'nuevas'
+                        WHEN DATEDIFF(CURDATE(), DATE(nuevas.fecha_carga_excel)) < 30 THEN 'semana'
+                        ELSE 'mes'
+                    END AS antiguedad_grupo,
+                    CASE
+                        WHEN DATEDIFF(CURDATE(), DATE(nuevas.fecha_carga_excel)) < 7 THEN 0
+                        WHEN DATEDIFF(CURDATE(), DATE(nuevas.fecha_carga_excel)) < 30 THEN 1
+                        ELSE 2
+                    END AS prioridad_antiguedad,
+                    NULL AS numero_telefono,
+                    NULL AS nombre_contacto
+                FROM atlas_presupuesto_sucursal_detalle pd
+                INNER JOIN (
+                    SELECT
+                        pdh.fk_sucursal,
+                        MAX(pdh.id) AS detalle_id,
+                        MIN(pdh.fecha_alta) AS fecha_carga_excel
+                    FROM atlas_presupuesto_sucursal_detalle pdh
+                    INNER JOIN atlas_presupuestos_mensuales ph
+                            ON ph.id = pdh.presupuesto_id
+                           AND ph.activo = 1
+                    LEFT JOIN atlas_catalogo_sucursales sch
+                           ON sch.fk_sucursal = pdh.fk_sucursal
+                    WHERE pdh.activo = 1
+                      AND sch.id IS NULL
+                    GROUP BY pdh.fk_sucursal
+                ) nuevas
+                        ON nuevas.detalle_id = pd.id
+                LEFT JOIN atlas_catalogo_clasificaciones c
+                       ON c.id = pd.clasificacion_id
+                      AND c.activo = 1
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM atlas_catalogo_sucursales sc
+                    WHERE sc.fk_sucursal = pd.fk_sucursal
+                )
+                ORDER BY nuevas.fecha_carga_excel DESC, pd.sucursal ASC, pd.fk_sucursal ASC
+                "
+            );
+
+            $datos = array_merge($pendientesCatalogo, $datos);
+
             $totales = [
                 'total' => count($datos),
+                'pendientes_catalogo' => count($pendientesCatalogo),
                 'activas' => 0,
                 'inactivas' => 0,
                 'con_coordenadas' => 0,
@@ -760,11 +861,18 @@ class Atlas extends Model
                 $row['activo'] = (int)($row['activo'] ?? 0);
                 $row['paso_datos_completos'] = (int)($row['paso_datos_completos'] ?? 0);
                 $row['paso_asignacion_completa'] = (int)($row['paso_asignacion_completa'] ?? 0);
-                $row['estado'] = $row['activo'] === 1 ? 'Activa' : 'Inactiva';
-                if ($row['activo'] === 1) {
-                    $totales['activas']++;
+                $row['pendiente_catalogo'] = (int)($row['pendiente_catalogo'] ?? 0);
+                $row['origen_excel'] = (int)($row['origen_excel'] ?? 0);
+                $row['dias_antiguedad'] = isset($row['dias_antiguedad']) ? (int)$row['dias_antiguedad'] : null;
+                if ($row['pendiente_catalogo'] === 1) {
+                    $row['estatus_sucursal'] = 'Por completar';
                 } else {
-                    $totales['inactivas']++;
+                    $row['estatus_sucursal'] = $row['activo'] === 1 ? 'Activa' : 'Inactiva';
+                    if ($row['activo'] === 1) {
+                        $totales['activas']++;
+                    } else {
+                        $totales['inactivas']++;
+                    }
                 }
                 if (trim((string)($row['latitud'] ?? '')) !== '' && trim((string)($row['longitud'] ?? '')) !== '') {
                     $totales['con_coordenadas']++;
@@ -790,6 +898,7 @@ class Atlas extends Model
                 'datos' => [],
                 'totales' => [
                     'total' => 0,
+                    'pendientes_catalogo' => 0,
                     'activas' => 0,
                     'inactivas' => 0,
                     'con_coordenadas' => 0,
@@ -1030,6 +1139,7 @@ class Atlas extends Model
         try {
             $db = new Database();
             self::asegurarColumnasPasoSucursal($db);
+            self::asegurarPresupuestosAtlas($db);
 
             $usuarioId = self::intVal($input['_usuario_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
             $permisos = self::permisosSucursalAtlas($usuarioId);
@@ -1052,6 +1162,7 @@ class Atlas extends Model
 
             $sucursal = self::strVal($input['sucursal'] ?? '');
             $distribuidorId = self::intVal($input['distribuidor_id'] ?? 0);
+            $fkSucursalSolicitada = self::intVal($input['fk_sucursal'] ?? 0);
             $fkSucursal = 0;
 
             if ($id > 0) {
@@ -1075,9 +1186,40 @@ class Atlas extends Model
                     $sucursal = self::strVal($input['sucursal'] ?? '');
                     $distribuidorId = self::intVal($input['distribuidor_id'] ?? 0);
                 }
+            } elseif ($fkSucursalSolicitada > 0) {
+                $yaCatalogada = $db->queryOne(
+                    "SELECT id FROM atlas_catalogo_sucursales WHERE fk_sucursal = :fk_sucursal LIMIT 1",
+                    ['fk_sucursal' => $fkSucursalSolicitada]
+                );
+                if ($yaCatalogada) {
+                    return ['success' => false, 'mensaje' => 'La sucursal ya fue incorporada al catalogo. Recarga el listado para continuar.'];
+                }
+                $pendientePresupuesto = $db->queryOne(
+                    "
+                    SELECT pd.fk_sucursal
+                    FROM atlas_presupuesto_sucursal_detalle pd
+                    INNER JOIN atlas_presupuestos_mensuales p
+                            ON p.id = pd.presupuesto_id
+                           AND p.activo = 1
+                    WHERE pd.fk_sucursal = :fk_sucursal
+                      AND pd.activo = 1
+                    ORDER BY pd.id DESC
+                    LIMIT 1
+                    ",
+                    ['fk_sucursal' => $fkSucursalSolicitada]
+                );
+                if (!$pendientePresupuesto) {
+                    return ['success' => false, 'mensaje' => 'La PK indicada no corresponde a una sucursal pendiente cargada desde Presupuestos.'];
+                }
+                $fkSucursal = $fkSucursalSolicitada;
             } else {
                 $siguiente = $db->queryOne(
-                    "SELECT COALESCE(MAX(fk_sucursal), 0) + 1 AS fk_sucursal FROM atlas_catalogo_sucursales"
+                    "
+                    SELECT GREATEST(
+                        (SELECT COALESCE(MAX(fk_sucursal), 0) FROM atlas_catalogo_sucursales),
+                        (SELECT COALESCE(MAX(fk_sucursal), 0) FROM atlas_presupuesto_sucursal_detalle)
+                    ) + 1 AS fk_sucursal
+                    "
                 );
                 $fkSucursal = self::intVal($siguiente['fk_sucursal'] ?? 0);
             }

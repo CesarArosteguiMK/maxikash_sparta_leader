@@ -132,7 +132,10 @@ $modoPlaneador = !empty($modoPlaneador);
   <section class="monitor-activity">
     <div class="monitor-section-head">
       <div><h2>Actividad reciente</h2><p>Cambios de estado, OpenAPI, controles de Python y pruebas ejecutadas.</p></div>
-      <span class="monitor-source-chip"><i class="fa-regular fa-clock"></i>Últimos eventos</span>
+      <div class="monitor-activity-actions">
+        <span class="monitor-source-chip"><i class="fa-regular fa-clock"></i>Últimos eventos</span>
+        <button type="button" class="monitor-activity-log-btn" id="monitorActivityOpen"><i class="fa-solid fa-list"></i><span>Ver todo el log</span><b id="monitorActivityCount">0</b></button>
+      </div>
     </div>
     <div class="monitor-timeline" id="monitorTimeline">
       <div class="monitor-empty">Todavía no hay eventos registrados.</div>
@@ -244,6 +247,16 @@ $modoPlaneador = !empty($modoPlaneador);
     </section>
   </div>
 </aside>
+
+<dialog class="monitor-dialog monitor-activity-dialog" id="monitorActivityDialog" aria-labelledby="monitorActivityDialogTitle">
+  <div class="monitor-activity-dialog-shell">
+    <header class="monitor-activity-dialog-head">
+      <div><span>Historial operativo</span><h2 id="monitorActivityDialogTitle">Todo el log de actividad</h2><p>Últimos cambios, pruebas, alertas y controles registrados.</p></div>
+      <button type="button" class="monitor-icon-btn" id="monitorActivityClose" aria-label="Cerrar log de actividad"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="monitor-activity-full" id="monitorActivityFull"><div class="monitor-empty">Todavía no hay eventos registrados.</div></div>
+  </div>
+</dialog>
 
 <dialog class="monitor-dialog" id="monitorConfirmDialog">
   <form method="dialog">

@@ -44,6 +44,13 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
         .atlas-subtabs .nav-link.active i,
         .atlas-subtabs .nav-link.active span { color: #fff !important; }
         .atlas-panel-head { display: flex; align-items: center; justify-content: flex-end; gap: .8rem; margin-bottom: .85rem; }
+        .atlas-sucursal-panel-head { justify-content: space-between; align-items: end; flex-wrap: wrap; }
+        .atlas-sucursal-filters { display: flex; align-items: end; gap: .65rem; flex-wrap: wrap; }
+        .atlas-sucursal-filter { display: grid; gap: .3rem; min-width: 13rem; }
+        .atlas-sucursal-filter label { color: #566a7f; font-size: .7rem; font-weight: 900; text-transform: uppercase; }
+        .atlas-sucursal-filter .form-select { min-height: 2.25rem; font-size: .82rem; font-weight: 800; color: #24364b; }
+        .atlas-sucursal-filter-summary { display: inline-flex; align-items: center; gap: .4rem; min-height: 2.25rem; color: #0f766e; font-size: .76rem; font-weight: 900; }
+        .atlas-sucursal-filter-summary i { color: #2563eb; }
         .atlas-quality-config { display: flex; align-items: center; justify-content: space-between; gap: .85rem; border: 1px solid #dbe4ef; border-radius: .65rem; background: #f8fafc; padding: .65rem .75rem; margin-bottom: .75rem; }
         .atlas-quality-config-title { display: flex; align-items: center; gap: .45rem; color: #173756; font-size: .78rem; font-weight: 900; text-transform: uppercase; letter-spacing: .03em; }
         .atlas-quality-config-title i { color: #b91c1c; }
@@ -100,6 +107,7 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
         .atlas-assignment-value { color: #22303e; font-size: .82rem; font-weight: 500; line-height: 1.18; min-width: 0; overflow-wrap: anywhere; }
         .atlas-assignment-status { margin-top: .08rem; }
         .atlas-sucursal-avatar { width: 2.65rem; height: 2.65rem; border-radius: 999px; background: linear-gradient(135deg, #173756, #2563eb); color: #fff; display: inline-grid; place-items: center; flex: 0 0 2.65rem; box-shadow: 0 8px 18px rgba(23, 55, 86, .18); }
+        .atlas-sucursal-avatar.is-excel-pending { background: linear-gradient(135deg, #0f766e, #2563eb); }
         .atlas-sucursal-avatar i { display: block; font-size: 1.12rem; line-height: 1; margin: 0; transform: translateY(.02rem); }
         .atlas-sucursal-avatar-col { width: 4.2rem; min-width: 4.2rem; text-align: center !important; vertical-align: middle !important; }
         .atlas-sucursal-avatar-col .atlas-sucursal-avatar { margin: 0 auto; }
@@ -111,6 +119,8 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
         .atlas-badge-off { background: #f1f5f9; color: #64748b; }
         .atlas-badge-warn { background: #fef3c7; color: #b45309; }
         .atlas-badge-info { background: #e0f2fe; color: #0369a1; }
+        .atlas-badge-excel { background: #dff7f1; color: #0f766e; }
+        .atlas-excel-age { display: inline-flex; align-items: center; gap: .28rem; color: #64748b; font-size: .7rem; font-weight: 800; }
         .atlas-action-buttons { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; }
         .atlas-action-buttons .btn { width: 2.15rem; height: 2.15rem; border-radius: 999px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: #26344e; border-color: #26344e; box-shadow: 0 5px 12px rgba(15, 23, 42, .18); }
         .atlas-table-wrap { border: 1px solid #e5e7eb; border-radius: .75rem; background: #fff; padding: 1.1rem; position: relative; min-height: 12rem; }
@@ -337,6 +347,8 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
             .atlas-tabs .nav-link { white-space: nowrap; padding: .6rem .75rem; }
             .atlas-panel-head { justify-content: stretch; }
             .atlas-panel-head .btn { width: 100%; justify-content: center; }
+            .atlas-sucursal-panel-head, .atlas-sucursal-filters { align-items: stretch; flex-direction: column; width: 100%; }
+            .atlas-sucursal-filter { width: 100%; min-width: 0; }
             .atlas-table-wrap { padding: .75rem; border-radius: .6rem; }
             .atlas-table-wrap .dt-container .row,
             .atlas-table-wrap .dataTables_wrapper .row { row-gap: .75rem; }
@@ -422,7 +434,21 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
                 <div class="atlas-kpi atlas-kpi-danger"><span><i class="fa-solid fa-triangle-exclamation"></i>Con error</span><div class="atlas-kpi-action"><strong id="atlas-kpi-errores">0</strong><button type="button" class="atlas-map-badge-btn atlas-quality-btn" id="atlas-btn-ver-errores"><i class="fa-solid fa-list-check"></i>Detalle</button></div></div>
                 <div class="atlas-kpi atlas-kpi-warn"><span><i class="fa-solid fa-map-pin"></i>Sin coordenadas</span><div class="atlas-kpi-action"><strong id="atlas-kpi-sin-coordenadas">0</strong><button type="button" class="atlas-map-badge-btn atlas-quality-btn-warning" id="atlas-btn-ver-sin-coordenadas"><i class="fa-solid fa-screwdriver-wrench"></i>Corregir</button></div></div>
             </div>
-            <div class="atlas-panel-head">
+            <div class="atlas-panel-head atlas-sucursal-panel-head">
+                <div class="atlas-sucursal-filters">
+                    <div class="atlas-sucursal-filter">
+                        <label for="atlas-sucursal-antiguedad"><i class="fa-solid fa-clock-rotate-left me-1"></i>Antigüedad</label>
+                        <select class="form-select form-select-sm" id="atlas-sucursal-antiguedad">
+                            <option value="nuevas" selected>Nuevas</option>
+                            <option value="semana">Hace 1 semana</option>
+                            <option value="mes">Hace 1 mes</option>
+                            <option value="todas">Todas las sucursales</option>
+                        </select>
+                    </div>
+                    <span class="atlas-sucursal-filter-summary" id="atlas-sucursal-filter-summary" aria-live="polite">
+                        <i class="fa-solid fa-file-circle-plus"></i><span>Preparando sucursales nuevas...</span>
+                    </span>
+                </div>
                 <?php if ($atlasPuedeAgregarSucursal): ?>
                 <button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="sucursal"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar sucursal</span></button>
                 <?php endif; ?>
@@ -474,7 +500,7 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
                 <div class="atlas-form-grid">
                     <div class="atlas-step-section-title"><span class="atlas-step-dot">1</span>Datos base de sucursal</div>
                     <div class="atlas-branch-row atlas-field-wide">
-                        <div><label class="form-label">FK sucursal</label><input type="text" class="form-control atlas-fk-input" name="fk_sucursal" readonly placeholder="Auto"><span class="atlas-cascade-help">Auto al guardar.</span></div>
+                        <div><label class="form-label">FK sucursal</label><input type="text" class="form-control atlas-fk-input" name="fk_sucursal" readonly placeholder="Auto"><span class="atlas-cascade-help" id="atlas-sucursal-fk-help">Auto al guardar.</span></div>
                         <div><label class="form-label atlas-required">Sucursal</label><input type="text" class="form-control" name="sucursal" required maxlength="120" placeholder="Nombre de la sucursal"><small class="text-danger fw-semibold d-none" id="atlas-sucursal-coincidencia"></small></div>
                     </div>
                     <div class="atlas-sucursal-catalog-row atlas-field-wide">
@@ -753,6 +779,8 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
     const btnErrores = document.getElementById('atlas-btn-ver-errores');
     const btnSinCoordenadas = document.getElementById('atlas-btn-ver-sin-coordenadas');
     const btnSucursalesPendientes = document.getElementById('atlas-btn-ver-sucursales-pendientes');
+    const filtroAntiguedadSucursal = document.getElementById('atlas-sucursal-antiguedad');
+    const filtroAntiguedadResumen = document.getElementById('atlas-sucursal-filter-summary');
     const formSucursal = document.getElementById('formAtlasSucursal');
     const formCatalogo = document.getElementById('formAtlasCatalogo');
     const modalSucursalEl = document.getElementById('modalAtlasSucursal');
@@ -880,13 +908,15 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
         const aviso = document.getElementById('atlas-sucursal-coincidencia');
         if (!input || !aviso) return;
         const actualId = String(getFormValue(formSucursal, 'id') || '');
+        const actualFk = String(getFormValue(formSucursal, 'fk_sucursal') || '');
         const clave = atlasClaveCalidad(input.value || '');
         aviso.classList.add('d-none');
         aviso.textContent = '';
         input.classList.remove('is-invalid');
         if (clave.length < 4) return;
         const coincidencia = (sucursales || []).find(row => {
-            if (String(row.id || '') === actualId) return false;
+            if (actualId && String(row.id || '') === actualId) return false;
+            if (actualFk && String(row.fk_sucursal || '') === actualFk) return false;
             const nombre = atlasClaveCalidad(row.sucursal || '');
             if (!nombre) return false;
             return nombre === clave || (clave.length >= 8 && (nombre.includes(clave) || clave.includes(nombre)));
@@ -911,7 +941,7 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
     }
     function atlasEvaluarCalidadSucursales() {
         const issuesById = {};
-        const activas = sucursales.filter(row => Number(row.activo || 0) === 1);
+        const activas = sucursales.filter(row => Number(row.activo || 0) === 1 && Number(row.pendiente_catalogo || 0) !== 1);
         activas.forEach(row => {
             const lat = numeroValido(row.latitud);
             const lng = numeroValido(row.longitud);
@@ -1123,7 +1153,13 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
             atlasDireccionMarker.setIcon(iconoPinDireccionActual());
         }
     }
-    function renderEstatus(row) { const activo = Number(row && row.activo || 0) === 1; return '<span class="atlas-badge ' + (activo ? 'atlas-badge-ok' : 'atlas-badge-off') + '"><i class="fa-solid ' + (activo ? 'fa-circle-check' : 'fa-circle-pause') + '"></i>' + (activo ? 'Activa' : 'Inactiva') + '</span>'; }
+    function renderEstatus(row) {
+        if (Number(row && row.pendiente_catalogo || 0) === 1) {
+            return '<span class="atlas-badge atlas-badge-excel"><i class="fa-solid fa-file-circle-plus"></i>Por completar</span>';
+        }
+        const activo = Number(row && row.activo || 0) === 1;
+        return '<span class="atlas-badge ' + (activo ? 'atlas-badge-ok' : 'atlas-badge-off') + '"><i class="fa-solid ' + (activo ? 'fa-circle-check' : 'fa-circle-pause') + '"></i>' + (activo ? 'Activa' : 'Inactiva') + '</span>';
+    }
     function renderEstatusDistribuidor(row) {
         const v = String(row && row.estatus || (Number(row && row.activo || 0) === 1 ? 'activo' : 'inactivo')).toLowerCase();
         const labels = { activo: 'Activo', inactivo: 'Inactivo', suspendido: 'Suspendido', bloqueado: 'Bloqueado', pausado: 'Pausado', inhabilitado: 'Inhabilitado' };
@@ -1828,6 +1864,21 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
             + '<span class="atlas-step-pill' + (paso2 ? '' : ' is-pending') + '" title="' + esc(paso2 ? ('Paso 2 completo' + (row.paso_asignacion_completa_at_fmt ? ' · ' + row.paso_asignacion_completa_at_fmt : '')) : 'Paso 2 pendiente') + '"><span class="atlas-step-dot">' + iconPaso2 + '</span>Paso 2</span>'
             + '</div>';
     }
+    function textoAntiguedadSucursal(row) {
+        const dias = Math.max(0, Number(row && row.dias_antiguedad || 0));
+        if (dias === 0) return 'Cargada hoy';
+        if (dias === 1) return 'Cargada ayer';
+        return 'Cargada hace ' + dias.toLocaleString('es-MX') + ' días';
+    }
+    function renderAccionesSucursal(row) {
+        if (Number(row && row.pendiente_catalogo || 0) === 1) {
+            if (!permisosSucursal.paso1) {
+                return '<div class="atlas-action-buttons"><button type="button" class="btn btn-sm btn-label-secondary" disabled title="Sin permiso para completar datos base" aria-label="Sin permiso para completar datos base"><i class="fa-solid fa-lock"></i></button></div>';
+            }
+            return '<div class="atlas-action-buttons"><button type="button" class="btn btn-sm btn-primary" data-atlas-completar-sucursal="' + esc(row.fk_sucursal || '') + '" title="Completar sucursal" aria-label="Completar sucursal"><i class="fa-solid fa-clipboard-check"></i></button></div>';
+        }
+        return renderEditar('sucursal', row && row.id);
+    }
     function asignacionSucursalCompleta() {
         return ['supervisor_id','asesor_id'].every(name => !!getFormValue(formSucursal, name));
     }
@@ -1894,12 +1945,20 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
     }
     function columnasAtlas() {
         return [
-            { data: null, title: '', orderable: false, searchable: false, className: 'atlas-sucursal-avatar-col', render: function (data, renderType, row) { return renderType === 'display' ? '<span class="atlas-sucursal-avatar"><i class="fa-solid fa-motorcycle"></i></span><span class="atlas-sucursal-status-under">' + renderEstatus(row) + '</span>' + renderPasosSucursal(row) : ''; } },
+            { data: null, title: '', orderable: false, searchable: false, className: 'atlas-sucursal-avatar-col', render: function (data, renderType, row) {
+                if (renderType !== 'display') return '';
+                const pendiente = Number(row.pendiente_catalogo || 0) === 1;
+                return '<span class="atlas-sucursal-avatar' + (pendiente ? ' is-excel-pending' : '') + '"><i class="fa-solid ' + (pendiente ? 'fa-file-excel' : 'fa-motorcycle') + '"></i></span><span class="atlas-sucursal-status-under">' + renderEstatus(row) + '</span>' + renderPasosSucursal(row);
+            } },
             { data: 'sucursal', title: 'Sucursal', render: function (data, renderType, row) {
-                if (renderType !== 'display') return textoPlano(row, ['sucursal','fk_sucursal','distribuidor_nombre','direccion','numero_telefono','nombre_contacto']);
+                if (renderType !== 'display') return textoPlano(row, ['sucursal','fk_sucursal','distribuidor_nombre','direccion','numero_telefono','nombre_contacto']) + (Number(row.pendiente_catalogo || 0) === 1 ? ' nueva excel por completar' : '');
                 const direccionBtn = row.direccion ? '<button type="button" class="atlas-location-link mt-1" data-atlas-ubicacion="' + esc(row.id || '') + '"><i class="fa-solid fa-location-dot"></i><span>' + esc(row.direccion) + '</span></button>' : '<span class="atlas-muted">Sin dirección</span>';
-                const nuevoIngreso = Number(row.es_nuevo_ingreso || 0) === 1 ? '<span class="atlas-badge atlas-badge-info ms-1" title="Fecha de registro: ' + esc(row.fecha_alta_fmt || '') + '"><i class="fa-solid fa-star"></i>Sucursal de nuevo ingreso</span>' : '';
-                return '<div class="atlas-field-row"><span class="atlas-field-value">' + esc(data || 'Sin nombre') + '</span>' + nuevoIngreso + '<span class="atlas-muted">FK ' + esc(row.fk_sucursal || '-') + ' &middot; ' + esc(row.distribuidor_nombre || 'Sin distribuidor') + '</span></div>'
+                const pendiente = Number(row.pendiente_catalogo || 0) === 1;
+                const nuevoIngreso = pendiente
+                    ? '<span class="atlas-badge atlas-badge-excel ms-1" title="Carga de presupuesto: ' + esc(row.fecha_carga_excel_fmt || '') + '"><i class="fa-solid fa-file-circle-plus"></i>Nueva desde Excel</span>'
+                    : (Number(row.es_nuevo_ingreso || 0) === 1 ? '<span class="atlas-badge atlas-badge-info ms-1" title="Fecha de registro: ' + esc(row.fecha_alta_fmt || '') + '"><i class="fa-solid fa-star"></i>Sucursal de nuevo ingreso</span>' : '');
+                const metaExcel = pendiente ? '<span class="atlas-excel-age"><i class="fa-regular fa-clock"></i>' + esc(textoAntiguedadSucursal(row)) + (row.fecha_carga_excel_fmt ? ' · ' + esc(row.fecha_carga_excel_fmt) : '') + '</span>' : '';
+                return '<div class="atlas-field-row"><span class="atlas-field-value">' + esc(data || 'Sin nombre') + '</span>' + nuevoIngreso + metaExcel + '<span class="atlas-muted">FK ' + esc(row.fk_sucursal || '-') + ' &middot; ' + esc(row.distribuidor_nombre || 'Sin distribuidor') + '</span></div>'
                     + '<div class="atlas-field-row mt-1"><span class="atlas-field-label">Teléfono</span><span class="atlas-muted"><i class="fa-solid fa-phone me-1"></i>' + esc(row.numero_telefono || 'Sin teléfono') + (row.nombre_contacto ? ' &middot; ' + esc(row.nombre_contacto) : '') + '</span></div>'
                     + '<div class="atlas-field-row mt-1">' + direccionBtn + '</div>';
             }},
@@ -1908,7 +1967,7 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
                 return '<div class="atlas-classif" style="--atlas-class-color:' + esc(colorClasificacion(row)) + ';"><span class="atlas-classif-dot"></span><i class="' + esc(row.clasificacion_icon_font || 'fa-solid fa-tags') + '"></i><span>' + esc(data || 'Sin clasificación') + '</span></div>';
             }},
             { data: null, title: 'Asignación', render: function (data, renderType, row) { return renderAsignacionSucursal(row, renderType); }},
-            { data: null, title: 'Acciones', orderable: false, searchable: false, className: 'text-center', render: function (data, renderType, row) { return renderType === 'display' ? renderEditar('sucursal', row.id) : ''; }}
+            { data: null, title: 'Acciones', orderable: false, searchable: false, className: 'text-center', render: function (data, renderType, row) { return renderType === 'display' ? renderAccionesSucursal(row) : ''; }}
         ];
     }
 
@@ -1923,7 +1982,7 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
                 + '</div>';
         };
         return '<div class="atlas-assignment-box">'
-            + item('fa-solid fa-user', 'Asesor', row.asesor_nombre)
+            + item('fa-solid fa-user', Number(row.pendiente_catalogo || 0) === 1 ? 'En presupuesto' : 'Asesor', row.asesor_nombre)
             + '</div>';
     }
 
@@ -2093,16 +2152,54 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
             if (tabla.responsive && typeof tabla.responsive.recalc === 'function') tabla.responsive.recalc();
         });
     }
+    function sucursalesPorAntiguedad() {
+        const filtro = filtroAntiguedadSucursal ? String(filtroAntiguedadSucursal.value || 'nuevas') : 'nuevas';
+        const filas = filtro === 'todas'
+            ? sucursales.slice()
+            : sucursales.filter(row => Number(row.pendiente_catalogo || 0) === 1 && String(row.antiguedad_grupo || '') === filtro);
+        return filas.sort((a, b) => {
+            const prioridadA = Number(a.prioridad_antiguedad == null ? 99 : a.prioridad_antiguedad);
+            const prioridadB = Number(b.prioridad_antiguedad == null ? 99 : b.prioridad_antiguedad);
+            if (prioridadA !== prioridadB) return prioridadA - prioridadB;
+            const fechaA = String(a.fecha_carga_excel || a.fecha_alta || '');
+            const fechaB = String(b.fecha_carga_excel || b.fecha_alta || '');
+            if (fechaA !== fechaB) return fechaB.localeCompare(fechaA);
+            return atlasClaveCalidad(a.sucursal || '').localeCompare(atlasClaveCalidad(b.sucursal || ''));
+        });
+    }
+    function actualizarFiltroAntiguedadSucursal() {
+        if (!filtroAntiguedadSucursal) return;
+        const conteos = { nuevas: 0, semana: 0, mes: 0, todas: sucursales.length };
+        sucursales.forEach(row => {
+            if (Number(row.pendiente_catalogo || 0) !== 1) return;
+            const grupo = String(row.antiguedad_grupo || 'nuevas');
+            if (Object.prototype.hasOwnProperty.call(conteos, grupo)) conteos[grupo] += 1;
+        });
+        const etiquetas = { nuevas: 'Nuevas', semana: 'Hace 1 semana', mes: 'Hace 1 mes', todas: 'Todas las sucursales' };
+        Array.from(filtroAntiguedadSucursal.options).forEach(option => {
+            const value = String(option.value || '');
+            option.textContent = (etiquetas[value] || option.textContent) + ' (' + Number(conteos[value] || 0).toLocaleString('es-MX') + ')';
+        });
+        const filtro = String(filtroAntiguedadSucursal.value || 'nuevas');
+        const totalVisible = filtro === 'todas' ? conteos.todas : (conteos[filtro] || 0);
+        if (filtroAntiguedadResumen) {
+            const texto = filtro === 'todas'
+                ? totalVisible.toLocaleString('es-MX') + ' sucursales en el catálogo y pendientes'
+                : totalVisible.toLocaleString('es-MX') + ' sucursales de Excel por completar';
+            filtroAntiguedadResumen.innerHTML = '<i class="fa-solid ' + (filtro === 'todas' ? 'fa-store' : 'fa-file-circle-plus') + '"></i><span>' + esc(texto) + '</span>';
+        }
+    }
     function renderTabla() {
         if (!document.querySelector(tablaSelector)) return;
+        const filas = sucursalesPorAntiguedad();
         if (!atlasTabla && body) body.innerHTML = '';
-        if (!atlasTabla) atlasTabla = initDataTable(tablaSelector, columnasAtlas(), [[1,'asc']]);
+        if (!atlasTabla) atlasTabla = initDataTable(tablaSelector, columnasAtlas(), []);
         if (atlasTabla) {
             atlasTabla.clear();
-            atlasTabla.rows.add(sucursales);
+            atlasTabla.rows.add(filas);
             atlasTabla.draw();
         } else if (body) {
-            body.innerHTML = sucursales.length ? sucursales.map(renderFilaSucursalFallback).join('') : '<tr><td colspan="5" class="atlas-empty">No hay datos disponibles</td></tr>';
+            body.innerHTML = filas.length ? filas.map(renderFilaSucursalFallback).join('') : '<tr><td colspan="5" class="atlas-empty">No hay sucursales en esta antigüedad.</td></tr>';
         }
         atlasSetTablaLoading('sucursales', false);
     }
@@ -2136,6 +2233,7 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
             const t = data.totales || {};
             setKpi('atlas-kpi-total', t.total); setKpi('atlas-kpi-activas', t.activas); setKpi('atlas-kpi-inactivas', t.inactivas); setKpi('atlas-kpi-pendientes-paso2', t.pendientes_paso2 || 0); setKpi('atlas-kpi-coordenadas', t.con_coordenadas);
             atlasEvaluarCalidadSucursales();
+            actualizarFiltroAntiguedadSucursal();
             renderTabla();
         } catch (err) {
             if (body) body.innerHTML = '<tr><td colspan="5" class="atlas-empty">No se pudieron cargar las sucursales.</td></tr>';
@@ -2187,7 +2285,8 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
     }
     function abrirSucursal(row) {
         if (!formSucursal) return;
-        if (!row && !permisosSucursal.paso1) {
+        const esPendienteCatalogo = Number(row && row.pendiente_catalogo || 0) === 1;
+        if ((!row || esPendienteCatalogo) && !permisosSucursal.paso1) {
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     icon: 'warning',
@@ -2208,14 +2307,20 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
             return;
         }
         formSucursal.reset();
-        const data = row || {};
+        const data = Object.assign({}, row || {});
+        const pendienteCatalogo = esPendienteCatalogo;
         if (!data.id && !data.clasificacion_id) {
             data.clasificacion_id = clasificacionOportunidadDefaultId();
         }
-        modalSucursalTitulo.innerHTML = '<i class="fa-solid fa-store me-2"></i>' + (data.id ? 'Editar sucursal' : 'Agregar sucursal');
+        modalSucursalTitulo.innerHTML = '<i class="fa-solid ' + (pendienteCatalogo ? 'fa-file-circle-check' : 'fa-store') + ' me-2"></i>' + (pendienteCatalogo ? 'Completar sucursal de Excel' : (data.id ? 'Editar sucursal' : 'Agregar sucursal'));
         ['id','fk_sucursal','sucursal','distribuidor_id','clasificacion_id','direccion_sucursal','calle','numero_exterior','numero_interior','estado','municipio','localidad','colonia','codigo_postal','latitud','longitud','activo','coordenadas'].forEach(key => setFormValue(formSucursal, key, key === 'direccion_sucursal' ? (data.direccion_sucursal || data.direccion || '') : (key === 'activo' && data[key] == null ? 1 : data[key])));
+        const fkHelp = document.getElementById('atlas-sucursal-fk-help');
+        if (fkHelp) fkHelp.textContent = pendienteCatalogo ? 'PK conservada desde el presupuesto cargado.' : (data.id ? 'Identificador actual de la sucursal.' : 'Auto al guardar.');
         setFormValue(formSucursal, 'paso_alta', 'paso1');
-        actualizarCascadaSucursal(data);
+        const datosAsignacion = pendienteCatalogo
+            ? Object.assign({}, data, { supervisor_id: '', supervisor_persona_id: '', asesor_id: '', asesor_persona_id: '' })
+            : data;
+        actualizarCascadaSucursal(datosAsignacion);
         aplicarPermisosSucursalModal();
         refrescarSelectBuscadores(modalSucursalEl);
         bloquearClasificacionAutomatica();
@@ -3066,7 +3171,12 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
         if (faltantes.length) throw new Error('Completa todos los campos obligatorios.');
         const claveSucursal = atlasClaveCalidad(getFormValue(formSucursal, 'sucursal'));
         const idActual = String(getFormValue(formSucursal, 'id') || '');
-        const duplicada = (sucursales || []).find(row => String(row.id || '') !== idActual && atlasClaveCalidad(row.sucursal || '') === claveSucursal);
+        const fkActual = String(getFormValue(formSucursal, 'fk_sucursal') || '');
+        const duplicada = (sucursales || []).find(row => {
+            if (idActual && String(row.id || '') === idActual) return false;
+            if (fkActual && String(row.fk_sucursal || '') === fkActual) return false;
+            return atlasClaveCalidad(row.sucursal || '') === claveSucursal;
+        });
         if (duplicada) {
             throw new Error('Ya existe una sucursal con ese nombre: ' + (duplicada.sucursal || 'Sin nombre') + (duplicada.fk_sucursal ? ' · FK ' + duplicada.fk_sucursal : '') + '.');
         }
@@ -3192,6 +3302,14 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
         if (fusionarDivisiones) {
             ev.preventDefault();
             abrirFusionDivisiones();
+            return;
+        }
+        const completarSucursal = ev.target.closest('[data-atlas-completar-sucursal]');
+        if (completarSucursal) {
+            ev.preventDefault();
+            const fkSucursal = completarSucursal.getAttribute('data-atlas-completar-sucursal') || '';
+            const row = sucursales.find(item => Number(item.pendiente_catalogo || 0) === 1 && String(item.fk_sucursal || '') === String(fkSucursal));
+            if (row) abrirSucursal(row);
             return;
         }
         const editar = ev.target.closest('[data-atlas-editar]');
@@ -3450,6 +3568,10 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
             if (row) setTimeout(() => abrirCatalogo('asigna_division', row, { prefill: { division_id: divisionId, tipo_asignacion: 'persona' } }), 180);
         });
     }
+    if (filtroAntiguedadSucursal) filtroAntiguedadSucursal.addEventListener('change', function () {
+        actualizarFiltroAntiguedadSucursal();
+        renderTabla();
+    });
     if (btnRecargar) btnRecargar.addEventListener('click', function () {
         const tareas = [cargarCatalogos()];
         if (atlasEsSucursalesModo) tareas.push(cargarSucursales());

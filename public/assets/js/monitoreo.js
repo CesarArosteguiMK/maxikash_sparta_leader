@@ -16,6 +16,11 @@
     wallClock: document.getElementById('monitorWallClock'),
     fullscreen: document.getElementById('monitorFullscreen'),
     timeline: document.getElementById('monitorTimeline'),
+    activityOpen: document.getElementById('monitorActivityOpen'),
+    activityCount: document.getElementById('monitorActivityCount'),
+    activityDialog: document.getElementById('monitorActivityDialog'),
+    activityClose: document.getElementById('monitorActivityClose'),
+    activityFull: document.getElementById('monitorActivityFull'),
     latencyEmpty: document.getElementById('monitorLatencyEmpty'),
     drawer: document.getElementById('monitorDrawer'),
     drawerOverlay: document.getElementById('monitorDrawerOverlay'),
@@ -293,14 +298,20 @@
     });
   }
 
+  function eventMarkup(event) {
+    return '<article class="monitor-event ' + esc(event.severity || 'info') + '"><span class="monitor-event-dot"></span><div><strong>' + esc(serviceName(event.service)) + '</strong><p>' + esc(event.message) + '</p></div><time datetime="' + esc(event.at) + '">' + esc(formatDate(event.at, true)) + '</time></article>';
+  }
   function renderTimeline(events) {
-    if (!Array.isArray(events) || !events.length) {
+    events = Array.isArray(events) ? events : [];
+    if (refs.activityCount) refs.activityCount.textContent = String(events.length);
+    if (refs.activityOpen) refs.activityOpen.disabled = events.length === 0;
+    if (!events.length) {
       refs.timeline.innerHTML = '<div class="monitor-empty">Todavía no hay eventos registrados.</div>';
+      if (refs.activityFull) refs.activityFull.innerHTML = '<div class="monitor-empty">Todavía no hay eventos registrados.</div>';
       return;
     }
-    refs.timeline.innerHTML = events.slice(0, 16).map(function (event) {
-      return '<article class="monitor-event ' + esc(event.severity || 'info') + '"><span class="monitor-event-dot"></span><div><strong>' + esc(serviceName(event.service)) + '</strong><p>' + esc(event.message) + '</p></div><time datetime="' + esc(event.at) + '">' + esc(formatDate(event.at, true)) + '</time></article>';
-    }).join('');
+    refs.timeline.innerHTML = events.slice(0, state.wallMode ? 3 : 16).map(eventMarkup).join('');
+    if (refs.activityFull) refs.activityFull.innerHTML = events.slice(0, 40).map(eventMarkup).join('');
   }
 
   function renderOverview(service) {
@@ -896,6 +907,15 @@
       refs.fullscreen.setAttribute('aria-pressed', active ? 'true' : 'false');
       refs.fullscreen.querySelector('i').className = active ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
       refs.fullscreen.querySelector('span').textContent = active ? 'Salir de pantalla completa' : 'Pantalla completa';
+    });
+  }
+  if (refs.activityOpen && refs.activityDialog) {
+    refs.activityOpen.addEventListener('click', function () {
+      if (typeof refs.activityDialog.showModal === 'function') refs.activityDialog.showModal();
+    });
+    refs.activityClose.addEventListener('click', function () { refs.activityDialog.close(); });
+    refs.activityDialog.addEventListener('click', function (event) {
+      if (event.target === refs.activityDialog) refs.activityDialog.close();
     });
   }
   refs.grid.addEventListener('click', function (event) {
