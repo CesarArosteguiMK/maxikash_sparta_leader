@@ -21,7 +21,9 @@ class Monitoreo extends Controller
             exit;
         }
 
-        $this->set('titulo', 'Monitoreo de servicios | Sparta Ledger');
+        $modoPlaneador = strtolower(trim((string) ($_GET['modo'] ?? ''))) === 'planeador';
+        $this->set('titulo', ($modoPlaneador ? 'Modo planeador' : 'Monitoreo de servicios') . ' | Sparta Ledger');
+        $this->set('modoPlaneador', $modoPlaneador);
         self::render('monitoreo', false);
     }
 
@@ -179,7 +181,8 @@ class Monitoreo extends Controller
                 (string) ($payload['path'] ?? ''),
                 is_array($payload['query'] ?? null) ? $payload['query'] : [],
                 is_array($payload['body'] ?? null) ? $payload['body'] : null,
-                !empty($payload['confirmar_mutacion'])
+                !empty($payload['confirmar_mutacion']),
+                is_array($payload['auth'] ?? null) ? $payload['auth'] : []
             );
             echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         } catch (\InvalidArgumentException $e) {

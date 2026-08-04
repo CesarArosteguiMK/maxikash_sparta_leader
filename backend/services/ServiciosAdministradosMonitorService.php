@@ -45,6 +45,7 @@ class ServiciosAdministradosMonitorService
             $endpoints = $openapi
                 ? $this->extraerEndpoints($openapi)
                 : (array) ($servicio['fallback_endpoints'] ?? []);
+            $securitySchemes = $openapi ? $this->extraerEsquemasSeguridad($openapi) : [];
             $info = is_array($openapi['info'] ?? null) ? $openapi['info'] : [];
             $repositorio = $this->gitRepositorio((string) $servicio['workspace']);
 
@@ -62,6 +63,7 @@ class ServiciosAdministradosMonitorService
                 'api_version' => (string) ($info['version'] ?? 'No disponible'),
                 'endpoint_count' => count($endpoints),
                 'endpoints' => $endpoints,
+                'security_schemes' => $securitySchemes,
                 'endpoint_signature' => hash('sha256', json_encode($endpoints, JSON_UNESCAPED_SLASHES) ?: ''),
                 'modifications' => $repositorio['commits'],
                 'repository' => $repositorio,
@@ -413,7 +415,8 @@ class ServiciosAdministradosMonitorService
         string $path,
         array $query = [],
         ?array $body = null,
-        bool $confirmarMutacion = false
+        bool $confirmarMutacion = false,
+        array $auth = []
     ): array {
         $servicio = $this->resolverServicio($servicioId);
         $metodo = strtoupper(trim($metodo));
@@ -441,17 +444,17 @@ class ServiciosAdministradosMonitorService
         $openapiCheck = $this->httpJson($base . '/openapi.json', 4000);
         $openapi = is_array($openapiCheck['json'] ?? null) ? $openapiCheck['json'] : null;
         $endpoints = $openapi ? $this->extraerEndpoints($openapi) : (array) ($servicio['fallback_endpoints'] ?? []);
-        $permitido = false;
+        $endpointPermitido = null;
         foreach ($endpoints as $endpoint) {
             if (strtoupper((string) ($endpoint['method'] ?? '')) !== $metodo) {
                 continue;
             }
             if ($this->rutaCoincidePlantilla($path, (string) ($endpoint['path'] ?? ''))) {
-                $permitido = true;
+                $endpointPermitido = $endpoint;
                 break;
             }
         }
-        if (!$permitido) {
+        if (!is_array($endpointPermitido)) {
             throw new \InvalidArgumentException('La ruta y el metodo no pertenecen al OpenAPI autorizado del servicio.');
         }
 
@@ -475,8 +478,9 @@ class ServiciosAdministradosMonitorService
         if (!$ch) {
             throw new \RuntimeException('No se pudo inicializar cURL.');
         }
-        $headers = ['Accept: application/json'];
-        if ($metodo !== 'GET') {
+        $authResult = $this->construirAutenticacionPrueba($auth, $endpointPermitido, $openapi ?? []);
+        $headers = array_merge(['Accept: application/json'], $authResult['headers']);
+        if ($bodyJson !== '') {
             $headers[] = 'Content-Type: application/json';
         }
         @curl_setopt_array($ch, [
@@ -490,7 +494,7 @@ class ServiciosAdministradosMonitorService
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_USERAGENT => 'SpartaLedger/MonitoreoEndpointTester',
         ]);
-        if ($metodo !== 'GET' && $bodyJson !== '') {
+        if ($bodyJson !== '') {
             @curl_setopt($ch, CURLOPT_POSTFIELDS, $bodyJson);
         }
         $started = microtime(true);
@@ -508,23 +512,124 @@ class ServiciosAdministradosMonitorService
         }
         $decoded = $raw !== '' ? json_decode($raw, true) : null;
         $response = is_array($decoded) ? $decoded : $raw;
+        $okHttp = $errno === 0 && $status >= 200 && $status < 400;
+        if ($errno !== 0 || $status === 0) {
+            $connectionStatus = 'network_error';
+            $connectionMessage = $error !== '' ? $error : 'El servicio no respondio.';
+        } elseif (in_array($status, [401, 403], true)) {
+            $connectionStatus = 'auth_failed';
+            $connectionMessage = 'El servicio respondio, pero rechazo las credenciales.';
+        } elseif ($okHttp) {
+            $connectionStatus = 'connected';
+            $connectionMessage = 'Conexion y credenciales aceptadas por el endpoint.';
+        } else {
+            $connectionStatus = 'http_error';
+            $connectionMessage = 'El servicio respondio HTTP ' . $status . '; revise los parametros enviados.';
+        }
         $this->registrarEventoManual(
             'endpoint_tested',
             (string) $servicio['id'],
             $metodo . ' ' . $path . ' respondio HTTP ' . ($status ?: 'sin respuesta') . ' en ' . $latency . ' ms.',
-            ($errno === 0 && $status >= 200 && $status < 400) ? 'info' : 'warning'
+            $okHttp ? 'info' : 'warning'
         );
 
         return [
             'success' => true,
-            'ok_http' => $errno === 0 && $status >= 200 && $status < 400,
+            'ok_http' => $okHttp,
             'request' => ['service' => $servicio['id'], 'method' => $metodo, 'url' => $url],
+            'auth_applied' => $authResult['applied'],
+            'auth_mode' => $authResult['mode'],
+            'connection_status' => $connectionStatus,
+            'connection_message' => $connectionMessage,
             'status' => $status ?: null,
             'latency_ms' => $latency,
             'content_type' => $contentType,
             'error' => $error,
             'truncated' => $truncated,
             'response' => $response,
+        ];
+    }
+
+    /**
+     * Construye exclusivamente headers declarados por OpenAPI. El secreto se usa
+     * en memoria durante esta solicitud y nunca forma parte de la respuesta o log.
+     *
+     * @return array{headers:list<string>,applied:bool,mode:string}
+     */
+    private function construirAutenticacionPrueba(array $auth, array $endpoint, array $openapi): array
+    {
+        $mode = strtolower(trim((string) ($auth['mode'] ?? 'none')));
+        if ($mode === '' || $mode === 'none') {
+            return ['headers' => [], 'applied' => false, 'mode' => 'none'];
+        }
+        if (!in_array($mode, ['bearer', 'api_key', 'http'], true)) {
+            throw new \InvalidArgumentException('Modo de autenticacion no permitido.');
+        }
+
+        $token = trim((string) ($auth['token'] ?? ''));
+        if ($token === '' || strlen($token) > 4096 || preg_match('/[\r\n\x00]/', $token)) {
+            throw new \InvalidArgumentException('Capture un token valido de hasta 4096 caracteres.');
+        }
+
+        $allowedHeaders = [];
+        $endpointSecurity = array_fill_keys((array) ($endpoint['security'] ?? []), true);
+        foreach ((array) ($endpoint['parameters'] ?? []) as $parameter) {
+            if (!is_array($parameter) || strtolower((string) ($parameter['in'] ?? '')) !== 'header') {
+                continue;
+            }
+            $name = trim((string) ($parameter['name'] ?? ''));
+            if ($name !== '' && preg_match('/^[A-Za-z0-9-]{1,80}$/', $name)) {
+                $allowedHeaders[strtolower($name)] = $name;
+            }
+        }
+        foreach ((array) ($openapi['components']['securitySchemes'] ?? []) as $schemeKey => $scheme) {
+            if (!is_array($scheme) || !isset($endpointSecurity[(string) $schemeKey])) {
+                continue;
+            }
+            $schemeType = strtolower((string) ($scheme['type'] ?? ''));
+            if ($schemeType === 'http' && strtolower((string) ($scheme['scheme'] ?? '')) === 'bearer') {
+                $allowedHeaders['authorization'] = 'Authorization';
+                continue;
+            }
+            if ($schemeType !== 'apikey' || strtolower((string) ($scheme['in'] ?? '')) !== 'header') {
+                continue;
+            }
+            $name = trim((string) ($scheme['name'] ?? ''));
+            if ($name !== '' && preg_match('/^[A-Za-z0-9-]{1,80}$/', $name)) {
+                $allowedHeaders[strtolower($name)] = $name;
+            }
+        }
+
+        if ($mode === 'bearer') {
+            if (!isset($allowedHeaders['authorization'])) {
+                throw new \InvalidArgumentException('El endpoint no declara autenticacion Bearer en OpenAPI.');
+            }
+            $token = preg_replace('/^Bearer\s+/i', '', $token) ?? $token;
+            return [
+                'headers' => ['Authorization: Bearer ' . $token],
+                'applied' => true,
+                'mode' => 'bearer',
+            ];
+        }
+
+        $requestedHeader = trim((string) ($auth['header'] ?? ($mode === 'api_key' ? 'X-API-Key' : 'Authorization')));
+        if (!preg_match('/^[A-Za-z0-9-]{1,80}$/', $requestedHeader)) {
+            throw new \InvalidArgumentException('Nombre de header de autenticacion invalido.');
+        }
+        $headerKey = strtolower($requestedHeader);
+        if (!isset($allowedHeaders[$headerKey])) {
+            throw new \InvalidArgumentException('El header de autenticacion no esta declarado por el OpenAPI seleccionado.');
+        }
+
+        $prefix = $mode === 'http' ? trim((string) ($auth['prefix'] ?? '')) : '';
+        if ($prefix !== '' && !preg_match('/^[A-Za-z0-9._-]{1,30}$/', $prefix)) {
+            throw new \InvalidArgumentException('Prefijo HTTP invalido.');
+        }
+        $value = $prefix !== '' ? $prefix . ' ' . $token : $token;
+        return [
+            'headers' => [$allowedHeaders[$headerKey] . ': ' . $value],
+            'applied' => true,
+            'mode' => $mode,
         ];
     }
 
@@ -876,23 +981,53 @@ class ServiciosAdministradosMonitorService
         ];
     }
 
-    /** @return list<array{method:string,path:string,summary:string}> */
+    /** @return list<array<string, mixed>> */
     private function extraerEndpoints(array $openapi): array
     {
         $metodos = ['get', 'post', 'put', 'patch', 'delete'];
+        $globalSecurity = is_array($openapi['security'] ?? null) ? $openapi['security'] : [];
         $out = [];
         foreach ((array) ($openapi['paths'] ?? []) as $path => $definiciones) {
             if (!is_array($definiciones)) {
                 continue;
             }
+            $pathParameters = $this->normalizarParametrosOpenApi((array) ($definiciones['parameters'] ?? []), $openapi);
             foreach ($metodos as $metodo) {
                 if (!isset($definiciones[$metodo]) || !is_array($definiciones[$metodo])) {
                     continue;
                 }
+                $operation = $definiciones[$metodo];
+                $parameters = [];
+                foreach (array_merge($pathParameters, $this->normalizarParametrosOpenApi((array) ($operation['parameters'] ?? []), $openapi)) as $parameter) {
+                    $key = strtolower((string) ($parameter['in'] ?? '')) . ':' . strtolower((string) ($parameter['name'] ?? ''));
+                    $parameters[$key] = $parameter;
+                }
+                $requirements = array_key_exists('security', $operation) && is_array($operation['security'])
+                    ? $operation['security']
+                    : $globalSecurity;
+                $securityNames = [];
+                $securityOptional = false;
+                foreach ((array) $requirements as $requirement) {
+                    if (!is_array($requirement)) {
+                        continue;
+                    }
+                    if ($requirement === []) {
+                        $securityOptional = true;
+                    }
+                    foreach (array_keys($requirement) as $schemeName) {
+                        $securityNames[] = (string) $schemeName;
+                    }
+                }
+                $securityNames = array_values(array_unique(array_filter($securityNames)));
                 $out[] = [
                     'method' => strtoupper($metodo),
                     'path' => (string) $path,
-                    'summary' => trim((string) ($definiciones[$metodo]['summary'] ?? '')),
+                    'summary' => trim((string) ($operation['summary'] ?? '')),
+                    'description' => trim((string) ($operation['description'] ?? '')),
+                    'parameters' => array_values($parameters),
+                    'request_body' => $this->extraerRequestBodyOpenApi($operation, $openapi),
+                    'security' => $securityNames,
+                    'security_required' => $securityNames !== [] && !$securityOptional,
                 ];
             }
         }
@@ -900,6 +1035,216 @@ class ServiciosAdministradosMonitorService
             return [$a['path'], $a['method']] <=> [$b['path'], $b['method']];
         });
         return $out;
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function normalizarParametrosOpenApi(array $parameters, array $openapi): array
+    {
+        $out = [];
+        foreach ($parameters as $parameter) {
+            if (!is_array($parameter)) {
+                continue;
+            }
+            $parameter = $this->resolverRefOpenApi($parameter, $openapi);
+            $name = trim((string) ($parameter['name'] ?? ''));
+            $location = strtolower(trim((string) ($parameter['in'] ?? '')));
+            if ($name === '' || !in_array($location, ['path', 'query', 'header'], true)) {
+                continue;
+            }
+            $schema = is_array($parameter['schema'] ?? null)
+                ? $this->resolverSchemaPrincipal($parameter['schema'], $openapi)
+                : [];
+            $example = $parameter['example'] ?? $schema['example'] ?? $schema['default'] ?? null;
+            $enum = is_array($schema['enum'] ?? null) ? array_values(array_slice($schema['enum'], 0, 50)) : [];
+            $lowerName = strtolower($name);
+            $out[] = [
+                'name' => $name,
+                'in' => $location,
+                'required' => $location === 'path' || !empty($parameter['required']),
+                'description' => trim((string) ($parameter['description'] ?? $schema['description'] ?? '')),
+                'type' => $this->tipoSchemaOpenApi($schema),
+                'format' => trim((string) ($schema['format'] ?? '')),
+                'default' => $schema['default'] ?? null,
+                'example' => $example,
+                'enum' => $enum,
+                'minimum' => $schema['minimum'] ?? null,
+                'maximum' => $schema['maximum'] ?? null,
+                'auth_parameter' => $location === 'header' && in_array($lowerName, ['authorization', 'x-api-key', 'api-key', 'apikey'], true),
+            ];
+        }
+        return $out;
+    }
+
+    /** @return array<string, mixed>|null */
+    private function extraerRequestBodyOpenApi(array $operation, array $openapi): ?array
+    {
+        if (!is_array($operation['requestBody'] ?? null)) {
+            return null;
+        }
+        $requestBody = $this->resolverRefOpenApi($operation['requestBody'], $openapi);
+        $content = is_array($requestBody['content'] ?? null) ? $requestBody['content'] : [];
+        if ($content === []) {
+            return null;
+        }
+        $contentType = isset($content['application/json']) ? 'application/json' : (string) array_key_first($content);
+        $media = is_array($content[$contentType] ?? null) ? $content[$contentType] : [];
+        $schema = is_array($media['schema'] ?? null) ? $media['schema'] : [];
+        $example = $media['example'] ?? null;
+        if ($example === null && is_array($media['examples'] ?? null)) {
+            foreach ($media['examples'] as $candidate) {
+                if (is_array($candidate) && array_key_exists('value', $candidate)) {
+                    $example = $candidate['value'];
+                    break;
+                }
+            }
+        }
+        if ($example === null) {
+            $example = $this->generarEjemploSchemaOpenApi($schema, $openapi);
+        }
+        return [
+            'required' => !empty($requestBody['required']),
+            'content_type' => $contentType,
+            'description' => trim((string) ($requestBody['description'] ?? '')),
+            'example' => $example,
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function extraerEsquemasSeguridad(array $openapi): array
+    {
+        $out = [];
+        foreach ((array) ($openapi['components']['securitySchemes'] ?? []) as $key => $rawScheme) {
+            if (!is_array($rawScheme)) {
+                continue;
+            }
+            $scheme = $this->resolverRefOpenApi($rawScheme, $openapi);
+            $type = strtolower(trim((string) ($scheme['type'] ?? '')));
+            if (!in_array($type, ['http', 'apikey'], true)) {
+                continue;
+            }
+            $httpScheme = strtolower(trim((string) ($scheme['scheme'] ?? '')));
+            $header = $type === 'apikey' && strtolower((string) ($scheme['in'] ?? '')) === 'header'
+                ? trim((string) ($scheme['name'] ?? 'X-API-Key'))
+                : ($type === 'http' ? 'Authorization' : '');
+            $out[] = [
+                'key' => (string) $key,
+                'type' => $type,
+                'scheme' => $httpScheme,
+                'header' => $header,
+                'bearer_format' => trim((string) ($scheme['bearerFormat'] ?? '')),
+                'description' => trim((string) ($scheme['description'] ?? '')),
+            ];
+        }
+        return $out;
+    }
+
+    /** @return array<string, mixed> */
+    private function resolverRefOpenApi(array $value, array $openapi): array
+    {
+        $ref = (string) ($value['$ref'] ?? '');
+        if ($ref === '' || !str_starts_with($ref, '#/')) {
+            return $value;
+        }
+        $resolved = $openapi;
+        foreach (explode('/', substr($ref, 2)) as $part) {
+            $part = str_replace(['~1', '~0'], ['/', '~'], $part);
+            if (!is_array($resolved) || !array_key_exists($part, $resolved)) {
+                return $value;
+            }
+            $resolved = $resolved[$part];
+        }
+        if (!is_array($resolved)) {
+            return $value;
+        }
+        unset($value['$ref']);
+        return array_replace($resolved, $value);
+    }
+
+    /** @return array<string, mixed> */
+    private function resolverSchemaPrincipal(array $schema, array $openapi): array
+    {
+        $schema = $this->resolverRefOpenApi($schema, $openapi);
+        foreach (['anyOf', 'oneOf', 'allOf'] as $combinator) {
+            if (!is_array($schema[$combinator] ?? null)) {
+                continue;
+            }
+            foreach ($schema[$combinator] as $candidate) {
+                if (!is_array($candidate)) {
+                    continue;
+                }
+                $candidate = $this->resolverRefOpenApi($candidate, $openapi);
+                if (($candidate['type'] ?? '') !== 'null') {
+                    return array_replace($schema, $candidate);
+                }
+            }
+        }
+        return $schema;
+    }
+
+    private function tipoSchemaOpenApi(array $schema): string
+    {
+        $type = strtolower(trim((string) ($schema['type'] ?? '')));
+        if ($type !== '') {
+            return $type;
+        }
+        if (isset($schema['properties'])) {
+            return 'object';
+        }
+        if (isset($schema['items'])) {
+            return 'array';
+        }
+        return 'string';
+    }
+
+    /** @return mixed */
+    private function generarEjemploSchemaOpenApi(array $schema, array $openapi, int $depth = 0)
+    {
+        if ($depth > 6) {
+            return null;
+        }
+        $schema = $this->resolverSchemaPrincipal($schema, $openapi);
+        foreach (['example', 'default'] as $key) {
+            if (array_key_exists($key, $schema)) {
+                return $schema[$key];
+            }
+        }
+        if (is_array($schema['enum'] ?? null) && $schema['enum'] !== []) {
+            return $schema['enum'][0];
+        }
+        $type = $this->tipoSchemaOpenApi($schema);
+        if ($type === 'object') {
+            $example = [];
+            foreach (array_slice((array) ($schema['properties'] ?? []), 0, 40, true) as $name => $property) {
+                if (!is_array($property) || !empty($property['readOnly'])) {
+                    continue;
+                }
+                $example[(string) $name] = $this->generarEjemploSchemaOpenApi($property, $openapi, $depth + 1);
+            }
+            return $example !== [] ? $example : new \stdClass();
+        }
+        if ($type === 'array') {
+            $items = is_array($schema['items'] ?? null) ? $schema['items'] : [];
+            return [$this->generarEjemploSchemaOpenApi($items, $openapi, $depth + 1)];
+        }
+        if ($type === 'boolean') {
+            return false;
+        }
+        if (in_array($type, ['integer', 'number'], true)) {
+            if (isset($schema['minimum']) && is_numeric($schema['minimum'])) {
+                return $type === 'integer' ? (int) $schema['minimum'] : (float) $schema['minimum'];
+            }
+            if (isset($schema['exclusiveMinimum']) && is_numeric($schema['exclusiveMinimum'])) {
+                return $type === 'integer' ? ((int) $schema['exclusiveMinimum'] + 1) : ((float) $schema['exclusiveMinimum'] + 1);
+            }
+            return 0;
+        }
+        return match (strtolower((string) ($schema['format'] ?? ''))) {
+            'date' => '2026-01-01',
+            'date-time' => '2026-01-01T00:00:00Z',
+            'email' => 'usuario@ejemplo.com',
+            'uuid' => '00000000-0000-4000-8000-000000000000',
+            default => 'string',
+        };
     }
 
     /** @return array<string, mixed> */
