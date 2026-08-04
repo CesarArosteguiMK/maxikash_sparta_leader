@@ -11,7 +11,14 @@ require_once __DIR__ . '/LeonidasOperationStore.php';
 require_once __DIR__ . '/LeonidasFinancialWorkflowService.php';
 require_once __DIR__ . '/LeonidasTrackingEvidenceService.php';
 require_once __DIR__ . '/LeonidasOperationalService.php';
+require_once __DIR__ . '/../core/Model.php';
+require_once __DIR__ . '/../core/Database.php';
+require_once __DIR__ . '/../core/DatabaseAWS.php';
+require_once __DIR__ . '/../core/DatabaseSegundometro.php';
+require_once __DIR__ . '/../core/UsuarioFantasmaReporteria.php';
 require_once __DIR__ . '/../core/DatabaseLegacy.php';
+require_once __DIR__ . '/../models/Convenios.php';
+require_once __DIR__ . '/../models/Adjudicacion.php';
 
 /**
  * Stateful, deterministic workflows for actions Leonidas may execute.
@@ -56,6 +63,14 @@ class LeonidasAgentService
         $this->adapters = $adapters + [
             'convenio_ofertas' => static fn(int $idCredito): array => \Models\Convenios::getOfertasElegibles($idCredito),
             'convenio_guardar' => static fn(array $datos): array => \Models\Convenios::guardarConvenio($datos),
+            'convenio_excepcion_preparar' => static fn(int $idCredito, string $fecha, float $monto): array =>
+                \Models\Convenios::prepararConvenioExcepcion($idCredito, $fecha, $monto),
+            'convenio_excepcion_guardar' => static fn(array $datos): array =>
+                \Models\Convenios::guardarConvenioExcepcion($datos),
+            'convenio_reactivacion_diagnosticar' => static fn(int $idCredito, int $idConvenio): array =>
+                \Models\Convenios::diagnosticarReactivacionConvenioCancelado($idCredito, $idConvenio),
+            'convenio_reactivar_cancelado' => static fn(int $idConvenio, string $usuario, string $motivo): array =>
+                \Models\Convenios::reactivarConvenioCancelado($idConvenio, $usuario, $motivo),
             'moto_buscar' => static fn(int $idCredito): array => (new \Models\Adjudicacion())->buscarCreditoPorId($idCredito),
             'moto_responsables' => static fn(): array => (new \Models\Adjudicacion())->obtenerResponsables(),
             'moto_asignar' => static function (int $idPersona, int $idCredito, int $actorId): array {
@@ -116,7 +131,14 @@ class LeonidasAgentService
     public static function accionesEjecutables(): array
     {
         return array_merge(
-            ['convenio_crear', 'moto_asignar', 'excel_aplicar', 'cartera_reactivar_tarea_movil'],
+            [
+                'convenio_crear',
+                'convenio_crear_excepcion',
+                'convenio_reactivar_cancelado',
+                'moto_asignar',
+                'excel_aplicar',
+                'cartera_reactivar_tarea_movil',
+            ],
             LeonidasCapitalHumanoService::accionesEjecutables(),
             LeonidasLocalAgentService::accionesEjecutables(),
             LeonidasMotosAdjudicadasService::accionesEjecutables(),
@@ -140,6 +162,16 @@ class LeonidasAgentService
 
         // Do not depend on the caller to normalize casing or accents before routing an action.
         $normalizado = $this->normalizar($mensaje);
+
+        // Las acciones de Convenios deben resolverse antes de los enrutadores
+        // genéricos; por ejemplo, "reactiva" también existe en Capital Humano.
+        if ($this->solicitaReactivarConvenioCancelado($normalizado)) {
+            return $this->resolverReactivacionConvenioCancelado($mensaje, $contexto);
+        }
+
+        if ($this->solicitaConvenioExcepcion($normalizado)) {
+            return $this->iniciarConvenioExcepcion($mensaje, $contexto);
+        }
 
         $capitalHumano = $this->capitalHumano->resolver($mensaje, $normalizado, $contexto);
         if ($capitalHumano !== null) {
@@ -174,6 +206,7 @@ class LeonidasAgentService
 
             return match ((string) ($tarea['tipo'] ?? '')) {
                 'convenio' => $this->continuarConvenio($mensaje, $normalizado, $tarea, $contexto),
+                'convenio_excepcion' => $this->continuarConvenioExcepcion($mensaje, $tarea, $contexto),
                 'dictamen_moto' => $this->continuarDictamenMoto($mensaje, $normalizado, $tarea, $contexto),
                 default => $this->continuarMoto($mensaje, $normalizado, $tarea, $contexto),
             };
@@ -420,6 +453,12 @@ class LeonidasAgentService
         if ($accion === 'convenio_crear') {
             return $this->ejecutarConvenio($payload, $contexto);
         }
+        if ($accion === 'convenio_crear_excepcion') {
+            return $this->ejecutarConvenioExcepcion($payload, $contexto);
+        }
+        if ($accion === 'convenio_reactivar_cancelado') {
+            return $this->ejecutarReactivacionConvenioCancelado($payload, $contexto);
+        }
         if ($accion === 'moto_asignar') {
             return $this->ejecutarMoto($payload, $contexto);
         }
@@ -470,6 +509,165 @@ class LeonidasAgentService
         }
 
         return null;
+    }
+
+    private function iniciarConvenioExcepcion(string $mensaje, array $contexto): array
+    {
+        if (empty($contexto['permisos_agente']['convenio'])) {
+            return $this->respuesta(
+                'No puedo crear un convenio de excepción porque tu perfil necesita Crear Convenio y Registrar convenio existente.',
+                'agente_denegado'
+            );
+        }
+
+        $datos = $this->extraerDatosConvenioExcepcion($mensaje);
+        if ((int) ($datos['id_credito'] ?? 0) <= 0) {
+            $this->guardarTarea('convenio_excepcion', 'datos', $datos, $contexto);
+            $monto = (float) ($datos['monto'] ?? 0);
+            $fecha = (string) ($datos['fecha_pago'] ?? '');
+            return $this->respuesta(
+                'Necesito el crédito objetivo para registrarlo: indícame el número de crédito.'
+                . ($monto > 0 && $fecha !== ''
+                    ? "\nCon eso prepararé el convenio de excepción de pago mixto, un solo pago por $"
+                        . $this->dinero($monto) . ' con fecha ' . $this->fechaHumana($fecha)
+                        . ', sin aplicar las validaciones normales.'
+                    : ''),
+                'agente_pregunta'
+            );
+        }
+
+        return $this->prepararPropuestaConvenioExcepcion($datos, $contexto);
+    }
+
+    private function continuarConvenioExcepcion(string $mensaje, array $tarea, array $contexto): array
+    {
+        if (empty($contexto['permisos_agente']['convenio'])) {
+            $this->limpiarTarea();
+            return $this->respuesta('Tus permisos cambiaron y ya no permiten crear convenios.', 'agente_denegado');
+        }
+
+        $datos = is_array($tarea['datos'] ?? null) ? $tarea['datos'] : [];
+        $nuevos = $this->extraerDatosConvenioExcepcion($mensaje);
+        foreach ($nuevos as $clave => $valor) {
+            if (($clave === 'id_credito' && (int) $valor > 0)
+                || ($clave === 'monto' && (float) $valor > 0)
+                || ($clave === 'fecha_pago' && (string) $valor !== '')) {
+                $datos[$clave] = $valor;
+            }
+        }
+        // En una respuesta corta como "el credito es 172307" no se debe tomar
+        // el año ni el monto previo como identificador.
+        if ((int) ($datos['id_credito'] ?? 0) <= 0) {
+            $datos['id_credito'] = $this->extraerCreditoExplicito($mensaje);
+        }
+
+        $faltantes = $this->faltantesConvenioExcepcion($datos);
+        if ($faltantes !== []) {
+            $this->guardarTarea('convenio_excepcion', 'datos', $datos, $contexto);
+            return $this->respuesta('Aún necesito ' . implode(' y ', $faltantes) . ' para preparar la excepción.', 'agente_pregunta');
+        }
+
+        $this->limpiarTarea();
+        return $this->prepararPropuestaConvenioExcepcion($datos, $contexto);
+    }
+
+    private function prepararPropuestaConvenioExcepcion(array $datos, array $contexto): array
+    {
+        $faltantes = $this->faltantesConvenioExcepcion($datos);
+        if ($faltantes !== []) {
+            return $this->respuesta('Necesito ' . implode(' y ', $faltantes) . ' para preparar la excepción.', 'agente_pregunta');
+        }
+
+        $preparado = (array) $this->llamar(
+            'convenio_excepcion_preparar',
+            (int) $datos['id_credito'],
+            (string) $datos['fecha_pago'],
+            (float) $datos['monto']
+        );
+        if (empty($preparado['success'])) {
+            return $this->respuesta($this->mensajeResultado($preparado), 'agente_error');
+        }
+        $p = (array) ($preparado['datos'] ?? []);
+        $lineas = [
+            'Vista previa del convenio de excepción:',
+            'Crédito: ' . (int) $p['id_credito'],
+            'Cliente: ' . (string) $p['cliente'],
+            'Producto: ' . (string) $p['producto'],
+            'Calendario: una sola cuota el ' . $this->fechaHumana((string) $p['fecha_pago']),
+            'Monto: $' . $this->dinero((float) $p['monto']),
+            'Base histórica S2: $' . $this->dinero((float) $p['adeudo_s2']),
+        ];
+        if (trim((string) ($p['status_credito_s2'] ?? '')) !== '') {
+            $lineas[] = 'Estado del crédito en S2 al corte: ' . trim((string) $p['status_credito_s2']);
+        }
+        if ((float) ($p['descuento_monto'] ?? 0) > 0) {
+            $lineas[] = 'Descuento de excepción: $' . $this->dinero((float) $p['descuento_monto'])
+                . ' (' . $this->numero((float) $p['porcentaje_descuento']) . '%)';
+        }
+        if ((float) ($p['monto_adicional'] ?? 0) > 0) {
+            $lineas[] = 'Monto adicional excepcional: $' . $this->dinero((float) $p['monto_adicional']);
+        }
+        $lineas[] = 'Esta operación omite las reglas normales de elegibilidad, pero volverá a consultar S2 y a verificar que no exista otro convenio activo al confirmar.';
+        $lineas[] = 'Confirma para registrarlo o cancela para no hacer cambios.';
+
+        return [
+            'mensaje' => implode("\n", $lineas),
+            'tipo' => 'agente_propuesta',
+            'propuesta_especificacion' => [
+                'accion' => 'convenio_crear_excepcion',
+                'resumen' => 'crear convenio de excepción del crédito ' . (int) $p['id_credito'],
+                'payload' => [
+                    'id_credito' => (int) $p['id_credito'],
+                    'fecha_pago' => (string) $p['fecha_pago'],
+                    'monto' => (float) $p['monto'],
+                ],
+            ],
+        ];
+    }
+
+    private function resolverReactivacionConvenioCancelado(string $mensaje, array $contexto): array
+    {
+        if (empty($contexto['permisos_agente']['convenio_reactivar_cancelado'])) {
+            return $this->respuesta(
+                'No puedo reactivar el convenio: además del acceso a Convenios, tu perfil necesita el permiso especial Reactivar oferta.',
+                'agente_denegado'
+            );
+        }
+
+        $idCredito = $this->extraerCreditoExplicito($mensaje);
+        $idConvenio = 0;
+        if (preg_match('/\bconvenio(?:\s+cancelado)?\s*(?:numero|no\.?|folio|#)?\s*#?\s*(\d+)\b/iu', $mensaje, $m)) {
+            $idConvenio = (int) $m[1];
+        }
+        if ($idCredito > 0) {
+            $idConvenio = 0;
+        }
+        if ($idCredito <= 0 && $idConvenio <= 0) {
+            return $this->respuesta('Indica el número de crédito o escribe "convenio #FOLIO" para localizar el cancelado.', 'agente_pregunta');
+        }
+
+        $resultado = (array) $this->llamar('convenio_reactivacion_diagnosticar', $idCredito, $idConvenio);
+        if (empty($resultado['success'])) {
+            return $this->respuesta($this->mensajeResultado($resultado), 'agente_error');
+        }
+        $d = (array) ($resultado['datos'] ?? []);
+        return [
+            'mensaje' => 'Vista previa de reactivación:'
+                . "\nConvenio: #" . (int) $d['id_convenio']
+                . "\nCrédito: " . (int) $d['id_credito']
+                . "\nCliente: " . (string) $d['cliente']
+                . "\nProducto: " . (string) $d['producto']
+                . "\nTotal: $" . $this->dinero((float) $d['total_a_pagar'])
+                . "\nCuotas pagadas que se conservarán: " . (int) $d['cuotas_pagadas']
+                . "\nCuotas canceladas que se reabrirán: " . (int) $d['cuotas_canceladas']
+                . "\nSe actualizarán juntas convenio_cliente y convenio_cliente_amortizacion. Confirma para continuar.",
+            'tipo' => 'agente_propuesta',
+            'propuesta_especificacion' => [
+                'accion' => 'convenio_reactivar_cancelado',
+                'resumen' => 'reactivar el convenio cancelado #' . (int) $d['id_convenio'],
+                'payload' => ['id_convenio' => (int) $d['id_convenio']],
+            ],
+        ];
     }
 
     private function continuarConvenio(string $mensaje, string $normalizado, array $tarea, array $contexto): array
@@ -630,6 +828,7 @@ class LeonidasAgentService
                 'cliente' => trim((string) ($credito['nombre_cliente'] ?? 'Sin nombre')),
                 'asignacion_actual' => is_array($resultado['asignacion'] ?? null) ? $resultado['asignacion'] : [],
                 'responsables' => $responsables,
+                'fuente_credito' => trim((string) ($resultado['fuente_credito'] ?? 'S2')),
             ];
             $this->guardarTarea('moto', 'responsable', $datos, $contexto);
             $lineas = ['Crédito ' . $idCredito . ' de ' . $datos['cliente'] . '. Elige al responsable:'];
@@ -653,7 +852,8 @@ class LeonidasAgentService
             (int) $datos['id_credito'],
             (string) $datos['cliente'],
             $responsable,
-            is_array($datos['asignacion_actual'] ?? null) ? $datos['asignacion_actual'] : []
+            is_array($datos['asignacion_actual'] ?? null) ? $datos['asignacion_actual'] : [],
+            (string) ($datos['fuente_credito'] ?? 'S2')
         );
     }
 
@@ -780,11 +980,18 @@ class LeonidasAgentService
             $idCredito,
             $cliente,
             $responsable,
-            is_array($resultado['asignacion'] ?? null) ? $resultado['asignacion'] : []
+            is_array($resultado['asignacion'] ?? null) ? $resultado['asignacion'] : [],
+            trim((string) ($resultado['fuente_credito'] ?? 'S2'))
         );
     }
 
-    private function propuestaMoto(int $idCredito, string $cliente, array $responsable, array $asignacionActual = []): array
+    private function propuestaMoto(
+        int $idCredito,
+        string $cliente,
+        array $responsable,
+        array $asignacionActual = [],
+        string $fuenteCredito = 'S2'
+    ): array
     {
         $numeroEmpleado = trim((string) ($responsable['numero_empleado'] ?? ''));
         $externalId = trim((string) ($responsable['external_id'] ?? $numeroEmpleado));
@@ -807,6 +1014,7 @@ class LeonidasAgentService
             'mensaje' => 'Vista previa de ' . $tipoCambio . ':'
                 . "\nCrédito: " . $idCredito
                 . "\nCliente: " . $cliente
+                . "\nFuente del crédito: " . ($fuenteCredito !== '' ? $fuenteCredito : 'no identificada')
                 . $detalleActual
                 . "\nNuevo responsable: " . (string) $responsable['nombre']
                 . "\nNo. empleado: " . ($numeroEmpleado !== '' ? $numeroEmpleado : 'sin dato')
@@ -830,6 +1038,99 @@ class LeonidasAgentService
                 ],
             ],
         ];
+    }
+
+    private function ejecutarConvenioExcepcion(array $payload, array $contexto): array
+    {
+        if (empty($contexto['permisos_agente']['convenio'])) {
+            throw new \RuntimeException('Tu perfil ya no permite crear convenios de excepción.');
+        }
+        $idCredito = (int) ($payload['id_credito'] ?? 0);
+        $fechaPago = trim((string) ($payload['fecha_pago'] ?? ''));
+        $monto = round((float) ($payload['monto'] ?? 0), 2);
+        if ($idCredito <= 0 || $fechaPago === '' || $monto <= 0) {
+            throw new \RuntimeException('La propuesta de excepción está incompleta; vuelve a prepararla.');
+        }
+
+        $resultado = (array) $this->llamar('convenio_excepcion_guardar', [
+            'id_credito' => $idCredito,
+            'fecha_pago' => $fechaPago,
+            'monto' => $monto,
+            'usuario_alta' => (int) ($contexto['actor_id'] ?? 0),
+            'id_celula' => $contexto['permisos_agente']['id_celula'] ?? null,
+        ]);
+        if (empty($resultado['success'])) {
+            throw new \RuntimeException($this->mensajeResultado($resultado));
+        }
+        $d = (array) ($resultado['datos'] ?? []);
+        $lineas = [
+            'Convenio de excepción creado: #' . (int) ($d['id_convenio'] ?? 0) . ' para el crédito ' . $idCredito . '.',
+            'Producto: ' . (string) ($d['producto'] ?? 'Convenio Pago Mixto'),
+            'Fecha única: ' . $this->fechaHumana($fechaPago),
+            'Monto: $' . $this->dinero($monto),
+            'Base S2 histórica: $' . $this->dinero((float) ($d['adeudo_s2'] ?? 0)),
+        ];
+        if (trim((string) ($d['status_credito_s2'] ?? '')) !== '') {
+            $lineas[] = 'Estado S2 al corte: ' . trim((string) $d['status_credito_s2']);
+        }
+        if ((float) ($d['descuento_monto'] ?? 0) > 0) {
+            $lineas[] = 'Descuento registrado: $' . $this->dinero((float) $d['descuento_monto'])
+                . ' (' . $this->numero((float) ($d['porcentaje_descuento'] ?? 0)) . '%)';
+        }
+        if ((float) ($d['monto_adicional'] ?? 0) > 0) {
+            $lineas[] = 'Monto adicional excepcional: $' . $this->dinero((float) $d['monto_adicional']);
+        }
+        $lineas[] = 'Estatus: ' . (string) ($d['estatus'] ?? 'activo')
+            . ', cuota ' . (string) ($d['estatus_cuota'] ?? 'pendiente') . '.';
+        $lineas[] = 'Quedó documentado como convenio de excepción autorizado y ya puede consultarse desde el crédito.';
+
+        return $this->respuesta(implode("\n", $lineas), 'agente_ejecutado') + [
+            'ejecucion' => [
+                'accion' => 'convenio_crear_excepcion',
+                'id_convenio' => (int) ($d['id_convenio'] ?? 0),
+                'id_credito' => $idCredito,
+            ],
+        ];
+    }
+
+    private function ejecutarReactivacionConvenioCancelado(array $payload, array $contexto): array
+    {
+        if (empty($contexto['permisos_agente']['convenio_reactivar_cancelado'])) {
+            throw new \RuntimeException('Tu perfil ya no permite reactivar convenios cancelados.');
+        }
+        $idConvenio = (int) ($payload['id_convenio'] ?? 0);
+        if ($idConvenio <= 0) {
+            throw new \RuntimeException('La propuesta de reactivación está incompleta.');
+        }
+
+        $diagnostico = (array) $this->llamar('convenio_reactivacion_diagnosticar', 0, $idConvenio);
+        if (empty($diagnostico['success'])) {
+            throw new \RuntimeException('La reactivación dejó de ser válida: ' . $this->mensajeResultado($diagnostico));
+        }
+        $resultado = (array) $this->llamar(
+            'convenio_reactivar_cancelado',
+            $idConvenio,
+            (string) ($contexto['nombre'] ?? $contexto['nombre_corto'] ?? ('usuario ' . (int) ($contexto['actor_id'] ?? 0))),
+            'Reactivación autorizada y confirmada mediante Leónidas.'
+        );
+        if (empty($resultado['success'])) {
+            throw new \RuntimeException($this->mensajeResultado($resultado));
+        }
+        $d = (array) ($resultado['datos'] ?? []);
+        return $this->respuesta(
+            'Convenio #' . $idConvenio . ' reactivado correctamente para el crédito ' . (int) ($d['id_credito'] ?? 0) . '.'
+            . "\nCabecera convenio_cliente: activo."
+            . "\nCuotas reabiertas en convenio_cliente_amortizacion: " . (int) ($d['cuotas_reabiertas'] ?? 0) . '.'
+            . "\nVencidas: " . (int) ($d['cuotas_vencidas'] ?? 0)
+            . ' | Pendientes: ' . (int) ($d['cuotas_pendientes'] ?? 0)
+            . ' | Pagadas conservadas: ' . (int) ($d['cuotas_pagadas'] ?? 0) . '.'
+            . "\nLa operación fue transaccional, verificada y auditada.",
+            'agente_ejecutado'
+        ) + ['ejecucion' => [
+            'accion' => 'convenio_reactivar_cancelado',
+            'id_convenio' => $idConvenio,
+            'id_credito' => (int) ($d['id_credito'] ?? 0),
+        ]];
     }
 
     private function ejecutarConvenio(array $payload, array $contexto): array
@@ -1331,7 +1632,105 @@ class LeonidasAgentService
     private function solicitaConvenio(string $mensaje): bool
     {
         return preg_match('/\b(convenio)\b/u', $mensaje) === 1
-            && preg_match('/\b(crear|crea|hacer|haz|levantar|levanta|registrar|registra|quiero|necesito)\b/u', $mensaje) === 1;
+            && preg_match('/\b(crear|crea|hacer|haz|levantar|levanta|registrar|registra|abrir|abre|quiero|necesito)\b/u', $mensaje) === 1;
+    }
+
+    private function solicitaConvenioExcepcion(string $mensaje): bool
+    {
+        return preg_match('/\bconvenio\b/u', $mensaje) === 1
+            && preg_match('/\b(crear|crea|hacer|haz|registrar|registra|abrir|abre|quiero|necesito)\b/u', $mensaje) === 1
+            && (
+                preg_match('/\bexcepcion(?:al)?\b/u', $mensaje) === 1
+                || preg_match('/\b(descartar|descarta|ignorar|ignora|omitir|omite|sin aplicar)\b.*\b(reglas?|validaciones?)\b/u', $mensaje) === 1
+            );
+    }
+
+    private function solicitaReactivarConvenioCancelado(string $mensaje): bool
+    {
+        return preg_match('/\b(reactivar|reactiva|reabrir|reabre|activar|activa)\b/u', $mensaje) === 1
+            && preg_match('/\bconvenio\b/u', $mensaje) === 1
+            && preg_match('/\b(cancelado|cancelada|cancelamiento)\b/u', $mensaje) === 1;
+    }
+
+    /** @return array{id_credito?:int,fecha_pago?:string,monto?:float} */
+    private function extraerDatosConvenioExcepcion(string $mensaje): array
+    {
+        $datos = [];
+        $credito = $this->extraerCreditoExplicito($mensaje);
+        if ($credito > 0) {
+            $datos['id_credito'] = $credito;
+        }
+
+        $meses = [
+            'enero' => 1, 'febrero' => 2, 'marzo' => 3, 'abril' => 4,
+            'mayo' => 5, 'junio' => 6, 'julio' => 7, 'agosto' => 8,
+            'septiembre' => 9, 'setiembre' => 9, 'octubre' => 10,
+            'noviembre' => 11, 'diciembre' => 12,
+        ];
+        if (preg_match('/\b(\d{1,2})\s+de\s+([a-záéíóú]+)\s+(?:de(?:l)?\s+)?(\d{4})\b/iu', $mensaje, $m)) {
+            $mes = $meses[$this->normalizar((string) $m[2])] ?? 0;
+            if ($mes > 0 && checkdate($mes, (int) $m[1], (int) $m[3])) {
+                $datos['fecha_pago'] = sprintf('%04d-%02d-%02d', (int) $m[3], $mes, (int) $m[1]);
+            }
+        } elseif (preg_match('/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/', $mensaje, $m)) {
+            if (checkdate((int) $m[2], (int) $m[1], (int) $m[3])) {
+                $datos['fecha_pago'] = sprintf('%04d-%02d-%02d', (int) $m[3], (int) $m[2], (int) $m[1]);
+            }
+        } elseif (preg_match('/\b(\d{4})-(\d{2})-(\d{2})\b/', $mensaje, $m)) {
+            if (checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+                $datos['fecha_pago'] = (string) $m[0];
+            }
+        }
+
+        if (preg_match('/\b(?:el\s+)?(?:pago|monto|importe)\s*(?:unico|total)?\s*(?:es\s+de|de|por|:)?\s*\$?\s*([0-9][0-9.,]*)\b/iu', $mensaje, $m)) {
+            $monto = $this->normalizarMonto((string) $m[1]);
+            if ($monto > 0) {
+                $datos['monto'] = $monto;
+            }
+        }
+
+        return $datos;
+    }
+
+    private function normalizarMonto(string $valor): float
+    {
+        $valor = trim(str_replace(['$', ' '], '', $valor));
+        if (str_contains($valor, ',') && str_contains($valor, '.')) {
+            if (strrpos($valor, ',') > strrpos($valor, '.')) {
+                $valor = str_replace('.', '', $valor);
+                $valor = str_replace(',', '.', $valor);
+            } else {
+                $valor = str_replace(',', '', $valor);
+            }
+        } elseif (substr_count($valor, ',') === 1 && preg_match('/,\d{1,2}$/', $valor)) {
+            $valor = str_replace(',', '.', $valor);
+        } else {
+            $valor = str_replace(',', '', $valor);
+        }
+        return is_numeric($valor) ? round((float) $valor, 2) : 0.0;
+    }
+
+    private function extraerCreditoExplicito(string $mensaje): int
+    {
+        return preg_match('/\bcredito(?:\s+(?:numero|no\.?|id))?\s*(?:es|:|#|-)?\s*(\d{3,})\b/iu', $this->normalizar($mensaje), $m)
+            ? (int) $m[1]
+            : 0;
+    }
+
+    /** @return string[] */
+    private function faltantesConvenioExcepcion(array $datos): array
+    {
+        $faltantes = [];
+        if ((int) ($datos['id_credito'] ?? 0) <= 0) $faltantes[] = 'el número de crédito';
+        if (trim((string) ($datos['fecha_pago'] ?? '')) === '') $faltantes[] = 'la fecha del pago';
+        if ((float) ($datos['monto'] ?? 0) <= 0) $faltantes[] = 'el monto del pago';
+        return $faltantes;
+    }
+
+    private function fechaHumana(string $fecha): string
+    {
+        $objeto = \DateTimeImmutable::createFromFormat('!Y-m-d', $fecha);
+        return $objeto ? $objeto->format('d/m/Y') : $fecha;
     }
 
     private function solicitaMoto(string $mensaje): bool

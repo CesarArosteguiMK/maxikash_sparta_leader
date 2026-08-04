@@ -374,6 +374,9 @@ class LeonidasAssistantService
                 : 'Usuario',
             'permisos_agente' => [
                 'convenio' => $this->tieneAccesoModulo(46) && $this->tieneAccesoModulo(32),
+                'convenio_reactivar_cancelado' => $this->tieneAccesoModulo(46)
+                    && $this->tieneAccesoModulo(32)
+                    && $this->tieneAccesoModulo(146),
                 'motos' => $this->tieneAccesoModulo(62) || $this->tieneAccesoModulo(80),
                 'motos_override_estatus' => $this->tieneAccesoModulo(192),
                 'asignaciones_movil' => $this->tieneAccesoModulo(20),

@@ -68,9 +68,11 @@ class Database
             ));
             if (DatabaseCliSupport::isCli()
                 || DatabaseCliSupport::esGestionesSeguimientoRequest()
+                || DatabaseCliSupport::esApiAnalyticsJsonRequest()
                 || DatabaseCliSupport::esReporteriaGetAsignacionTableroJsonRequest()
                 || DatabaseCliSupport::esReporteriaCapitalHumanoJsonRequest()
-                || DatabaseCliSupport::esCaphumDocumentosJsonRequest()) {
+                || DatabaseCliSupport::esCaphumDocumentosJsonRequest()
+                || DatabaseCliSupport::esLeonidasJsonRequest()) {
                 throw new \RuntimeException(
                     'No se pudo conectar a MySQL (__SPARTA_SECRET_REDACTED__): ' . $e->getMessage(),
                     0,

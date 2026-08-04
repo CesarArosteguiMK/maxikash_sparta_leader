@@ -18,10 +18,10 @@ class Adjudicacion extends Model
     private $db;
     private $dbSeg;
 
-    public function __construct()
+    public function __construct($db = null, $dbSeg = null)
     {
-        $this->db    = new Database();
-        $this->dbSeg = new DatabaseSegundometro();
+        $this->db    = $db ?? new Database();
+        $this->dbSeg = $dbSeg ?? new DatabaseSegundometro();
     }
 
     // =========================================================================
@@ -661,10 +661,10 @@ class Adjudicacion extends Model
 
         if ($url === '' || $token === '') {
             error_log('Adjudicacion::buscarCreditoPorId: S2 no esta configurado.');
-            return [
-                'success' => false,
-                'message' => 'No se pudo consultar el credito porque S2 no esta configurado.',
-            ];
+            return $this->buscarCreditoPorIdLocal(
+                $idCredito,
+                'S2 no está configurado en este proceso.'
+            );
         }
 
         $payload = json_encode([
@@ -690,27 +690,27 @@ class Adjudicacion extends Model
 
         if ($response === false) {
             error_log('Adjudicacion::buscarCreditoPorId: error cURL S2: ' . $curlError);
-            return [
-                'success' => false,
-                'message' => 'No se pudo conectar con S2. Intenta nuevamente en unos segundos.',
-            ];
+            return $this->buscarCreditoPorIdLocal(
+                $idCredito,
+                'No fue posible conectar con S2.'
+            );
         }
 
         if ($httpCode < 200 || $httpCode >= 300) {
             error_log('Adjudicacion::buscarCreditoPorId: S2 respondio HTTP ' . $httpCode);
-            return [
-                'success' => false,
-                'message' => 'S2 rechazo la consulta del credito (HTTP ' . $httpCode . ').',
-            ];
+            return $this->buscarCreditoPorIdLocal(
+                $idCredito,
+                'S2 rechazó la consulta (HTTP ' . $httpCode . ').'
+            );
         }
 
         $decodedResponse = json_decode($response, true);
         if (!is_array($decodedResponse)) {
             error_log('Adjudicacion::buscarCreditoPorId: JSON invalido de S2: ' . json_last_error_msg());
-            return [
-                'success' => false,
-                'message' => 'S2 respondio en un formato que Sparta no pudo interpretar.',
-            ];
+            return $this->buscarCreditoPorIdLocal(
+                $idCredito,
+                'S2 respondió en un formato no interpretable.'
+            );
         }
 
         $normalizedAccount = $decodedResponse['estadoCuenta']
@@ -725,12 +725,12 @@ class Adjudicacion extends Model
                 'Adjudicacion::buscarCreditoPorId: S2 sin estadoCuenta'
                 . ($serviceMessage !== '' ? ': ' . $serviceMessage : '')
             );
-            return [
-                'success' => false,
-                'message' => $serviceMessage !== ''
-                    ? 'S2 no devolvio el credito: ' . $serviceMessage
-                    : 'S2 no devolvio informacion para el credito consultado.',
-            ];
+            return $this->buscarCreditoPorIdLocal(
+                $idCredito,
+                $serviceMessage !== ''
+                    ? 'S2 no devolvió el crédito: ' . $serviceMessage
+                    : 'S2 no devolvió información del crédito.'
+            );
         }
 
         // Normalizar envoltorios alternativos antes del parser historico del metodo.
@@ -833,6 +833,86 @@ class Adjudicacion extends Model
             'credito'        => $credito,
             'asignacion'     => $asignacion ?: null,
             'status_credito' => $credito['status_credito'],
+            'fuente_credito' => 'S2',
+        ];
+    }
+
+    /**
+     * Respaldo operativo para asignaciones cuando la API S2 no responde.
+     * Usa exclusivamente tbl_segundometro_semana: no recurre al histórico
+     * porque podría permitir asignar un crédito con un estado ya obsoleto.
+     */
+    private function buscarCreditoPorIdLocal(int $idCredito, string $motivoS2): array
+    {
+        try {
+            $fila = $this->dbSeg->queryOne(
+                "SELECT Id_credito, Nombre_cliente, Status_credito, Dias_mora,
+                        Saldo_total_capital, Bucket_Morosidad_Real, Sucursal
+                 FROM tbl_segundometro_semana
+                 WHERE Id_credito = :id
+                 LIMIT 1",
+                ['id' => $idCredito]
+            );
+        } catch (\Throwable $e) {
+            $fila = null;
+        }
+
+        if (!$fila) {
+            return [
+                'success' => false,
+                'message' => $motivoS2
+                    . ' El crédito tampoco está disponible en el corte semanal vigente de Segundómetro; no se realizó ninguna asignación.',
+            ];
+        }
+
+        $asignacion = $this->db->queryOne(
+            <<<SQL
+            SELECT
+                aca.id,
+                pa.id_persona,
+                aca.estatus,
+                DATE_FORMAT(aca.fecha_alta, '%Y-%m-%d %H:%i') AS fecha_asignacion,
+                TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre_despacho,
+                GROUP_CONCAT(DISTINCT pu.nombre ORDER BY pu.nombre SEPARATOR ' - ') AS puesto_despacho
+            FROM asigna_creditos_adjudicacion aca
+            INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+            INNER JOIN persona per ON per.id = pa.id_persona
+            LEFT JOIN asigna_puesto ap ON ap.id_persona = pa.id_persona AND ap.activo = 1
+            LEFT JOIN puesto pu ON pu.id = ap.id_puesto
+            WHERE aca.id_credito = :idCredito AND aca.estatus = '1'
+            GROUP BY aca.id, pa.id_persona, aca.estatus, aca.fecha_alta,
+                     per.nombres, per.segundo_nombre, per.apellidop, per.apellidom
+            LIMIT 1
+            SQL,
+            ['idCredito' => $idCredito]
+        );
+
+        $credito = [
+            'id_credito' => (int) $fila['Id_credito'],
+            'nombre_cliente' => trim((string) ($fila['Nombre_cliente'] ?? 'Sin nombre')),
+            'telefono' => 'Sin teléfono',
+            'curp' => 'Sin CURP',
+            'email' => '',
+            'genero' => '',
+            'direccion' => 'Sin dirección registrada',
+            'sucursal' => trim((string) ($fila['Sucursal'] ?? 'Sin sucursal')),
+            'fecha_desembolso' => 'Sin fecha',
+            'saldo_actual' => (float) ($fila['Saldo_total_capital'] ?? 0),
+            'dias_mora' => (int) ($fila['Dias_mora'] ?? 0),
+            'status_credito' => trim((string) ($fila['Status_credito'] ?? '')),
+            'producto' => '',
+            'periodicidad' => '',
+            'bucket' => trim((string) ($fila['Bucket_Morosidad_Real'] ?? '')),
+            'moto_factura' => null,
+        ];
+
+        return [
+            'success' => true,
+            'credito' => $credito,
+            'asignacion' => $asignacion ?: null,
+            'status_credito' => $credito['status_credito'],
+            'fuente_credito' => 'Segundometro semanal',
+            'advertencia' => $motivoS2 . ' Se utilizó el corte semanal vigente de Segundómetro.',
         ];
     }
 

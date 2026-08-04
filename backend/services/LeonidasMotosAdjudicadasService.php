@@ -43,18 +43,28 @@ class LeonidasMotosAdjudicadasService
     private \Core\Database $db;
     private ?\Core\DatabaseLegacy $legacy = null;
     private ?string $legacyError = null;
+    private bool $legacyInicializado = false;
 
     public function __construct(?\Core\Database $db = null, ?\Core\DatabaseLegacy $legacy = null)
     {
         $this->db = $db ?? new \Core\Database();
         if ($legacy !== null) {
             $this->legacy = $legacy;
+            $this->legacyInicializado = true;
+        }
+    }
+
+    private function inicializarLegacy(): void
+    {
+        if ($this->legacyInicializado) {
             return;
         }
+        $this->legacyInicializado = true;
 
         try {
             $this->legacy = new \Core\DatabaseLegacy();
         } catch (\Throwable $e) {
+            $this->legacy = null;
             $this->legacyError = $e->getMessage();
             error_log('[LeonidasMotosAdjudicadasService] Legacy no disponible: ' . $e->getMessage());
         }
@@ -131,15 +141,41 @@ class LeonidasMotosAdjudicadasService
 
         $operacion = is_array($diagnostico['operacion'] ?? null) ? $diagnostico['operacion'] : [];
         if (!$operacion) {
-            return $this->respuesta(
-                $mensajeDiagnostico . "\n\nNo existe una operacion local de Motos Adjudicadas que pueda moverse. No realice cambios.",
-                'agente_diagnostico'
-            );
+            $fuenteLegacy = $this->fuenteLegacyActiva($diagnostico);
+            if (!$fuenteLegacy) {
+                return $this->respuesta(
+                    $mensajeDiagnostico . "\n\nNo existe una operacion local ni una tarea Legacy activa que permitan preparar el movimiento. No realice cambios.",
+                    'agente_diagnostico'
+                );
+            }
+            if (empty($contexto['permisos_agente']['motos_override_estatus'])) {
+                return $this->respuesta(
+                    $mensajeDiagnostico
+                        . "\n\nEl credito todavia no tiene una operacion local. Crear esa operacion y posicionarla en Evidencias requiere el permiso especial "
+                        . 'Posicionamiento de estatus (Override). No realice cambios.',
+                    'agente_denegado'
+                );
+            }
+
+            return [
+                'mensaje' => $mensajeDiagnostico
+                    . "\n\nEl credito no tiene operacion local, pero si una tarea Legacy activa. "
+                    . 'Puedo crear la operacion local con los datos identificados y posicionarla en Evidencias. '
+                    . 'La creacion y el movimiento quedaran auditados; no inventare datos de motocicleta ni evidencias.',
+                'tipo' => 'agente_propuesta',
+                'propuesta_especificacion' => [
+                    'accion' => self::ACTION_FORZAR_EVIDENCIAS,
+                    'resumen' => 'crear la operacion local y mover a Evidencias el credito ' . $idCredito,
+                    'payload' => $this->payload($diagnostico, true, $fuenteLegacy),
+                ],
+            ];
         }
 
         $tieneDatosMoto = !empty($operacion['datos_moto_at']);
         $evidencias = (int) ($operacion['evidencias_total'] ?? 0);
-        if ($tieneDatosMoto && $evidencias > 0) {
+        $estatusOperacion = trim((string) ($operacion['estatus'] ?? ''));
+        $yaEstaEnEvidencias = in_array($estatusOperacion, ['Recibido', 'en_transito'], true);
+        if ($tieneDatosMoto && $evidencias > 0 && $yaEstaEnEvidencias) {
             return [
                 'mensaje' => $mensajeDiagnostico
                     . "\n\nEl credito cumple el flujo normal: tiene datos de motocicleta y " . $evidencias
@@ -148,6 +184,32 @@ class LeonidasMotosAdjudicadasService
                 'propuesta_especificacion' => [
                     'accion' => self::ACTION_ENVIAR_EVIDENCIAS,
                     'resumen' => 'enviar a Evidencias el credito ' . $idCredito . ' por el flujo normal',
+                    'payload' => $this->payload($diagnostico),
+                ],
+            ];
+        }
+
+        if ($tieneDatosMoto && $evidencias > 0 && !$yaEstaEnEvidencias) {
+            if (empty($contexto['permisos_agente']['motos_override_estatus'])) {
+                return $this->respuesta(
+                    $mensajeDiagnostico
+                        . "\n\nLa operacion tiene datos y evidencias, pero actualmente esta en la etapa "
+                        . ($estatusOperacion !== '' ? $estatusOperacion : 'no identificada') . '. '
+                        . 'Regresarla a Evidencias requiere el permiso especial Posicionamiento de estatus (Override). No realice cambios.',
+                    'agente_denegado'
+                );
+            }
+
+            return [
+                'mensaje' => $mensajeDiagnostico
+                    . "\n\nLa operacion ya cuenta con datos de motocicleta y {$evidencias} evidencia(s), pero esta en la etapa "
+                    . ($estatusOperacion !== '' ? $estatusOperacion : 'no identificada') . '. '
+                    . 'Puedo reposicionarla en Evidencias (estatus Recibido) después de tu confirmacion. '
+                    . 'El cambio quedara auditado y verificado.',
+                'tipo' => 'agente_propuesta',
+                'propuesta_especificacion' => [
+                    'accion' => self::ACTION_FORZAR_EVIDENCIAS,
+                    'resumen' => 'reposicionar en Evidencias el credito ' . $idCredito,
                     'payload' => $this->payload($diagnostico),
                 ],
             ];
@@ -522,6 +584,7 @@ class LeonidasMotosAdjudicadasService
 
     private function resolverCreditosSemana(int $semana, int $anio): array
     {
+        $this->inicializarLegacy();
         if ($this->legacy === null) {
             return $this->respuesta(
                 'No pude consultar las motos adjudicadas porque Legacy no esta disponible. '
@@ -659,19 +722,74 @@ class LeonidasMotosAdjudicadasService
 
         $idCredito = (int) ($payload['id_credito'] ?? 0);
         $idOperacionEsperado = (int) ($payload['id_operacion'] ?? 0);
-        if ($idCredito <= 0 || $idOperacionEsperado <= 0) {
+        $crearOperacionLocal = !empty($payload['crear_operacion_local']);
+        if ($idCredito <= 0 || (!$crearOperacionLocal && $idOperacionEsperado <= 0)) {
             throw new \RuntimeException('La confirmacion no contiene un credito y una operacion validos.');
         }
 
         $diagnostico = $this->diagnosticar($idCredito);
         $operacion = is_array($diagnostico['operacion'] ?? null) ? $diagnostico['operacion'] : [];
-        if (!$operacion || (int) ($operacion['id'] ?? 0) !== $idOperacionEsperado) {
+        if ($crearOperacionLocal && $operacion) {
+            throw new \RuntimeException('El credito ya tiene una operacion local creada despues de la vista previa. Vuelve a solicitar el diagnostico.');
+        }
+        if (!$crearOperacionLocal && (!$operacion || (int) ($operacion['id'] ?? 0) !== $idOperacionEsperado)) {
             throw new \RuntimeException('La operacion cambio despues de la vista previa. Vuelve a solicitar el diagnostico.');
         }
 
         $modelo = new \Models\MotosAdjudicadas();
         $actorId = (int) ($contexto['actor_id'] ?? 0);
         $actorNombre = trim((string) ($contexto['nombre'] ?? 'Leonidas'));
+
+        if ($crearOperacionLocal) {
+            if ($accion !== self::ACTION_FORZAR_EVIDENCIAS) {
+                throw new \RuntimeException('La creacion de la operacion local solo esta habilitada para el movimiento confirmado a Evidencias.');
+            }
+            if (empty($diagnostico['legacy']['disponible'])) {
+                throw new \RuntimeException('Legacy no esta disponible para revalidar la tarea usada en la vista previa. No se realizo ningun cambio.');
+            }
+
+            $taskIdEsperado = (int) ($payload['legacy_task_id_fuente'] ?? 0);
+            $fuenteLegacy = $this->buscarTareaLegacyActiva($diagnostico, $taskIdEsperado);
+            if (!$fuenteLegacy) {
+                throw new \RuntimeException('La tarea Legacy usada en la vista previa ya no esta activa o cambio. Vuelve a solicitar el diagnostico.');
+            }
+            $campaignIdEsperado = (int) ($payload['legacy_campaign_id_fuente'] ?? 0);
+            if ($campaignIdEsperado > 0 && (int) ($fuenteLegacy['campaign_id'] ?? 0) !== $campaignIdEsperado) {
+                throw new \RuntimeException('La campania Legacy cambio despues de la vista previa. No se realizo ningun cambio.');
+            }
+
+            $nombreCliente = trim((string) ($fuenteLegacy['client_name'] ?? ($payload['nombre_cliente_fuente'] ?? '')));
+            $creacion = $modelo->obtenerOCrearOperacion($idCredito, $nombreCliente, $actorId);
+            $detalleCreado = is_array($creacion['detalle'] ?? null) ? $creacion['detalle'] : [];
+            $idOperacionCreado = (int) ($detalleCreado['id'] ?? 0);
+            if (empty($creacion['success']) || $idOperacionCreado <= 0) {
+                throw new \RuntimeException(trim((string) ($creacion['message'] ?? 'No se pudo crear la operacion local.')));
+            }
+
+            $resultado = $modelo->cambiarEstatus($idOperacionCreado, 'Recibido', $actorId, $actorNombre, 'monitoreo');
+            if (empty($resultado['success'])) {
+                throw new \RuntimeException(trim((string) ($resultado['message'] ?? 'La operacion se creo, pero no se pudo posicionar en Evidencias.')));
+            }
+            $verificacion = $this->db->queryOne(
+                'SELECT id, estatus FROM adj_operacion WHERE id = :id AND id_credito = :id_credito LIMIT 1',
+                ['id' => $idOperacionCreado, 'id_credito' => $idCredito]
+            );
+            if (!$verificacion || (string) ($verificacion['estatus'] ?? '') !== 'Recibido') {
+                throw new \RuntimeException('La operacion se ejecuto, pero no pudo verificarse en Evidencias. Revisa el tracking antes de reintentar.');
+            }
+
+            return $this->respuesta(
+                'Listo. Cree la operacion local del credito ' . $idCredito . ' y la posicione en Evidencias. '
+                    . 'La accion quedo auditada y verificada. Los datos de motocicleta y evidencias no capturados siguen pendientes.',
+                'agente_ejecutado'
+            ) + ['ejecucion' => [
+                'accion' => self::ACTION_FORZAR_EVIDENCIAS,
+                'id_credito' => $idCredito,
+                'id_operacion' => $idOperacionCreado,
+                'legacy_task_id_fuente' => $taskIdEsperado,
+                'estatus_verificado' => 'Recibido',
+            ]];
+        }
 
         if ($accion === self::ACTION_GUARDAR_DATOS_MOTO) {
             $estatusEsperado = trim((string) ($payload['estatus_esperado'] ?? ''));
@@ -738,10 +856,30 @@ class LeonidasMotosAdjudicadasService
             if (empty($resultado['success'])) {
                 throw new \RuntimeException(trim((string) ($resultado['message'] ?? 'No se pudieron enviar las evidencias.')));
             }
+            $verificacionEvidencias = $this->db->queryOne(
+                "SELECT COUNT(*) AS total,
+                        SUM(estatus = 'pendiente_envio') AS pendientes,
+                        SUM(estatus = 'recibido') AS recibidas
+                 FROM adj_evidencia
+                 WHERE id_operacion = :id",
+                ['id' => $idOperacionEsperado]
+            ) ?: [];
+            if ((int) ($verificacionEvidencias['total'] ?? 0) <= 0
+                || (int) ($verificacionEvidencias['pendientes'] ?? 0) !== 0) {
+                throw new \RuntimeException(
+                    'El envio se ejecuto, pero la verificacion encontro evidencias todavia pendientes. Revisa la operacion antes de reintentar.'
+                );
+            }
             return $this->respuesta(
                 'Listo. Envie las evidencias del credito ' . $idCredito . ' por el flujo normal y registre la accion en la bitacora.',
                 'agente_ejecutado'
-            );
+            ) + ['ejecucion' => [
+                'accion' => self::ACTION_ENVIAR_EVIDENCIAS,
+                'id_credito' => $idCredito,
+                'id_operacion' => $idOperacionEsperado,
+                'evidencias_recibidas' => (int) ($verificacionEvidencias['recibidas'] ?? 0),
+                'evidencias_pendientes' => 0,
+            ]];
         }
 
         if ($accion !== self::ACTION_FORZAR_EVIDENCIAS) {
@@ -753,15 +891,31 @@ class LeonidasMotosAdjudicadasService
             throw new \RuntimeException(trim((string) ($resultado['message'] ?? 'No se pudo forzar el movimiento.')));
         }
 
+        $verificacion = $this->db->queryOne(
+            'SELECT id, estatus FROM adj_operacion WHERE id = :id AND id_credito = :credito LIMIT 1',
+            ['id' => $idOperacionEsperado, 'credito' => $idCredito]
+        );
+        if (!$verificacion || (string) ($verificacion['estatus'] ?? '') !== 'Recibido') {
+            throw new \RuntimeException(
+                'El movimiento se ejecuto, pero no pudo verificarse la operacion en Evidencias. Revisa el tracking antes de reintentar.'
+            );
+        }
+
         return $this->respuesta(
             'Listo. Force el movimiento a Evidencias del credito ' . $idCredito
-                . '. La accion quedo auditada. No se inventaron datos de motocicleta, evidencias ni dictamenes; esos faltantes siguen pendientes.',
+                . '. La accion quedo auditada y verificada. No se inventaron datos de motocicleta, evidencias ni dictamenes; esos faltantes siguen pendientes.',
             'agente_ejecutado'
-        );
+        ) + ['ejecucion' => [
+            'accion' => self::ACTION_FORZAR_EVIDENCIAS,
+            'id_credito' => $idCredito,
+            'id_operacion' => $idOperacionEsperado,
+            'estatus_verificado' => 'Recibido',
+        ]];
     }
 
     public function diagnosticar(int $idCredito): array
     {
+        $this->inicializarLegacy();
         $operacion = $this->db->queryOne(
             "SELECT o.*,
                     COUNT(e.id) AS evidencias_total,
@@ -965,16 +1119,46 @@ class LeonidasMotosAdjudicadasService
         return implode("\n", $lineas);
     }
 
-    private function payload(array $diagnostico): array
+    private function payload(array $diagnostico, bool $crearOperacionLocal = false, array $fuenteLegacy = []): array
     {
-        $operacion = $diagnostico['operacion'];
+        $operacion = is_array($diagnostico['operacion'] ?? null) ? $diagnostico['operacion'] : [];
         $motosTask = $diagnostico['legacy']['motos_task'] ?? [];
-        return [
+        $payload = [
             'id_credito' => (int) $diagnostico['id_credito'],
             'id_operacion' => (int) ($operacion['id'] ?? 0),
             'estatus_esperado' => (string) ($operacion['estatus'] ?? ''),
             'legacy_motos_task_id' => (int) ($motosTask['task_id'] ?? 0),
         ];
+        if ($crearOperacionLocal) {
+            $payload['crear_operacion_local'] = true;
+            $payload['legacy_task_id_fuente'] = (int) ($fuenteLegacy['task_id'] ?? 0);
+            $payload['legacy_campaign_id_fuente'] = (int) ($fuenteLegacy['campaign_id'] ?? 0);
+            $payload['nombre_cliente_fuente'] = trim((string) ($fuenteLegacy['client_name'] ?? ''));
+        }
+        return $payload;
+    }
+
+    private function fuenteLegacyActiva(array $diagnostico): array
+    {
+        $legacy = is_array($diagnostico['legacy'] ?? null) ? $diagnostico['legacy'] : [];
+        $motos = is_array($legacy['motos_task'] ?? null) ? $legacy['motos_task'] : [];
+        if ($motos) {
+            return $motos;
+        }
+        return is_array($legacy['otra_task_activa'] ?? null) ? $legacy['otra_task_activa'] : [];
+    }
+
+    private function buscarTareaLegacyActiva(array $diagnostico, int $taskId): array
+    {
+        if ($taskId <= 0) {
+            return [];
+        }
+        foreach ((array) ($diagnostico['legacy']['tasks'] ?? []) as $task) {
+            if ((int) ($task['task_id'] ?? 0) === $taskId && $this->tareaActiva($task)) {
+                return $task;
+            }
+        }
+        return [];
     }
 
     private function responsableLegacy(array $task): array

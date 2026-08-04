@@ -1021,6 +1021,190 @@ class Convenios extends Model
      *   fechas_pagos (JSON solo si tipo_calendario='libre'):
      *     [{"fecha":"Y-m-d","monto":0.00}, ...]
      */
+    /**
+     * Prepara un convenio de excepción con una sola exhibición.
+     *
+     * Este flujo consulta S2 de forma explícita y no depende del interruptor del
+     * calendario dinámico de la pantalla. Tampoco evalúa buckets, mora, avance ni
+     * porcentajes del catálogo: la excepción debe ser confirmada y auditada por el
+     * asistente antes de guardarse.
+     */
+    public static function prepararConvenioExcepcion($id_credito, $fecha_pago, $monto): array
+    {
+        $idCredito = (int) $id_credito;
+        $fechaPago = self::_normalizarFechaCorte((string) $fecha_pago);
+        $montoPago = round((float) $monto, 2);
+
+        if ($idCredito <= 0) {
+            return self::resultado(false, 'El ID de crédito no es válido.');
+        }
+        if ($fechaPago === null) {
+            return self::resultado(false, 'La fecha debe ser válida y no puede ser posterior a hoy.');
+        }
+        if (!is_finite($montoPago) || $montoPago <= 0) {
+            return self::resultado(false, 'El monto del pago debe ser mayor a cero.');
+        }
+
+        try {
+            $db = new Database();
+            $activo = $db->queryOne(
+                "SELECT id FROM convenio_cliente
+                 WHERE id_credito = :credito AND estatus = 'activo'
+                 LIMIT 1",
+                ['credito' => $idCredito]
+            );
+            if ($activo) {
+                return self::resultado(
+                    false,
+                    'El crédito ya tiene el convenio activo #' . (int) $activo['id'] . '. No se creará otro.'
+                );
+            }
+
+            $producto = $db->queryOne(
+                "SELECT pc.id AS id_producto, pc.nombre, pcd.id AS id_detalle, pcd.base_calculo
+                 FROM producto_convenio pc
+                 INNER JOIN producto_convenio_detalle pcd
+                    ON pcd.id_producto_convenio = pc.id
+                 WHERE pc.activo = 1
+                   AND LOWER(TRIM(pc.nombre)) = 'convenio pago mixto'
+                 ORDER BY pcd.porcentaje_variable DESC, pcd.id ASC
+                 LIMIT 1"
+            );
+            if (!$producto) {
+                return self::resultado(false, 'No está configurado el producto activo Convenio Pago Mixto.');
+            }
+
+            $fotografia = self::getCreditoS2PorFecha($idCredito, $fechaPago);
+            if (empty($fotografia['success'])) {
+                return self::resultado(false, 'No se pudo comprobar el crédito en S2 para ' . $fechaPago . ': '
+                    . trim((string) ($fotografia['mensaje'] ?? 'respuesta no disponible')));
+            }
+
+            $contenedor = is_array($fotografia['datos'] ?? null) ? $fotografia['datos'] : [];
+            $credito = is_array($contenedor['credito'] ?? null) ? $contenedor['credito'] : [];
+            $adeudo = round((float) ($credito['Adeudo_total'] ?? 0), 2);
+            if ($adeudo <= 0) {
+                $adeudo = round((float) ($credito['Saldo_total_capital'] ?? 0), 2);
+            }
+            $adeudo = max(0, $adeudo);
+            $estatusS2 = trim((string) ($credito['Status_credito_s2'] ?? ''));
+            $estatusNormalizado = mb_strtolower($estatusS2, 'UTF-8');
+            $estatusAscii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $estatusNormalizado);
+            $estatusNormalizado = $estatusAscii !== false ? $estatusAscii : $estatusNormalizado;
+            $esTerminalS2 = preg_match('/\b(liquidado|liquidada|saldado|saldada|cerrado|cerrada|pagado|pagada)\b/', $estatusNormalizado) === 1;
+            if ($adeudo <= 0 && !$esTerminalS2) {
+                return self::resultado(false, 'S2 no devolvió un adeudo base ni un estado de liquidación para esa fecha. No se creará un convenio con una base inventada.');
+            }
+
+            $descuento = max(0, round($adeudo - $montoPago, 2));
+            $adicional = max(0, round($montoPago - $adeudo, 2));
+            $porcentaje = $descuento > 0 ? round(($descuento / $adeudo) * 100, 2) : 0.0;
+
+            return self::resultado(true, 'Convenio de excepción preparado con fotografía histórica de S2.', [
+                'id_credito' => $idCredito,
+                'cliente' => trim((string) ($credito['Nombre_cliente'] ?? 'Sin nombre')),
+                'fecha_pago' => $fechaPago,
+                'monto' => $montoPago,
+                'adeudo_s2' => $adeudo,
+                'descuento_monto' => $descuento,
+                'porcentaje_descuento' => $porcentaje,
+                'monto_adicional' => $adicional,
+                'status_credito_s2' => $estatusS2,
+                'bucket' => trim((string) ($credito['Bucket_Morosidad_Real'] ?? '')),
+                'dias_mora' => (int) ($credito['Dias_mora'] ?? 0),
+                'avance_pago' => trim((string) ($credito['Avance_Pago_Plazo'] ?? '')),
+                'id_producto' => (int) $producto['id_producto'],
+                'id_detalle' => (int) $producto['id_detalle'],
+                'producto' => (string) $producto['nombre'],
+                'base_calculo' => (string) ($producto['base_calculo'] ?? 'adeudo_total'),
+                'fuente' => 'S2',
+                'es_excepcion' => true,
+            ]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'No se pudo preparar el convenio de excepción.', null, $e->getMessage());
+        }
+    }
+
+    /** Guarda la excepción revalidando S2 y el convenio activo al confirmar. */
+    public static function guardarConvenioExcepcion(array $datos): array
+    {
+        $idCredito = (int) ($datos['id_credito'] ?? 0);
+        $fechaPago = trim((string) ($datos['fecha_pago'] ?? ''));
+        $monto = round((float) ($datos['monto'] ?? 0), 2);
+        $actor = (int) ($datos['usuario_alta'] ?? 0);
+        if ($actor <= 0) {
+            return self::resultado(false, 'No se identificó al usuario que autoriza la excepción.');
+        }
+
+        $preparado = self::prepararConvenioExcepcion($idCredito, $fechaPago, $monto);
+        if (empty($preparado['success'])) {
+            return $preparado;
+        }
+        $p = (array) ($preparado['datos'] ?? []);
+        $guardado = self::guardarConvenio([
+            'id_credito' => $idCredito,
+            'id_producto_convenio' => (int) $p['id_producto'],
+            'id_producto_convenio_detalle' => (int) $p['id_detalle'],
+            'nombre_cliente' => (string) $p['cliente'],
+            'bucket_morosidad_real' => (string) $p['bucket'],
+            'dias_mora' => (int) $p['dias_mora'],
+            'avance_pago_plazo' => (string) $p['avance_pago'],
+            'adeudo_total_original' => (float) $p['adeudo_s2'],
+            'porcentaje_descuento' => (float) $p['porcentaje_descuento'],
+            'descuento_monto' => (float) $p['descuento_monto'],
+            'monto_adicional' => (float) $p['monto_adicional'],
+            'total_a_pagar' => $monto,
+            'pago_inicial_monto' => null,
+            'numero_semanas' => 1,
+            'pago_semanal' => $monto,
+            'fecha_acuerdo' => $fechaPago,
+            'usuario_alta' => $actor,
+            'tipo_calendario' => 'libre',
+            'fechas_pagos' => json_encode([['fecha' => $fechaPago, 'monto' => $monto]]),
+            'base_calculo' => (string) $p['base_calculo'],
+            'id_celula' => $datos['id_celula'] ?? null,
+            'comentario_gestor_inicial' => 'Convenio de excepción autorizado y registrado por Leónidas.',
+            'permitir_adeudo_cero_excepcion' => (float) $p['adeudo_s2'] === 0.0,
+        ]);
+        if (empty($guardado['success'])) {
+            return $guardado;
+        }
+
+        $idConvenio = (int) ($guardado['datos']['id_convenio'] ?? 0);
+        try {
+            $db = new Database();
+            $verificado = $db->queryOne(
+                "SELECT cc.id, cc.estatus, cc.total_a_pagar, cc.adeudo_total_original,
+                        cc.descuento_monto, cc.porcentaje_descuento, cc.monto_adicional,
+                        cca.estatus_pago
+                 FROM convenio_cliente cc
+                 INNER JOIN convenio_cliente_amortizacion cca
+                    ON cca.id_convenio_cliente = cc.id AND cca.numero_semana = 1
+                 WHERE cc.id = :id AND cc.id_credito = :credito
+                 LIMIT 1",
+                ['id' => $idConvenio, 'credito' => $idCredito]
+            );
+            if (!$verificado || $verificado['estatus'] !== 'activo') {
+                return self::resultado(false, 'El convenio fue insertado pero no pudo verificarse de forma completa.', [
+                    'id_convenio' => $idConvenio,
+                    'requiere_revision' => true,
+                ]);
+            }
+
+            return self::resultado(true, 'Convenio de excepción creado y verificado.', array_merge($p, [
+                'id_convenio' => $idConvenio,
+                'estatus' => (string) $verificado['estatus'],
+                'estatus_cuota' => (string) $verificado['estatus_pago'],
+                'total_a_pagar' => (float) $verificado['total_a_pagar'],
+            ]));
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'El convenio fue insertado pero falló su verificación.', [
+                'id_convenio' => $idConvenio,
+                'requiere_revision' => true,
+            ], $e->getMessage());
+        }
+    }
+
     public static function guardarConvenio($datos)
     {
         $db = null;
@@ -1089,15 +1273,18 @@ class Convenios extends Model
                 $adeudoOriginal   = round((float) ($datos['adeudo_total_original'] ?? 0), 2);
                 $totalSolicitado  = round((float) ($datos['total_a_pagar'] ?? 0), 2);
 
-                if (!is_finite($adeudoOriginal) || $adeudoOriginal <= 0) {
+                $permiteAdeudoCero = !empty($datos['permitir_adeudo_cero_excepcion']);
+                if (!is_finite($adeudoOriginal) || $adeudoOriginal < 0 || ($adeudoOriginal === 0.0 && !$permiteAdeudoCero)) {
                     return self::resultado(false, 'El adeudo base debe ser mayor a cero.');
                 }
                 if (!is_finite($totalSolicitado) || $totalSolicitado <= 0 || abs($totalSolicitado - $totalAPagar) > 0.01) {
                     return self::resultado(false, 'El total del convenio no coincide con la suma de sus pagos.');
                 }
 
-                $descuentoMonto      = round($adeudoOriginal - $totalAPagar, 2);
-                $porcentajeDescuento = round(($descuentoMonto / $adeudoOriginal) * 100, 2);
+                $descuentoMonto      = max(0, round($adeudoOriginal - $totalAPagar, 2));
+                $porcentajeDescuento = $descuentoMonto > 0
+                    ? round(($descuentoMonto / $adeudoOriginal) * 100, 2)
+                    : 0.0;
                 $montoAdicional      = max(0, round($totalAPagar - $adeudoOriginal, 2));
                 $pagoPromedio    = $semanas > 0 ? round($totalAPagar / $semanas, 2) : $totalAPagar;
 
@@ -1163,10 +1350,15 @@ class Convenios extends Model
                     $saldoActual = round($saldoActual - $montoPago, 2);
                     if ($saldoActual < 0) $saldoActual = 0;
 
+                    $comentarioInicial = mb_substr(
+                        trim(strip_tags((string) ($datos['comentario_gestor_inicial'] ?? ''))),
+                        0,
+                        250
+                    );
                     $db->CRUD(
                         "INSERT INTO convenio_cliente_amortizacion
-                            (id_convenio_cliente, numero_semana, fecha_pago, pago_semanal, capital, saldo_restante)
-                         VALUES (:id, :num, :fecha, :pago, :capital, :saldo)",
+                            (id_convenio_cliente, numero_semana, fecha_pago, pago_semanal, capital, saldo_restante, comentario_gestor)
+                         VALUES (:id, :num, :fecha, :pago, :capital, :saldo, :comentario)",
                         [
                             'id'      => $idConvenio,
                             'num'     => $numPago,
@@ -1174,6 +1366,7 @@ class Convenios extends Model
                             'pago'    => $montoPago,
                             'capital' => $montoPago,
                             'saldo'   => $saldoActual,
+                            'comentario' => $comentarioInicial !== '' ? $comentarioInicial : null,
                         ]
                     );
                 }
@@ -2358,6 +2551,191 @@ public static function cancelarConvenio($id_convenio, $usuario, $motivo = null)
 // ─────────────────────────────────────────────
 // SOLICITAR CANCELAMIENTO (registra petición pendiente de autorizar)
 // ─────────────────────────────────────────────
+
+/** Obtiene el convenio cancelado y el impacto exacto de reactivarlo. */
+public static function diagnosticarReactivacionConvenioCancelado($id_credito = 0, $id_convenio = 0): array
+{
+    $idCredito = (int) $id_credito;
+    $idConvenio = (int) $id_convenio;
+    if ($idCredito <= 0 && $idConvenio <= 0) {
+        return self::resultado(false, 'Indica el crédito o el folio del convenio cancelado.');
+    }
+
+    try {
+        $db = new Database();
+        $filtro = $idConvenio > 0 ? 'cc.id = :valor' : 'cc.id_credito = :valor';
+        $convenio = $db->queryOne(
+            "SELECT cc.*, pc.nombre AS nombre_producto
+             FROM convenio_cliente cc
+             INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+             WHERE {$filtro} AND cc.estatus = 'cancelado'
+             ORDER BY cc.fecha_alta DESC, cc.id DESC
+             LIMIT 1",
+            ['valor' => $idConvenio > 0 ? $idConvenio : $idCredito]
+        );
+        if (!$convenio) {
+            return self::resultado(false, 'No se encontró un convenio cancelado con ese identificador.');
+        }
+
+        $otroActivo = $db->queryOne(
+            "SELECT id FROM convenio_cliente
+             WHERE id_credito = :credito AND estatus = 'activo' AND id != :id
+             LIMIT 1",
+            ['credito' => (int) $convenio['id_credito'], 'id' => (int) $convenio['id']]
+        );
+        if ($otroActivo) {
+            return self::resultado(false, 'El crédito ya tiene otro convenio activo #' . (int) $otroActivo['id'] . '.');
+        }
+
+        $resumen = $db->queryOne(
+            "SELECT COUNT(*) AS total,
+                    SUM(estatus_pago = 'cancelado') AS canceladas,
+                    SUM(estatus_pago = 'pagado') AS pagadas
+             FROM convenio_cliente_amortizacion
+             WHERE id_convenio_cliente = :id",
+            ['id' => (int) $convenio['id']]
+        ) ?: [];
+        if ((int) ($resumen['canceladas'] ?? 0) <= 0) {
+            return self::resultado(false, 'El convenio no tiene cuotas canceladas que puedan reabrirse.');
+        }
+
+        return self::resultado(true, 'Convenio cancelado listo para reactivación.', [
+            'id_convenio' => (int) $convenio['id'],
+            'id_credito' => (int) $convenio['id_credito'],
+            'cliente' => (string) $convenio['nombre_cliente'],
+            'producto' => (string) $convenio['nombre_producto'],
+            'total_a_pagar' => (float) $convenio['total_a_pagar'],
+            'fecha_acuerdo' => (string) $convenio['fecha_acuerdo'],
+            'estatus_actual' => (string) $convenio['estatus'],
+            'fecha_modifica' => (string) ($convenio['fecha_modifica'] ?? ''),
+            'cuotas_total' => (int) ($resumen['total'] ?? 0),
+            'cuotas_canceladas' => (int) ($resumen['canceladas'] ?? 0),
+            'cuotas_pagadas' => (int) ($resumen['pagadas'] ?? 0),
+        ]);
+    } catch (\Throwable $e) {
+        return self::resultado(false, 'No se pudo diagnosticar la reactivación.', null, $e->getMessage());
+    }
+}
+
+/** Reactiva atómicamente el mismo convenio y sus cuotas canceladas. */
+public static function reactivarConvenioCancelado($id_convenio, $usuario, $motivo = null): array
+{
+    $idConvenio = (int) $id_convenio;
+    $usuario = mb_substr(trim((string) $usuario), 0, 100);
+    $motivo = mb_substr(trim(strip_tags((string) $motivo)), 0, 255);
+    if ($idConvenio <= 0 || $usuario === '') {
+        return self::resultado(false, 'Faltan el convenio o el usuario que autoriza la reactivación.');
+    }
+
+    $db = null;
+    try {
+        $db = new Database();
+        $db->beginTransaction();
+        $convenio = $db->queryOne(
+            "SELECT id, id_credito, estatus
+             FROM convenio_cliente
+             WHERE id = :id
+             LIMIT 1 FOR UPDATE",
+            ['id' => $idConvenio]
+        );
+        if (!$convenio || (string) $convenio['estatus'] !== 'cancelado') {
+            $db->rollback();
+            return self::resultado(false, 'El convenio no existe o ya no está cancelado.');
+        }
+
+        $otroActivo = $db->queryOne(
+            "SELECT id FROM convenio_cliente
+             WHERE id_credito = :credito AND estatus = 'activo' AND id != :id
+             LIMIT 1 FOR UPDATE",
+            ['credito' => (int) $convenio['id_credito'], 'id' => $idConvenio]
+        );
+        if ($otroActivo) {
+            $db->rollback();
+            return self::resultado(false, 'El crédito ya tiene otro convenio activo #' . (int) $otroActivo['id'] . '.');
+        }
+
+        $cuotas = $db->queryOne(
+            "SELECT COUNT(*) AS total,
+                    SUM(estatus_pago = 'cancelado') AS canceladas,
+                    SUM(estatus_pago = 'pagado') AS pagadas
+             FROM convenio_cliente_amortizacion
+             WHERE id_convenio_cliente = :id FOR UPDATE",
+            ['id' => $idConvenio]
+        ) ?: [];
+        $canceladas = (int) ($cuotas['canceladas'] ?? 0);
+        if ($canceladas <= 0) {
+            $db->rollback();
+            return self::resultado(false, 'No existen cuotas canceladas para reabrir.');
+        }
+
+        $reabiertas = $db->CRUD(
+            "UPDATE convenio_cliente_amortizacion
+             SET estatus_pago = CASE
+                    WHEN fecha_pago < CURDATE() THEN 'vencido'
+                    ELSE 'pendiente'
+                 END
+             WHERE id_convenio_cliente = :id AND estatus_pago = 'cancelado'",
+            ['id' => $idConvenio]
+        );
+        if ((int) $reabiertas !== $canceladas) {
+            throw new \RuntimeException('No se actualizaron todas las cuotas canceladas.');
+        }
+
+        $actualizado = $db->CRUD(
+            "UPDATE convenio_cliente SET
+                estatus = 'activo',
+                es_reactivado = 1,
+                motivo_reactivacion = :motivo,
+                usuario_reactiva = :usuario_reactiva,
+                fecha_reactivacion = NOW(),
+                usuario_modifica = :usuario_modifica,
+                fecha_modifica = NOW(),
+                solicitud_cancelamiento_fecha = NULL
+             WHERE id = :id AND estatus = 'cancelado'",
+            [
+                'motivo' => $motivo !== '' ? $motivo : 'Reactivación autorizada mediante Leónidas.',
+                'usuario_reactiva' => $usuario,
+                'usuario_modifica' => $usuario,
+                'id' => $idConvenio,
+            ]
+        );
+        if ((int) $actualizado !== 1) {
+            throw new \RuntimeException('No se pudo reactivar la cabecera del convenio.');
+        }
+
+        $verificacion = $db->queryOne(
+            "SELECT cc.estatus,
+                    SUM(cca.estatus_pago = 'cancelado') AS canceladas,
+                    SUM(cca.estatus_pago = 'vencido') AS vencidas,
+                    SUM(cca.estatus_pago = 'pendiente') AS pendientes,
+                    SUM(cca.estatus_pago = 'pagado') AS pagadas
+             FROM convenio_cliente cc
+             INNER JOIN convenio_cliente_amortizacion cca ON cca.id_convenio_cliente = cc.id
+             WHERE cc.id = :id
+             GROUP BY cc.id, cc.estatus",
+            ['id' => $idConvenio]
+        );
+        if (!$verificacion || $verificacion['estatus'] !== 'activo' || (int) $verificacion['canceladas'] !== 0) {
+            throw new \RuntimeException('La verificación posterior no fue consistente.');
+        }
+
+        $db->commit();
+        return self::resultado(true, 'Convenio reactivado y verificado en ambas tablas.', [
+            'id_convenio' => $idConvenio,
+            'id_credito' => (int) $convenio['id_credito'],
+            'estatus' => 'activo',
+            'cuotas_reabiertas' => (int) $reabiertas,
+            'cuotas_vencidas' => (int) ($verificacion['vencidas'] ?? 0),
+            'cuotas_pendientes' => (int) ($verificacion['pendientes'] ?? 0),
+            'cuotas_pagadas' => (int) ($verificacion['pagadas'] ?? 0),
+        ]);
+    } catch (\Throwable $e) {
+        if ($db && $db->inTransaction()) {
+            $db->rollback();
+        }
+        return self::resultado(false, 'No se pudo reactivar el convenio; no se conservaron cambios parciales.', null, $e->getMessage());
+    }
+}
 
 public static function solicitarCancelamiento($id_convenio, $usuario, $motivo)
 {

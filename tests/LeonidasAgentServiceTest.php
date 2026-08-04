@@ -19,12 +19,20 @@ function assertSameValue($expected, $actual, string $message): void
     }
 }
 
+assertTrue(class_exists(Models\Adjudicacion::class, false), 'El agente debe cargar el modelo real de Motos Adjudicadas.');
+assertTrue(class_exists(Models\Convenios::class, false), 'El agente debe cargar el modelo real de Convenios.');
+
 function context(array $overrides = []): array
 {
     return $overrides + [
         'actor_id' => 878,
         'nombre_corto' => 'Lazaro',
-        'permisos_agente' => ['convenio' => true, 'motos' => true, 'id_celula' => 1],
+        'permisos_agente' => [
+            'convenio' => true,
+            'convenio_reactivar_cancelado' => true,
+            'motos' => true,
+            'id_celula' => 1,
+        ],
     ];
 }
 
@@ -65,6 +73,60 @@ function newService(array $overrides = []): LeonidasAgentService
     $base = [
         'convenio_ofertas' => static fn(int $id): array => ofertaResult($id),
         'convenio_guardar' => static fn(array $datos): array => ['success' => true, 'mensaje' => 'OK', 'datos' => ['id_convenio' => 901]],
+        'convenio_excepcion_preparar' => static function (int $id, string $fecha, float $monto): array {
+            $adeudo = $id === 172307 ? 19128.50 : 670.00;
+            $descuento = max(0, round($adeudo - $monto, 2));
+            return ['success' => true, 'datos' => [
+                'id_credito' => $id,
+                'cliente' => 'CLIENTE EXCEPCION',
+                'fecha_pago' => $fecha,
+                'monto' => $monto,
+                'adeudo_s2' => $adeudo,
+                'descuento_monto' => $descuento,
+                'porcentaje_descuento' => $descuento > 0 ? round(($descuento / $adeudo) * 100, 2) : 0,
+                'monto_adicional' => max(0, round($monto - $adeudo, 2)),
+                'producto' => 'Convenio Pago Mixto',
+            ]];
+        },
+        'convenio_excepcion_guardar' => static function (array $datos): array {
+            $adeudo = (int) $datos['id_credito'] === 172307 ? 19128.50 : 670.00;
+            $monto = (float) $datos['monto'];
+            $descuento = max(0, round($adeudo - $monto, 2));
+            return ['success' => true, 'datos' => [
+                'id_convenio' => (int) $datos['id_credito'] === 172307 ? 999 : 1001,
+                'producto' => 'Convenio Pago Mixto',
+                'adeudo_s2' => $adeudo,
+                'descuento_monto' => $descuento,
+                'porcentaje_descuento' => $descuento > 0 ? round(($descuento / $adeudo) * 100, 2) : 0,
+                'monto_adicional' => max(0, round($monto - $adeudo, 2)),
+                'estatus' => 'activo',
+                'estatus_cuota' => 'pendiente',
+            ]];
+        },
+        'convenio_reactivacion_diagnosticar' => static fn(int $credito, int $convenio): array => [
+            'success' => true,
+            'datos' => [
+                'id_convenio' => $convenio > 0 ? $convenio : 777,
+                'id_credito' => $credito > 0 ? $credito : 172307,
+                'cliente' => 'CLIENTE REACTIVACION',
+                'producto' => 'Convenio Pago Mixto',
+                'total_a_pagar' => 11500.00,
+                'cuotas_total' => 1,
+                'cuotas_canceladas' => 1,
+                'cuotas_pagadas' => 0,
+            ],
+        ],
+        'convenio_reactivar_cancelado' => static fn(int $convenio, string $usuario, string $motivo): array => [
+            'success' => true,
+            'datos' => [
+                'id_convenio' => $convenio,
+                'id_credito' => 172307,
+                'cuotas_reabiertas' => 1,
+                'cuotas_vencidas' => 1,
+                'cuotas_pendientes' => 0,
+                'cuotas_pagadas' => 0,
+            ],
+        ],
         'moto_buscar' => static fn(int $id): array => [
             'success' => true,
             'credito' => ['id_credito' => $id, 'nombre_cliente' => 'CLIENTE MOTO', 'status_credito' => 'Vencido'],
@@ -141,6 +203,57 @@ try {
 } catch (RuntimeException $error) {
     assertTrue(str_contains($error->getMessage(), 'ya no está disponible'), 'Debe explicar que la oferta cambio.');
 }
+
+$_SESSION = [];
+$excepcionDosTurnos = newService();
+$solicitudExcepcion = 'crea convenio de pago mixto de un solo pago con fecha de 5 de julio del 2026, '
+    . 'donde vas descartar las reglas de negocio q se establecieron el objetivo es q se genere como convenio de excepcion '
+    . 'el pago es de 11500';
+$preguntaCredito = $excepcionDosTurnos->resolver($solicitudExcepcion, $solicitudExcepcion, context());
+assertSameValue('agente_pregunta', $preguntaCredito['tipo'], 'La excepcion sin credito debe conservar monto y fecha y pedir el credito.');
+assertTrue(str_contains($preguntaCredito['mensaje'], '$11,500.00'), 'Debe repetir el monto interpretado antes de pedir el credito.');
+assertTrue(str_contains($preguntaCredito['mensaje'], '05/07/2026'), 'Debe repetir la fecha interpretada antes de pedir el credito.');
+$propuestaExcepcion = $excepcionDosTurnos->resolver('el credito es 172307', 'el credito es 172307', context());
+assertSameValue('agente_propuesta', $propuestaExcepcion['tipo'], 'La segunda intervencion debe completar la propuesta excepcional.');
+assertSameValue('convenio_crear_excepcion', $propuestaExcepcion['propuesta_especificacion']['accion'], 'Debe usar el ejecutor excepcional dedicado.');
+assertSameValue(172307, $propuestaExcepcion['propuesta_especificacion']['payload']['id_credito'], 'No debe confundir el anio con el credito.');
+assertSameValue('2026-07-05', $propuestaExcepcion['propuesta_especificacion']['payload']['fecha_pago'], 'Debe conservar la fecha historica.');
+$excepcionCreada = $excepcionDosTurnos->ejecutar(
+    'convenio_crear_excepcion',
+    $propuestaExcepcion['propuesta_especificacion']['payload'],
+    context()
+);
+assertSameValue('agente_ejecutado', $excepcionCreada['tipo'], 'Debe ejecutar la excepcion confirmada.');
+assertTrue(str_contains($excepcionCreada['mensaje'], '#999'), 'Debe responder con el folio creado.');
+assertTrue(str_contains($excepcionCreada['mensaje'], 'Base S2 hist'), 'Debe informar la base S2 verificada.');
+assertTrue(str_contains($excepcionCreada['mensaje'], '$7,628.50'), 'Debe informar el descuento excepcional.');
+
+$_SESSION = [];
+$solicitudExcepcionCompleta = 'crea convenio de pago mixto de un solo pago con fecha de 4 de julio del 2026, '
+    . 'donde vas descartar las reglas de negocio q se establecieron el objetivo es q se genere como convenio de excepcion '
+    . 'el pago es de 5,478 pesos el credito es 1209225';
+$propuestaCompleta = newService()->resolver($solicitudExcepcionCompleta, $solicitudExcepcionCompleta, context());
+assertSameValue('agente_propuesta', $propuestaCompleta['tipo'], 'La frase completa debe resolverse en un turno.');
+assertSameValue(5478.0, $propuestaCompleta['propuesta_especificacion']['payload']['monto'], 'Debe interpretar la coma como separador de miles.');
+assertTrue(str_contains($propuestaCompleta['mensaje'], '$4,808.00'), 'Debe explicar el monto superior a la base sin descuento negativo.');
+
+$_SESSION = [];
+$reactivacion = newService();
+$propuestaReactivacion = $reactivacion->resolver(
+    'reactiva el convenio cancelado del credito 172307',
+    'reactiva el convenio cancelado del credito 172307',
+    context()
+);
+assertSameValue('agente_propuesta', $propuestaReactivacion['tipo'], 'Debe presentar la reactivacion antes de cambiar ambas tablas.');
+assertSameValue('convenio_reactivar_cancelado', $propuestaReactivacion['propuesta_especificacion']['accion'], 'Debe usar el ejecutor transaccional.');
+assertTrue(str_contains($propuestaReactivacion['mensaje'], 'convenio_cliente_amortizacion'), 'Debe explicar las dos tablas afectadas.');
+$reactivado = $reactivacion->ejecutar(
+    'convenio_reactivar_cancelado',
+    $propuestaReactivacion['propuesta_especificacion']['payload'],
+    context()
+);
+assertSameValue('agente_ejecutado', $reactivado['tipo'], 'Debe reactivar tras la confirmacion.');
+assertTrue(str_contains($reactivado['mensaje'], 'Cuotas reabiertas'), 'Debe reportar la verificacion de amortizaciones.');
 
 $_SESSION = [];
 $moto = newService();
@@ -270,6 +383,33 @@ assertTrue(str_contains($zyanyaEjecutada['mensaje'], 'Usuario Legacy: 75'), 'Deb
 assertTrue(str_contains($zyanyaEjecutada['mensaje'], 'Campaña vigente: ASIGNACION_W29_1A7'), 'Debe informar la campaña vigente.');
 assertTrue(str_contains($zyanyaEjecutada['mensaje'], 'Tarea vigente: 910613'), 'Debe informar la tarea vigente.');
 assertTrue(str_contains($zyanyaEjecutada['mensaje'], 'task_user_assignments'), 'Debe verificar la asignacion activa local.');
+
+$_SESSION = [];
+$carlosSolano = newService([
+    'moto_buscar' => static fn(int $id): array => [
+        'success' => true,
+        'credito' => [
+            'id_credito' => $id,
+            'nombre_cliente' => 'CLIENTE CREDITO 2257556',
+            'status_credito' => 'Vencido',
+        ],
+        'status_credito' => 'Vencido',
+        'asignacion' => null,
+    ],
+    'moto_responsables' => static fn(): array => [[
+        'id_persona' => 880,
+        'nombre_completo' => 'CARLOS ANDRES SOLANO FERNANDEZ',
+        'puesto' => 'Gestor',
+        'numero_empleado' => '880',
+        'codigo_contpac' => '880',
+    ]],
+]);
+$solicitudCarlosSolano = 'ASIGNA EL ID 2257556 AL GESTOR CARLOS ANDRES SOLANO FERNANDEZ';
+$propuestaCarlosSolano = $carlosSolano->resolver($solicitudCarlosSolano, $solicitudCarlosSolano, context());
+assertSameValue('agente_propuesta', $propuestaCarlosSolano['tipo'], 'La instruccion natural reportada debe producir una vista previa valida.');
+assertSameValue('moto_asignar', $propuestaCarlosSolano['propuesta_especificacion']['accion'], 'Debe enrutar la instruccion reportada a la asignacion de Motos.');
+assertSameValue(2257556, $propuestaCarlosSolano['propuesta_especificacion']['payload']['id_credito'], 'Debe conservar el ID reportado.');
+assertSameValue(880, $propuestaCarlosSolano['propuesta_especificacion']['payload']['id_persona'], 'Debe resolver al gestor por nombre completo.');
 
 $_SESSION = [];
 $solicitudNatural = 'me ayudas a asignar el id 1809373 al gestor JUAN ENRIQUE ROCIO SALAZAR';

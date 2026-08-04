@@ -92,10 +92,34 @@
 
             <div class="accordion" id="accordionClientes">
 
-                <?php if (!empty($gestionesSinHistorial)): ?>
+                <?php if (!empty($gestionesHistorialNoDisponible)): ?>
+                    <div class="alert alert-warning" role="alert">
+                        <strong>El cr&eacute;dito fue encontrado, pero el hist&oacute;rico no est&aacute; disponible temporalmente.</strong>
+                        Esto no significa que el cr&eacute;dito no tenga gestiones. Intenta consultar nuevamente.
+                        <form method="post" action="/gestiones/seguimiento/" class="mt-2 mb-0">
+                            <input type="hidden" name="modoBusqueda" value="id">
+                            <input type="hidden" name="idCredito"
+                                   value="<?= htmlspecialchars((string)($idCreditoConsulta ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                            <button type="submit" class="btn btn-sm btn-outline-dark">Reintentar consulta</button>
+                        </form>
+                    </div>
+                <?php elseif (!empty($gestionesSinHistorial)): ?>
                     <div class="alert alert-info mb-0" role="status">
                         <strong>Cr&eacute;dito encontrado.</strong>
                         Todav&iacute;a no tiene gestiones registradas en Legacy, Sky Logic ni Call Center.
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($gestionesHistorialParcial)): ?>
+                    <div class="alert alert-warning" role="alert">
+                        <strong>Se muestran resultados parciales.</strong>
+                        Una de las fuentes del hist&oacute;rico no respondi&oacute; y podr&iacute;an faltar gestiones.
+                        <form method="post" action="/gestiones/seguimiento/" class="mt-2 mb-0">
+                            <input type="hidden" name="modoBusqueda" value="id">
+                            <input type="hidden" name="idCredito"
+                                   value="<?= htmlspecialchars((string)($idCreditoConsulta ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                            <button type="submit" class="btn btn-sm btn-outline-dark">Reintentar consulta</button>
+                        </form>
                     </div>
                 <?php endif; ?>
 

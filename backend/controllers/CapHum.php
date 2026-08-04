@@ -11045,6 +11045,7 @@ class CapHum extends Controller
             var docModalFetchInFlight = false;
             var docModalPendingRefresh = null;
             var docModalReevaluationRequestInFlight = false;
+            var docModalExpectedReevaluationByCandidate = {};
             var DOC_MODAL_PROCESS_TIMEOUT_MS = 10 * 60 * 1000;
             var DOC_MODAL_POLL_INTERVAL_MS = 2000;
             var docSueldoDraftByCandidato = {};
@@ -13484,13 +13485,31 @@ class CapHum extends Controller
                 return "Leído";
             }
 
+            function esNotaRevisionSinObservaciones(s) {
+                return claveDocModalGlobal(s).indexOf("REVISION AUTOMATICA SIN OBSERVACIONES") !== -1;
+            }
+
             function esNotaCalidadIgnorable(s) {
                 var k = claveDocModalGlobal(s);
-                return k.indexOf("BRILLO") !== -1 ||
+                return esNotaRevisionSinObservaciones(s) ||
+                    k.indexOf("BRILLO") !== -1 ||
                     k.indexOf("REFLEJO") !== -1 ||
                     k.indexOf("SOBREEXPUESTA") !== -1 ||
                     k.indexOf("SOBRE EXPUESTA") !== -1 ||
                     k.indexOf("LUZ DIRECTA") !== -1;
+            }
+
+            function esRevisionManualHistoricaSinObservaciones(x) {
+                if (!x || typeof x !== "object" || x.revision_manual !== true) return false;
+                if (x.rechazado === true || x.valido === false || x.ok === false || x.aceptado === false) return false;
+                if (x.pendiente_revision_manual || x.requiere_revision_humana || x.timeout || x.error_api || x.api_pendiente || x.pendiente_revision_backend) return false;
+                var notas = Array.isArray(x.notas) ? x.notas : [];
+                var tieneNotaNeutral = notas.some(function(n) { return esNotaRevisionSinObservaciones(n); });
+                if (!tieneNotaNeutral) return false;
+                var notasReales = notas.filter(function(n) { return !esNotaCalidadIgnorable(n); });
+                var alertasReales = Array.isArray(x.alertas) ? x.alertas.filter(function(a) { return !esNotaCalidadIgnorable(a); }) : [];
+                var lecturaPositiva = x.valido === true || x.ok === true || x.aceptado === true;
+                return lecturaPositiva && notasReales.length === 0 && alertasReales.length === 0;
             }
 
             function limpiarIdDocModal(s) {
@@ -13979,7 +13998,7 @@ class CapHum extends Controller
                 if (x.rechazado === true || x.valido === false || x.ok === false || x.aceptado === false) return "bad";
                 var alertas = Array.isArray(x.alertas) ? x.alertas.filter(function(a) { return !esNotaCalidadIgnorable(a); }) : [];
                 var notas = Array.isArray(x.notas) ? x.notas.filter(function(a) { return !esNotaCalidadIgnorable(a); }) : [];
-                if (x.revision_manual === true || x.requiere_revision_humana === true || alertas.length || notas.length) return "warn";
+                if ((x.revision_manual === true && !esRevisionManualHistoricaSinObservaciones(x)) || x.requiere_revision_humana === true || alertas.length || notas.length) return "warn";
                 return "ok";
             }
 
@@ -14439,7 +14458,7 @@ class CapHum extends Controller
                         textoEstadoRevision.indexOf("TIMEOUT") !== -1
                     );
                     if (esFalloTecnicoApi) apiPendiente = true;
-                    if (x.pendiente_revision_manual || (x.revision_manual && !esFalloTecnicoApi)) requiereRevision = true;
+                    if (x.pendiente_revision_manual || (x.revision_manual && !esFalloTecnicoApi && !esRevisionManualHistoricaSinObservaciones(x))) requiereRevision = true;
                     if ((x.valido === false || x.ok === false || x.aceptado === false) && !esFalloTecnicoApi) requiereRevision = true;
                     if (x.mensaje) notas.push(x.mensaje);
                     if (x.nota_backend) notas.push(x.nota_backend);
@@ -14772,6 +14791,13 @@ class CapHum extends Controller
                         candidatosDocConsola(nivelCons, "verificarExpedienteCandidato - respuesta", { id_candidato: idC, http_status: r.status, ms: ms, success: !!(res && res.success), mensaje: res && res.mensaje, datos: res && res.datos });
                         registrarTrazaDocModalTecnico("verificarExpedienteCandidato - respuesta (técnico)", { id_candidato: idC, resumen_http: linea, success: !!(res && res.success), mensaje: res && res.mensaje, datos: res && res.datos });
                         if (res && res.success) {
+                            var nuevoJobId = parseInt(res.datos && res.datos.job_id ? res.datos.job_id : 0, 10);
+                            if (nuevoJobId > 0) {
+                                docModalExpectedReevaluationByCandidate[String(idC)] = {
+                                    jobId: nuevoJobId,
+                                    startedAt: Date.now()
+                                };
+                            }
                             clearDocModalApiTrace();
                         } else {
                             setDocModalApiTraceUsuario("No se pudo completar la verificacion documental. Puede reintentar la reevaluacion mas tarde.", "warn");
@@ -15016,6 +15042,26 @@ class CapHum extends Controller
                     }
                     var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
                     var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
+                    var reevaluacionEsperada = docModalExpectedReevaluationByCandidate[String(idCandidato)] || null;
+                    if (reevaluacionEsperada && reevaluacionEsperada.jobId > 0) {
+                        var jobRecibido = verif && verif.job_id != null ? parseInt(verif.job_id, 10) : 0;
+                        if (!verif || jobRecibido !== reevaluacionEsperada.jobId) {
+                            verif = {
+                                verificacion_en_proceso: true,
+                                job_id: reevaluacionEsperada.jobId,
+                                iniciado_en: new Date(reevaluacionEsperada.startedAt).toISOString(),
+                                modo_verificacion: "cola_background",
+                                alertas: ["La nueva reevaluacion esta en proceso. El dictamen anterior no se mostrara como resultado de esta corrida."],
+                                checks_ok: 0,
+                                checks_totales: 0,
+                                todo_coincide: null,
+                                api_pendiente: false,
+                                error_api: null
+                            };
+                        } else if (verif.verificacion_en_proceso !== true) {
+                            delete docModalExpectedReevaluationByCandidate[String(idCandidato)];
+                        }
+                    }
                     var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;
                     var sueldoDoc = (res.datos && res.datos.sueldo) ? res.datos.sueldo : null;
                     var documentoExtraGestor = (res.datos && res.datos.documento_extra_gestor) ? res.datos.documento_extra_gestor : null;
@@ -17986,6 +18032,53 @@ class CapHum extends Controller
         return count($pa) >= 2 && count($pb) >= 2 && count(array_intersect($pa, $pb)) >= 2;
     }
 
+    private function docVerifNotaSinObservaciones($nota): bool
+    {
+        $texto = trim((string) $nota);
+        return preg_match('/revisi[oó]n\s+autom[aá]tica\s+sin\s+observaciones/iu', $texto) === 1;
+    }
+
+    private function docVerifRevisionManualHistoricaSinObservaciones(array $validacion): bool
+    {
+        if (($validacion['revision_manual'] ?? null) !== true) {
+            return false;
+        }
+        foreach (['rechazado', 'valido', 'ok', 'aceptado'] as $key) {
+            if (array_key_exists($key, $validacion) && $validacion[$key] === false) {
+                return false;
+            }
+        }
+        foreach (['pendiente_revision_manual', 'requiere_revision_humana', 'timeout', 'error_api', 'api_pendiente', 'pendiente_revision_backend'] as $key) {
+            if (!empty($validacion[$key])) {
+                return false;
+            }
+        }
+
+        $notas = isset($validacion['notas']) && is_array($validacion['notas']) ? $validacion['notas'] : [];
+        $tieneNotaNeutral = false;
+        foreach ($notas as $nota) {
+            if ($this->docVerifNotaSinObservaciones($nota)) {
+                $tieneNotaNeutral = true;
+                continue;
+            }
+            if (trim((string) $nota) !== '') {
+                return false;
+            }
+        }
+        if (!$tieneNotaNeutral) {
+            return false;
+        }
+        foreach ((isset($validacion['alertas']) && is_array($validacion['alertas'])) ? $validacion['alertas'] : [] as $alerta) {
+            if (trim((string) $alerta) !== '' && !$this->docVerifNotaSinObservaciones($alerta)) {
+                return false;
+            }
+        }
+
+        return ($validacion['valido'] ?? null) === true
+            || ($validacion['ok'] ?? null) === true
+            || ($validacion['aceptado'] ?? null) === true;
+    }
+
     private function docVerifCurpComparable($curp): string
     {
         return strtoupper(preg_replace('/[^A-Z0-9]/', '', (string) $curp));
@@ -18027,7 +18120,7 @@ class CapHum extends Controller
                 $idScoreReverso = $rv['score_autenticidad'] ?? null;
                 foreach (($cal['notas'] ?? []) as $n) {
                     $txt = trim((string) $n);
-                    if ($txt !== '') $alertas[] = $txt;
+                    if ($txt !== '' && !$this->docVerifNotaSinObservaciones($txt)) $alertas[] = $txt;
                 }
             } elseif ($tipo === 'CURP' && is_array($cal)) {
                 $curpDoc = $cal['curp_extraido'] ?? null;
@@ -19714,7 +19807,7 @@ class CapHum extends Controller
             }
             return $respuestaJob;
         } catch (\Throwable $e) {
-            $this->guardarVerificacionExpedienteErrorMotorV2($idCandidato, $e->getMessage(), ['No se pudo procesar el análisis documental.']);
+            $this->guardarVerificacionExpedienteErrorMotorV2($idCandidato, $e->getMessage(), ['No se pudo procesar el análisis documental.'], $idJob);
             CandidatosDAO::finalizarJobVerificacionDocumental($idJob, false, $e->getMessage());
             return ['procesado' => true, 'ok' => false, 'id_job' => $idJob, 'id_candidato' => $idCandidato, 'error' => $e->getMessage()];
         }
@@ -19878,10 +19971,19 @@ class CapHum extends Controller
         }
         $rutasParaValidar = $this->rutasValidacionExpedienteInicial();
         $resDocs = CandidatosDAO::getDocumentosCandidato($id_candidato);
+        if (empty($resDocs['success']) || empty($resDocs['datos'])) {
+            $docsConLecturas = CandidatosDAO::getDocumentosYVerificacion($id_candidato, false, false);
+            if (!empty($docsConLecturas['documentos'])) {
+                $resDocs = ['success' => true, 'datos' => $docsConLecturas['documentos']];
+            }
+        }
         if (!$resDocs['success'] || empty($resDocs['datos'])) {
             echo json_encode(self::respuesta(false, 'No hay documentos para verificar.'));
             return;
         }
+        $lecturasGuardadasPreflight = json_decode((string) ($this->construirLecturasIaExpedienteJson($resDocs['datos']) ?? ''), true);
+        $identificacionDisponibleEnLecturas = is_array($lecturasGuardadasPreflight)
+            && !empty($lecturasGuardadasPreflight['identificacion_oficial']);
         $identificacionDisponibleEnBd = false;
         foreach ($resDocs['datos'] as $d) {
             $rutaRel = trim($d['ruta_archivo'] ?? '');
@@ -19899,7 +20001,11 @@ class CapHum extends Controller
             $tipo = trim($d['tipo_documento'] ?? '');
             $this->asignarRutaDocumentoExpediente($rutasParaValidar, $tipo, $pathAbs);
         }
-        if (!$rutasParaValidar['identificacion_pdf'] && !$identificacionDisponibleEnBd) {
+        if (
+            !$rutasParaValidar['identificacion_pdf']
+            && !$identificacionDisponibleEnBd
+            && !$identificacionDisponibleEnLecturas
+        ) {
             echo json_encode(self::respuesta(false, 'Falta el documento de identificación oficial (PDF con frente y reverso) para poder verificar.'));
             return;
         }
@@ -24249,6 +24355,9 @@ class CapHum extends Controller
             $validacion['motor_ia'] = 'alibaba';
             $validacion['fuente_lectura'] = $validacion['fuente_lectura'] ?? 'precheck_identificacion';
         }
+        if ($this->docVerifRevisionManualHistoricaSinObservaciones($validacion)) {
+            $validacion['revision_manual'] = false;
+        }
         return $validacion;
     }
 
@@ -25673,7 +25782,7 @@ class CapHum extends Controller
         return CandidatosDAO::existeJobVerificacionDocumentalMasNuevo($idCandidato, $idJobActual);
     }
 
-    private function guardarVerificacionExpedienteErrorMotorV2(int $idCandidato, string $error, array $alertasExtra = []): void
+    private function guardarVerificacionExpedienteErrorMotorV2(int $idCandidato, string $error, array $alertasExtra = [], ?int $idJob = null): void
     {
         $alertas = array_values(array_filter(array_merge(
             ['El análisis documental no pudo completar el cruce. Los documentos siguen cargados; reintente cuando el servicio esté disponible.'],
@@ -25681,7 +25790,7 @@ class CapHum extends Controller
         ), function ($v) {
             return trim((string) $v) !== '';
         }));
-        CandidatosDAO::updateVerificacionExpediente($idCandidato, json_encode([
+        $payloadError = [
             'verificacion_en_proceso' => false,
             'todo_coincide' => null,
             'foto_rechazada' => false,
@@ -25699,7 +25808,12 @@ class CapHum extends Controller
             'api_pendiente' => true,
             'error_api' => $error,
             'motor_ia' => 'alibaba',
-        ]));
+        ];
+        if ($idJob !== null && $idJob > 0) {
+            $payloadError['job_id'] = $idJob;
+            $payloadError['finalizado_en'] = self::ahoraMexicoCiudad()->format('Y-m-d H:i:s');
+        }
+        CandidatosDAO::updateVerificacionExpediente($idCandidato, json_encode($payloadError));
     }
 
     private function ejecutarVerificacionBackground($id_candidato, array $tiposSubidos = [], ?bool $expedienteCompleto = null, ?int $idJobActual = null)
@@ -25712,9 +25826,15 @@ class CapHum extends Controller
             $storageRoot = defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
             $rutasParaValidar = $this->rutasValidacionExpedienteInicial();
             $resDocs = CandidatosDAO::getDocumentosCandidato($id_candidato);
+            if (empty($resDocs['success']) || empty($resDocs['datos'])) {
+                $docsConLecturas = CandidatosDAO::getDocumentosYVerificacion((int) $id_candidato, false, false);
+                if (!empty($docsConLecturas['documentos'])) {
+                    $resDocs = ['success' => true, 'datos' => $docsConLecturas['documentos']];
+                }
+            }
             if (!$resDocs['success'] || empty($resDocs['datos'])) {
                 error_log('CapHum::verificacionBackground: sin documentos para candidato ' . $id_candidato);
-                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, 'Sin documentos disponibles para ejecutar el análisis documental.');
+                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, 'Sin documentos disponibles para ejecutar el análisis documental.', [], $idJobActual);
                 return false;
             }
             $tiposSubidosSet = array_fill_keys(array_map('intval', $tiposSubidos), true);
@@ -25913,9 +26033,15 @@ class CapHum extends Controller
                 error_log('CapHum::verificacionBackground: validacion rapida terminada; expediente aun incompleto candidato ' . $id_candidato);
                 return true;
             }
-            if (!$rutasParaValidar['identificacion_pdf']) {
+            $lecturasGuardadasJson = $this->construirLecturasIaExpedienteJson($resDocs['datos']);
+            $lecturasGuardadas = $lecturasGuardadasJson !== null
+                ? (json_decode($lecturasGuardadasJson, true) ?: [])
+                : [];
+            $identificacionDisponibleEnLecturas = is_array($lecturasGuardadas)
+                && !empty($lecturasGuardadas['identificacion_oficial']);
+            if (!$rutasParaValidar['identificacion_pdf'] && !$identificacionDisponibleEnLecturas) {
                 error_log('CapHum::verificacionBackground: falta identificación oficial (PDF) para candidato ' . $id_candidato);
-                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, 'Falta identificación oficial PDF para ejecutar el análisis documental.');
+                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, 'Falta identificación oficial PDF para ejecutar el análisis documental.', [], $idJobActual);
                 return false;
             }
             $soloIdentificacion = $this->docVerificacionIniSoloIdentificacion();
@@ -25937,6 +26063,11 @@ class CapHum extends Controller
             $resultadoApi = $this->validarExpedienteApi($rutasParaValidar, $nombreCandidatoRegistro, $docsCache['documentos'] ?? []);
             if (is_array($resultadoApi) && !isset($resultadoApi['error'])) {
                 $payload = $this->expedientePayloadDesdeApi($resultadoApi, $soloIdentificacion);
+                if ($idJobActual !== null && $idJobActual > 0) {
+                    $payload['job_id'] = $idJobActual;
+                    $payload['verificacion_en_proceso'] = false;
+                    $payload['finalizado_en'] = self::ahoraMexicoCiudad()->format('Y-m-d H:i:s');
+                }
                 if ($this->docVerificacionOmitirResultadoPorJobMasNuevo((int) $id_candidato, $idJobActual)) {
                     error_log('CapHum::verificacionBackground: resultado omitido por job mas nuevo para candidato ' . $id_candidato . ' job ' . (int) $idJobActual);
                     return true;
@@ -25954,11 +26085,11 @@ class CapHum extends Controller
                     error_log('CapHum::verificacionBackground: error omitido por job mas nuevo para candidato ' . $id_candidato . ' job ' . (int) $idJobActual . ': ' . $err);
                     return true;
                 }
-                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, (string) $err, $alertasErr);
+                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, (string) $err, $alertasErr, $idJobActual);
                 error_log('CapHum::verificacionBackground: error API para candidato ' . $id_candidato . ': ' . $err);
             }
         } catch (\Throwable $e) {
-            $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, $e->getMessage(), ['No se pudo ejecutar el análisis documental.']);
+            $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, $e->getMessage(), ['No se pudo ejecutar el análisis documental.'], $idJobActual);
             error_log('CapHum::verificacionBackground: excepción candidato ' . $id_candidato . ': ' . $e->getMessage());
             return false;
         } finally {

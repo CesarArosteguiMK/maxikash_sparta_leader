@@ -66,7 +66,7 @@ class LeonidasConveniosService
         if ($this->contiene($normalizado, ['reactivar', 'reactivacion', 'incumplido'])) {
             return $this->respuesta(
                 'reactivacion',
-                'Un convenio incumplido no revive como el mismo registro. Se solicita reactivar la oferta del producto y, si se autoriza, Sparta recalcula las condiciones actuales para crear un convenio nuevo ligado al convenio anterior. No debe existir otro convenio activo, debe haber historial del producto y la solicitud no puede estar ya pendiente o aprobada. La solicitud, autorizacion y nuevo convenio quedan auditados.'
+                'En el flujo comercial normal, un convenio incumplido no revive como el mismo registro: se solicita reactivar la oferta y, si se autoriza, Sparta recalcula las condiciones para crear un convenio nuevo ligado al anterior. Para un convenio con estatus cancelado existe además una reactivacion administrativa directa mediante Leonidas: requiere el permiso especial, vista previa y confirmacion; conserva cuotas pagadas y actualiza en una sola transaccion convenio_cliente y convenio_cliente_amortizacion. Ambos flujos impiden que exista otro convenio activo y quedan auditados.'
             );
         }
 
@@ -110,7 +110,7 @@ class LeonidasConveniosService
         return [
             'plazo' => 'Dinamico por producto y rango de adeudo; sin rango usa periodo_fin.',
             'elegibilidad' => 'Credito existente, sin convenio activo ni completado bloqueante, producto activo, bucket permitido y avance minimo cuando aplique.',
-            'reactivacion' => 'Reactiva la oferta para crear un convenio nuevo; no revive el convenio anterior.',
+            'reactivacion' => 'El flujo normal reactiva la oferta y crea un convenio nuevo; Leonidas también puede reactivar directamente un convenio cancelado, con permiso especial, confirmacion, transaccion y auditoria.',
             'cancelacion_automatica' => 'Desactivada; las cuotas vencidas permanecen en seguimiento y conciliacion.',
             'cancelacion_manual' => 'Requiere motivo, permiso y auditoria; puede pasar por solicitud o ejecutarse directamente.',
             'pendiente_conciliar' => 'Existe comprobante, pero el pago aun no esta confirmado ni conciliado.',

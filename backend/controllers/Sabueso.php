@@ -5211,7 +5211,7 @@ class Sabueso extends Controller
                     $partesIne['estado'],
                     $partesIne['codigo_postal'],
                 ]);
-                $this->agregarDomicilioReferencia($domicilios, 'ine_persona', 'INE / persona', $direccionIne);
+                $this->agregarDomicilioReferencia($domicilios, 'ine_persona', 'MaxiProd / persona', $direccionIne);
             }
 
             if ($this->direccionReferenciaTieneContexto($partesSolicitud)) {
@@ -5261,7 +5261,7 @@ class Sabueso extends Controller
         }
         return [
             'estado' => 'incompatible',
-            'mensaje' => 'No se muestra direccion del INE: el documento asociado no coincide con el titular del credito.',
+            'mensaje' => 'Archivo de INE no utilizado: la identificacion asociada no coincide con el titular del credito.',
         ];
     }
 
