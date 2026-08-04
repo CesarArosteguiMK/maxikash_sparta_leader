@@ -54,4 +54,12 @@ final class AtlasSucursalesAntiguedadTest extends TestCase
         $this->assertStringContainsString("if (actualFk && String(row.fk_sucursal || '') === actualFk) return false;", $this->view);
         $this->assertStringContainsString("if (fkActual && String(row.fk_sucursal || '') === fkActual) return false;", $this->view);
     }
+
+    public function testPendingBranchPrefillsTheAdvisorStoredByTheBudget(): void
+    {
+        $this->assertStringContainsString('pd.asesor_persona_id', $this->model);
+        $this->assertStringContainsString("Object.assign({}, data, { supervisor_id: '', supervisor_persona_id: '' })", $this->view);
+        $this->assertStringContainsString("opcionesAsignacionRol('asesor', '', '', 'asesores', v.asesor_persona_id)", $this->view);
+        $this->assertStringNotContainsString("asesor_id: '', asesor_persona_id: ''", $this->view);
+    }
 }
