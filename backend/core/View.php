@@ -34,6 +34,7 @@ if ($__assetsVer === '.' || $__assetsVer === '') $__assetsVer = (string) time();
 $__personaIdAsistente = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
 $__leonidasSessionToken = (string) ($_SESSION['leonidas_session_token'] ?? '');
 $__esPropietarioLeonidas = $__personaIdAsistente === 878;
+$__esPedroMonitoreo = $__personaIdAsistente === 877;
 $__mostrarLeonidas = false;
 if ($__personaIdAsistente > 0 && isset($_SESSION['login'])) {
     try {
@@ -878,6 +879,13 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                                         <button type="button" class="dropdown-item user-dropdown-leonidas" data-leonidas-appearance-open>
                                             <i class="fa-solid fa-palette fa-fw"></i><span>Vestuario de Leónidas</span>
                                         </button>
+                                    </li>
+                                    <?php endif; ?>
+                                    <?php if ($__esPedroMonitoreo): ?>
+                                    <li>
+                                        <a class="dropdown-item user-dropdown-planeador" href="/monitoreo?modo=planeador">
+                                            <i class="fa-solid fa-display fa-fw"></i><span>Modo planeador</span>
+                                        </a>
                                     </li>
                                     <?php endif; ?>
                                     <li><hr class="dropdown-divider"></li>
