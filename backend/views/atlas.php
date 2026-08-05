@@ -1663,10 +1663,11 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
     function nombrePersonaComercial(row) {
         return String(row && row.nombre || '').trim();
     }
-    function personasComercialPorRol(rol) {
+    function personasComercialPorRol(rol, personaSeleccionadaId) {
         const actual = String(rol || '').toLowerCase();
+        const personaSeleccionada = String(personaSeleccionadaId || '');
         return (catalogos.personas_comercial || [])
-            .filter(row => String(row.rol_atlas || '').toLowerCase() === actual)
+            .filter(row => String(row.rol_atlas || '').toLowerCase() === actual || (personaSeleccionada && String(row.persona_id || '') === personaSeleccionada))
             .map(row => {
                 const nombre = nombrePersonaComercial(row);
                 const meta = [row.numero_empleado, row.departamento, row.puesto].filter(Boolean).join(' · ');
@@ -1695,13 +1696,13 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
             nombre: nombre
         });
     }
-    function opcionesAsignacionRol(rol, parentKey, parentValue, catalogoKey) {
+    function opcionesAsignacionRol(rol, parentKey, parentValue, catalogoKey, personaSeleccionadaId) {
         const parent = String(parentValue || '');
         const desdeCatalogo = (catalogos[catalogoKey] || [])
             .filter(row => !parentKey || String(row[parentKey] || '') === parent)
             .filter(row => String(row.tipo_asignacion || 'persona').toLowerCase() === 'vacante' || String(row.persona_id || '').trim() !== '')
             .map(row => normalizarOpcionAsignacion(row, rol));
-        const personas = personasComercialPorRol(rol);
+        const personas = personasComercialPorRol(rol, personaSeleccionadaId);
         if (!parent) return desdeCatalogo.concat(personas);
         const idsPersonaConCatalogo = new Set(desdeCatalogo.map(row => String(row.persona_id || '')).filter(Boolean));
         return desdeCatalogo.concat(personas.filter(row => !idsPersonaConCatalogo.has(String(row.persona_id || ''))));
@@ -1727,8 +1728,8 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
         const v = resolverJerarquiaSucursal(values || valoresSucursalActuales());
         const supervisorId = valorSeleccionAsignacion('supervisores', v.supervisor_id, v.supervisor_persona_id);
         const asesorId = valorSeleccionAsignacion('asesores', v.asesor_id, v.asesor_persona_id);
-        const supervisores = opcionesAsignacionRol('supervisor', '', '', 'supervisores');
-        const asesores = opcionesAsignacionRol('asesor', '', '', 'asesores');
+        const supervisores = opcionesAsignacionRol('supervisor', '', '', 'supervisores', v.supervisor_persona_id);
+        const asesores = opcionesAsignacionRol('asesor', '', '', 'asesores', v.asesor_persona_id);
         llenarSelectCascada('atlas-sucursal-supervisor', supervisores, 'Selecciona supervisor', supervisorId, false);
         llenarSelectCascada('atlas-sucursal-asesor', asesores, 'Selecciona asesor', asesorId, false);
     }
@@ -2318,7 +2319,7 @@ $atlasIconoVista = $atlasTitulosVista[$atlasVistaCatalogos]['icono'] ?? 'fa-soli
         if (fkHelp) fkHelp.textContent = pendienteCatalogo ? 'PK conservada desde el presupuesto cargado.' : (data.id ? 'Identificador actual de la sucursal.' : 'Auto al guardar.');
         setFormValue(formSucursal, 'paso_alta', 'paso1');
         const datosAsignacion = pendienteCatalogo
-            ? Object.assign({}, data, { supervisor_id: '', supervisor_persona_id: '', asesor_id: '', asesor_persona_id: '' })
+            ? Object.assign({}, data, { supervisor_id: '', supervisor_persona_id: '' })
             : data;
         actualizarCascadaSucursal(datosAsignacion);
         aplicarPermisosSucursalModal();

@@ -6,6 +6,7 @@ use Core\Controller;
 use Core\Database;
 use Models\Atlas as AtlasDAO;
 use Models\AtlasVentas as AtlasVentasDAO;
+use Services\AtlasExpedientesCacheService;
 use Services\AtlasVentasReportService;
 
 class Atlas extends Controller
@@ -99,9 +100,6 @@ class Atlas extends Controller
         $this->validarAccesoVentas();
         $this->set('titulo', 'Ventas');
         $this->set('layoutVendorLite', true);
-        $this->set('layoutPreloadSweetAlert', true);
-        $this->set('layoutPreloadSweetAlertTitle', 'Cargando ventas');
-        $this->set('layoutPreloadSweetAlertText', 'Preparando la informaci&oacute;n...');
         $this->set('layoutSelect2', true);
         $this->render('atlas_ventas');
     }
@@ -110,26 +108,27 @@ class Atlas extends Controller
     {
         $this->validarAccesoVentas(true);
         $cargaCompleta = filter_var($_GET['carga_completa'] ?? false, FILTER_VALIDATE_BOOLEAN);
-        if ($cargaCompleta) {
-            $forzarActualizacion = filter_var($_GET['actualizar'] ?? false, FILTER_VALIDATE_BOOLEAN);
-            $response = AtlasVentasDAO::precargar($forzarActualizacion);
-            if (empty($response['success'])) {
-                http_response_code((int)($response['status'] ?? 500));
-            }
-            $this->jsonComprimido($response);
-        }
-
         $query = [];
         foreach ([
             'fecha_inicio', 'fecha_fin', 'fk_sucursal', 'fk_distribuidor',
-            'historico', 'etapa', 'search', 'page', 'page_size',
+            'historico', 'etapa', 'search', 'page', 'page_size', 'include_catalogs',
         ] as $key) {
             if (isset($_GET[$key]) && trim((string)$_GET[$key]) !== '') {
                 $query[$key] = $_GET[$key];
             }
         }
 
-        $response = AtlasVentasDAO::consultar($query);
+        $forzarActualizacion = filter_var($_GET['actualizar'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($cargaCompleta) {
+            $query['historico'] = true;
+            $response = AtlasVentasDAO::consultarPaginado($query, true, $forzarActualizacion);
+            if (empty($response['success'])) {
+                http_response_code((int)($response['status'] ?? 500));
+            }
+            $this->jsonComprimido($response);
+        }
+
+        $response = AtlasVentasDAO::consultarPaginado($query, false, $forzarActualizacion);
         if (empty($response['success'])) {
             http_response_code((int)($response['status'] ?? 500));
         }
@@ -138,7 +137,10 @@ class Atlas extends Controller
 
     public function exportarVentas()
     {
-        $this->validarAccesoVentas();
+        $this->validarAccesoVentas(true);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         $query = [];
         foreach (['fecha_inicio', 'fecha_fin', 'historico', 'fk_sucursal', 'fk_distribuidor', 'etapa', 'search'] as $key) {
             if (isset($_GET[$key]) && trim((string)$_GET[$key]) !== '') {
@@ -148,7 +150,7 @@ class Atlas extends Controller
 
         $tmp = null;
         try {
-            $response = AtlasVentasDAO::consultar($query, true);
+            $response = AtlasVentasDAO::consultarPaginado($query, true);
             if (empty($response['success'])) {
                 throw new \RuntimeException((string)($response['mensaje'] ?? 'No se pudo preparar el reporte.'));
             }
@@ -167,9 +169,6 @@ class Atlas extends Controller
             $inicio = preg_replace('/[^0-9-]/', '', (string)($periodo['fecha_inicio'] ?? date('Y-m-d')));
             $fin = preg_replace('/[^0-9-]/', '', (string)($periodo['fecha_fin'] ?? date('Y-m-d')));
             $filename = 'ventas_atlas_' . $inicio . '_a_' . $fin . '.xlsx';
-            if (function_exists('session_write_close')) {
-                session_write_close();
-            }
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header('Content-Disposition: attachment; filename="' . $filename . '"');
             header('Content-Transfer-Encoding: binary');
@@ -182,9 +181,10 @@ class Atlas extends Controller
             if (is_string($tmp) && is_file($tmp)) {
                 @unlink($tmp);
             }
+            error_log('[Atlas ventas export] ' . $e->getMessage());
             http_response_code(500);
             header('Content-Type: text/plain; charset=utf-8');
-            echo 'No se pudo generar el reporte de ventas: ' . $e->getMessage();
+            echo 'No se pudo generar el reporte de ventas. Intenta nuevamente o contacta a soporte.';
             exit;
         }
     }
@@ -210,17 +210,69 @@ class Atlas extends Controller
         if ((int)($_GET['all'] ?? 0) === 1) {
             $bulkQuery = array_merge(
                 array_intersect_key($query, array_flip(['fecha_inicio', 'fecha_fin'])),
-                ['completo' => 1, 'compacto' => 1, 'actualizar' => 1]
+                [
+                    'completo' => 1,
+                    'compacto' => 1,
+                    'actualizar' => filter_var($_GET['actualizar'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+                ]
             );
             $this->streamAtlasExpedientesSnapshot($bulkQuery);
         }
 
-        $this->json($this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
-            'GET',
-            '/api/atlas/admin/expedientes',
-            null,
-            $query
-        )));
+        $startedAt = microtime(true);
+        $forceRefresh = filter_var($_GET['actualizar'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        try {
+            $cache = new AtlasExpedientesCacheService();
+            $cacheWasReady = $cache->isReady();
+            $refreshWarning = null;
+            if (!$cacheWasReady || $forceRefresh) {
+                $snapshotResponse = $this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
+                    'GET',
+                    '/api/atlas/admin/expedientes',
+                    null,
+                    [
+                        'completo' => 1,
+                        'compacto' => 1,
+                        'actualizar' => $forceRefresh ? 1 : 0,
+                    ],
+                    120
+                ));
+                if (!empty($snapshotResponse['success']) && is_array($snapshotResponse['datos'] ?? null)) {
+                    $cache->replaceSnapshot($snapshotResponse['datos']);
+                } elseif (!$cacheWasReady) {
+                    $this->json($snapshotResponse);
+                } else {
+                    $refreshWarning = (string)($snapshotResponse['mensaje'] ?? 'No se pudo actualizar el indice local.');
+                }
+            }
+
+            $cachedResult = $cache->query($query);
+            if (empty($cachedResult['ready']) || !is_array($cachedResult['data'] ?? null)) {
+                $this->json([
+                    'success' => false,
+                    'status' => 503,
+                    'mensaje' => 'No se pudo preparar el indice de Expedientes.',
+                ]);
+            }
+            if ($refreshWarning !== null) {
+                $cachedResult['data']['cache']['advertencia'] = $refreshWarning;
+            }
+            header('X-Sparta-Expedientes-Cache: ' . ($cacheWasReady ? 'HIT' : 'MISS'));
+            header('Server-Timing: atlas-expedientes;dur=' . round((microtime(true) - $startedAt) * 1000, 1));
+            $this->json([
+                'success' => true,
+                'status' => 200,
+                'mensaje' => 'Expedientes consultados correctamente',
+                'datos' => $cachedResult['data'],
+            ]);
+        } catch (\Throwable $e) {
+            error_log('[Atlas expedientes cache] ' . $e->getMessage());
+            $this->json([
+                'success' => false,
+                'status' => 500,
+                'mensaje' => 'No se pudieron consultar los expedientes. Intenta nuevamente o contacta a soporte.',
+            ]);
+        }
     }
 
     public function getExpedienteDetalle()
@@ -312,11 +364,21 @@ class Atlas extends Controller
         $payload['usuario_id'] = $usuarioId > 0 ? $usuarioId : null;
         $payload['usuario_nombre'] = $usuarioNombre !== '' ? $usuarioNombre : 'Usuario Sparta';
 
-        $this->json($this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
+        $response = $this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
             'POST',
             '/api/atlas/admin/expedientes/' . $creditoId . '/movimientos',
             $payload
-        )));
+        ));
+        if (!empty($response['success'])) {
+            try {
+                (new AtlasExpedientesCacheService())->updateMovements([
+                    ['credito_id' => $creditoId, 'accion' => $payload['accion'] ?? null],
+                ], 'sparta_manual');
+            } catch (\Throwable $e) {
+                error_log('[Atlas expedientes cache movimiento] ' . $e->getMessage());
+            }
+        }
+        $this->json($response);
     }
 
     public function importarExpedientes()
@@ -368,13 +430,21 @@ class Atlas extends Controller
                 $filas
             );
 
-            $this->json($this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
+            $response = $this->atlasExpedientesApiResponse($this->atlasAdminApiRequest(
                 'POST',
                 '/api/atlas/admin/expedientes/importaciones',
                 $movimientos,
                 [],
                 120
-            )));
+            ));
+            if (!empty($response['success'])) {
+                try {
+                    (new AtlasExpedientesCacheService())->updateMovements($movimientos, 'sparta_layout');
+                } catch (\Throwable $e) {
+                    error_log('[Atlas expedientes cache layout] ' . $e->getMessage());
+                }
+            }
+            $this->json($response);
         } catch (\Throwable $e) {
             $this->json([
                 'success' => false,

@@ -158,6 +158,30 @@ class Monitoreo extends Controller
         }
     }
 
+    /** Descarga el registro administrativo de caídas y recuperaciones. */
+    public function incidentesLog()
+    {
+        if (!$this->esPersonaAutorizada()) {
+            http_response_code(403);
+            echo 'No autorizado';
+            return;
+        }
+        $this->liberarSesion();
+        try {
+            $monitor = new \Services\ServiciosAdministradosMonitorService();
+            $file = $monitor->obtenerLogIncidentes();
+            header('Content-Type: text/plain; charset=utf-8');
+            header('Content-Disposition: attachment; filename="' . $file['name'] . '"');
+            header('Content-Length: ' . (string) filesize($file['path']));
+            header('X-Content-Type-Options: nosniff');
+            readfile($file['path']);
+        } catch (\Throwable $e) {
+            error_log('[Monitoreo incidentes log] ' . $e->getMessage());
+            http_response_code(500);
+            echo 'No se pudo preparar el log de incidentes';
+        }
+    }
+
     /** Ejecuta una peticion contra un endpoint perteneciente al OpenAPI autorizado. */
     public function probar()
     {

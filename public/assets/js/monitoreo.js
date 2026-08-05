@@ -29,6 +29,8 @@
     drawerSubtitle: document.getElementById('monitorDrawerSubtitle'),
     drawerKicker: document.getElementById('monitorDrawerKicker'),
     overview: document.getElementById('monitorOverviewPanel'),
+    diagnostics: document.getElementById('monitorDiagnosticsPanel'),
+    diagnosticsBadge: document.getElementById('monitorDiagnosticsBadge'),
     endpointList: document.getElementById('monitorEndpointList'),
     endpointCount: document.getElementById('monitorEndpointCount'),
     endpointSelected: document.getElementById('monitorEndpointSelected'),
@@ -477,6 +479,47 @@
       '<div class="monitor-panel-title"><h3>Últimos commits</h3><span>' + commits.length + ' registros</span></div>' +
       (commits.length ? commits.map(function (commit) { return '<article class="monitor-commit"><span class="monitor-commit-hash">' + esc(commit.hash || '') + '</span><span><span class="monitor-commit-subject">' + esc(commit.subject || 'Sin descripción') + '</span><span class="monitor-commit-meta">' + esc(formatDate(commit.date)) + ' · ' + esc(commit.author || 'Autor no disponible') + '</span></span></article>'; }).join('') : '<div class="monitor-empty">El historial Git no está disponible.</div>');
   }
+
+  function renderDiagnostics(service) {
+    var diagnostic = service.diagnostic || {};
+    var incidents = Array.isArray(service.incidents) ? service.incidents : [];
+    var active = service.active_incident || incidents.find(function (incident) { return incident.status === 'active'; }) || null;
+    var level = diagnostic.level || (service.status === 'offline' ? 'critical' : service.status === 'degraded' ? 'warning' : 'ok');
+    var evidence = Array.isArray(diagnostic.evidence) ? diagnostic.evidence : [];
+    var actions = Array.isArray(diagnostic.actions) ? diagnostic.actions : [];
+    var channels = (state.data && state.data.notification_channels) || {};
+    var chat = channels.google_chat || {};
+    var email = channels.email_fallback || {};
+    var diagnosisLabel = diagnostic.confirmed ? 'Hallazgo confirmado' : 'Causa probable';
+    var incidentHeadline = active
+      ? '<div class="monitor-active-incident"><span><i class="fa-solid fa-triangle-exclamation"></i>Incidente activo</span><strong>' + esc(active.id || '') + '</strong><small>Detectado ' + esc(formatDate(active.opened_at, true)) + '</small></div>'
+      : '<div class="monitor-no-incident"><i class="fa-solid fa-circle-check"></i><span><strong>Sin caída activa</strong><small>El diagnóstico corresponde a la lectura más reciente.</small></span></div>';
+    var evidenceHtml = evidence.length
+      ? evidence.map(function (item) { return '<li><i class="fa-solid fa-magnifying-glass"></i><span>' + esc(item) + '</span></li>'; }).join('')
+      : '<li><i class="fa-solid fa-hourglass-half"></i><span>Esperando evidencia de la siguiente comprobación.</span></li>';
+    var actionsHtml = actions.length
+      ? actions.map(function (item, index) { return '<li><b>' + (index + 1) + '</b><span>' + esc(item) + '</span></li>'; }).join('')
+      : '<li><b>1</b><span>Volver a comprobar el servicio.</span></li>';
+    var historyHtml = incidents.length ? incidents.slice(0, 12).map(function (incident) {
+      var itemDiagnostic = incident.diagnostic || {};
+      var resolved = incident.status === 'resolved';
+      var duration = resolved ? formatDuration(incident.duration_seconds) : 'En curso';
+      var delivery = incident.notifications || {};
+      var chatStatus = (delivery.google_chat || {}).status;
+      var notifyText = chatStatus === 'sent' ? 'Google Chat enviado' : chatStatus === 'failed' ? 'Google Chat falló' : 'Sin envío externo';
+      return '<article class="monitor-incident-row ' + (resolved ? 'resolved' : 'active') + '"><span class="monitor-incident-icon"><i class="fa-solid ' + (resolved ? 'fa-circle-check' : 'fa-triangle-exclamation') + '"></i></span><div><div class="monitor-incident-row-head"><strong>' + esc(incident.id || 'Incidente') + '</strong><span>' + (resolved ? 'Resuelto' : 'Activo') + '</span></div><p>' + esc(itemDiagnostic.title || 'Causa no determinada') + '</p><small>' + esc(formatDate(incident.opened_at, true)) + ' · ' + esc(duration) + ' · ' + esc(notifyText) + '</small></div></article>';
+    }).join('') : '<div class="monitor-empty monitor-diagnostic-empty">No hay caídas registradas para este servicio.</div>';
+
+    refs.diagnosticsBadge.hidden = !active;
+    refs.diagnosticsBadge.textContent = active ? '1' : '0';
+    refs.diagnostics.innerHTML = incidentHeadline +
+      '<section class="monitor-diagnostic-hero ' + esc(level) + '"><div class="monitor-diagnostic-icon"><i class="fa-solid ' + (level === 'critical' ? 'fa-circle-xmark' : level === 'warning' ? 'fa-triangle-exclamation' : 'fa-shield-heart') + '"></i></div><div><span>' + esc(diagnosisLabel) + ' · ' + esc(diagnostic.confidence_label || 'Confianza por determinar') + '</span><h3>' + esc(diagnostic.title || 'Diagnóstico no disponible') + '</h3><p>' + esc(diagnostic.summary || 'Vuelve a comprobar para generar el diagnóstico.') + '</p></div></section>' +
+      '<div class="monitor-diagnostic-columns"><section class="monitor-diagnostic-block"><div class="monitor-panel-title"><h3>Evidencia encontrada</h3><span>Lectura actual</span></div><ul class="monitor-evidence-list">' + evidenceHtml + '</ul></section><section class="monitor-diagnostic-block"><div class="monitor-panel-title"><h3>Qué hacer ahora</h3><span>En orden</span></div><ol class="monitor-action-list">' + actionsHtml + '</ol></section></div>' +
+      '<section class="monitor-notification-block"><div class="monitor-panel-title"><h3>Avisos externos</h3><span>Sólo caída y reactivación</span></div><div class="monitor-channel-grid"><article class="' + (chat.enabled ? 'ready' : 'pending') + '"><i class="fa-brands fa-google"></i><div><strong>Google Chat</strong><span>' + esc(chat.label || 'Pendiente de webhook') + '</span></div></article><article class="' + (email.enabled ? 'ready' : 'pending') + '"><i class="fa-solid fa-envelope"></i><div><strong>Correo de respaldo</strong><span>' + esc(email.label || 'Pendiente de configuración') + '</span></div></article></div><p><i class="fa-solid fa-circle-info"></i> El correo se intentará únicamente cuando un webhook ya configurado falle.</p></section>' +
+      '<div class="monitor-diagnostic-actions"><button type="button" class="monitor-primary-btn" data-diagnostic-refresh="' + esc(service.id) + '"><i class="fa-solid fa-stethoscope"></i>Volver a diagnosticar</button>' + (service.id === 'condonaciones' ? '<button type="button" class="monitor-secondary-btn" data-diagnostic-logs><i class="fa-solid fa-terminal"></i>Abrir log local</button>' : '') + '<a class="monitor-secondary-btn" href="' + esc((state.data && state.data.incident_log_url) || '/monitoreo/incidentesLog') + '"><i class="fa-solid fa-file-arrow-down"></i>Descargar .log de incidentes</a></div>' +
+      '<section class="monitor-incident-history"><div class="monitor-panel-title"><h3>Historial de caídas</h3><span>' + incidents.length + ' registros</span></div>' + historyHtml + '</section>';
+  }
+
   function renderDrawer() {
     var service = state.services[state.currentServiceId];
     if (!service) return;
@@ -485,6 +528,7 @@
     refs.drawerKicker.textContent = statusText(service.status) + ' · ' + currentLocation(service);
     refs.logsTab.hidden = service.id !== 'condonaciones';
     renderOverview(service);
+    renderDiagnostics(service);
     renderEndpoints(service);
     renderChanges(service);
   }
@@ -496,7 +540,7 @@
     refs.drawer.classList.add('open');
     refs.drawer.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
-    switchTab(tab || 'overview');
+    switchTab(tab || (state.services[id].status === 'offline' ? 'diagnostics' : 'overview'));
   }
   function closeDrawer() {
     stopTerminalStreaming();
@@ -937,6 +981,37 @@
     if (button) { runLocalhost(button); return; }
     button = event.target.closest('[data-process-action]');
     if (button) processAction(button.getAttribute('data-process-action'), button);
+  });
+  refs.diagnostics.addEventListener('click', function (event) {
+    var logsButton = event.target.closest('[data-diagnostic-logs]');
+    if (logsButton) {
+      switchTab('logs');
+      return;
+    }
+    var button = event.target.closest('[data-diagnostic-refresh]');
+    if (!button) return;
+    var id = button.getAttribute('data-diagnostic-refresh');
+    setBusy(button, true);
+    refs.updated.textContent = 'Generando diagnóstico de ' + serviceName(id) + '…';
+    apiFetch('/monitoreo/estado?servicio=' + encodeURIComponent(id))
+      .then(function (data) {
+        var service = data.services && data.services[0];
+        if (!service) throw new Error('El servicio no devolvió un diagnóstico.');
+        state.services[id] = service;
+        if (state.data) {
+          state.data.incidents = data.incidents || state.data.incidents;
+          state.data.events = data.events || state.data.events;
+          state.data.alerts = data.alerts || state.data.alerts;
+          state.data.notification_channels = data.notification_channels || state.data.notification_channels;
+          state.data.incident_log_url = data.incident_log_url || state.data.incident_log_url;
+        }
+        renderGrid();
+        renderDrawer();
+        renderTimeline(data.events || []);
+        toast('Diagnóstico actualizado', (service.diagnostic || {}).title || statusText(service.status), service.status === 'offline' ? 'error' : service.status === 'degraded' ? 'warning' : 'info');
+      })
+      .catch(function (error) { toast('No se pudo diagnosticar', error.message, 'error'); })
+      .finally(function () { setBusy(button, false); resetCountdown(); });
   });
   refs.endpointList.addEventListener('click', function (event) { var button = event.target.closest('[data-endpoint-index]'); if (!button) return; selectEndpoint(Number(button.getAttribute('data-endpoint-index'))); });
   refs.parameterFields.addEventListener('input', syncParameterFields); refs.parameterFields.addEventListener('change', syncParameterFields);
