@@ -1887,11 +1887,20 @@ def _v2_document_contribution(
 
     if key == "hoja_retencion":
         if tipo == "carta_no_adeudo":
-            ok = _v2_doc_has_any_value(out, ["nombre"]) and out.get("firma_detectada") is not False
+            tiene_nombre = _v2_doc_has_any_value(out, ["nombre"])
+            firma_detectada = _v2_bool(out.get("firma_detectada"))
+            ok = tiene_nombre and firma_detectada is True
+            faltantes: List[str] = []
+            if not tiene_nombre:
+                faltantes.append("falta nombre completo")
+            if firma_detectada is False:
+                faltantes.append("falta firma o trazo manuscrito")
+            elif firma_detectada is None:
+                faltantes.append("no se pudo confirmar la firma")
             return ok, "aviso", (
                 "Carta de no adeudo aporta nombre y firma/trazo."
                 if ok
-                else "Carta de no adeudo requiere revision: no aporto nombre y firma/trazo suficientes."
+                else "Carta de no adeudo requiere revision: " + "; ".join(faltantes) + "."
             )
         ok = tipo in {"infonavit_fonacot", "carta_no_adeudo"} or _v2_doc_has_any_value(out, ["nombre", "fecha_emision"])
         return ok, "aviso", (
@@ -2415,18 +2424,14 @@ def _resultado_v2_reglas_expediente(
             )
 
         if key == "hoja_retencion" and detected_type == "carta_no_adeudo":
-            firma_detectada = out.get("firma_detectada")
-            nombre_y_firma_lleno = out.get("nombre_y_firma_lleno")
-            evidencia_insuficiente = out.get("evidencia_insuficiente")
+            firma_detectada = _v2_bool(out.get("firma_detectada"))
             problemas_carta: List[str] = []
             if not out.get("nombre"):
-                problemas_carta.append("no se leyo nombre del declarante")
-            if evidencia_insuficiente is True:
-                problemas_carta.append("no hay evidencia suficiente de nombre y firma")
-            if nombre_y_firma_lleno is False:
-                problemas_carta.append("la linea de nombre completo y firma esta vacia o incompleta")
+                problemas_carta.append("falta el nombre completo del declarante")
             if firma_detectada is False:
-                problemas_carta.append("no se detecto firma")
+                problemas_carta.append("falta la firma o trazo manuscrito")
+            elif firma_detectada is None:
+                problemas_carta.append("no se pudo confirmar la firma")
             if problemas_carta:
                 msg_carta = "La carta de no adeudo no esta completa: " + "; ".join(problemas_carta) + "."
                 out["estado"] = "no_coincide"

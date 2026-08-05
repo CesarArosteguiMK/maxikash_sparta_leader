@@ -13,6 +13,7 @@ use Models\LegacyUserSync;
 use Models\Login as LoginDao;
 use Models\Notificacion;
 use Models\Vacaciones as VacacionesDAO;
+use Services\FadRrhhService;
 use Services\RrhhDocumentImportService;
 
 class CapHum extends Controller
@@ -13005,11 +13006,14 @@ class CapHum extends Controller
                     var btnClase = ingresoProgramado ? "btn-confirmar-firma-candidato" : "btn-continuar-proceso-candidato";
                     var btnIcon = ingresoProgramado ? "fa-file-signature" : "fa-check-circle";
                     var btnTexto = ingresoProgramado ? "Confirmar firma" : "Continuar proceso";
+                    var btnFad = ingresoProgramado
+                        ? "<button type=\"button\" class=\"btn btn-outline-primary btn-preparar-fad-candidato\" data-id=\"" + idCandidato + "\"><i class=\"fa fa-file-contract me-1\"></i>Preparar FAD</button><button type=\"button\" class=\"btn btn-outline-success btn-enviar-contrato-fad-candidato\" data-id=\"" + idCandidato + "\"><i class=\"fa fa-paper-plane me-1\"></i>Enviar contrato a FAD</button>"
+                        : "";
                     var ayuda = ingresoProgramado
                         ? "El ingreso ya fue notificado. Confirma la firma del contrato para pasarlo a Gestión."
                         : "Los 10 documentos han sido validados. Elige una acción:";
                     bloqueAccionesProceso.classList.remove("d-none");
-                    bloqueAccionesProceso.innerHTML = "<div class=\"w-100 text-start text-lg-end\"><p class=\"text-muted small mb-2 mb-lg-3\">" + ayuda + "</p><div class=\"d-flex flex-wrap gap-2 justify-content-end\"><button type=\"button\" class=\"btn btn-outline-danger btn-cerrar-proceso-candidato\" data-id=\"" + idCandidato + "\"><i class=\"fa fa-times-circle me-1\"></i>Cerrar proceso</button><button type=\"button\" class=\"btn btn-primary " + btnClase + "\" data-id=\"" + idCandidato + "\"><i class=\"fa " + btnIcon + " me-1\"></i>" + btnTexto + "</button></div></div>";
+                    bloqueAccionesProceso.innerHTML = "<div class=\"w-100 text-start text-lg-end\"><p class=\"text-muted small mb-2 mb-lg-3\">" + ayuda + "</p><div class=\"d-flex flex-wrap gap-2 justify-content-end\"><button type=\"button\" class=\"btn btn-outline-danger btn-cerrar-proceso-candidato\" data-id=\"" + idCandidato + "\"><i class=\"fa fa-times-circle me-1\"></i>Cerrar proceso</button>" + btnFad + "<button type=\"button\" class=\"btn btn-primary " + btnClase + "\" data-id=\"" + idCandidato + "\"><i class=\"fa " + btnIcon + " me-1\"></i>" + btnTexto + "</button></div></div>";
                 } else {
                     bloqueAccionesProceso.classList.add("d-none");
                     bloqueAccionesProceso.innerHTML = "";
@@ -13125,7 +13129,7 @@ class CapHum extends Controller
                     if ((docsCount || comps.length) && !expedienteVerifApiInconsistente(v) && hayComparacionesEvaluables(v)) {
                         htmlV2 += "<div class=\"d-grid mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-abrir-analisis-cruzado-v2\"><i class=\"fa fa-external-link-alt me-1\"></i>Ver análisis cruzado</button></div>";
                     }
-                    var observacionesV2 = resumirAlertasDocumentales(alertas.concat(Array.isArray(v.recomendaciones) ? v.recomendaciones : []));
+                    var observacionesV2 = resumirAlertasDocumentales(alertas.concat(Array.isArray(v.recomendaciones) ? v.recomendaciones : []), docs);
                     if (observacionesV2.length) {
                         htmlV2 += "<div class=\"mt-2 pt-2 border-top\"><span class=\"text-muted d-block mb-1\"><strong>Observaciones</strong></span><ul class=\"mb-0 ps-3\">";
                         observacionesV2.forEach(function(a) {
@@ -13223,17 +13227,27 @@ class CapHum extends Controller
                     .trim();
             }
 
-            function resumirAlertasDocumentales(entradas) {
+            function resumirAlertasDocumentales(entradas, documentos) {
                 var normalizadas = (Array.isArray(entradas) ? entradas : []).map(function(entrada) {
                     return normalizarTextoDocModalGlobal(entrada);
                 }).filter(Boolean);
+                var docsEstructurados = documentos && typeof documentos === "object" ? documentos : {};
+                var docCarta = docsEstructurados.hoja_retencion || docsEstructurados.infonavit_fonacot || docsEstructurados.carta_no_adeudo || null;
+                function boolEstructuradoCarta(valor) {
+                    if (valor === true || valor === 1 || String(valor).toLowerCase() === "true" || String(valor) === "1") return true;
+                    if (valor === false || valor === 0 || String(valor).toLowerCase() === "false" || String(valor) === "0") return false;
+                    return null;
+                }
+                var firmaCartaEstructurada = docCarta && typeof docCarta === "object"
+                    ? boolEstructuradoCarta(docCarta.firma_detectada)
+                    : null;
                 var hayCurpEquivocado = normalizadas.some(function(texto) {
                     var clave = claveDocModalGlobal(texto);
                     return (clave.indexOf("SUBIDO COMO CURP") !== -1 || clave.indexOf("ESPERABA CURP") !== -1)
                         && (clave.indexOf("CARTA DE NO ADEUDO") !== -1 || clave.indexOf("NO CORRESPONDE") !== -1);
                 });
                 var cartaSinNombre = false;
-                var cartaSinFirma = false;
+                var cartaSinFirma = firmaCartaEstructurada === false;
                 var salida = [];
                 var vistos = {};
 
@@ -13243,8 +13257,11 @@ class CapHum extends Controller
                         || clave.indexOf("FONACOT") !== -1
                         || clave.indexOf("INFONAVIT") !== -1;
                     if (esCartaNoAdeudo) {
-                        if (clave.indexOf("NOMBRE") !== -1 && (clave.indexOf("FALTA") !== -1 || clave.indexOf("NO TIENE") !== -1 || clave.indexOf("NO SE LEE") !== -1 || clave.indexOf("VACIA") !== -1 || clave.indexOf("INCOMPLETA") !== -1)) cartaSinNombre = true;
-                        if (clave.indexOf("FIRMA") !== -1 && (clave.indexOf("FALTA") !== -1 || clave.indexOf("NO TIENE") !== -1 || clave.indexOf("NO SE DETECTO") !== -1 || clave.indexOf("VACIA") !== -1 || clave.indexOf("INCOMPLETA") !== -1)) cartaSinFirma = true;
+                        var faltaGenerica = clave.indexOf("FALTA") !== -1 || clave.indexOf("NO TIENE") !== -1 || clave.indexOf("NO SE LEE") !== -1 || clave.indexOf("NO SE LEYO") !== -1 || clave.indexOf("VACIA") !== -1 || clave.indexOf("INCOMPLETA") !== -1 || clave.indexOf("EVIDENCIA INSUFICIENTE") !== -1;
+                        var faltaFirmaExplicita = clave.indexOf("FALTA FIRMA") !== -1 || clave.indexOf("FALTA LA FIRMA") !== -1 || clave.indexOf("NO ESTA FIRMADA") !== -1 || clave.indexOf("NO SE DETECTO FIRMA") !== -1 || clave.indexOf("NO SE PUDO CONFIRMAR LA FIRMA") !== -1;
+                        var mensajeCombinado = clave.indexOf("NOMBRE Y FIRMA") !== -1 || clave.indexOf("NOMBRE COMPLETO Y FIRMA") !== -1;
+                        if (clave.indexOf("NOMBRE") !== -1 && faltaGenerica) cartaSinNombre = true;
+                        if (firmaCartaEstructurada !== true && (faltaFirmaExplicita || (firmaCartaEstructurada === null && mensajeCombinado && faltaGenerica))) cartaSinFirma = true;
                         if (cartaSinNombre || cartaSinFirma || clave.indexOf("REQUIERE REVISION") !== -1) return;
                     }
                     if (hayCurpEquivocado && (clave.indexOf("CURP APORTA") !== -1 || clave.indexOf("SUBIDO COMO CURP") !== -1 || clave.indexOf("ESPERABA CURP") !== -1)) return;
@@ -13260,8 +13277,8 @@ class CapHum extends Controller
                 }
                 if (cartaSinNombre || cartaSinFirma) {
                     var faltantesCarta = [];
-                    if (cartaSinNombre) faltantesCarta.push("nombre");
-                    if (cartaSinFirma) faltantesCarta.push("firma");
+                    if (cartaSinNombre) faltantesCarta.push("el nombre completo");
+                    if (cartaSinFirma) faltantesCarta.push("la firma");
                     salida.push("Hoja de retencion FONACOT/INFONAVIT: la carta de no adeudo esta incompleta; falta " + faltantesCarta.join(" y ") + ".");
                 }
                 return salida.slice(0, 5);
@@ -14254,7 +14271,7 @@ class CapHum extends Controller
                 });
                 datos.forEach(function(d) {
                     var item = document.createElement("div");
-            item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
+            item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center doc-candidato-item";
             item.setAttribute("data-doc-candidato-id", String(d.id || ""));
             var fecha = d.fecha_carga ? new Date(d.fecha_carga).toLocaleDateString("es-MX") : "";
             var tipoDocTexto = normalizarTextoDocModal(d.tipo_documento || "Documento");
@@ -14488,7 +14505,11 @@ class CapHum extends Controller
             var btnValidarIcon = esValidado ? "fa-check-circle" : "fa-check";
             var btnValidarTitle = esValidado ? "Documento validado" : (puedeValidarDocActual ? "Marcar como validado" : "Requiere permiso de validador documental");
             var btnValidarDisabled = (esValidado || !puedeValidarDocActual) ? " disabled" : "";
-            if (esValidado) { item.style.borderLeft = "3px solid #198754"; item.style.background = "#f0fdf4"; }
+            if (esValidado) {
+                item.classList.add("doc-candidato-validado");
+                item.style.borderLeft = "3px solid #198754";
+                item.style.background = "#f0fdf4";
+            }
             var btnActaHtml = "";
             var btnEliminarHtml = (esValidado && !puedeRechazarFinalDoc)
                 ? "<span class=\"btn btn-sm btn-outline-secondary disabled\" title=\"No se puede eliminar un documento validado\"><i class=\"fa fa-trash\"></i></span>"
@@ -14506,8 +14527,11 @@ class CapHum extends Controller
                 tooltipCurpHtml = "";
                 tooltipActaHtml = "";
             }
-            item.innerHTML = "<div class=\"d-flex align-items-center flex-wrap\"><div><strong>" + escHtml(tipoDocTexto) + "</strong>" + tooltipV2Html + tooltipFiscalHtml + tooltipIdHtml + tooltipCalidadHtml + tooltipEstadoCuentaHtml + tooltipNssHtml + tooltipCurpHtml + tooltipActaHtml + badgeAnalisisIaHtml + revisionManualHtml + (esValidado ? " <span class=\"badge bg-success ms-1\">Validado</span>" : "") + "<br><small class=\"text-muted\">" + escHtml(nombreArchivoTexto) + (fecha ? " &middot; " + fecha : "") + "</small></div>" + badge + "</div>" +
-                "<div class=\"d-flex gap-1 align-items-center\">" +
+            item.innerHTML = "<div class=\"doc-candidato-info\"><div class=\"doc-candidato-main\">" +
+                "<div class=\"doc-candidato-title-row\"><strong class=\"doc-candidato-title\">" + escHtml(tipoDocTexto) + "</strong>" + tooltipV2Html + tooltipFiscalHtml + tooltipIdHtml + tooltipCalidadHtml + tooltipEstadoCuentaHtml + tooltipNssHtml + tooltipCurpHtml + tooltipActaHtml + "</div>" +
+                "<div class=\"doc-candidato-status\">" + badgeAnalisisIaHtml + revisionManualHtml + (esValidado ? "<span class=\"badge bg-success\">Validado</span>" : "") + badge + "</div>" +
+                "<small class=\"text-muted doc-candidato-meta\">" + escHtml(nombreArchivoTexto) + (fecha ? " &middot; " + fecha : "") + "</small></div></div>" +
+                "<div class=\"doc-candidato-actions\">" +
                 btnActaHtml +
                 "<button type=\"button\" class=\"btn btn-sm " + btnValidarClase + " btn-validar-doc-candidato\"" + btnValidarDisabled + " data-id=\"" + d.id + "\" data-validado=\"" + (esValidado ? 1 : 0) + "\" title=\"" + btnValidarTitle + "\"><i class=\"fa " + btnValidarIcon + "\"></i></button>" +
                 btnAbrirHtml +
@@ -14524,11 +14548,11 @@ class CapHum extends Controller
         documentosRequeridosManual.forEach(function(req) {
             if (tiposPresentesManual[req[0]]) return;
             var itemPend = document.createElement("div");
-            itemPend.className = "list-group-item d-flex justify-content-between align-items-center bg-light";
+            itemPend.className = "list-group-item d-flex justify-content-between align-items-center bg-light doc-candidato-pendiente";
             var accionManual = puedeSubirManualDoc
                 ? "<button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-subir-doc-manual-candidato\" data-tipo=\"" + req[0] + "\" data-tipo-nombre=\"" + escHtml(req[1]) + "\" title=\"Subir PDF manualmente\"><i class=\"fa fa-upload me-1\"></i>Subir manualmente</button>"
                 : "<span class=\"badge bg-secondary\">Pendiente</span>";
-            itemPend.innerHTML = "<div><strong>" + escHtml(req[1]) + "</strong> <span class=\"badge bg-warning text-dark ms-1\">Pendiente</span><br><small class=\"text-muted\">Documento no subido por el candidato.</small></div><div>" + accionManual + "</div>";
+            itemPend.innerHTML = "<div class=\"doc-candidato-info\"><div class=\"doc-candidato-main\"><div class=\"doc-candidato-title-row\"><strong class=\"doc-candidato-title\">" + escHtml(req[1]) + "</strong></div><div class=\"doc-candidato-status\"><span class=\"badge bg-warning text-dark\">Pendiente</span></div><small class=\"text-muted doc-candidato-meta\">Documento no subido por el candidato.</small></div></div><div class=\"doc-candidato-actions\">" + accionManual + "</div>";
             lista.appendChild(itemPend);
         });
         lista.querySelectorAll(".btn-subir-doc-manual-candidato").forEach(function(btn) {
@@ -14860,9 +14884,9 @@ class CapHum extends Controller
                         ? "<button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-subir-carta-extra-gestor\" title=\"Subir PDF manualmente\"><i class=\"fa fa-upload me-1\"></i>Subir manualmente</button>"
                         : "<span class=\"badge bg-secondary\">Pendiente</span>";
                     bloque.innerHTML = "<div class=\"border-top pt-3 mt-3\">" +
-                        "<div class=\"d-flex flex-wrap align-items-center justify-content-between gap-2\">" +
-                        "<div><strong><i class=\"fa fa-file-signature me-1 text-primary\"></i>Documento adicional</strong><span class=\"badge bg-info text-dark ms-2\">Carta compromiso del Gestor</span><br><small class=\"text-muted\">Documento no subido por el candidato.</small></div>" +
-                        "<div>" + btnSubir + "</div></div></div>";
+                        "<div class=\"d-flex flex-wrap align-items-center justify-content-between gap-2 doc-extra-gestor-head\">" +
+                        "<div class=\"doc-extra-gestor-info\"><strong><i class=\"fa fa-file-signature me-1 text-primary\"></i>Documento adicional</strong><span class=\"badge bg-info text-dark ms-2\">Carta compromiso del Gestor</span><br><small class=\"text-muted\">Documento no subido por el candidato.</small></div>" +
+                        "<div class=\"doc-candidato-actions\">" + btnSubir + "</div></div></div>";
                     bloque.classList.remove("d-none");
                     var btnSubirCarta = bloque.querySelector(".btn-subir-carta-extra-gestor");
                     if (btnSubirCarta) {
@@ -14883,9 +14907,9 @@ class CapHum extends Controller
                     ? "<span class=\"btn btn-sm btn-outline-secondary disabled\" title=\"Retire la aprobacion antes de eliminar\"><i class=\"fa fa-trash\"></i></span>"
                     : "<button type=\"button\" class=\"btn btn-sm btn-outline-danger btn-eliminar-doc-extra-gestor\" data-id=\"" + encodeURIComponent(String(documento.id)) + "\"" + (!puedeGestionar ? " disabled" : "") + " title=\"Eliminar carta\"><i class=\"fa fa-trash\"></i></button>";
                 var html = "<div class=\"border-top pt-3\">" +
-                    "<div class=\"d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2\">" +
-                    "<div><strong><i class=\"fa fa-file-signature me-1 text-primary\"></i>Documento adicional</strong><span class=\"badge bg-info text-dark ms-2\">Carta compromiso del Gestor</span></div>" +
-                    "<div class=\"d-flex flex-wrap gap-1 align-items-center\">" + btnAbrir + btnValidar + btnEliminar + "</div></div>" +
+                    "<div class=\"d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2 doc-extra-gestor-head\">" +
+                    "<div class=\"doc-extra-gestor-info\"><strong><i class=\"fa fa-file-signature me-1 text-primary\"></i>Documento adicional</strong><span class=\"badge bg-info text-dark ms-2\">Carta compromiso del Gestor</span></div>" +
+                    "<div class=\"doc-candidato-actions\">" + btnAbrir + btnValidar + btnEliminar + "</div></div>" +
                     "<div class=\"border rounded bg-light p-3 small\"><strong>" + nombre + "</strong>" + (fecha ? "<div class=\"text-muted mt-1\">Cargada: " + esc(fecha) + "</div>" : "") + "</div>";
                 if (alertas.length) {
                     html += "<div class=\"alert alert-warning small mt-2 mb-0\"><strong><i class=\"fa fa-exclamation-triangle me-1\"></i>Observaciones de la carta</strong><ul class=\"mb-0 mt-1 ps-3\">" +
@@ -16188,6 +16212,22 @@ class CapHum extends Controller
                 e.stopPropagation();
                 var idFirma = btn.getAttribute("data-id");
                 if (idFirma) confirmarFirmaContratoCandidato(parseInt(idFirma, 10));
+                return;
+            }
+            btn = e.target.closest(".btn-preparar-fad-candidato");
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                var idFad = btn.getAttribute("data-id");
+                if (idFad) prepararContratacionFad(parseInt(idFad, 10), btn);
+                return;
+            }
+            btn = e.target.closest(".btn-enviar-contrato-fad-candidato");
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                var idEnvioFad = btn.getAttribute("data-id");
+                if (idEnvioFad) seleccionarYEnviarContratoFad(parseInt(idEnvioFad, 10), btn);
             }
         });
         document.addEventListener("input", function(e) {
@@ -16381,8 +16421,51 @@ class CapHum extends Controller
                 });
         }
 
-        function confirmarFirmaContratoCandidato(idCandidato) {
+        function prepararContratacionFad(idCandidato, btn) {
             if (!idCandidato || idCandidato <= 0) return;
+            var htmlAnterior = btn ? btn.innerHTML : "";
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Preparando';
+            }
+            fetch("/caphum/prepararContratacionFad", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                body: JSON.stringify({ id_candidato: idCandidato })
+            })
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    if (btn) { btn.disabled = false; btn.innerHTML = htmlAnterior; }
+                    if (!res.success) throw new Error(res.mensaje || "No se pudo preparar FAD.");
+                    var datos = res.datos || {};
+                    var solicitud = datos.solicitud || {};
+                    var config = datos.configuracion || {};
+                    var referencia = solicitud.referencia ? " Referencia: " + solicitud.referencia + "." : "";
+                    var pendienteApi = !config.api_ready
+                        ? " La preparación local quedó lista; falta validar la conexión de Capital Humano con FAD."
+                        : (!config.flow_ready
+                            ? " La conexión funciona, pero faltan las posiciones de firma y certificado de la plantilla; todavía no se puede enviar."
+                            : " La configuración completa está lista para enviar el contrato.");
+                    var bloqueos = Array.isArray(datos.bloqueos_preparacion) && datos.bloqueos_preparacion.length
+                        ? " Revisa: " + datos.bloqueos_preparacion.join(" ")
+                        : "";
+                    if (typeof Swal !== "undefined") {
+                        Swal.fire({ icon: (bloqueos || !config.flow_ready) ? "warning" : "success", title: "Preparación FAD lista", text: referencia + pendienteApi + bloqueos });
+                    } else {
+                        alert("Preparación FAD lista." + referencia + pendienteApi + bloqueos);
+                    }
+                })
+                .catch(function(error) {
+                    if (btn) { btn.disabled = false; btn.innerHTML = htmlAnterior; }
+                    var mensaje = error && error.message ? error.message : "Error de conexión al preparar FAD.";
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: mensaje });
+                    else alert(mensaje);
+                });
+        }
+
+        function mostrarConfirmacionFirmaContrato(idCandidato, estadoFad) {
+            var solicitud = estadoFad && estadoFad.solicitud ? estadoFad.solicitud : null;
+            var estatus = solicitud && solicitud.estatus ? solicitud.estatus : "NOT_STARTED";
             if (typeof Swal === "undefined") {
                 if (confirm("¿El usuario ya firmó el contrato?")) {
                     finalizarCandidatoFirmado(idCandidato);
@@ -16392,11 +16475,13 @@ class CapHum extends Controller
                 return;
             }
             Swal.fire({
-                title: "¿Ya firmó contrato?",
-                text: "Solo se pasará a Gestión cuando el contrato esté firmado.",
+                title: estatus === "SIGNED" ? "Firma FAD confirmada" : "¿Ya firmó contrato?",
+                text: estatus === "SIGNED"
+                    ? "FAD reporta el contrato firmado. Se validará nuevamente en el servidor antes del alta."
+                    : "Solo se pasará a Gestión cuando el contrato esté firmado. Estado FAD: " + estatus + ".",
                 icon: "question",
                 showCancelButton: true,
-                confirmButtonText: "Sí, firmó",
+                confirmButtonText: estatus === "SIGNED" ? "Continuar a Gestión" : "Sí, firmó",
                 cancelButtonText: "No",
                 confirmButtonColor: "#198754",
                 cancelButtonColor: "#6c757d"
@@ -16411,6 +16496,82 @@ class CapHum extends Controller
                     text: "No se puede mandar el usuario a la plantilla hasta que firme su contrato."
                 });
             });
+        }
+
+        function seleccionarYEnviarContratoFad(idCandidato, btn) {
+            var input = document.createElement("input");
+            input.type = "file";
+            input.accept = "application/pdf,.pdf";
+            input.style.display = "none";
+            document.body.appendChild(input);
+            input.addEventListener("change", function() {
+                var archivo = input.files && input.files[0] ? input.files[0] : null;
+                input.remove();
+                if (!archivo) return;
+                if (archivo.size > 10 * 1024 * 1024) {
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Archivo demasiado grande", text: "El contrato no puede superar 10 MB." });
+                    else alert("El contrato no puede superar 10 MB.");
+                    return;
+                }
+                var anterior = btn ? btn.innerHTML : "";
+                if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Enviando'; }
+                var form = new FormData();
+                form.append("id_candidato", String(idCandidato));
+                form.append("contrato", archivo, archivo.name);
+                fetch("/caphum/enviarContratoFad", { method: "POST", headers: { "Accept": "application/json" }, body: form })
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (btn) { btn.disabled = false; btn.innerHTML = anterior; }
+                        if (!res.success) throw new Error(res.mensaje || "No se pudo enviar el contrato a FAD.");
+                        var solicitud = res.datos && res.datos.solicitud ? res.datos.solicitud : {};
+                        var texto = "Solicitud enviada y registrada en estado " + (solicitud.estatus || "PENDING") + ".";
+                        if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Contrato enviado a FAD", text: texto });
+                        else alert(texto);
+                    })
+                    .catch(function(error) {
+                        if (btn) { btn.disabled = false; btn.innerHTML = anterior; }
+                        var mensaje = error && error.message ? error.message : "Error de conexión con FAD.";
+                        if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "No se pudo enviar", text: mensaje });
+                        else alert(mensaje);
+                    });
+            }, { once: true });
+            input.click();
+        }
+
+        function confirmarFirmaContratoCandidato(idCandidato) {
+            if (!idCandidato || idCandidato <= 0) return;
+            fetch("/caphum/estadoContratacionFad?id_candidato=" + encodeURIComponent(idCandidato), {
+                headers: { "Accept": "application/json" }
+            })
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    var datos = res && res.datos ? res.datos : {};
+                    var config = datos.configuracion || {};
+                    if (config.api_ready && datos.solicitud && datos.solicitud.requisition_id) {
+                        return fetch("/caphum/sincronizarContratacionFad", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                            body: JSON.stringify({ id_candidato: idCandidato })
+                        }).then(function(r) { return r.json(); }).then(function(sync) {
+                            return sync && sync.datos ? sync.datos : datos;
+                        });
+                    }
+                    return datos;
+                })
+                .then(function(datos) {
+                    var config = datos.configuracion || {};
+                    if (config.enforce_signed && !datos.permitido_pasar_gestion) {
+                        var motivo = datos.motivo_bloqueo || "La firma FAD todavía no está validada.";
+                        if (typeof Swal !== "undefined") Swal.fire({ icon: "info", title: "Firma FAD pendiente", text: motivo });
+                        else alert(motivo);
+                        return;
+                    }
+                    mostrarConfirmacionFirmaContrato(idCandidato, datos);
+                })
+                .catch(function() {
+                    // El backend vuelve a validar la compuerta FAD antes de crear a la persona.
+                    mostrarConfirmacionFirmaContrato(idCandidato, null);
+                });
         }
 
         function marcarIngresoProgramadoLocal(idCandidato, fechaIngreso, datos) {
@@ -21301,6 +21462,189 @@ class CapHum extends Controller
     }
 
     /**
+     * Crea el expediente local para la futura solicitud FAD de Capital Humano.
+     * No consume firmas ni envía documentos al proveedor.
+     */
+    public function prepararContratacionFad()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarFinalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso de validador final.'));
+            return;
+        }
+        $body = json_decode((string) file_get_contents('php://input'), true) ?: [];
+        $idCandidato = (int) ($body['id_candidato'] ?? $body['id'] ?? 0);
+        if ($idCandidato <= 0) {
+            echo json_encode(self::respuesta(false, 'ID de candidato inválido.'));
+            return;
+        }
+        try {
+            $service = new FadRrhhService();
+            $data = $service->preparar($idCandidato, (int) ($_SESSION['usuario_id'] ?? 0));
+            CandidatosDAO::registrarBitacoraCandidatoUnaVez(
+                $idCandidato,
+                'FAD_RRHH_PREPARADO',
+                'Contratación FAD preparada',
+                'Se creó el expediente local para dar seguimiento a la firma del contrato en FAD.',
+                ['referencia' => $data['solicitud']['referencia'] ?? null],
+                (int) ($_SESSION['usuario_id'] ?? 0)
+            );
+            echo json_encode(self::respuesta(true, 'Preparación FAD creada correctamente.', $data));
+        } catch (\Throwable $e) {
+            error_log('CapHum::prepararContratacionFad -> ' . $e->getMessage());
+            echo json_encode(self::respuesta(false, 'No se pudo preparar la contratación FAD.'));
+        }
+        exit;
+    }
+
+    /**
+     * Devuelve únicamente metadatos seguros del seguimiento FAD del candidato.
+     */
+    public function estadoContratacionFad()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarFinalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso de validador final.'));
+            return;
+        }
+        $idCandidato = (int) ($_GET['id_candidato'] ?? $_GET['id'] ?? 0);
+        if ($idCandidato <= 0) {
+            echo json_encode(self::respuesta(false, 'ID de candidato inválido.'));
+            return;
+        }
+        try {
+            $data = (new FadRrhhService())->estado($idCandidato);
+            echo json_encode(self::respuesta(true, 'Estado FAD obtenido.', $data));
+        } catch (\Throwable $e) {
+            error_log('CapHum::estadoContratacionFad -> ' . $e->getMessage());
+            echo json_encode(self::respuesta(false, 'No se pudo consultar el estado FAD.'));
+        }
+        exit;
+    }
+
+    /**
+     * Permite vincular una solicitud creada manualmente en el portal mientras
+     * se reciben las credenciales API oficiales. Nunca permite marcarla SIGNED.
+     */
+    public function vincularSolicitudFad()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarFinalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso de validador final.'));
+            return;
+        }
+        $body = json_decode((string) file_get_contents('php://input'), true) ?: [];
+        $idCandidato = (int) ($body['id_candidato'] ?? $body['id'] ?? 0);
+        $requisitionId = trim((string) ($body['requisition_id'] ?? ''));
+        if ($idCandidato <= 0 || $requisitionId === '') {
+            echo json_encode(self::respuesta(false, 'Candidato y requisition_id son obligatorios.'));
+            return;
+        }
+        try {
+            $data = (new FadRrhhService())->vincular(
+                $idCandidato,
+                $requisitionId,
+                isset($body['document_id']) ? (string) $body['document_id'] : null,
+                isset($body['signer_id']) ? (string) $body['signer_id'] : null,
+                isset($body['signing_url']) ? (string) $body['signing_url'] : null,
+                (int) ($_SESSION['usuario_id'] ?? 0)
+            );
+            CandidatosDAO::registrarBitacoraCandidato(
+                $idCandidato,
+                'FAD_RRHH_VINCULADO',
+                'Solicitud FAD vinculada',
+                'Se vinculó una solicitud externa FAD en estado pendiente.',
+                ['requisition_id' => $requisitionId],
+                (int) ($_SESSION['usuario_id'] ?? 0)
+            );
+            echo json_encode(self::respuesta(true, 'Solicitud FAD vinculada.', $data));
+        } catch (\Throwable $e) {
+            error_log('CapHum::vincularSolicitudFad -> ' . $e->getMessage());
+            echo json_encode(self::respuesta(false, 'No se pudo vincular la solicitud FAD.'));
+        }
+        exit;
+    }
+
+    /** Prueba autenticación y catálogos sin crear ni modificar recursos en FAD. */
+    public function probarConexionFad()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarFinalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso de validador final.'));
+            return;
+        }
+        try {
+            $data = (new FadRrhhService())->probarConexion();
+            echo json_encode(self::respuesta(true, 'Conexión de solo lectura con FAD correcta.', $data));
+        } catch (\Throwable $e) {
+            error_log('CapHum::probarConexionFad -> ' . $e->getMessage());
+            echo json_encode(self::respuesta(false, $e->getMessage()));
+        }
+        exit;
+    }
+
+    /** Carga un contrato PDF, registra al firmante y crea la solicitud en FAD. */
+    public function enviarContratoFad()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarFinalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso de validador final.'));
+            return;
+        }
+        $idCandidato = (int) ($_POST['id_candidato'] ?? $_POST['id'] ?? 0);
+        $file = $_FILES['contrato'] ?? null;
+        if ($idCandidato <= 0 || !is_array($file) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            echo json_encode(self::respuesta(false, 'Selecciona un contrato PDF válido.'));
+            return;
+        }
+        try {
+            $data = (new FadRrhhService())->enviarContrato(
+                $idCandidato,
+                (string) ($file['tmp_name'] ?? ''),
+                (string) ($file['name'] ?? ('contrato_' . $idCandidato . '.pdf')),
+                (int) ($_SESSION['usuario_id'] ?? 0)
+            );
+            CandidatosDAO::registrarBitacoraCandidato(
+                $idCandidato,
+                'FAD_RRHH_ENVIADO',
+                'Contrato enviado a FAD',
+                'Se creó o recuperó la solicitud de firma del contrato laboral en FAD.',
+                ['requisition_id' => $data['solicitud']['requisition_id'] ?? null],
+                (int) ($_SESSION['usuario_id'] ?? 0)
+            );
+            echo json_encode(self::respuesta(true, 'Contrato enviado a FAD correctamente.', $data));
+        } catch (\Throwable $e) {
+            error_log('CapHum::enviarContratoFad -> ' . $e->getMessage());
+            echo json_encode(self::respuesta(false, $e->getMessage()));
+        }
+        exit;
+    }
+
+    /** Consulta el estado remoto y resguarda el PDF final cuando ya está firmado. */
+    public function sincronizarContratacionFad()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarFinalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso de validador final.'));
+            return;
+        }
+        $body = json_decode((string) file_get_contents('php://input'), true) ?: [];
+        $idCandidato = (int) ($body['id_candidato'] ?? $body['id'] ?? 0);
+        if ($idCandidato <= 0) {
+            echo json_encode(self::respuesta(false, 'ID de candidato inválido.'));
+            return;
+        }
+        try {
+            $data = (new FadRrhhService())->sincronizar($idCandidato, (int) ($_SESSION['usuario_id'] ?? 0));
+            echo json_encode(self::respuesta(true, 'Estado FAD sincronizado.', $data));
+        } catch (\Throwable $e) {
+            error_log('CapHum::sincronizarContratacionFad -> ' . $e->getMessage());
+            echo json_encode(self::respuesta(false, $e->getMessage()));
+        }
+        exit;
+    }
+
+    /**
      * Confirmacion heredada desde enlace externo (Si/No). No requiere sesion.
      * GET: token, respuesta (si|no). Si respuesta=si ejecuta pasar a Gestión y muestra página de éxito.
      */
@@ -21463,6 +21807,22 @@ class CapHum extends Controller
         }
         if (trim((string) ($c['estatus'] ?? '')) !== 'Ingreso programado') {
             return ['success' => false, 'mensaje' => 'Primero debe estar programado el ingreso desde validacion final.'];
+        }
+        try {
+            $fadGate = (new FadRrhhService())->evaluarPasoGestion($id_candidato);
+            if (empty($fadGate['permitido'])) {
+                return [
+                    'success' => false,
+                    'mensaje' => $fadGate['motivo'] ?? 'La firma FAD todavía no permite continuar.',
+                    'fad_rrhh' => $fadGate,
+                ];
+            }
+        } catch (\Throwable $e) {
+            if (in_array(strtolower(trim((string) getenv('FAD_RRHH_ENFORCE_SIGNED'))), ['1', 'true', 'yes', 'on'], true)) {
+                error_log('CapHum::ejecutarAltaCandidatoEnGestion FAD obligatorio -> ' . $e->getMessage());
+                return ['success' => false, 'mensaje' => 'No fue posible validar la firma FAD. Intenta nuevamente.'];
+            }
+            error_log('CapHum::ejecutarAltaCandidatoEnGestion FAD preparación -> ' . $e->getMessage());
         }
         $numero_empleado = trim((string) ($c['numero_empleado'] ?? ''));
         if (strcasecmp($numero_empleado, 'PEND') === 0 || strcasecmp($numero_empleado, 'PENDIENTE') === 0) {

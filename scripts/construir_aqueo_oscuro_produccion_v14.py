@@ -201,15 +201,17 @@ def make_anatomical_forehead(steel: bpy.types.Material) -> bpy.types.Object:
     back: list[tuple[float, float, float]] = []
     for row in range(rows):
         t = row / (rows - 1)
-        half_width = 0.068 - 0.020 * (t ** 1.25)
-        center_y = -0.084 + 0.039 * (t ** 1.15)
+        # La placa cubre solamente el frontal anatomico. Las versiones previas
+        # bajaban hasta el centro de los ojos y se leian como un visor plano.
+        half_width = 0.060 - 0.016 * (t ** 1.25)
+        center_y = -0.079 + 0.032 * (t ** 1.15)
         for column in range(columns):
             u = -1.0 + 2.0 * column / (columns - 1)
             x = TARGET_CENTER_X + u * half_width
             z = (
-                1.218
-                + 0.089 * t
-                - 0.014 * ((1.0 - t) ** 2) * ((1.0 - abs(u)) ** 1.35)
+                1.243
+                + 0.064 * t
+                - 0.008 * ((1.0 - t) ** 2) * ((1.0 - abs(u)) ** 1.35)
             )
             # El centro sobresale; los extremos regresan hacia las sienes.
             y = center_y + 0.0115 * (abs(u) ** 1.8)

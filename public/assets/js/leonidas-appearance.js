@@ -19,6 +19,7 @@
     var gearNote = modalElement.querySelector('[data-leonidas-gear-note]');
     var gearInputs = modalElement.querySelectorAll('[data-leonidas-part]');
     var helmetModelInputs = modalElement.querySelectorAll('[data-leonidas-helmet-model]');
+    var editorSections = modalElement.querySelectorAll('[data-leonidas-editor-section]');
     var fallbackImage = root.querySelector('[data-leonidas-fallback]');
     var liveModelCanvas = root.querySelector('[data-leonidas-canvas]');
     var personaId = root.getAttribute('data-leonidas-persona') || '0';
@@ -414,6 +415,9 @@
     function showEditor() {
         editorOpen = true;
         acceptClose = false;
+        editorSections.forEach(function (section) {
+            section.removeAttribute('open');
+        });
         setStatus('');
         applyAppearance(savedAppearance);
         root.classList.add('is-editing-appearance');

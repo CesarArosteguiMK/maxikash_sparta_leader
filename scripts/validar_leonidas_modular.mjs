@@ -123,6 +123,8 @@ if (!configuredAsset) {
             || Number(found.shield.node.extras?.leonidasShieldCircuitRoutes || 0) < 16
             || found.shield.node.extras?.leonidasShieldEmblem !== 'corporate-interlock'
             || found.shield.node.extras?.leonidasShieldRearGrip !== true
+            || found.shield.node.extras?.leonidasShieldConstruction !== 'convex-pbr-v2'
+            || found.shield.node.extras?.leonidasShieldDimensions !== '0.444x0.582'
             || !materialNames.has('leonidasshieldcircuitglow')
         ) {
             fail('shield no contiene la construccion procedural corporativa completa');
@@ -130,6 +132,8 @@ if (!configuredAsset) {
             found.spear.node.extras?.leonidasProcedural !== true
             || found.spear.node.extras?.leonidasSpearBlade !== 'faceted-forged-steel'
             || found.spear.node.extras?.leonidasSpearShaft !== 'procedural-dark-wood'
+            || found.spear.node.extras?.leonidasSpearConstruction !== 'forged-pbr-v2'
+            || found.spear.node.extras?.leonidasSpearGrip !== 'occluded-hand-channel-v2'
             || !materialNames.has('leonidasspearwood')
             || !materialNames.has('leonidasspearmetal')
         ) {

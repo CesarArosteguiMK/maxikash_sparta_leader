@@ -22,15 +22,17 @@ pero separa ocho partes:
 - `LeonidasTorsoUnderlay`: torso anatómico visible al retirar la pechera.
 - `LeonidasHair`: cabello corto independiente, visible solamente sin casco y
   configurable por usuario.
-- `LeonidasShield`: escudo ovalado original con aro, remaches, circuitos
-  luminosos y emblema corporativo entrelazado.
-- `LeonidasSpear`: lanza original con asta de madera, amarres, collares,
-  punta de acero facetada y regatÃ³n.
+- `LeonidasShield`: escudo convexo reconstruido con doble aro de acero,
+  remaches, circuitos luminosos de bajo relieve, emblema corporativo y
+  correas de cuero posteriores.
+- `LeonidasSpear`: lanza reconstruida con asta de madera texturizada, nueve
+  amarres de cuero, collares, punta de acero forjado con nervadura y regatón.
 
-El escudo y la lanza se construyen por geometrÃ­a procedural dentro del
-proyecto. No dependen de modelos descargados. Son nodos modulares diferentes,
-estÃ¡n anclados respectivamente a la mano izquierda y derecha, y conservan la
-animaciÃ³n del esqueleto.
+El escudo y la lanza se construyen por geometría procedural y materiales PBR
+dentro del proyecto. No dependen de modelos descargados. Son nodos modulares
+diferentes: el escudo pivota sobre el antebrazo izquierdo y la lanza conserva
+su eje vertical desde la mano derecha. Ambos acompañan la animación del
+esqueleto y permanecen desactivados por defecto.
 
 El manifiesto `leonidas-modular-manifest.json` está habilitado. El cargador
 regresa automáticamente a `leonidas-spartan-rigged.fbx` si el GLB falta o no

@@ -20,7 +20,7 @@ SCRIPT_ROOT = os.path.dirname(__file__)
 if SCRIPT_ROOT not in sys.path:
     sys.path.insert(0, SCRIPT_ROOT)
 
-from leonidas_equipment import build_corporate_shield, build_spartan_spear
+from leonidas_equipment_v2 import build_corporate_shield, build_spartan_spear
 
 
 MODEL_ROOT = os.path.join(PROJECT_ROOT, 'public', 'assets', 'models', 'leonidas')
@@ -2568,6 +2568,17 @@ def attach_to_current_rig(obj, current, armature):
     modifier.object = armature
 
 
+def attach_static_to_current_rig(obj, current, armature):
+    """Exporta equipo rígido sin deformarlo con huesos del personaje."""
+    world_matrix = current.matrix_world.copy()
+    obj.parent = armature
+    obj.matrix_parent_inverse = armature.matrix_world.inverted()
+    obj.matrix_world = world_matrix
+    for modifier in list(obj.modifiers):
+        if modifier.type == 'ARMATURE':
+            obj.modifiers.remove(modifier)
+
+
 def crop_anatomy(source, name, role, predicate):
     result = source.copy()
     result.data = source.data.copy()
@@ -3041,14 +3052,9 @@ precompensate_rigid_pose(
     shield,
     current_armature,
     'mixamorig:LeftForeArm',
-)
-precompensate_rigid_pose(
-    spear,
-    current_armature,
-    'mixamorig:RightHand',
+    seconds=6.12,
 )
 rigid_bind(shield, 'mixamorig:LeftForeArm')
-rigid_bind(spear, 'mixamorig:RightHand')
 
 for obj in (
     body,
@@ -3058,9 +3064,9 @@ for obj in (
     torso_underlay,
     hair,
     shield,
-    spear,
 ):
     attach_to_current_rig(obj, current_mesh, current_armature)
+attach_static_to_current_rig(spear, current_mesh, current_armature)
 
 remove_names = {
     obj.name

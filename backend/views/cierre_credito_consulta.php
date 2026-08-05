@@ -29,6 +29,25 @@
     background: #eff6ff;
 }
 
+/* La búsqueda solo ocupa espacio cuando la pestaña activa tiene registros. */
+#barraGeneral-wrap {
+    padding: .75rem 1.5rem .65rem;
+    background: #fff;
+}
+.cc-empty-state {
+    min-height: 150px;
+    margin: .75rem 1.5rem 1.5rem;
+    border: 1px dashed #cbd5e1;
+    border-radius: .75rem;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+body.dark-mode #barraGeneral-wrap { background: #1e293b; }
+body.dark-mode .cc-empty-state { background: #0f172a; border-color: #475569; }
+
 /* ── Tabla (En Proceso) ── */
 .cc-table th {
     background: #f1f5f9;
@@ -1219,7 +1238,7 @@ $cc_perm_peticiones = $cc_perm_peticiones ?? false;
 <div class="tab-content" id="ccTabContent">
 
     <!-- Barra de búsqueda general — fija dentro del contenido -->
-    <div class="d-flex justify-content-end align-items-center pb-2 border-bottom mb-2">
+    <div id="barraGeneral-wrap" class="d-flex justify-content-end align-items-center border-bottom mb-2">
         <div id="barraGeneral" class="dataTables_filter">
             <label style="display:flex;align-items:center;gap:.4rem;margin:0;font-size:.875rem;font-weight:400;color:#566a7f;">
                 Buscar:
@@ -1633,7 +1652,7 @@ $cc_perm_peticiones = $cc_perm_peticiones ?? false;
                 </table>
             </div>
         </div>
-        <div id="empty-peticiones" class="text-center py-5 text-muted d-none">
+        <div id="empty-peticiones" class="cc-empty-state text-center py-5 text-muted d-none">
             <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
             Sin peticiones pendientes.
         </div>
@@ -2352,6 +2371,21 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         const elPet = document.getElementById('tab-peticiones');
         if (elPet && elPet.classList.contains('show')) return 'peticiones';
         return 'ef';
+    }
+
+    function ccActualizarVisibilidadBuscador(targetSelector) {
+        const barraWrap = document.getElementById('barraGeneral-wrap');
+        if (!barraWrap) return;
+        const activo = document.querySelector('#ccTabs .nav-link.active');
+        const selector = targetSelector || (activo ? activo.getAttribute('data-bs-target') : '');
+        const tabBtn = selector ? document.querySelector('#ccTabs [data-bs-target="' + selector + '"]') : null;
+        const badge = tabBtn ? tabBtn.querySelector('.badge') : null;
+        if (!badge) {
+            barraWrap.classList.remove('d-none');
+            return;
+        }
+        const total = parseInt(String(badge.textContent || '').replace(/[^0-9]/g, ''), 10);
+        barraWrap.classList.toggle('d-none', !isNaN(total) && total === 0);
     }
 
     /* ── Filtro en tiempo real (aplica en la pestaña activa) ── */
@@ -4170,8 +4204,18 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         if (CC_P.cartera)    promesas.push(cargarCartera().catch(() => {}));
         if (CC_P.peticiones) promesas.push(cargarPeticiones().catch(() => {}));
 
-        Promise.all(promesas).then(() => { if (hasSwal) Swal.close(); });
+        Promise.all(promesas).then(() => {
+            if (hasSwal) Swal.close();
+            const activo = document.querySelector('#ccTabs .nav-link.active');
+            ccActualizarVisibilidadBuscador(activo ? activo.getAttribute('data-bs-target') : '');
+        });
     }
+
+    document.querySelectorAll('#ccTabs [data-bs-toggle="tab"]').forEach(function (btn) {
+        btn.addEventListener('shown.bs.tab', function () {
+            ccActualizarVisibilidadBuscador(this.getAttribute('data-bs-target'));
+        });
+    });
 
     // Listeners de pestañas — solo re-aplican el filtro activo (datos ya están renderizados)
     const tabHistorialBtn = document.getElementById('tab-historial-btn');
@@ -5280,6 +5324,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     }
 
     function renderPeticiones(rows) {
+        rows = Array.isArray(rows) ? rows : [];
         const loader = document.getElementById('loader-peticiones');
         const wrap   = document.getElementById('wrap-peticiones');
         const empty  = document.getElementById('empty-peticiones');
@@ -5289,14 +5334,21 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         if (badge) badge.textContent = rows.length;
 
         if (!rows.length) {
+            if (_tablaPeticiones) _tablaPeticiones.clear().draw();
+            if (wrap) wrap.classList.add('d-none');
             if (empty) empty.classList.remove('d-none');
+            if (_tabActiva() === 'peticiones') ccActualizarVisibilidadBuscador('#tab-peticiones');
             return;
         }
 
+        if (empty) empty.classList.add('d-none');
         if (wrap) wrap.classList.remove('d-none');
 
         if (_tablaPeticiones) {
             _tablaPeticiones.clear().rows.add(rows).draw();
+            const termino = document.getElementById('barraGeneral-input').value.trim();
+            _tablaPeticiones.search(termino).draw();
+            if (_tabActiva() === 'peticiones') ccActualizarVisibilidadBuscador('#tab-peticiones');
             return;
         }
 
@@ -5384,6 +5436,10 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 $('.dataTables_filter input').addClass('form-control form-control-sm');
             }
         });
+
+        const termino = document.getElementById('barraGeneral-input').value.trim();
+        if (termino) _tablaPeticiones.search(termino).draw();
+        if (_tabActiva() === 'peticiones') ccActualizarVisibilidadBuscador('#tab-peticiones');
 
         /* ── Expandir/Colapsar fila con tabla de amortización ── */
         $('#tablaPeticiones tbody')

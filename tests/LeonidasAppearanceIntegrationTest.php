@@ -12,8 +12,9 @@ $view = file_get_contents($root . '/backend/core/View.php');
 $controller = file_get_contents($root . '/backend/controllers/Leonidas.php');
 $appearanceJs = file_get_contents($root . '/public/assets/js/leonidas-appearance.js');
 $threeJs = file_get_contents($root . '/public/assets/js/leonidas-3d.js');
+$appearanceCss = file_get_contents($root . '/public/assets/css/leonidas-assistant.css');
 $builder = file_get_contents($root . '/scripts/construir_leonidas_modular.py');
-$equipmentBuilder = file_get_contents($root . '/scripts/leonidas_equipment.py');
+$equipmentBuilder = file_get_contents($root . '/scripts/leonidas_equipment_v2.py');
 $manifest = json_decode(
     file_get_contents($root . '/public/assets/models/leonidas/leonidas-modular-manifest.json'),
     true,
@@ -56,14 +57,29 @@ appearanceIntegrationAssert(
         && str_contains($threeJs, 'settleBone(spineLower, 0.94)')
         && str_contains($threeJs, 'settleBone(leftLeg, 0.9 * idleLegWeight)')
         && str_contains($threeJs, 'settleBone(rightLeg, 0.9 * idleLegWeight)')
-        && str_contains($threeJs, 'applyOpenFingers(leftFingerBones, idleElbowWeight'),
+        && str_contains($threeJs, "leftShoulder = findBone(model, ['leftshoulder', 'claviclel'])")
+        && str_contains($threeJs, 'orientRelaxedHand')
+        && str_contains($threeJs, 'applyRelaxedFingers')
+        && str_contains($threeJs, 'relaxedFingerRotations.set')
+        && str_contains($threeJs, 'poseRelaxedShoulder')
+        && str_contains($threeJs, 'bodyForward, lengths.upperLength * 0.035')
+        && str_contains($threeJs, 'armOutward, lengths.foreLength * 0.04')
+        && str_contains($threeJs, 'previewBaseMarginPixels')
+        && str_contains($threeJs, 'previewCenterCorrection')
+        && str_contains($threeJs, "? 'forward-spear-grip-v15'")
+        && str_contains($threeJs, ": 'anatomical-idle-v15'")
+        && str_contains($threeJs, "pose === 'spear'")
+        && str_contains($threeJs, 'orientSpearHand')
+        && str_contains($threeJs, 'applyRelaxedFingers(leftFingerBones, idleElbowWeight')
+        && str_contains($appearanceCss, 'height: min(690px, calc(100vh - 2rem))')
+        && str_contains($appearanceCss, 'scrollbar-gutter: stable'),
     'La vista previa debe girar el modelo y sostener una postura erguida medida sobre el rig.'
 );
 appearanceIntegrationAssert(
     str_contains($threeJs, "root.addEventListener('leonidas:appearance'")
         && str_contains($threeJs, 'applyModularPalette')
         && str_contains($threeJs, 'syncAppearanceHelmet')
-        && str_contains($threeJs, 'leonidas-aqueo-dark-production-v14.glb')
+        && str_contains($threeJs, 'leonidas-aqueo-dark-production-v16.glb')
         && str_contains($threeJs, 'attachQaHelmetToHead')
         && str_contains($threeJs, 'head.attach(qaHelmetContainer)')
         && str_contains($threeJs, 'useRigTexture: false'),
@@ -108,6 +124,11 @@ appearanceIntegrationAssert(
 );
 appearanceIntegrationAssert(
     str_contains($view, 'data-leonidas-gear-controls hidden')
+        && substr_count($view, 'data-leonidas-editor-section') >= 3
+        && str_contains($view, '<details class="leonidas-appearance-section"')
+        && str_contains($view, 'class="leonidas-helmet-selector"')
+        && str_contains($appearanceJs, 'editorSections.forEach')
+        && str_contains($appearanceJs, "section.removeAttribute('open')")
         && str_contains($appearanceJs, "root.addEventListener('leonidas:capabilities'")
         && str_contains($threeJs, "root.dispatchEvent(new CustomEvent('leonidas:capabilities'")
         && str_contains($threeJs, 'resolveModularParts')
@@ -143,12 +164,24 @@ appearanceIntegrationAssert(
     str_contains($builder, 'build_corporate_shield')
         && str_contains($builder, 'build_spartan_spear')
         && str_contains($builder, "'mixamorig:LeftForeArm'")
-        && str_contains($builder, "'mixamorig:RightHand'")
+        && str_contains($builder, 'attach_static_to_current_rig(spear')
         && str_contains($equipmentBuilder, "'LeonidasShield'")
         && str_contains($equipmentBuilder, "'LeonidasSpear'")
         && str_contains($equipmentBuilder, "'leonidasProcedural'")
         && str_contains($equipmentBuilder, "'leonidasShieldRearGrip'")
+        && str_contains($equipmentBuilder, "'convex-pbr-v2'")
+        && str_contains($equipmentBuilder, "'forged-pbr-v2'")
+        && str_contains($equipmentBuilder, "'leonidasShieldDimensions'")
+        && str_contains($equipmentBuilder, "'leonidasSpearGrip'")
+        && str_contains($equipmentBuilder, "'occluded-hand-channel-v2'")
         && str_contains($builder, 'precompensate_rigid_pose')
+        && str_contains($builder, 'seconds=6.12')
+        && str_contains($threeJs, 'preserveSpearOrientation')
+        && str_contains($threeJs, 'preserveShieldOrientation')
+        && str_contains($threeJs, 'applySpearGrip')
+        && str_contains($threeJs, 'La lanza conserva su orientación estática')
+        && str_contains($threeJs, 'prepareStaticSpearAnchor')
+        && str_contains($threeJs, 'syncStaticSpearAnchor')
         && str_contains($threeJs, 'El equipamiento de mano no debe reducir')
         && ($manifest['parts']['shield'] ?? []) === [
             'LeonidasShield',

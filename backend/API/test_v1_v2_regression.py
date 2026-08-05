@@ -228,6 +228,79 @@ def test_hoja_retencion_accepts_signed_carta_no_adeudo():
     assert result["errores"] == []
 
 
+def test_signed_carta_without_name_reports_only_missing_name():
+    extracted = {
+        "tipo_documento": "carta_no_adeudo",
+        "confianza_lectura": "alta",
+        "calidad_imagen": "buena",
+        "campos": {
+            "nombre_completo": None,
+            "nombre_y_firma_lleno": False,
+            "firma_detectada": True,
+        },
+        "evidencia_insuficiente": True,
+        "observaciones": [],
+    }
+
+    result = validate_quick_extracted(extracted, "hoja_retencion")
+
+    assert result["aprobado"] is False
+    assert result["errores"] == ["La carta de no adeudo no tiene el nombre completo del candidato"]
+    assert not any("no esta firmada" in error for error in result["errores"])
+    assert not any("nombre y firma" in error for error in result["errores"])
+
+
+def test_v2_carta_con_firma_sin_nombre_keeps_signature_as_present():
+    out = {
+        "tipo_detectado": "carta_no_adeudo",
+        "nombre": None,
+        "firma_detectada": True,
+    }
+
+    ok, severity, message = routes._v2_document_contribution(
+        "hoja_retencion",
+        "Hoja de retencion FONACOT o INFONAVIT",
+        out,
+    )
+
+    assert ok is False
+    assert severity == "aviso"
+    assert "falta nombre completo" in message
+    assert "falta firma" not in message
+    assert "no se pudo confirmar la firma" not in message
+
+
+def test_v2_crosscheck_does_not_report_missing_signature_when_present():
+    documents = _consistent_documents()
+    carta = next(doc for doc in documents if doc["key"] == "hoja_retencion")
+    carta["summary"] = _summary(
+        "hoja_retencion",
+        "carta_no_adeudo",
+        nombre=None,
+        firma_detectada=True,
+        nombre_y_firma_lleno=False,
+        evidencia_insuficiente=True,
+    )
+
+    raw = routes._resultado_v2_reglas_expediente(documents, CANDIDATE)
+    doc_carta = raw["analysis"]["documentos"]["hoja_retencion"]
+    comparaciones_carta = [
+        comparison
+        for comparison in raw["analysis"]["comparaciones"]
+        if comparison.get("documento_a") == "hoja_retencion"
+    ]
+    textos_carta = [
+        str(doc_carta.get("mensaje") or ""),
+        *(str(item) for item in doc_carta.get("observaciones") or []),
+        *(str(item.get("mensaje") or "") for item in comparaciones_carta),
+    ]
+
+    assert any("falta el nombre completo del declarante" in texto for texto in textos_carta)
+    assert not any("falta la firma" in texto for texto in textos_carta)
+    assert not any("no se pudo confirmar la firma" in texto for texto in textos_carta)
+    assert doc_carta["firma_detectada"] is True
+
+
 def test_hoja_retencion_keeps_name_and_signature_as_critical_fields():
     extracted = {
         "tipo_documento": "carta_no_adeudo",

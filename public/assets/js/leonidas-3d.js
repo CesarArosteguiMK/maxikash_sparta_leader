@@ -21,6 +21,7 @@ if (root && canvas) {
     const baseRotations = new Map();
     const basePositions = new Map();
     const openFingerRotations = new Map();
+    const relaxedFingerRotations = new Map();
     const poseEuler = new THREE.Euler();
     const poseQuaternion = new THREE.Quaternion();
     const aimBonePosition = new THREE.Vector3();
@@ -41,6 +42,32 @@ if (root && canvas) {
     const armTorsoPosition = new THREE.Vector3();
     const armTargetElbow = new THREE.Vector3();
     const armTargetHand = new THREE.Vector3();
+    const shoulderPosePosition = new THREE.Vector3();
+    const shoulderChildPosition = new THREE.Vector3();
+    const shoulderPoseTarget = new THREE.Vector3();
+    const shoulderOutward = new THREE.Vector3();
+    const relaxedHandPosition = new THREE.Vector3();
+    const relaxedMiddlePosition = new THREE.Vector3();
+    const relaxedIndexPosition = new THREE.Vector3();
+    const relaxedPinkyPosition = new THREE.Vector3();
+    const relaxedFingerDirection = new THREE.Vector3();
+    const relaxedPalmAcross = new THREE.Vector3();
+    const relaxedDesiredAcross = new THREE.Vector3();
+    const relaxedHandTarget = new THREE.Vector3();
+    const relaxedCross = new THREE.Vector3();
+    const relaxedTwistQuaternion = new THREE.Quaternion();
+    const relaxedHandWorldQuaternion = new THREE.Quaternion();
+    const relaxedHandParentQuaternion = new THREE.Quaternion();
+    const shieldForeArmWorldQuaternion = new THREE.Quaternion();
+    const shieldForeArmParentQuaternion = new THREE.Quaternion();
+    const relaxedFingerEuler = new THREE.Euler();
+    const relaxedFingerCurl = new THREE.Quaternion();
+    const relaxedFingerTarget = new THREE.Quaternion();
+    const staticSpearHandWorldPosition = new THREE.Vector3();
+    const staticSpearHandLocalPosition = new THREE.Vector3();
+    const staticSpearOffset = new THREE.Vector3();
+    const staticSpearQuaternion = new THREE.Quaternion();
+    const staticSpearScale = new THREE.Vector3(1, 1, 1);
 
     scene.add(characterAnchor);
     camera.position.set(0, 0, 4.8);
@@ -89,6 +116,7 @@ if (root && canvas) {
         let activeModel = null;
         let activeUsesRigTexture = false;
         let modularParts = null;
+        let staticSpearReady = false;
         let qaHelmetContainer = null;
         let qaHelmetRequest = 0;
         let qaHelmetState = {
@@ -101,7 +129,7 @@ if (root && canvas) {
             hideOriginal: true
         };
         const qaHelmetPaths = Object.freeze({
-            aqueo: '/assets/models/leonidas/qa/leonidas-aqueo-dark-production-v14.glb?v=14',
+            aqueo: '/assets/models/leonidas/qa/leonidas-aqueo-dark-production-v16.glb?v=16',
             atico: '/assets/models/leonidas/qa/helmet-atico-longitudinal-preview.glb?v=1'
         });
         const qaHelmetFitNodes = Object.freeze({
@@ -136,12 +164,20 @@ if (root && canvas) {
         let spineMiddle = null;
         let neck = null;
         let head = null;
+        let leftShoulder = null;
+        let rightShoulder = null;
         let shieldArm = null;
         let shieldForeArm = null;
         let swordArm = null;
         let swordForeArm = null;
         let leftHand = null;
         let rightHand = null;
+        let leftMiddleFinger = null;
+        let leftIndexFinger = null;
+        let leftPinkyFinger = null;
+        let rightMiddleFinger = null;
+        let rightIndexFinger = null;
+        let rightPinkyFinger = null;
         let rightUpLeg = null;
         let rightLeg = null;
         let rightFoot = null;
@@ -475,6 +511,29 @@ if (root && canvas) {
             };
         };
 
+        const poseRelaxedShoulder = (shoulder, upperArm, weight = 1) => {
+            if (!activeModel || !shoulder || !upperArm || weight <= 0.001) return;
+            bodyBasis();
+            activeModel.updateMatrixWorld(true);
+            shoulder.getWorldPosition(shoulderPosePosition);
+            upperArm.getWorldPosition(shoulderChildPosition);
+            (spine || pelvis).getWorldPosition(armTorsoPosition);
+            shoulderOutward.subVectors(shoulderChildPosition, armTorsoPosition)
+                .addScaledVector(bodyUp, -shoulderOutward.dot(bodyUp))
+                .addScaledVector(bodyForward, -shoulderOutward.dot(bodyForward));
+            if (shoulderOutward.lengthSq() < 0.000001) return;
+            shoulderOutward.normalize();
+            const shoulderLength = Math.max(
+                shoulderPosePosition.distanceTo(shoulderChildPosition),
+                0.001
+            );
+            shoulderPoseTarget.copy(shoulderPosePosition)
+                .addScaledVector(shoulderOutward, shoulderLength * 0.985)
+                .addScaledVector(bodyUp, -shoulderLength * 0.14)
+                .addScaledVector(bodyForward, -shoulderLength * 0.025);
+            aimBoneAtWorldPoint(shoulder, upperArm, shoulderPoseTarget, weight);
+        };
+
         const poseArm = (upperArm, foreArm, hand, pose, weight, phase = 0) => {
             if (!activeModel || !upperArm || !foreArm || !hand || weight <= 0.001) return;
             bodyBasis();
@@ -511,22 +570,175 @@ if (root && canvas) {
                     .addScaledVector(armOutward, -lengths.foreLength * 0.22)
                     .addScaledVector(bodyUp, lengths.foreLength * 0.78)
                     .addScaledVector(bodyForward, lengths.foreLength * 0.12);
+            } else if (pose === 'spear') {
+                // Guardia natural con lanza: el brazo superior descansa junto
+                // al torso, el codo se flexiona y la mano avanza delante del
+                // abdomen. La flexión ocurre en el codo, no en la muñeca.
+                armTargetElbow.copy(armShoulderPosition)
+                    .addScaledVector(bodyUp, -lengths.upperLength * 0.82)
+                    .addScaledVector(armOutward, lengths.upperLength * 0.13)
+                    .addScaledVector(bodyForward, lengths.upperLength * 0.26);
+                armTargetHand.copy(armTargetElbow)
+                    .addScaledVector(bodyUp, -lengths.foreLength * 0.32)
+                    .addScaledVector(armOutward, -lengths.foreLength * 0.05)
+                    .addScaledVector(bodyForward, lengths.foreLength * 0.73);
             } else {
                 // Descanso anatómico: el codo baja casi vertical, pero la mano
                 // avanza delante del muslo. La flexión se calcula en espacio
                 // mundial para no depender del eje local irregular del FBX.
                 armTargetElbow.copy(armShoulderPosition)
-                    .addScaledVector(bodyUp, -lengths.upperLength * 0.89)
-                    .addScaledVector(armOutward, lengths.upperLength * 0.14)
-                    .addScaledVector(bodyForward, lengths.upperLength * 0.045);
+                    .addScaledVector(bodyUp, -lengths.upperLength * 0.90)
+                    .addScaledVector(armOutward, lengths.upperLength * 0.12)
+                    .addScaledVector(bodyForward, lengths.upperLength * 0.035);
                 armTargetHand.copy(armTargetElbow)
-                    .addScaledVector(bodyUp, -lengths.foreLength * 0.84)
-                    .addScaledVector(armOutward, lengths.foreLength * 0.12)
-                    .addScaledVector(bodyForward, lengths.foreLength * 0.18);
+                    .addScaledVector(bodyUp, -lengths.foreLength * 0.80)
+                    .addScaledVector(bodyForward, lengths.foreLength * 0.21)
+                    .addScaledVector(armOutward, lengths.foreLength * 0.04);
             }
 
             aimBoneAtWorldPoint(upperArm, foreArm, armTargetElbow, weight);
             aimBoneAtWorldPoint(foreArm, hand, armTargetHand, weight);
+        };
+
+        const orientRelaxedHand = (hand, middle, index, pinky, weight = 1) => {
+            if (
+                !activeModel
+                || !hand
+                || !middle
+                || !index
+                || !pinky
+                || !hand.parent
+                || weight <= 0.001
+            ) return;
+            bodyBasis();
+            activeModel.updateMatrixWorld(true);
+            hand.getWorldPosition(relaxedHandPosition);
+            // Primero hacemos que los dedos descansen hacia el suelo, con una
+            // desviacion anterior minima para que la muneca no quede quebrada.
+            relaxedHandTarget.copy(relaxedHandPosition)
+                .addScaledVector(bodyUp, -1)
+                .addScaledVector(bodyForward, 0.035);
+            aimBoneAtWorldPoint(hand, middle, relaxedHandTarget, weight);
+
+            // Aim conserva el roll heredado de la animacion. Lo resolvemos con
+            // el eje pinky->indice: ambos pulgares deben apuntar hacia delante
+            // y las palmas quedar enfrentadas a los muslos, no a la camara.
+            activeModel.updateMatrixWorld(true);
+            hand.getWorldPosition(relaxedHandPosition);
+            middle.getWorldPosition(relaxedMiddlePosition);
+            index.getWorldPosition(relaxedIndexPosition);
+            pinky.getWorldPosition(relaxedPinkyPosition);
+            relaxedFingerDirection.subVectors(relaxedMiddlePosition, relaxedHandPosition).normalize();
+            relaxedPalmAcross.subVectors(relaxedIndexPosition, relaxedPinkyPosition)
+                .addScaledVector(
+                    relaxedFingerDirection,
+                    -relaxedPalmAcross.dot(relaxedFingerDirection)
+                );
+            relaxedDesiredAcross.copy(bodyForward)
+                .addScaledVector(
+                    relaxedFingerDirection,
+                    -relaxedDesiredAcross.dot(relaxedFingerDirection)
+                );
+            if (
+                relaxedPalmAcross.lengthSq() < 0.000001
+                || relaxedDesiredAcross.lengthSq() < 0.000001
+            ) return;
+            relaxedPalmAcross.normalize();
+            relaxedDesiredAcross.normalize();
+            relaxedCross.crossVectors(relaxedPalmAcross, relaxedDesiredAcross);
+            const twistAngle = Math.atan2(
+                relaxedFingerDirection.dot(relaxedCross),
+                THREE.MathUtils.clamp(relaxedPalmAcross.dot(relaxedDesiredAcross), -1, 1)
+            );
+            relaxedTwistQuaternion.setFromAxisAngle(
+                relaxedFingerDirection,
+                twistAngle * THREE.MathUtils.clamp(weight, 0, 1)
+            );
+            hand.getWorldQuaternion(relaxedHandWorldQuaternion);
+            relaxedHandWorldQuaternion.premultiply(relaxedTwistQuaternion);
+            hand.parent.getWorldQuaternion(relaxedHandParentQuaternion).invert();
+            hand.quaternion.copy(
+                relaxedHandParentQuaternion.multiply(relaxedHandWorldQuaternion)
+            );
+            hand.updateMatrixWorld(true);
+        };
+
+        const orientSpearHand = (foreArm, hand, middle, index, pinky, weight = 1) => {
+            if (
+                !activeModel
+                || !foreArm
+                || !hand
+                || !middle
+                || !index
+                || !pinky
+                || !hand.parent
+                || weight <= 0.001
+            ) return;
+            bodyBasis();
+            activeModel.updateMatrixWorld(true);
+            foreArm.getWorldPosition(armElbowPosition);
+            hand.getWorldPosition(relaxedHandPosition);
+
+            // La línea muñeca-nudillos continúa la dirección del antebrazo.
+            // Así el puño avanza hacia la lanza sin quebrarse hacia el faldón.
+            relaxedFingerDirection.subVectors(
+                relaxedHandPosition,
+                armElbowPosition
+            );
+            if (relaxedFingerDirection.lengthSq() < 0.000001) return;
+            relaxedFingerDirection.normalize();
+            relaxedHandTarget.copy(relaxedHandPosition)
+                .add(relaxedFingerDirection);
+            aimBoneAtWorldPoint(hand, middle, relaxedHandTarget, weight);
+
+            // Pulgar arriba y palma hacia el asta. El eje índice-meñique se
+            // alinea con el cuerpo vertical sin alterar la dirección neutral
+            // de la muñeca calculada arriba.
+            activeModel.updateMatrixWorld(true);
+            hand.getWorldPosition(relaxedHandPosition);
+            middle.getWorldPosition(relaxedMiddlePosition);
+            index.getWorldPosition(relaxedIndexPosition);
+            pinky.getWorldPosition(relaxedPinkyPosition);
+            relaxedFingerDirection.subVectors(
+                relaxedMiddlePosition,
+                relaxedHandPosition
+            ).normalize();
+            relaxedPalmAcross.subVectors(relaxedIndexPosition, relaxedPinkyPosition)
+                .addScaledVector(
+                    relaxedFingerDirection,
+                    -relaxedPalmAcross.dot(relaxedFingerDirection)
+                );
+            relaxedDesiredAcross.copy(bodyUp)
+                .addScaledVector(
+                    relaxedFingerDirection,
+                    -relaxedDesiredAcross.dot(relaxedFingerDirection)
+                );
+            if (
+                relaxedPalmAcross.lengthSq() < 0.000001
+                || relaxedDesiredAcross.lengthSq() < 0.000001
+            ) return;
+            relaxedPalmAcross.normalize();
+            relaxedDesiredAcross.normalize();
+            relaxedCross.crossVectors(relaxedPalmAcross, relaxedDesiredAcross);
+            const twistAngle = Math.atan2(
+                relaxedFingerDirection.dot(relaxedCross),
+                THREE.MathUtils.clamp(
+                    relaxedPalmAcross.dot(relaxedDesiredAcross),
+                    -1,
+                    1
+                )
+            );
+            relaxedTwistQuaternion.setFromAxisAngle(
+                relaxedFingerDirection,
+                twistAngle * THREE.MathUtils.clamp(weight, 0, 1)
+            );
+            hand.getWorldQuaternion(relaxedHandWorldQuaternion);
+            relaxedHandWorldQuaternion.premultiply(relaxedTwistQuaternion);
+            hand.parent.getWorldQuaternion(relaxedHandParentQuaternion).invert();
+            hand.quaternion.copy(
+                relaxedHandParentQuaternion.multiply(relaxedHandWorldQuaternion)
+            );
+            hand.updateMatrixWorld(true);
         };
 
         const applyOpenFingers = (bones, weight) => {
@@ -537,6 +749,112 @@ if (root && canvas) {
             });
         };
 
+        const applyRelaxedFingers = (bones, weight = 1) => {
+            const blend = THREE.MathUtils.clamp(weight, 0, 1);
+            if (blend <= 0.001) return;
+            bones.forEach((bone) => {
+                const openRotation = openFingerRotations.get(bone);
+                if (!openRotation) return;
+                const name = normalizedBoneName(bone.name);
+                const isThumb = name.includes('thumb');
+                const authoredRelaxedRotation = relaxedFingerRotations.get(bone);
+                if (authoredRelaxedRotation) {
+                    let authoredBlend = 0.56;
+                    if (isThumb) authoredBlend = 0.70;
+                    else if (name.includes('index')) authoredBlend = 0.50;
+                    else if (name.includes('ring')) authoredBlend = 0.60;
+                    else if (name.includes('pinky')) authoredBlend = 0.64;
+                    relaxedFingerTarget.copy(openRotation).slerp(
+                        authoredRelaxedRotation,
+                        authoredBlend
+                    );
+                    bone.quaternion.slerp(relaxedFingerTarget, blend);
+                    return;
+                }
+                const segment = name.endsWith('1') ? 1 : name.endsWith('2') ? 2 : name.endsWith('3') ? 3 : 0;
+                if (!segment) {
+                    bone.quaternion.slerp(openRotation, blend);
+                    return;
+                }
+                let curl = isThumb
+                    ? (segment === 1 ? 0.10 : segment === 2 ? 0.18 : 0.10)
+                    : (segment === 1 ? 0.28 : segment === 2 ? 0.38 : 0.22);
+                if (name.includes('index')) curl *= 0.90;
+                if (name.includes('ring')) curl *= 1.08;
+                if (name.includes('pinky')) curl *= 1.16;
+                relaxedFingerEuler.set(curl, 0, 0);
+                relaxedFingerCurl.setFromEuler(relaxedFingerEuler);
+                relaxedFingerTarget.copy(openRotation).multiply(relaxedFingerCurl);
+                bone.quaternion.slerp(relaxedFingerTarget, blend);
+            });
+        };
+
+        const applySpearGrip = (bones, weight = 1) => {
+            const blend = THREE.MathUtils.clamp(weight, 0, 1);
+            if (blend <= 0.001) return;
+            bones.forEach((bone) => {
+                const gripRotation = relaxedFingerRotations.get(bone);
+                if (!gripRotation) return;
+                // El fotograma de referencia contiene el puño cerrado. Para
+                // sujetar el asta no debe mezclarse con la mano abierta de la
+                // pose vertical: esa mezcla separaba los dedos y exageraba el
+                // pulgar. Aplicar el agarre completo conserva los volúmenes de
+                // la malla porque solamente mueve los huesos originales.
+                const name = normalizedBoneName(bone.name);
+                const segment = name.endsWith('1') ? 1 : name.endsWith('2') ? 2 : name.endsWith('3') ? 3 : 0;
+                if (segment) {
+                    const isThumb = name.includes('thumb');
+                    const extraCurl = isThumb
+                        ? (segment === 1 ? 0.10 : segment === 2 ? 0.24 : 0.18)
+                        : (segment === 1 ? 0.05 : segment === 2 ? 0.12 : 0.08);
+                    relaxedFingerEuler.set(extraCurl, 0, 0);
+                    relaxedFingerCurl.setFromEuler(relaxedFingerEuler);
+                    relaxedFingerTarget.copy(gripRotation).multiply(relaxedFingerCurl);
+                    bone.quaternion.slerp(
+                        relaxedFingerTarget,
+                        Math.min(1, blend * 1.12)
+                    );
+                    return;
+                }
+                bone.quaternion.slerp(gripRotation, Math.min(1, blend * 1.12));
+            });
+        };
+
+        const prepareStaticSpearAnchor = () => {
+            const spear = modularParts?.spear;
+            if (!activeModel || !rightHand || !spear || spear.isSkinnedMesh) {
+                staticSpearReady = false;
+                return;
+            }
+            activeModel.updateMatrixWorld(true);
+            // Conservar la apariencia diseñada y llevar la pieza al mismo
+            // espacio local del personaje. Desde aquí solo seguirá la
+            // traslación de la palma, nunca su giro forzado.
+            activeModel.attach(spear);
+            activeModel.updateMatrixWorld(true);
+            rightHand.getWorldPosition(staticSpearHandWorldPosition);
+            staticSpearHandLocalPosition.copy(staticSpearHandWorldPosition);
+            activeModel.worldToLocal(staticSpearHandLocalPosition);
+            staticSpearOffset.copy(spear.position).sub(staticSpearHandLocalPosition);
+            staticSpearQuaternion.copy(spear.quaternion);
+            staticSpearScale.copy(spear.scale);
+            staticSpearReady = true;
+            root.dataset.leonidasSpearAnchor = 'hand-position-static-orientation-v1';
+        };
+
+        const syncStaticSpearAnchor = () => {
+            const spear = modularParts?.spear;
+            if (!staticSpearReady || !activeModel || !rightHand || !spear) return;
+            activeModel.updateMatrixWorld(true);
+            rightHand.getWorldPosition(staticSpearHandWorldPosition);
+            staticSpearHandLocalPosition.copy(staticSpearHandWorldPosition);
+            activeModel.worldToLocal(staticSpearHandLocalPosition);
+            spear.position.copy(staticSpearHandLocalPosition).add(staticSpearOffset);
+            spear.quaternion.copy(staticSpearQuaternion);
+            spear.scale.copy(staticSpearScale);
+            spear.updateMatrixWorld(true);
+        };
+
         const layoutCharacter = (width, height) => {
             const visibleHeight = 2 * camera.position.z * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
             const visibleWidth = visibleHeight * camera.aspect;
@@ -544,12 +862,24 @@ if (root && canvas) {
             const desiredHeight = previewingAppearance
                 ? Math.min(height * 0.66, width * 1.38)
                 : width <= 575 ? 210 : 300;
-            const edgeMargin = (previewingAppearance ? 140 : width <= 575 ? 12 : 22) * visibleHeight / height;
+            const previewBaseMarginPixels = Math.max(
+                58,
+                Math.min(78, height * 0.15)
+            );
+            const edgeMarginPixels = previewingAppearance
+                ? previewBaseMarginPixels
+                : width <= 575 ? 12 : 22;
+            const edgeMargin = edgeMarginPixels * visibleHeight / height;
+            const previewCenterCorrection = previewingAppearance
+                ? -4 * visibleWidth / width
+                : 0;
 
             characterScale = desiredHeight * visibleHeight / (height * characterHeight);
             characterAnchor.scale.setScalar(characterScale);
             characterAnchor.position.set(
-                previewingAppearance ? 0 : visibleWidth / 2 - characterScale * 0.96 - edgeMargin,
+                previewingAppearance
+                    ? previewCenterCorrection
+                    : visibleWidth / 2 - characterScale * 0.96 - edgeMargin,
                 -visibleHeight / 2 + edgeMargin,
                 0
             );
@@ -705,28 +1035,111 @@ if (root && canvas) {
                     1 - Math.max(interaction, walkWeight)
                 );
                 if (idleElbowWeight > 0.001) {
+                    const preserveSpearOrientation = Boolean(
+                        currentAppearance.lanza_visible
+                        && swordForeArm
+                        && swordForeArm.parent
+                    );
+                    const preserveShieldOrientation = Boolean(
+                        currentAppearance.escudo_visible
+                        && shieldForeArm
+                        && shieldForeArm.parent
+                    );
+                    if (preserveShieldOrientation) {
+                        activeModel.updateMatrixWorld(true);
+                        shieldForeArm.getWorldQuaternion(
+                            shieldForeArmWorldQuaternion
+                        );
+                    }
+                    settleBone(leftShoulder, 0.94 * idleElbowWeight);
+                    settleBone(rightShoulder, 0.94 * idleElbowWeight);
+                    settleBone(shieldArm, 0.72 * idleElbowWeight);
+                    settleBone(swordArm, 0.72 * idleElbowWeight);
+                    settleBone(shieldForeArm, 0.66 * idleElbowWeight);
+                    settleBone(swordForeArm, 0.66 * idleElbowWeight);
+                    poseRelaxedShoulder(
+                        leftShoulder,
+                        shieldArm,
+                        idleElbowWeight * 0.82
+                    );
+                    poseRelaxedShoulder(
+                        rightShoulder,
+                        swordArm,
+                        idleElbowWeight * 0.82
+                    );
                     poseArm(
                         shieldArm,
                         shieldForeArm,
                         leftHand,
                         'idle',
-                        idleElbowWeight * 0.86
+                        idleElbowWeight * 0.96
                     );
+                    if (preserveShieldOrientation) {
+                        activeModel.updateMatrixWorld(true);
+                        shieldForeArm.parent.getWorldQuaternion(
+                            shieldForeArmParentQuaternion
+                        ).invert();
+                        shieldForeArm.quaternion.copy(
+                            shieldForeArmParentQuaternion.multiply(
+                                shieldForeArmWorldQuaternion
+                            )
+                        );
+                        shieldForeArm.updateMatrixWorld(true);
+                    }
                     poseArm(
                         swordArm,
                         swordForeArm,
                         rightHand,
-                        'idle',
-                        idleElbowWeight * 0.86
+                        preserveSpearOrientation ? 'spear' : 'idle',
+                        idleElbowWeight * 0.96
                     );
+                    if (preserveSpearOrientation) {
+                        // La lanza conserva su orientación estática mientras
+                        // brazo, antebrazo, muñeca y dedos forman un agarre
+                        // específico, separado de la pose de descanso.
+                        orientSpearHand(
+                            swordForeArm,
+                            rightHand,
+                            rightMiddleFinger,
+                            rightIndexFinger,
+                            rightPinkyFinger,
+                            idleElbowWeight * 0.92
+                        );
+                        applySpearGrip(
+                            rightFingerBones,
+                            idleElbowWeight
+                        );
+                    }
                     // La animación nativa cierra los puños y quiebra ambas
                     // muñecas hacia el faldón. Recuperar parte de la rotación
                     // neutra y relajar los dedos mantiene manos anatómicas.
-                    settleHand(leftHand, idleElbowWeight * 0.74);
-                    settleHand(rightHand, idleElbowWeight * 0.74);
-                    applyOpenFingers(leftFingerBones, idleElbowWeight * 0.52);
-                    applyOpenFingers(rightFingerBones, idleElbowWeight * 0.52);
+                    if (!currentAppearance.escudo_visible) {
+                        settleHand(leftHand, idleElbowWeight * 0.16);
+                        orientRelaxedHand(
+                            leftHand,
+                            leftMiddleFinger,
+                            leftIndexFinger,
+                            leftPinkyFinger,
+                            idleElbowWeight * 0.92
+                        );
+                        applyRelaxedFingers(leftFingerBones, idleElbowWeight * 0.96);
+                    }
+                    if (!currentAppearance.lanza_visible) {
+                        settleHand(rightHand, idleElbowWeight * 0.16);
+                        orientRelaxedHand(
+                            rightHand,
+                            rightMiddleFinger,
+                            rightIndexFinger,
+                            rightPinkyFinger,
+                            idleElbowWeight * 0.92
+                        );
+                        applyRelaxedFingers(rightFingerBones, idleElbowWeight * 0.96);
+                    }
+                    root.dataset.leonidasArmPose = currentAppearance.lanza_visible
+                        ? 'forward-spear-grip-v15'
+                        : 'anatomical-idle-v15';
                 }
+                syncStaticSpearAnchor();
             }
             root.dataset.leonidasMotion = victoryWeight > 0.08
                 ? 'victory'
@@ -1509,12 +1922,20 @@ if (root && canvas) {
             spine = findBone(model, ['spine2', 'spine02', 'spine3', 'spine03']);
             neck = findBone(model, ['neck']);
             head = findBone(model, ['head']);
+            leftShoulder = findBone(model, ['leftshoulder', 'claviclel']);
+            rightShoulder = findBone(model, ['rightshoulder', 'clavicler']);
             shieldArm = findBone(model, ['upperarml', 'leftarm']);
             shieldForeArm = findBone(model, ['lowerarml', 'leftforearm']);
             swordArm = findBone(model, ['upperarmr', 'rightarm']);
             swordForeArm = findBone(model, ['lowerarmr', 'rightforearm']);
             leftHand = findBone(model, ['lefthand']);
             rightHand = findBone(model, ['righthand']);
+            leftMiddleFinger = findBone(model, ['lefthandmiddle1']);
+            leftIndexFinger = findBone(model, ['lefthandindex1']);
+            leftPinkyFinger = findBone(model, ['lefthandpinky1']);
+            rightMiddleFinger = findBone(model, ['righthandmiddle1']);
+            rightIndexFinger = findBone(model, ['righthandindex1']);
+            rightPinkyFinger = findBone(model, ['righthandpinky1']);
             rightUpLeg = findBone(model, ['rightupleg']);
             rightLeg = findBone(model, ['rightleg']);
             rightFoot = findBone(model, ['rightfoot']);
@@ -1536,6 +1957,7 @@ if (root && canvas) {
             });
             [
                 pelvis, spineLower, spineMiddle, spine, neck, head,
+                leftShoulder, rightShoulder,
                 shieldArm, shieldForeArm, swordArm, swordForeArm,
                 leftHand, rightHand, rightUpLeg, rightLeg, rightFoot,
                 leftUpLeg, leftLeg, leftFoot
@@ -1544,10 +1966,18 @@ if (root && canvas) {
             if (animations.length) {
                 mixer = new THREE.AnimationMixer(model);
                 mixer.clipAction(animations[0]).reset().play();
+                // El primer fotograma contiene el agarre cerrado del propio
+                // rig. Solo se usa como referencia para juntar los dedos y
+                // recoger el pulgar sin deformar la malla manualmente.
+                mixer.setTime(0);
+                [...rightFingerBones, ...leftFingerBones].forEach((bone) => {
+                    relaxedFingerRotations.set(bone, bone.quaternion.clone());
+                });
                 mixer.setTime(6.4);
                 if (rightHand) greetingHandRotation = rightHand.quaternion.clone();
                 mixer.setTime(nativeAnimationTime);
             }
+            prepareStaticSpearAnchor();
 
             root.dataset.leonidasModel = modelName;
             root.dataset.leonidasBones = String(baseRotations.size);

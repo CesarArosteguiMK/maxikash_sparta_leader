@@ -208,6 +208,24 @@ final class LeonidasMotosAdjudicadasCaptureTest extends TestCase
         self::assertStringContainsString('crear la operacion local', $result['mensaje']);
     }
 
+    public function testNoPermiteMoverOperacionLocalCuandoLegacyNoEsteDisponible(): void
+    {
+        $context = $this->context;
+        $context['permisos_agente']['motos_override_estatus'] = true;
+
+        $result = $this->service->resolver(
+            'MUEVE A EVIDENCIAS EL ID 2257556',
+            'mueve a evidencias el id 2257556',
+            $context
+        );
+
+        self::assertSame('agente_diagnostico', $result['tipo']);
+        self::assertArrayNotHasKey('propuesta_especificacion', $result);
+        self::assertStringContainsString('la conexion a Legacy fallo', $result['mensaje']);
+        self::assertStringContainsString('Legacy es obligatorio', $result['mensaje']);
+        self::assertStringContainsString('No realice cambios', $result['mensaje']);
+    }
+
     public function testNoCreaOperacionLocalSinPermisoOverride(): void
     {
         $service = new LeonidasMotosSinOperacionServiceStub();

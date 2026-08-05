@@ -130,16 +130,17 @@ class LeonidasMotosAdjudicadasService
         if ($consultaAsignacion && !$moverEvidencias) {
             return $this->respuesta($mensajeDiagnostico . "\n\nNo realice cambios.", 'agente_diagnostico');
         }
+        $operacion = is_array($diagnostico['operacion'] ?? null) ? $diagnostico['operacion'] : [];
         if (empty($diagnostico['legacy']['disponible'])) {
             return $this->respuesta(
                 $mensajeDiagnostico
-                    . "\n\nNo puedo preparar ni forzar el movimiento mientras Legacy no este disponible. "
-                    . 'Debo revisar tasks, task_user_assignments, campaigns, users y dictums antes de proponer el cambio. No realice cambios.',
+                    . "\n\nEl movimiento si esta soportado por Leonidas, pero la conexion a Legacy fallo durante esta consulta. "
+                    . 'Legacy es obligatorio porque debo verificar tasks, task_user_assignments y campaigns antes de preparar el movimiento, '
+                    . 'aunque la operacion ya exista en Sparta. No realice cambios para evitar desincronizar los sistemas.',
                 'agente_diagnostico'
             );
         }
 
-        $operacion = is_array($diagnostico['operacion'] ?? null) ? $diagnostico['operacion'] : [];
         if (!$operacion) {
             $fuenteLegacy = $this->fuenteLegacyActiva($diagnostico);
             if (!$fuenteLegacy) {
@@ -729,6 +730,23 @@ class LeonidasMotosAdjudicadasService
 
         $diagnostico = $this->diagnosticar($idCredito);
         $operacion = is_array($diagnostico['operacion'] ?? null) ? $diagnostico['operacion'] : [];
+        if (in_array($accion, [self::ACTION_ENVIAR_EVIDENCIAS, self::ACTION_FORZAR_EVIDENCIAS], true)
+            && empty($diagnostico['legacy']['disponible'])) {
+            throw new \RuntimeException(
+                'Legacy no esta disponible para revalidar el movimiento a Evidencias. '
+                . 'No se realizo ningun cambio en Sparta.'
+            );
+        }
+
+        $legacyTaskIdEsperado = (int) ($payload['legacy_motos_task_id'] ?? 0);
+        if ($legacyTaskIdEsperado > 0
+            && in_array($accion, [self::ACTION_ENVIAR_EVIDENCIAS, self::ACTION_FORZAR_EVIDENCIAS], true)
+            && !$this->buscarTareaLegacyActiva($diagnostico, $legacyTaskIdEsperado)) {
+            throw new \RuntimeException(
+                'La tarea de Motos Adjudicadas en Legacy cambio o dejo de estar activa despues de la vista previa. '
+                . 'Vuelve a solicitar el diagnostico; no se realizo ningun cambio en Sparta.'
+            );
+        }
         if ($crearOperacionLocal && $operacion) {
             throw new \RuntimeException('El credito ya tiene una operacion local creada despues de la vista previa. Vuelve a solicitar el diagnostico.');
         }
@@ -1082,7 +1100,7 @@ class LeonidasMotosAdjudicadasService
         }
 
         if (empty($legacy['disponible'])) {
-            $lineas[] = '- Legacy: no estuvo disponible durante esta consulta. La respuesta local se conserva, pero el diagnostico no esta completo.';
+            $lineas[] = '- Legacy: fallo la conexion durante esta consulta. La respuesta local se conserva, pero el diagnostico cruzado no esta completo.';
             return implode("\n", $lineas);
         }
 
