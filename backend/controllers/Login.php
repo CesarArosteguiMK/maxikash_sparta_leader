@@ -129,7 +129,12 @@ class login extends Controller
             $_SESSION['login'] = true;
             $_SESSION['usuario_id'] = (int)$datos['id'];
             $_SESSION['usuario'] = $datos['user_name'];
-            $_SESSION['usuario_nombre'] = $datos['nombres'] . ' ' . $datos['segundo_nombre']. ' ' . $datos['apellidop'];
+            $_SESSION['usuario_nombre'] = trim(implode(' ', array_filter([
+                $datos['nombres'] ?? '',
+                $datos['segundo_nombre'] ?? '',
+                $datos['apellidop'] ?? '',
+                $datos['apellidom'] ?? '',
+            ], static fn($value) => trim((string) $value) !== '')));
             // Identifica exclusivamente este inicio de sesion. El frontend de Leonidas
             // usa este valor para no restaurar presencia, panel o chat de una sesion anterior.
             $_SESSION['leonidas_session_token'] = bin2hex(random_bytes(16));
