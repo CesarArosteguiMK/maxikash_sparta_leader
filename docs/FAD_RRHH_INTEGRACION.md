@@ -189,6 +189,33 @@ El cliente oficial de producción sigue pendiente del contrato técnico del
 proveedor. Mientras tanto existe un adaptador provisional del portal, protegido
 por `FAD_RRHH_ENABLED=0` y sujeto a una prueba controlada antes de activarse.
 
+## Flujo contractual confirmado por Capital Humano
+
+Capital Humano confirmó el 5 de agosto de 2026 que cada solicitud utiliza dos
+firmantes. El colaborador firma primero (`order=1`) y el representante legal
+firma después (`order=2`). FAD genera una liga para cada persona.
+
+| Código Sparta | Uso | Empresa | Representante legal | Páginas esperadas |
+| --- | --- | --- | --- | ---: |
+| `AMIGO_GENERAL_NUEVO` | Nuevo ingreso corporativo | Amigo Efectivo | Gabriela Lucero Sanchez | 9 |
+| `AMIGO_ACTUALIZACION` | Actualización y reconocimiento de antigüedad | Amigo Efectivo | Gabriela Lucero Sanchez | 9 |
+| `PENSIONAMAX_NUEVO` | Nuevo ingreso Pensionamax | Pensionamax | María del Carmen Jaramillo Camacho | 10 |
+| `AMIGO_GESTOR_COBRANZA` | Nuevo ingreso de Cobranza | Amigo Efectivo | Gabriela Lucero Sanchez | 8 |
+
+En las páginas intermedias se colocan dos áreas de firma en el margen derecho.
+En la última página las áreas se colocan sobre los nombres del patrón y del
+trabajador, y debajo se agrega el recuadro de autenticidad, verificación y
+certificado de conservación.
+
+Los machotes de Amigo General y Actualización recibidos contienen campos
+resaltados, sustituciones pendientes y cambios controlados de Word. Por eso no
+se consideran documentos listos para producción hasta que Capital Humano y
+Jurídico entreguen o aprueben una versión limpia y personalizada. Cada plantilla
+se habilita de forma independiente con su variable
+`FAD_RRHH_TEMPLATE_*_APPROVED=1`, después de revisar visualmente las áreas en el
+portal. El sistema también rechaza un PDF cuya cantidad de páginas no coincida
+con la plantilla seleccionada.
+
 ## Preparación implementada en Sparta
 
 La primera etapa ya está disponible detrás de configuración segura:
@@ -220,8 +247,9 @@ proveedor. Este adaptador:
 3. Cifra el inicio de sesión con AES-128-CBC igual que el portal.
 4. Obtiene un token Bearer sin guardar el token en disco ni registrarlo en logs.
 5. Puede consultar usuario, tipos de solicitud, vigencias y país sugerido.
-6. Puede cargar un contrato PDF, registrar al candidato como firmante y crear
-   la solicitud.
+6. Puede cargar un contrato PDF, registrar al candidato, recuperar de forma
+   segura al representante legal ya existente y crear la solicitud con ambos
+   firmantes.
 7. Puede sincronizar el estado y, cuando sea `SIGNED`, descargar, validar,
    calcular SHA-256 y guardar el PDF como `Contrato firmado`.
 
@@ -247,8 +275,8 @@ firmas:
 - Archivo de secretos: acceso restringido al usuario que ejecuta Apache,
   Administradores y `SYSTEM`.
 - `FAD_RRHH_ENFORCE_SIGNED=0`: se mantiene desactivado.
-- Envío real: deliberadamente inhabilitado hasta definir las cajas de firma y
-  certificado sobre la plantilla contractual oficial.
+- Envío real: deliberadamente inhabilitado hasta que Capital Humano apruebe de
+  forma individual la versión limpia y las áreas propuestas de cada plantilla.
 
 ## Criterios mínimos de seguridad
 

@@ -13,7 +13,9 @@ if (PHP_SAPI !== 'cli') {
 
 require_once __DIR__ . '/../backend/core/EnvLoader.php';
 require_once __DIR__ . '/../backend/core/Database.php';
+require_once __DIR__ . '/../backend/models/FadRrhh.php';
 require_once __DIR__ . '/../backend/services/FadRrhhPortalClient.php';
+require_once __DIR__ . '/../backend/services/FadRrhhTemplateCatalog.php';
 require_once __DIR__ . '/../backend/services/FadRrhhService.php';
 
 EnvLoader::load();
@@ -26,6 +28,7 @@ $result = [
         'estructura_completa' => false,
     ],
 ];
+$liveCheck = in_array('--live', $argv ?? [], true);
 
 try {
     $config = (new FadRrhhService())->configuracion();
@@ -40,7 +43,25 @@ try {
     $result['configuracion'] = ['error' => 'No fue posible validar la configuracion.'];
 }
 
+if ($liveCheck) {
+    try {
+        $probe = (new FadRrhhService())->probarConexion();
+        $result['conexion_fad'] = [
+            'conexion' => $probe['conexion'] ?? 'ERROR',
+            'representantes_legales' => $probe['representantes_legales'] ?? [],
+            'escritura_realizada' => false,
+        ];
+    } catch (Throwable $e) {
+        $result['conexion_fad'] = [
+            'conexion' => 'ERROR',
+            'representantes_legales' => [],
+            'escritura_realizada' => false,
+        ];
+    }
+}
+
 try {
+    \Models\FadRrhh::asegurarEsquema();
     $db = new Database();
     $row = $db->queryOne(
         "SELECT COUNT(*) AS total
@@ -57,8 +78,9 @@ try {
              WHERE table_schema = DATABASE()
                AND table_name = 'candidato_fad_rrhh_solicitud'
                AND column_name IN (
-                   'id', 'id_candidato', 'referencia', 'document_id', 'signer_id',
-                   'requisition_id', 'signing_url', 'estatus', 'pdf_firmado_ruta',
+                   'id', 'id_candidato', 'referencia', 'template_code', 'company_code',
+                   'document_id', 'signer_id', 'worker_signer_id', 'legal_signer_id',
+                   'requisition_id', 'signing_url', 'legal_signing_url', 'estatus', 'pdf_firmado_ruta',
                    'pdf_firmado_sha256', 'fad_archivo_ruta', 'ultimo_error',
                    'intentos_sync', 'creado_por', 'actualizado_por', 'enviado_en',
                    'firmado_en', 'ultima_sync_en', 'creado_en', 'actualizado_en'
@@ -74,7 +96,7 @@ try {
                    'uq_fad_rrhh_candidato', 'uq_fad_rrhh_referencia', 'uq_fad_rrhh_requisition'
                )"
         );
-        $structureComplete = (int) ($columns['total'] ?? 0) === 20
+        $structureComplete = (int) ($columns['total'] ?? 0) === 25
             && (int) ($uniqueIndexes['total'] ?? 0) === 3;
     }
     $result['base_de_datos'] = [

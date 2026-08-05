@@ -16499,12 +16499,42 @@ class CapHum extends Controller
         }
 
         function seleccionarYEnviarContratoFad(idCandidato, btn) {
-            var input = document.createElement("input");
-            input.type = "file";
-            input.accept = "application/pdf,.pdf";
-            input.style.display = "none";
-            document.body.appendChild(input);
-            input.addEventListener("change", function() {
+            var tipos = {
+                "AMIGO_GENERAL_NUEVO": "Contrato general — nuevo ingreso corporativo (9 páginas)",
+                "AMIGO_ACTUALIZACION": "Actualización y reconocimiento de antigüedad (9 páginas)",
+                "PENSIONAMAX_NUEVO": "Contrato Pensionamax — nuevo ingreso (10 páginas)",
+                "AMIGO_GESTOR_COBRANZA": "Contrato gestor de cobranza (8 páginas)"
+            };
+            if (typeof Swal !== "undefined") {
+                Swal.fire({
+                    title: "Tipo de contrato FAD",
+                    text: "Elige la plantilla que corresponde a la empresa y al motivo de contratación.",
+                    input: "select",
+                    inputOptions: tipos,
+                    inputPlaceholder: "Selecciona una plantilla",
+                    showCancelButton: true,
+                    confirmButtonText: "Elegir PDF",
+                    cancelButtonText: "Cancelar",
+                    inputValidator: function(value) {
+                        return value ? undefined : "Debes seleccionar el tipo de contrato.";
+                    }
+                }).then(function(result) {
+                    if (result.isConfirmed && result.value) abrirSelectorContratoFad(result.value);
+                });
+                return;
+            }
+            var templateCode = window.prompt(
+                "Escribe el código del contrato: AMIGO_GENERAL_NUEVO, AMIGO_ACTUALIZACION, PENSIONAMAX_NUEVO o AMIGO_GESTOR_COBRANZA"
+            );
+            if (templateCode) abrirSelectorContratoFad(String(templateCode).trim().toUpperCase());
+
+            function abrirSelectorContratoFad(templateCode) {
+                var input = document.createElement("input");
+                input.type = "file";
+                input.accept = "application/pdf,.pdf";
+                input.style.display = "none";
+                document.body.appendChild(input);
+                input.addEventListener("change", function() {
                 var archivo = input.files && input.files[0] ? input.files[0] : null;
                 input.remove();
                 if (!archivo) return;
@@ -16517,6 +16547,7 @@ class CapHum extends Controller
                 if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Enviando'; }
                 var form = new FormData();
                 form.append("id_candidato", String(idCandidato));
+                form.append("template_code", templateCode);
                 form.append("contrato", archivo, archivo.name);
                 fetch("/caphum/enviarContratoFad", { method: "POST", headers: { "Accept": "application/json" }, body: form })
                     .then(function(r) { return r.json(); })
@@ -16534,8 +16565,9 @@ class CapHum extends Controller
                         if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "No se pudo enviar", text: mensaje });
                         else alert(mensaje);
                     });
-            }, { once: true });
-            input.click();
+                }, { once: true });
+                input.click();
+            }
         }
 
         function confirmarFirmaContratoCandidato(idCandidato) {
@@ -21592,9 +21624,11 @@ class CapHum extends Controller
             return;
         }
         $idCandidato = (int) ($_POST['id_candidato'] ?? $_POST['id'] ?? 0);
+        $templateCode = strtoupper(trim((string) ($_POST['template_code'] ?? '')));
         $file = $_FILES['contrato'] ?? null;
-        if ($idCandidato <= 0 || !is_array($file) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            echo json_encode(self::respuesta(false, 'Selecciona un contrato PDF válido.'));
+        if ($idCandidato <= 0 || $templateCode === '' || !is_array($file)
+            || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            echo json_encode(self::respuesta(false, 'Selecciona el tipo de contrato y un PDF válido.'));
             return;
         }
         try {
@@ -21602,6 +21636,7 @@ class CapHum extends Controller
                 $idCandidato,
                 (string) ($file['tmp_name'] ?? ''),
                 (string) ($file['name'] ?? ('contrato_' . $idCandidato . '.pdf')),
+                $templateCode,
                 (int) ($_SESSION['usuario_id'] ?? 0)
             );
             CandidatosDAO::registrarBitacoraCandidato(
@@ -21609,7 +21644,10 @@ class CapHum extends Controller
                 'FAD_RRHH_ENVIADO',
                 'Contrato enviado a FAD',
                 'Se creó o recuperó la solicitud de firma del contrato laboral en FAD.',
-                ['requisition_id' => $data['solicitud']['requisition_id'] ?? null],
+                [
+                    'requisition_id' => $data['solicitud']['requisition_id'] ?? null,
+                    'template_code' => $templateCode,
+                ],
                 (int) ($_SESSION['usuario_id'] ?? 0)
             );
             echo json_encode(self::respuesta(true, 'Contrato enviado a FAD correctamente.', $data));

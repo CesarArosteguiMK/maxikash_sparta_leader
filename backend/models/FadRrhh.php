@@ -33,10 +33,15 @@ final class FadRrhh
                 id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
                 id_candidato INT NOT NULL,
                 referencia VARCHAR(120) NOT NULL,
+                template_code VARCHAR(80) NULL,
+                company_code VARCHAR(40) NULL,
                 document_id VARCHAR(120) NULL,
                 signer_id VARCHAR(120) NULL,
+                worker_signer_id VARCHAR(120) NULL,
+                legal_signer_id VARCHAR(120) NULL,
                 requisition_id VARCHAR(120) NULL,
                 signing_url VARCHAR(700) NULL,
+                legal_signing_url VARCHAR(700) NULL,
                 estatus VARCHAR(30) NOT NULL DEFAULT 'DRAFT',
                 pdf_firmado_ruta VARCHAR(700) NULL,
                 pdf_firmado_sha256 CHAR(64) NULL,
@@ -57,7 +62,37 @@ final class FadRrhh
                 INDEX idx_fad_rrhh_actualizado (actualizado_en)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
+        self::ensureColumns($db);
         $ready = true;
+    }
+
+    public static function asegurarEsquema(): void
+    {
+        self::ensureSchema();
+    }
+
+    private static function ensureColumns(Database $db): void
+    {
+        $columns = [
+            'template_code' => 'VARCHAR(80) NULL AFTER referencia',
+            'company_code' => 'VARCHAR(40) NULL AFTER template_code',
+            'worker_signer_id' => 'VARCHAR(120) NULL AFTER signer_id',
+            'legal_signer_id' => 'VARCHAR(120) NULL AFTER worker_signer_id',
+            'legal_signing_url' => 'VARCHAR(700) NULL AFTER signing_url',
+        ];
+        foreach ($columns as $name => $definition) {
+            $exists = $db->queryOne(
+                "SELECT COUNT(*) AS total
+                 FROM information_schema.columns
+                 WHERE table_schema = DATABASE()
+                   AND table_name = 'candidato_fad_rrhh_solicitud'
+                   AND column_name = :column_name",
+                ['column_name' => $name]
+            );
+            if ((int) ($exists['total'] ?? 0) === 0) {
+                $db->CRUD("ALTER TABLE candidato_fad_rrhh_solicitud ADD COLUMN {$name} {$definition}");
+            }
+        }
     }
 
     public static function preparar(int $idCandidato, ?int $idUsuario = null): array
@@ -167,6 +202,46 @@ final class FadRrhh
             [
                 'document_id' => self::nullable($documentId, 120),
                 'signer_id' => self::nullable($signerId, 120),
+                'actualizado_por' => $idUsuario,
+                'actualizado_en' => self::now(),
+                'id_candidato' => $idCandidato,
+            ]
+        );
+        return self::obtenerPorCandidato($idCandidato) ?? [];
+    }
+
+    public static function guardarContextoFirma(
+        int $idCandidato,
+        string $templateCode,
+        string $companyCode,
+        ?string $workerSignerId,
+        ?string $legalSignerId,
+        ?string $workerSigningUrl = null,
+        ?string $legalSigningUrl = null,
+        ?int $idUsuario = null
+    ): array {
+        self::preparar($idCandidato, $idUsuario);
+        $db = new Database();
+        $db->CRUD(
+            "UPDATE candidato_fad_rrhh_solicitud
+             SET template_code = :template_code,
+                 company_code = :company_code,
+                 signer_id = COALESCE(:worker_signer_id, signer_id),
+                 worker_signer_id = COALESCE(:worker_signer_id, worker_signer_id),
+                 legal_signer_id = COALESCE(:legal_signer_id, legal_signer_id),
+                 signing_url = COALESCE(:worker_signing_url, signing_url),
+                 legal_signing_url = COALESCE(:legal_signing_url, legal_signing_url),
+                 actualizado_por = :actualizado_por,
+                 actualizado_en = :actualizado_en,
+                 ultimo_error = NULL
+             WHERE id_candidato = :id_candidato",
+            [
+                'template_code' => substr(strtoupper(trim($templateCode)), 0, 80),
+                'company_code' => substr(strtoupper(trim($companyCode)), 0, 40),
+                'worker_signer_id' => self::nullable($workerSignerId, 120),
+                'legal_signer_id' => self::nullable($legalSignerId, 120),
+                'worker_signing_url' => self::nullable($workerSigningUrl, 700),
+                'legal_signing_url' => self::nullable($legalSigningUrl, 700),
                 'actualizado_por' => $idUsuario,
                 'actualizado_en' => self::now(),
                 'id_candidato' => $idCandidato,

@@ -65,7 +65,9 @@ if (root && canvas) {
     const relaxedFingerTarget = new THREE.Quaternion();
     const staticSpearHandWorldPosition = new THREE.Vector3();
     const staticSpearHandLocalPosition = new THREE.Vector3();
+    const staticSpearFingerWorldPosition = new THREE.Vector3();
     const staticSpearOffset = new THREE.Vector3();
+    const staticSpearGripForwardOffset = 0.081;
     const staticSpearQuaternion = new THREE.Quaternion();
     const staticSpearScale = new THREE.Vector3(1, 1, 1);
 
@@ -582,6 +584,31 @@ if (root && canvas) {
                     .addScaledVector(bodyUp, -lengths.foreLength * 0.32)
                     .addScaledVector(armOutward, -lengths.foreLength * 0.05)
                     .addScaledVector(bodyForward, lengths.foreLength * 0.73);
+            } else if (pose === 'spear_walk') {
+                // Marcha con lanza: la mano permanece delante del costado y el
+                // codo amortigua un pulso muy corto. El asta no participa del
+                // balanceo normal de brazos y por eso conserva su verticalidad.
+                const guardPulse = phase * 0.035;
+                armTargetElbow.copy(armShoulderPosition)
+                    .addScaledVector(bodyUp, -lengths.upperLength * 0.72)
+                    .addScaledVector(armOutward, lengths.upperLength * 0.18)
+                    .addScaledVector(bodyForward, lengths.upperLength * (0.31 + guardPulse));
+                armTargetHand.copy(armTargetElbow)
+                    .addScaledVector(bodyUp, -lengths.foreLength * (0.19 - guardPulse))
+                    .addScaledVector(armOutward, -lengths.foreLength * 0.07)
+                    .addScaledVector(bodyForward, lengths.foreLength * 0.72);
+            } else if (pose === 'chest_salute') {
+                // Saludo con la mano libre sobre el pecho. El brazo portador
+                // no participa: así la lanza conserva su guardia lateral y no
+                // cruza el rostro durante la transición.
+                armTargetElbow.copy(armShoulderPosition)
+                    .addScaledVector(bodyUp, -lengths.upperLength * 0.66)
+                    .addScaledVector(armOutward, lengths.upperLength * 0.32)
+                    .addScaledVector(bodyForward, lengths.upperLength * 0.32);
+                armTargetHand.copy(armTargetElbow)
+                    .addScaledVector(bodyUp, -lengths.foreLength * 0.02)
+                    .addScaledVector(armOutward, -lengths.foreLength * 0.72)
+                    .addScaledVector(bodyForward, lengths.foreLength * 0.48);
             } else {
                 // Descanso anatómico: el codo baja casi vertical, pero la mano
                 // avanza delante del muslo. La flexión se calcula en espacio
@@ -820,6 +847,19 @@ if (root && canvas) {
             });
         };
 
+        const getSpearGripWorldPosition = (target) => {
+            rightHand.getWorldPosition(target);
+            let samples = 1;
+            [rightMiddleFinger, rightIndexFinger, rightPinkyFinger].forEach((bone) => {
+                if (!bone) return;
+                bone.getWorldPosition(staticSpearFingerWorldPosition);
+                target.add(staticSpearFingerWorldPosition);
+                samples += 1;
+            });
+            target.multiplyScalar(1 / samples);
+            return target;
+        };
+
         const prepareStaticSpearAnchor = () => {
             const spear = modularParts?.spear;
             if (!activeModel || !rightHand || !spear || spear.isSkinnedMesh) {
@@ -832,23 +872,29 @@ if (root && canvas) {
             // traslación de la palma, nunca su giro forzado.
             activeModel.attach(spear);
             activeModel.updateMatrixWorld(true);
-            rightHand.getWorldPosition(staticSpearHandWorldPosition);
+            getSpearGripWorldPosition(staticSpearHandWorldPosition);
             staticSpearHandLocalPosition.copy(staticSpearHandWorldPosition);
             activeModel.worldToLocal(staticSpearHandLocalPosition);
             staticSpearOffset.copy(spear.position).sub(staticSpearHandLocalPosition);
+            // El nuevo brazo adelanta el puño. Recalibramos únicamente la
+            // profundidad del asta para que el canal vacío coincida con el
+            // centro de la palma en ambos perfiles, sin alterar la pose.
+            staticSpearOffset.z += staticSpearGripForwardOffset;
             staticSpearQuaternion.copy(spear.quaternion);
             staticSpearScale.copy(spear.scale);
             staticSpearReady = true;
-            root.dataset.leonidasSpearAnchor = 'hand-position-static-orientation-v1';
+            root.dataset.leonidasSpearAnchor = 'dynamic-grip-centered-static-orientation-v4';
         };
 
         const syncStaticSpearAnchor = () => {
             const spear = modularParts?.spear;
             if (!staticSpearReady || !activeModel || !rightHand || !spear) return;
             activeModel.updateMatrixWorld(true);
-            rightHand.getWorldPosition(staticSpearHandWorldPosition);
+            getSpearGripWorldPosition(staticSpearHandWorldPosition);
             staticSpearHandLocalPosition.copy(staticSpearHandWorldPosition);
             activeModel.worldToLocal(staticSpearHandLocalPosition);
+            // Ningun gesto puede desplazarla de forma independiente del agarre:
+            // el arma se ancla solamente al centro real de la mano.
             spear.position.copy(staticSpearHandLocalPosition).add(staticSpearOffset);
             spear.quaternion.copy(staticSpearQuaternion);
             spear.scale.copy(staticSpearScale);
@@ -1006,11 +1052,46 @@ if (root && canvas) {
                     poseArm(swordArm, swordForeArm, rightHand, 'victory', victoryWeight);
                     poseArm(shieldArm, shieldForeArm, leftHand, 'victory', victoryWeight);
                 } else if (greetingWeight > 0.001) {
-                    poseArm(swordArm, swordForeArm, rightHand, 'greeting', greetingWeight);
-                    if (rightHand && greetingHandRotation) {
-                        rightHand.quaternion.slerp(greetingHandRotation, greetingWeight * 0.9);
+                    if (currentAppearance.lanza_visible) {
+                        poseArm(
+                            swordArm,
+                            swordForeArm,
+                            rightHand,
+                            'spear',
+                            greetingWeight
+                        );
+                        orientSpearHand(
+                            swordForeArm,
+                            rightHand,
+                            rightMiddleFinger,
+                            rightIndexFinger,
+                            rightPinkyFinger,
+                            greetingWeight * 0.94
+                        );
+                        applySpearGrip(rightFingerBones, greetingWeight);
+                        if (!currentAppearance.escudo_visible) {
+                            poseArm(
+                                shieldArm,
+                                shieldForeArm,
+                                leftHand,
+                                'chest_salute',
+                                greetingWeight
+                            );
+                            settleHand(leftHand, greetingWeight * 0.34);
+                            applySpearGrip(leftFingerBones, greetingWeight * 0.82);
+                        }
+                        offsetAnimatedBone(head, -0.075 * greetingWeight, 0, 0);
+                        root.dataset.leonidasGreetingPose = currentAppearance.escudo_visible
+                            ? 'armed-guard-nod-v2'
+                            : 'spear-heart-salute-v2';
+                    } else {
+                        poseArm(swordArm, swordForeArm, rightHand, 'greeting', greetingWeight);
+                        if (rightHand && greetingHandRotation) {
+                            rightHand.quaternion.slerp(greetingHandRotation, greetingWeight * 0.9);
+                        }
+                        applyOpenFingers(rightFingerBones, greetingWeight * 0.96);
+                        root.dataset.leonidasGreetingPose = 'single-hand-wave-v2';
                     }
-                    applyOpenFingers(rightFingerBones, greetingWeight * 0.96);
                 }
 
                 if (walkWeight > 0.001 && interaction < 0.02) {
@@ -1018,12 +1099,69 @@ if (root && canvas) {
                     offsetAnimatedBone(leftUpLeg, -stride, 0, 0);
                     offsetAnimatedBone(rightLeg, -Math.max(0, stride) * 1.45, 0, 0);
                     offsetAnimatedBone(leftLeg, -Math.max(0, -stride) * 1.45, 0, 0);
-                    // Arms swing front/back close to the torso instead of rotating
-                    // laterally on the rig's unusual local shoulder axes.
-                    poseArm(swordArm, swordForeArm, rightHand, 'walk', walkWeight, -armSwing);
-                    poseArm(shieldArm, shieldForeArm, leftHand, 'walk', walkWeight, armSwing);
-                    applyOpenFingers(rightFingerBones, walkWeight * 0.98);
-                    applyOpenFingers(leftFingerBones, walkWeight * 0.98);
+                    if (currentAppearance.lanza_visible) {
+                        // El brazo portador marcha en guardia. La mano sigue el
+                        // canal vacío del asta y los dedos no vuelven a abrirse.
+                        poseArm(
+                            swordArm,
+                            swordForeArm,
+                            rightHand,
+                            'spear_walk',
+                            walkWeight,
+                            -armSwing
+                        );
+                        orientSpearHand(
+                            swordForeArm,
+                            rightHand,
+                            rightMiddleFinger,
+                            rightIndexFinger,
+                            rightPinkyFinger,
+                            walkWeight * 0.94
+                        );
+                        applySpearGrip(rightFingerBones, walkWeight);
+                        root.dataset.leonidasWalkPose = 'spear-guard-march-v1';
+                    } else {
+                        // Sin lanza se conserva el balanceo anatómico normal.
+                        poseArm(
+                            swordArm,
+                            swordForeArm,
+                            rightHand,
+                            'walk',
+                            walkWeight,
+                            -armSwing
+                        );
+                        applyOpenFingers(rightFingerBones, walkWeight * 0.98);
+                        root.dataset.leonidasWalkPose = 'natural-walk-v1';
+                    }
+
+                    // Con lanza, el brazo libre acompaña la marcha con menos
+                    // amplitud y una mano relajada; ya no parece que intente
+                    // saludar o alcanzar algo durante la entrada.
+                    const freeArmSwing = currentAppearance.lanza_visible
+                        ? armSwing * 0.38
+                        : armSwing;
+                    poseArm(
+                        shieldArm,
+                        shieldForeArm,
+                        leftHand,
+                        currentAppearance.escudo_visible ? 'idle' : 'walk',
+                        walkWeight,
+                        freeArmSwing
+                    );
+                    if (!currentAppearance.escudo_visible) {
+                        if (currentAppearance.lanza_visible) {
+                            orientRelaxedHand(
+                                leftHand,
+                                leftMiddleFinger,
+                                leftIndexFinger,
+                                leftPinkyFinger,
+                                walkWeight * 0.86
+                            );
+                            applyRelaxedFingers(leftFingerBones, walkWeight * 0.94);
+                        } else {
+                            applyOpenFingers(leftFingerBones, walkWeight * 0.98);
+                        }
+                    }
                     offsetAnimatedBone(pelvis, 0, 0, Math.sin(walkPhase) * 0.035 * walkWeight);
                 }
 
@@ -1034,7 +1172,23 @@ if (root && canvas) {
                     0,
                     1 - Math.max(interaction, walkWeight)
                 );
-                if (idleElbowWeight > 0.001) {
+                // En el saludo normal el brazo izquierdo permanece en reposo.
+                // Con lanza y sin escudo, ese brazo sí ejecuta el saludo sobre
+                // el pecho y debe liberarse gradualmente de la pose de reposo.
+                const supportArmWeight = Math.max(
+                    0,
+                    1 - Math.max(victoryWeight, walkWeight)
+                );
+                const spearChestSaluteWeight = currentAppearance.lanza_visible
+                    && !currentAppearance.escudo_visible
+                    ? greetingWeight
+                    : 0;
+                const leftArmRestWeight = Math.max(
+                    0,
+                    supportArmWeight - spearChestSaluteWeight
+                );
+                const rightArmRestWeight = idleElbowWeight;
+                if (Math.max(leftArmRestWeight, rightArmRestWeight) > 0.001) {
                     const preserveSpearOrientation = Boolean(
                         currentAppearance.lanza_visible
                         && swordForeArm
@@ -1051,28 +1205,28 @@ if (root && canvas) {
                             shieldForeArmWorldQuaternion
                         );
                     }
-                    settleBone(leftShoulder, 0.94 * idleElbowWeight);
-                    settleBone(rightShoulder, 0.94 * idleElbowWeight);
-                    settleBone(shieldArm, 0.72 * idleElbowWeight);
-                    settleBone(swordArm, 0.72 * idleElbowWeight);
-                    settleBone(shieldForeArm, 0.66 * idleElbowWeight);
-                    settleBone(swordForeArm, 0.66 * idleElbowWeight);
+                    settleBone(leftShoulder, 0.94 * leftArmRestWeight);
+                    settleBone(rightShoulder, 0.94 * rightArmRestWeight);
+                    settleBone(shieldArm, 0.72 * leftArmRestWeight);
+                    settleBone(swordArm, 0.72 * rightArmRestWeight);
+                    settleBone(shieldForeArm, 0.66 * leftArmRestWeight);
+                    settleBone(swordForeArm, 0.66 * rightArmRestWeight);
                     poseRelaxedShoulder(
                         leftShoulder,
                         shieldArm,
-                        idleElbowWeight * 0.82
+                        leftArmRestWeight * 0.82
                     );
                     poseRelaxedShoulder(
                         rightShoulder,
                         swordArm,
-                        idleElbowWeight * 0.82
+                        rightArmRestWeight * 0.82
                     );
                     poseArm(
                         shieldArm,
                         shieldForeArm,
                         leftHand,
                         'idle',
-                        idleElbowWeight * 0.96
+                        leftArmRestWeight * 0.96
                     );
                     if (preserveShieldOrientation) {
                         activeModel.updateMatrixWorld(true);
@@ -1091,7 +1245,7 @@ if (root && canvas) {
                         swordForeArm,
                         rightHand,
                         preserveSpearOrientation ? 'spear' : 'idle',
-                        idleElbowWeight * 0.96
+                        rightArmRestWeight * 0.96
                     );
                     if (preserveSpearOrientation) {
                         // La lanza conserva su orientación estática mientras
@@ -1103,37 +1257,37 @@ if (root && canvas) {
                             rightMiddleFinger,
                             rightIndexFinger,
                             rightPinkyFinger,
-                            idleElbowWeight * 0.92
+                            rightArmRestWeight * 0.92
                         );
                         applySpearGrip(
                             rightFingerBones,
-                            idleElbowWeight
+                            rightArmRestWeight
                         );
                     }
                     // La animación nativa cierra los puños y quiebra ambas
                     // muñecas hacia el faldón. Recuperar parte de la rotación
                     // neutra y relajar los dedos mantiene manos anatómicas.
                     if (!currentAppearance.escudo_visible) {
-                        settleHand(leftHand, idleElbowWeight * 0.16);
+                        settleHand(leftHand, leftArmRestWeight * 0.16);
                         orientRelaxedHand(
                             leftHand,
                             leftMiddleFinger,
                             leftIndexFinger,
                             leftPinkyFinger,
-                            idleElbowWeight * 0.92
+                            leftArmRestWeight * 0.92
                         );
-                        applyRelaxedFingers(leftFingerBones, idleElbowWeight * 0.96);
+                        applyRelaxedFingers(leftFingerBones, leftArmRestWeight * 0.96);
                     }
                     if (!currentAppearance.lanza_visible) {
-                        settleHand(rightHand, idleElbowWeight * 0.16);
+                        settleHand(rightHand, rightArmRestWeight * 0.16);
                         orientRelaxedHand(
                             rightHand,
                             rightMiddleFinger,
                             rightIndexFinger,
                             rightPinkyFinger,
-                            idleElbowWeight * 0.92
+                            rightArmRestWeight * 0.92
                         );
-                        applyRelaxedFingers(rightFingerBones, idleElbowWeight * 0.96);
+                        applyRelaxedFingers(rightFingerBones, rightArmRestWeight * 0.96);
                     }
                     root.dataset.leonidasArmPose = currentAppearance.lanza_visible
                         ? 'forward-spear-grip-v15'

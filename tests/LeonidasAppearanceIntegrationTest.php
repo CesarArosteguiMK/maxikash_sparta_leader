@@ -70,7 +70,18 @@ appearanceIntegrationAssert(
         && str_contains($threeJs, ": 'anatomical-idle-v15'")
         && str_contains($threeJs, "pose === 'spear'")
         && str_contains($threeJs, 'orientSpearHand')
-        && str_contains($threeJs, 'applyRelaxedFingers(leftFingerBones, idleElbowWeight')
+        && str_contains($threeJs, "leonidasGreetingPose = 'single-hand-wave-v2'")
+        && str_contains($threeJs, "'spear-heart-salute-v2'")
+        && str_contains($threeJs, "'armed-guard-nod-v2'")
+        && str_contains($threeJs, "pose === 'chest_salute'")
+        && str_contains($threeJs, 'applySpearGrip(rightFingerBones, greetingWeight)')
+        && str_contains($threeJs, 'getSpearGripWorldPosition')
+        && str_contains($threeJs, "leonidasSpearAnchor = 'dynamic-grip-centered-static-orientation-v4'")
+        && str_contains($threeJs, 'const supportArmWeight = Math.max(')
+        && str_contains($threeJs, 'const spearChestSaluteWeight = currentAppearance.lanza_visible')
+        && str_contains($threeJs, 'settleBone(shieldArm, 0.72 * leftArmRestWeight)')
+        && str_contains($threeJs, "leftHand,\n                        'idle',\n                        leftArmRestWeight * 0.96")
+        && str_contains($threeJs, 'applyRelaxedFingers(leftFingerBones, leftArmRestWeight * 0.96)')
         && str_contains($appearanceCss, 'height: min(690px, calc(100vh - 2rem))')
         && str_contains($appearanceCss, 'scrollbar-gutter: stable'),
     'La vista previa debe girar el modelo y sostener una postura erguida medida sobre el rig.'
@@ -182,6 +193,13 @@ appearanceIntegrationAssert(
         && str_contains($threeJs, 'La lanza conserva su orientación estática')
         && str_contains($threeJs, 'prepareStaticSpearAnchor')
         && str_contains($threeJs, 'syncStaticSpearAnchor')
+        && str_contains($threeJs, 'staticSpearGripForwardOffset = 0.081')
+        && str_contains($threeJs, 'Ningun gesto puede desplazarla')
+        && str_contains($threeJs, 'dynamic-grip-centered-static-orientation-v4')
+        && str_contains($threeJs, "pose === 'spear_walk'")
+        && str_contains($threeJs, "'spear-guard-march-v1'")
+        && str_contains($threeJs, 'applySpearGrip(rightFingerBones, walkWeight)')
+        && str_contains($threeJs, 'armSwing * 0.38')
         && str_contains($threeJs, 'El equipamiento de mano no debe reducir')
         && ($manifest['parts']['shield'] ?? []) === [
             'LeonidasShield',

@@ -127,6 +127,25 @@ function newService(array $overrides = []): LeonidasAgentService
                 'cuotas_pagadas' => 0,
             ],
         ],
+        'convenio_asignacion_actual' => static fn(int $credito): ?array => [
+            'id' => 500,
+            'id_credito' => $credito,
+            'id_persona' => 55,
+            'id_celula' => 1,
+            'nombre_completo' => 'RESPONSABLE CONVENIO',
+        ],
+        'convenio_responsables_buscar' => static fn(int $celula, string $busqueda): array => [],
+        'convenio_responsable_actual' => static fn(int $persona, int $celula): ?array => null,
+        'convenio_asignar_credito' => static fn(int $persona, int $credito, int $celula, int $actor): array => [
+            'success' => true,
+            'asignacion' => [
+                'id' => 501,
+                'id_credito' => $credito,
+                'id_persona' => $persona,
+                'id_celula' => $celula,
+                'nombre_completo' => 'RESPONSABLE CONVENIO',
+            ],
+        ],
         'moto_buscar' => static fn(int $id): array => [
             'success' => true,
             'credito' => ['id_credito' => $id, 'nombre_cliente' => 'CLIENTE MOTO', 'status_credito' => 'Vencido'],
@@ -236,6 +255,128 @@ $propuestaCompleta = newService()->resolver($solicitudExcepcionCompleta, $solici
 assertSameValue('agente_propuesta', $propuestaCompleta['tipo'], 'La frase completa debe resolverse en un turno.');
 assertSameValue(5478.0, $propuestaCompleta['propuesta_especificacion']['payload']['monto'], 'Debe interpretar la coma como separador de miles.');
 assertTrue(str_contains($propuestaCompleta['mensaje'], '$4,808.00'), 'Debe explicar el monto superior a la base sin descuento negativo.');
+
+$_SESSION = [];
+$solicitudCaptura = 'crea convenio de pago mixto de un solo pago con fecha de 03 de agosto del 2026, '
+    . 'donde vas descartar las reglas de negocio q se establecieron el objetivo es q se genere como convenio de excepcion '
+    . 'el pago es de 20000 pesos el credito es 1496964';
+$propuestaCaptura = newService()->resolver($solicitudCaptura, $solicitudCaptura, context());
+assertSameValue('agente_propuesta', $propuestaCaptura['tipo'], 'La instruccion exacta de la captura debe entrar al flujo operativo excepcional.');
+assertSameValue('convenio_crear_excepcion', $propuestaCaptura['propuesta_especificacion']['accion'], 'La captura no debe convertirse en una explicacion general de Convenios.');
+assertSameValue(1496964, $propuestaCaptura['propuesta_especificacion']['payload']['id_credito'], 'Debe conservar el credito de la captura.');
+assertSameValue('2026-08-03', $propuestaCaptura['propuesta_especificacion']['payload']['fecha_pago'], 'Debe conservar la fecha de la captura.');
+assertSameValue(20000.0, $propuestaCaptura['propuesta_especificacion']['payload']['monto'], 'Debe conservar el monto de la captura.');
+
+$_SESSION = [];
+$convenioRegularSinAsignacion = newService([
+    'convenio_asignacion_actual' => static fn(int $credito): ?array => null,
+]);
+$convenioRegularSinAsignacion->resolver('quiero levantar un convenio', 'quiero levantar un convenio', context());
+$preguntaCelulaRegular = $convenioRegularSinAsignacion->resolver('1600', '1600', context());
+assertSameValue('agente_opciones', $preguntaCelulaRegular['tipo'], 'El convenio regular tambien debe detenerse si falta asignacion.');
+assertTrue(str_contains($preguntaCelulaRegular['mensaje'], 'no tiene una asignacion activa'), 'Debe explicar por que pregunta la celula.');
+
+$_SESSION = [];
+$asignacionConvenio = null;
+$datosExcepcionAsignada = [];
+$responsablesConvenio = [
+    [
+        'id_persona' => 301,
+        'id_celula' => 2,
+        'nombre_completo' => 'CARLOS ANDRES SOLANO FERNANDEZ',
+        'numero_empleado' => '1348',
+        'puesto' => 'AGENTE CALL CENTER',
+    ],
+    [
+        'id_persona' => 302,
+        'id_celula' => 2,
+        'nombre_completo' => 'MARIA SOLANO PEREZ',
+        'numero_empleado' => '1440',
+        'puesto' => 'AGENTE CALL CENTER',
+    ],
+];
+$convenioSinAsignacion = newService([
+    'convenio_asignacion_actual' => static function (int $credito) use (&$asignacionConvenio): ?array {
+        return $asignacionConvenio;
+    },
+    'convenio_responsables_buscar' => static function (int $celula, string $busqueda) use ($responsablesConvenio): array {
+        return $celula === 2 && stripos($busqueda, 'solano') !== false ? $responsablesConvenio : [];
+    },
+    'convenio_responsable_actual' => static function (int $persona, int $celula) use ($responsablesConvenio): ?array {
+        foreach ($responsablesConvenio as $responsable) {
+            if ((int) $responsable['id_persona'] === $persona && (int) $responsable['id_celula'] === $celula) {
+                return $responsable;
+            }
+        }
+        return null;
+    },
+    'convenio_asignar_credito' => static function (int $persona, int $credito, int $celula, int $actor) use (&$asignacionConvenio, $responsablesConvenio): array {
+        foreach ($responsablesConvenio as $responsable) {
+            if ((int) $responsable['id_persona'] === $persona && (int) $responsable['id_celula'] === $celula) {
+                $asignacionConvenio = $responsable + ['id' => 777, 'id_credito' => $credito];
+                return ['success' => true, 'asignacion' => $asignacionConvenio];
+            }
+        }
+        return ['success' => false, 'message' => 'Responsable no encontrado.'];
+    },
+    'convenio_excepcion_guardar' => static function (array $datos) use (&$datosExcepcionAsignada): array {
+        $datosExcepcionAsignada = $datos;
+        return ['success' => true, 'datos' => [
+            'id_convenio' => 1008,
+            'producto' => 'Convenio Pago Mixto',
+            'adeudo_s2' => 3229.0,
+            'descuento_monto' => 0.0,
+            'porcentaje_descuento' => 0.0,
+            'monto_adicional' => 5771.0,
+            'estatus' => 'activo',
+            'estatus_cuota' => 'pendiente',
+        ]];
+    },
+]);
+$solicitudSinAsignacion = 'crea convenio de pago mixto de un solo pago con fecha de 2 de agosto del 2026, '
+    . 'como convenio de excepcion el pago es de 9000 pesos el credito es 1408958';
+$preguntaCelula = $convenioSinAsignacion->resolver($solicitudSinAsignacion, $solicitudSinAsignacion, context());
+assertSameValue('agente_opciones', $preguntaCelula['tipo'], 'Un credito sin asignacion debe pedir la celula antes del convenio.');
+assertTrue(str_contains($preguntaCelula['mensaje'], 'Gestion Call Center'), 'Debe ofrecer Despacho, Call Center y Campo.');
+$preguntaResponsable = $convenioSinAsignacion->resolver('2', '2', context());
+assertSameValue('agente_pregunta', $preguntaResponsable['tipo'], 'Despues de la celula debe pedir el responsable.');
+assertTrue(str_contains($preguntaResponsable['mensaje'], 'apellido'), 'Debe permitir buscar con un apellido incompleto.');
+$coincidencias = $convenioSinAsignacion->resolver('Solano', 'solano', context());
+assertSameValue('agente_opciones', $coincidencias['tipo'], 'Un apellido ambiguo debe mostrar coincidencias.');
+assertTrue(str_contains($coincidencias['mensaje'], 'CARLOS ANDRES SOLANO'), 'Debe mostrar la primera coincidencia parcial.');
+assertTrue(str_contains($coincidencias['mensaje'], 'MARIA SOLANO'), 'Debe mostrar la segunda coincidencia parcial.');
+$propuestaAsignacion = $convenioSinAsignacion->resolver('2', '2', context());
+assertSameValue('convenio_asignar_credito', $propuestaAsignacion['propuesta_especificacion']['accion'], 'Debe preparar una asignacion confirmable.');
+assertSameValue(302, $propuestaAsignacion['propuesta_especificacion']['payload']['id_persona'], 'Debe conservar la persona elegida.');
+$asignadoYContinua = $convenioSinAsignacion->ejecutar(
+    'convenio_asignar_credito',
+    $propuestaAsignacion['propuesta_especificacion']['payload'],
+    context()
+);
+assertSameValue('agente_propuesta', $asignadoYContinua['tipo'], 'Tras asignar debe continuar con la propuesta del convenio.');
+assertSameValue('convenio_crear_excepcion', $asignadoYContinua['propuesta_especificacion']['accion'], 'La continuacion debe conservar el convenio excepcional original.');
+assertTrue(str_contains($asignadoYContinua['mensaje'], 'Asignacion verificada'), 'Debe confirmar que la asignacion quedo verificada.');
+$convenioAsignado = $convenioSinAsignacion->ejecutar(
+    'convenio_crear_excepcion',
+    $asignadoYContinua['propuesta_especificacion']['payload'],
+    context()
+);
+assertSameValue('agente_ejecutado', $convenioAsignado['tipo'], 'Debe crear el convenio despues de verificar la asignacion.');
+assertSameValue(2, $datosExcepcionAsignada['id_celula'], 'El convenio debe heredar la celula asignada, no la celula del usuario que confirma.');
+
+$sinAsignacionAlConfirmar = newService([
+    'convenio_asignacion_actual' => static fn(int $credito): ?array => null,
+]);
+try {
+    $sinAsignacionAlConfirmar->ejecutar(
+        'convenio_crear_excepcion',
+        ['id_credito' => 1408958, 'fecha_pago' => '2026-08-02', 'monto' => 9000.0],
+        context()
+    );
+    throw new RuntimeException('No debe crear el convenio si la asignacion desaparecio antes de confirmar.');
+} catch (RuntimeException $error) {
+    assertTrue(str_contains($error->getMessage(), 'no tiene una asignacion activa'), 'Debe bloquear la confirmacion sin asignacion.');
+}
 
 $_SESSION = [];
 $reactivacion = newService();
@@ -563,6 +704,91 @@ try {
 } catch (RuntimeException $error) {
     assertTrue(str_contains($error->getMessage(), 'cambió de estatus'), 'Debe explicar el cambio de estatus.');
 }
+
+$_SESSION = [];
+$asignacionSoloConvenio = null;
+$consultasOfertaAsignacionSolo = 0;
+$responsableAsignacionSolo = [
+    'id_persona' => 415,
+    'id_celula' => 3,
+    'nombre_completo' => 'RESPONSABLE CAMPO PRUEBA',
+    'numero_empleado' => '2415',
+    'puesto' => 'GESTOR DE CAMPO',
+];
+$servicioAsignacionSolo = newService([
+    'convenio_ofertas' => static function (int $credito) use (&$consultasOfertaAsignacionSolo): array {
+        $consultasOfertaAsignacionSolo++;
+        return ofertaResult($credito);
+    },
+    'convenio_asignacion_actual' => static function (int $credito) use (&$asignacionSoloConvenio): ?array {
+        return $asignacionSoloConvenio;
+    },
+    'convenio_responsables_buscar' => static function (int $celula, string $busqueda) use ($responsableAsignacionSolo): array {
+        return $celula === 3 && stripos($busqueda, 'campo') !== false ? [$responsableAsignacionSolo] : [];
+    },
+    'convenio_responsable_actual' => static function (int $persona, int $celula) use ($responsableAsignacionSolo): ?array {
+        return $persona === 415 && $celula === 3 ? $responsableAsignacionSolo : null;
+    },
+    'convenio_asignar_credito' => static function (int $persona, int $credito, int $celula, int $actor) use (&$asignacionSoloConvenio, $responsableAsignacionSolo): array {
+        $asignacionSoloConvenio = $responsableAsignacionSolo + ['id' => 991, 'id_credito' => $credito];
+        return ['success' => true, 'asignacion' => $asignacionSoloConvenio];
+    },
+]);
+$peticionAsignacionSolo = 'ayudame a asignar a este credito 1551963 en el modulo de convenio, '
+    . 'porque se abrio un convenio pero no tenia asignacion el credito';
+$destinoAsignacionSolo = $servicioAsignacionSolo->resolver($peticionAsignacionSolo, $peticionAsignacionSolo, context());
+assertSameValue('agente_opciones', $destinoAsignacionSolo['tipo'], 'La peticion reportada debe iniciar una asignacion, no diagnosticar ni abrir otro convenio.');
+assertTrue(str_contains($destinoAsignacionSolo['mensaje'], '1551963'), 'Debe conservar el credito de la peticion de asignacion independiente.');
+assertSameValue(4, count($destinoAsignacionSolo['acciones_rapidas'] ?? []), 'Debe ofrecer Despacho, Call Center, Campo y Cancelar como botones.');
+assertSameValue('Cancelar', $destinoAsignacionSolo['acciones_rapidas'][3]['etiqueta'] ?? '', 'La ultima opcion rapida debe cancelar la gestion.');
+assertSameValue(0, $consultasOfertaAsignacionSolo, 'Asignar un credito existente no debe calcular ofertas ni intentar otro convenio.');
+// Simula que otro componente elimino la tarea generica entre mensajes. El
+// respaldo dedicado debe conservar el flujo y evitar una consulta de plantilla.
+unset($_SESSION['leonidas_agent_task']);
+$responsableAsignacionSoloPregunta = $servicioAsignacionSolo->resolver('Campo', 'campo', context());
+assertSameValue('agente_pregunta', $responsableAsignacionSoloPregunta['tipo'], 'Debe pedir el responsable despues de elegir Campo.');
+unset($_SESSION['leonidas_agent_task']);
+$coincidenciaAsignacionSolo = $servicioAsignacionSolo->resolver('responsable campo', 'responsable campo', context());
+assertSameValue('agente_opciones', $coincidenciaAsignacionSolo['tipo'], 'Una coincidencia debe mostrarse como opcion seleccionable antes de preparar la asignacion.');
+assertSameValue('RESPONSABLE CAMPO PRUEBA', $coincidenciaAsignacionSolo['acciones_rapidas'][0]['etiqueta'] ?? '', 'El nombre encontrado debe aparecer como boton.');
+assertSameValue('Cancelar', $coincidenciaAsignacionSolo['acciones_rapidas'][1]['etiqueta'] ?? '', 'La seleccion de persona tambien debe permitir cancelar.');
+unset($_SESSION['leonidas_agent_task']);
+$propuestaAsignacionSolo = $servicioAsignacionSolo->resolver('si', 'si', context());
+assertSameValue('agente_propuesta', $propuestaAsignacionSolo['tipo'], 'La asignacion independiente debe mostrar vista previa confirmable.');
+assertSameValue('convenio_asignacion', $propuestaAsignacionSolo['propuesta_especificacion']['payload']['tipo_flujo'], 'Debe marcar que solo se asignara, sin continuar a un convenio.');
+$resultadoAsignacionSolo = $servicioAsignacionSolo->ejecutar(
+    'convenio_asignar_credito',
+    $propuestaAsignacionSolo['propuesta_especificacion']['payload'],
+    context()
+);
+assertSameValue('agente_ejecutado', $resultadoAsignacionSolo['tipo'], 'La confirmacion debe terminar al verificar la asignacion independiente.');
+assertTrue(str_contains($resultadoAsignacionSolo['mensaje'], 'No se creo ni se modifico ningun convenio'), 'Debe aclarar que no abrio otro convenio.');
+assertTrue(!isset($resultadoAsignacionSolo['propuesta_especificacion']), 'No debe encadenar una propuesta para crear convenio.');
+assertSameValue(0, $consultasOfertaAsignacionSolo, 'La ejecucion de asignacion tampoco debe consultar ofertas.');
+
+$_SESSION = [];
+$negacionAbrirConvenio = newService([
+    'convenio_asignacion_actual' => static fn(int $credito): ?array => null,
+]);
+$negacionAbrirConvenio->resolver('quiero abrir otro convenio', 'quiero abrir otro convenio', context());
+$preguntaCreditoAsignar = $negacionAbrirConvenio->resolver(
+    'no quiero abrir otro convenio solo quiero asginarlo',
+    'no quiero abrir otro convenio solo quiero asginarlo',
+    context()
+);
+assertSameValue('agente_pregunta', $preguntaCreditoAsignar['tipo'], 'La negacion de abrir debe reemplazar incluso una tarea anterior y pedir el credito para asignarlo.');
+assertTrue(str_contains($preguntaCreditoAsignar['mensaje'], 'no abrire otro convenio'), 'Debe confirmar que entendio la negacion del usuario.');
+$destinoTrasCredito = $negacionAbrirConvenio->resolver('1551963', '1551963', context());
+assertSameValue('agente_opciones', $destinoTrasCredito['tipo'], 'Al recibir el credito debe preguntar Despacho, Call Center o Campo.');
+
+$_SESSION = [];
+$cancelarAsignacionConvenio = newService([
+    'convenio_asignacion_actual' => static fn(int $credito): ?array => null,
+]);
+$cancelarAsignacionConvenio->resolver($peticionAsignacionSolo, $peticionAsignacionSolo, context());
+$asignacionCancelada = $cancelarAsignacionConvenio->resolver('Cancelar', 'cancelar', context());
+assertSameValue('agente_cancelado', $asignacionCancelada['tipo'], 'El boton Cancelar debe terminar la gestion sin cambios.');
+assertTrue(str_contains($asignacionCancelada['mensaje'], 'No se modifico ningun dato'), 'La cancelacion debe confirmar que no hubo cambios.');
 
 $_SESSION = [];
 $denied = newService()->resolver(

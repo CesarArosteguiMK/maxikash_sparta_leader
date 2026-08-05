@@ -47,20 +47,16 @@ if (Test-Path -LiteralPath $EnvFile) {
 $username = Read-Host 'Usuario del portal FAD Capital Humano (Enter conserva el actual)'
 $securePassword = Read-Host 'Contrasena del portal FAD Capital Humano' -AsSecureString
 $password = Convert-SecureValueToPlainText $securePassword
-Write-Host 'Los siguientes cinco valores son opcionales; presiona Enter si todavia no los conoces.' -ForegroundColor Yellow
+Write-Host 'Los siguientes tres valores son opcionales; presiona Enter si todavia no los conoces.' -ForegroundColor Yellow
 $countryId = Read-Host 'FAD countryId para Mexico (Enter conserva; recomendado 1)'
 $requisitionTypeId = Read-Host 'FAD requisitionTypeId para Contrato (Enter conserva; recomendado 2)'
 $signTimeId = Read-Host 'FAD signTimeId (Enter conserva; 15 equivale a 10 dias)'
-$signatureBox = Read-Host 'Caja de firma JSON (opcional)'
-$certificateBox = Read-Host 'Caja de certificado JSON (opcional)'
 
 if ([string]::IsNullOrWhiteSpace($username)) { $username = Get-EnvValue $lines 'FAD_RRHH_USERNAME' }
 if ([string]::IsNullOrWhiteSpace($password)) { $password = Get-EnvValue $lines 'FAD_RRHH_PASSWORD' }
 if ([string]::IsNullOrWhiteSpace($countryId)) { $countryId = Get-EnvValue $lines 'FAD_RRHH_COUNTRY_ID' }
 if ([string]::IsNullOrWhiteSpace($requisitionTypeId)) { $requisitionTypeId = Get-EnvValue $lines 'FAD_RRHH_REQUISITION_TYPE_ID' }
 if ([string]::IsNullOrWhiteSpace($signTimeId)) { $signTimeId = Get-EnvValue $lines 'FAD_RRHH_SIGN_TIME_ID' }
-if ([string]::IsNullOrWhiteSpace($signatureBox)) { $signatureBox = Get-EnvValue $lines 'FAD_RRHH_SIGNATURE_BOX' }
-if ([string]::IsNullOrWhiteSpace($certificateBox)) { $certificateBox = Get-EnvValue $lines 'FAD_RRHH_CERTIFICATE_BOX' }
 
 if ([string]::IsNullOrWhiteSpace($username) -or [string]::IsNullOrWhiteSpace($password)) {
     throw 'Usuario y contrasena son obligatorios.'
@@ -69,19 +65,6 @@ if ([string]::IsNullOrWhiteSpace($username) -or [string]::IsNullOrWhiteSpace($pa
 foreach ($catalogValue in @($countryId, $requisitionTypeId, $signTimeId)) {
     if (-not [string]::IsNullOrWhiteSpace($catalogValue) -and $catalogValue -notmatch '^[1-9]\d*$') {
         throw 'Los identificadores de catalogo deben ser numeros enteros positivos.'
-    }
-}
-
-foreach ($jsonValue in @($signatureBox, $certificateBox)) {
-    if (-not [string]::IsNullOrWhiteSpace($jsonValue)) {
-        try {
-            $parsed = $jsonValue | ConvertFrom-Json -ErrorAction Stop
-            foreach ($property in @('page', 'positionX1', 'positionX2', 'positionY1', 'positionY2')) {
-                if ($null -eq $parsed.$property) { throw "Falta $property" }
-            }
-        } catch {
-            throw 'Las cajas de firma y certificado deben ser JSON valido con pagina y coordenadas.'
-        }
     }
 }
 
@@ -96,8 +79,16 @@ Set-EnvValue $lines 'FAD_RRHH_COUNTRY_ID' $countryId.Trim()
 Set-EnvValue $lines 'FAD_RRHH_COUNTRY_CODE' '+52'
 Set-EnvValue $lines 'FAD_RRHH_REQUISITION_TYPE_ID' $requisitionTypeId.Trim()
 Set-EnvValue $lines 'FAD_RRHH_SIGN_TIME_ID' $signTimeId.Trim()
-Set-EnvValue $lines 'FAD_RRHH_SIGNATURE_BOX' $signatureBox.Trim()
-Set-EnvValue $lines 'FAD_RRHH_CERTIFICATE_BOX' $certificateBox.Trim()
+foreach ($approvalName in @(
+    'FAD_RRHH_TEMPLATE_AMIGO_GENERAL_APPROVED',
+    'FAD_RRHH_TEMPLATE_AMIGO_ACTUALIZACION_APPROVED',
+    'FAD_RRHH_TEMPLATE_PENSIONAMAX_APPROVED',
+    'FAD_RRHH_TEMPLATE_GESTOR_COBRANZA_APPROVED'
+)) {
+    if ([string]::IsNullOrWhiteSpace((Get-EnvValue $lines $approvalName))) {
+        Set-EnvValue $lines $approvalName '0'
+    }
+}
 
 [IO.File]::WriteAllLines($EnvFile, $lines, [Text.UTF8Encoding]::new($false))
 $password = $null

@@ -17,6 +17,14 @@ const express = require('express');
 const { runCommand, downloadFile, downloadFileStream, runCommandStream } = require('./lib/sshClient');
 const autoCopyConfig = require('./lib/autoCopyConfig');
 const { getAccurateCdmxNow, getCdmxLocalSync } = require('./lib/cdmxTime');
+const {
+  TRUNCAR_AUTO_START_MINUTE,
+  TRUNCAR_AUTO_END_MINUTE,
+  esMartesFecha,
+  minutosDesdeMedianocheDesdeNowCdmx,
+  esVentanaTruncarMartesCdmx,
+  parseHoraServidorCdmx,
+} = require('./lib/truncarSchedule');
 const CDMX_WARN_LOG_COOLDOWN_MS = Math.max(30000, parseInt(process.env.CDMX_WARN_LOG_COOLDOWN_MS || '120000', 10) || 120000);
 let lastCdmxWarnLogMs = 0;
 
@@ -56,11 +64,30 @@ const ESTADO_BD_PATH = 'index.php?url=segundometro/estadoReportesAgente';
 /** Ruta del front PHP para truncar automático (ejecución interna del agente). */
 const TRUNCAR_AUTO_PATH = 'index.php?url=segundometro/truncarAutomaticoAgente';
 const SEGUNDOMETRO_AGENT_KEY = process.env.SEGUNDOMETRO_AGENT_KEY || '';
-const TRUNCAR_AUTO_START_MINUTE = 7 * 60;
-const TRUNCAR_AUTO_END_MINUTE = 7 * 60 + 30;
+const CLOCK_MAX_SKEW_SECONDS = Math.max(5, parseInt(process.env.CDMX_CLOCK_MAX_SKEW_SECONDS || '60', 10) || 60);
+const TRUNCAR_AUTO_LOG_PATH = process.env.TRUNCAR_AUTO_LOG_PATH || path.join(__dirname, 'data', 'truncar-auto.log');
 /** URL que funcionó la última vez (evita probar en cada request). */
 let estadoBdUrlCached = null;
 let truncarAutoUrlCached = null;
+
+function appendTruncarAutoLog(evento, detalle = {}) {
+  try {
+    const dir = path.dirname(TRUNCAR_AUTO_LOG_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    if (fs.existsSync(TRUNCAR_AUTO_LOG_PATH) && fs.statSync(TRUNCAR_AUTO_LOG_PATH).size >= 2 * 1024 * 1024) {
+      const rotated = TRUNCAR_AUTO_LOG_PATH + '.1';
+      if (fs.existsSync(rotated)) fs.unlinkSync(rotated);
+      fs.renameSync(TRUNCAR_AUTO_LOG_PATH, rotated);
+    }
+    fs.appendFileSync(
+      TRUNCAR_AUTO_LOG_PATH,
+      JSON.stringify({ timestamp: new Date().toISOString(), evento, ...detalle }) + '\n',
+      'utf8'
+    );
+  } catch (e) {
+    console.warn('[truncar-auto] No se pudo escribir bitacora:', e.message);
+  }
+}
 
 /**
  * URLs candidatas para POST estadoReportesAgente.
@@ -159,6 +186,38 @@ async function postEstadoBdJson(body, signal) {
     url: null,
     error: lastErr || 'Ninguna URL candidata respondió JSON válido. Configure SEGUNDOMETRO_ESTADO_BD_URL o revise Apache/puerto.',
   };
+}
+
+/**
+ * Hora autoritativa para truncar: la entrega el mismo PHP que valida y ejecuta
+ * la operacion. Si PHP no responde se usa el reloj local del host, nunca una
+ * respuesta atrasada de una API publica.
+ */
+async function getCdmxNowForTruncarScheduler() {
+  const ctrl = new AbortController();
+  const timeoutId = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const result = await postEstadoBdJson({ nombres: [] }, ctrl.signal);
+    if (result.error || !result.r || !result.r.ok || !result.data || !result.data.success) {
+      throw new Error(
+        result.error ||
+        (result.data && result.data.mensaje) ||
+        'PHP estadoReportesAgente no respondio correctamente.'
+      );
+    }
+    return parseHoraServidorCdmx(result.data.hora_servidor_cdmx);
+  } catch (e) {
+    const local = getCdmxLocalSync();
+    const fallback = { ...local, source: 'reloj-local-host', clockAuthorityError: e.message };
+    appendTruncarAutoLog('RELOJ_RESPALDO_LOCAL', {
+      fecha: fallback.fecha,
+      hora: fallback.horaSeg,
+      error: e.message,
+    });
+    return fallback;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function getTruncarAutoUrlCandidates() {
@@ -287,42 +346,6 @@ function sumarDiasYmd(fechaYYYYMMDD, deltaDias) {
   const d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
   d.setDate(d.getDate() + deltaDias);
   return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
-}
-
-function dayOfWeekFromYmd(fechaYYYYMMDD) {
-  const p = String(fechaYYYYMMDD || '').split('-');
-  if (p.length !== 3) return null;
-  const y = parseInt(p[0], 10);
-  const m = parseInt(p[1], 10);
-  const d = parseInt(p[2], 10);
-  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0)).getUTCDay();
-}
-
-function esMartesFecha(fechaYYYYMMDD) {
-  return dayOfWeekFromYmd(fechaYYYYMMDD) === 2;
-}
-
-/** Minutos desde medianoche (0–1439) desde objeto hora CDMX (`hora` HH:MM o `horaSeg` HH:MM:SS). */
-function minutosDesdeMedianocheDesdeNowCdmx(nowCdmx) {
-  const seg = String((nowCdmx && nowCdmx.horaSeg) || '');
-  const hm = String((nowCdmx && nowCdmx.hora) || '');
-  const raw = seg.split(':').length >= 3 ? seg : (hm ? hm + ':00' : '');
-  const p = raw.split(':');
-  if (p.length < 2) return null;
-  const h = parseInt(p[0], 10);
-  const m = parseInt(p[1], 10);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
-  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
-  return h * 60 + m;
-}
-
-/** Martes CDMX entre 07:00 y 07:29. */
-function esVentanaTruncarMartesCdmx(nowCdmx) {
-  if (!esMartesFecha(nowCdmx.fecha)) return false;
-  const mm = minutosDesdeMedianocheDesdeNowCdmx(nowCdmx);
-  if (mm === null) return false;
-  return mm >= TRUNCAR_AUTO_START_MINUTE && mm < TRUNCAR_AUTO_END_MINUTE;
 }
 
 /** Martes CDMX antes de las 07:30: la UI no lista reportes (la semana operativa arranca con el slot 07:30). */
@@ -787,13 +810,27 @@ async function runMartesSemanalJob(slot, fechaCdmx, nombreEsperado) {
 }
 
 async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
+  const contexto = {
+    fecha: nowCdmx && nowCdmx.fecha,
+    hora: nowCdmx && (nowCdmx.horaSeg || nowCdmx.hora),
+    fuente_hora: nowCdmx && nowCdmx.source,
+  };
   // Mismo interruptor que «Copiar +1s automático» (`data/auto-copy-config.json` → enabled).
-  if (!config || !config.enabled) return;
-  if (!esVentanaTruncarMartesCdmx(nowCdmx)) return;
+  if (!esVentanaTruncarMartesCdmx(nowCdmx)) return { status: 'fuera_de_ventana' };
+  if (!config || !config.enabled) {
+    appendTruncarAutoLog('OMITIDO_INTERRUPTOR_APAGADO', contexto);
+    return { status: 'desactivado' };
+  }
   const slotKey = 'truncar_auto_07_00';
   const lastBySlot = config.lastRunBySlot || {};
-  if (lastBySlot[slotKey] === nowCdmx.fecha) return;
-  if (truncarAutoRunning) return;
+  if (lastBySlot[slotKey] === nowCdmx.fecha) {
+    appendTruncarAutoLog('OMITIDO_YA_EJECUTADO', contexto);
+    return { status: 'ya_ejecutado' };
+  }
+  if (truncarAutoRunning) {
+    appendTruncarAutoLog('OMITIDO_EN_CURSO', contexto);
+    return { status: 'en_curso' };
+  }
 
   truncarAutoRunning = true;
   const ctrl = new AbortController();
@@ -802,9 +839,11 @@ async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
     const cFresh = autoCopyConfig.readConfig();
     const lbsCheck = cFresh.lastRunBySlot || {};
     if (lbsCheck[slotKey] === nowCdmx.fecha) {
-      return;
+      appendTruncarAutoLog('OMITIDO_YA_EJECUTADO_RELECTURA', contexto);
+      return { status: 'ya_ejecutado' };
     }
 
+    appendTruncarAutoLog('INTENTO', contexto);
     const result = await postTruncarAutomaticoAgente(
       {
         source: 'auto-copy-scheduler',
@@ -818,7 +857,7 @@ async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
       const msg = (result && result.data && result.data.mensaje) || (result && result.error) || 'No se pudo ejecutar truncar automático.';
       const failedResult = {
         success: false,
-        mensaje: 'Truncar automatico (martes 07:00-07:29 CDMX): ' + msg,
+        mensaje: 'Truncar automatico (martes 07:00-09:29 CDMX): ' + msg,
         tipo: 'truncar_auto',
         fecha: nowCdmx.fecha,
         hora: nowCdmx.hora,
@@ -828,16 +867,17 @@ async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
       autoCopyConfig.writeConfig(failedConfig);
       ejecutarAhoraState.lastResult = failedResult;
       ejecutarAhoraState.finishedAt = new Date().toISOString();
+      appendTruncarAutoLog('FALLO', { ...contexto, error: msg, intentos: result && result.attempts });
       console.warn('[truncar-auto] Falló:', msg);
       // Importante: NO grabar lastRunBySlot si PHP/red falló — debe poder reintentarse en la misma ventana.
-      return;
+      return { status: 'fallo', error: msg };
     }
     const c = autoCopyConfig.readConfig();
     c.lastRunBySlot = c.lastRunBySlot || {};
     c.lastRunBySlot[slotKey] = nowCdmx.fecha;
     c.lastRunResult = {
       success: true,
-      mensaje: (result.data && result.data.mensaje) || 'Truncar automatico ejecutado el martes entre 07:00 y 07:29 CDMX.',
+      mensaje: (result.data && result.data.mensaje) || 'Truncar automatico ejecutado el martes entre 07:00 y 09:29 CDMX.',
       tipo: 'truncar_auto',
       fecha: nowCdmx.fecha,
       hora: nowCdmx.hora,
@@ -847,12 +887,18 @@ async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
     autoCopyConfig.writeConfig(c);
     ejecutarAhoraState.lastResult = c.lastRunResult;
     ejecutarAhoraState.finishedAt = new Date().toISOString();
-    console.log('[truncar-auto] Ejecutado con exito dentro de la ventana del martes 07:00-07:29 CDMX.');
+    console.log('[truncar-auto] Ejecutado con exito dentro de la ventana del martes 07:00-09:29 CDMX.');
+    appendTruncarAutoLog('EXITO', {
+      ...contexto,
+      registros_copiados: result.data && result.data.registros_copiados,
+      url_php: result.url,
+    });
+    return { status: 'exito', registros_copiados: result.data && result.data.registros_copiados };
   } catch (e) {
     const msg = e && e.message ? e.message : 'Error en truncar automático.';
     const failedResult = {
       success: false,
-      mensaje: 'Truncar automatico (martes 07:00-07:29 CDMX): ' + msg,
+      mensaje: 'Truncar automatico (martes 07:00-09:29 CDMX): ' + msg,
       tipo: 'truncar_auto',
       fecha: nowCdmx.fecha,
       hora: nowCdmx.hora,
@@ -862,7 +908,9 @@ async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
     autoCopyConfig.writeConfig(failedConfig);
     ejecutarAhoraState.lastResult = failedResult;
     ejecutarAhoraState.finishedAt = new Date().toISOString();
-    console.warn('[truncar-auto] Excepción:', msg);
+    appendTruncarAutoLog('EXCEPCION', { ...contexto, error: msg });
+    console.warn('[truncar-auto] Excepcion:', msg);
+    return { status: 'excepcion', error: msg };
   } finally {
     clearTimeout(to);
     truncarAutoRunning = false;
@@ -1061,6 +1109,7 @@ async function ejecutarDiagnosticoCompleto() {
   } catch (e) {
     nowCdmx = getCdmxLocalSync();
   }
+  const nowCdmxCapturedAtMs = Date.now();
 
   pruebas.push({
     nombre: 'Hora CDMX (agente)',
@@ -1131,15 +1180,28 @@ async function ejecutarDiagnosticoCompleto() {
     ayuda: 'Todas las pruebas remotas van en un único script para no abrir muchas conexiones.',
   });
 
-  function appendDiffRelojPhp(detalleBase, bdOk, horaPhp) {
-    if (!bdOk || !horaPhp || !nowCdmx || !nowCdmx.horaSeg) return detalleBase;
+  function diffRelojPhpSeconds(bdOk, horaPhp) {
+    if (!bdOk || !horaPhp || !nowCdmx || !nowCdmx.horaSeg) return null;
     const parsePhp = /(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})/.exec(horaPhp);
-    if (!parsePhp) return detalleBase;
-    const tAgent = new Date(nowCdmx.fecha + 'T' + nowCdmx.horaSeg).getTime();
+    if (!parsePhp) return null;
+    const elapsedMs = Math.max(0, Date.now() - nowCdmxCapturedAtMs);
+    const tAgent = new Date(nowCdmx.fecha + 'T' + nowCdmx.horaSeg).getTime() + elapsedMs;
     const tPhp = new Date(parsePhp[1] + 'T' + parsePhp[2]).getTime();
-    if (!Number.isFinite(tAgent) || !Number.isFinite(tPhp)) return detalleBase;
-    const dsec = Math.round((tAgent - tPhp) / 1000);
-    return detalleBase + ' Diferencia agente−PHP ~' + dsec + ' s.';
+    if (!Number.isFinite(tAgent) || !Number.isFinite(tPhp)) return null;
+    return Math.round((tAgent - tPhp) / 1000);
+  }
+
+  function appendDiffRelojPhp(detalleBase, bdOk, horaPhp) {
+    const dsec = diffRelojPhpSeconds(bdOk, horaPhp);
+    if (dsec === null) return detalleBase;
+    const estado = Math.abs(dsec) <= CLOCK_MAX_SKEW_SECONDS ? 'OK' : 'DESFASE CRITICO';
+    return detalleBase + ' Diferencia agente-PHP ~' + dsec + ' s (' + estado + ').';
+  }
+
+  function relojPhpDentroDeUmbral(bdOk, horaPhp) {
+    if (!bdOk) return false;
+    const dsec = diffRelojPhpSeconds(bdOk, horaPhp);
+    return dsec === null || Math.abs(dsec) <= CLOCK_MAX_SKEW_SECONDS;
   }
 
   if (!rBundle.success || !sshEchoOk) {
@@ -1157,7 +1219,7 @@ async function ejecutarDiagnosticoCompleto() {
     detPhp = appendDiffRelojPhp(detPhp, bdOnly.ok, bdOnly.horaPhp);
     pruebas.push({
       nombre: 'PHP estadoReportesAgente (alcance BD)',
-      ok: bdOnly.ok,
+      ok: relojPhpDentroDeUmbral(bdOnly.ok, bdOnly.horaPhp),
       detalle: detPhp,
       grupo: 'bd',
       ayuda: 'Una sola POST (sin último ZIP si no hubo listado remoto).',
@@ -1306,7 +1368,7 @@ async function ejecutarDiagnosticoCompleto() {
   }
   pruebas.push({
     nombre: 'PHP estadoReportesAgente (alcance BD)',
-    ok: bd.ok,
+    ok: relojPhpDentroDeUmbral(bd.ok, bd.horaPhp),
     detalle: detPhp2,
     grupo: 'bd',
     ayuda: 'Una sola POST: ping + estado del último archivo (si hay nombre).',
@@ -1600,7 +1662,14 @@ async function tickTruncarVentanaScheduler() {
       mm >= TRUNCAR_AUTO_END_MINUTE + 5
     ) return;
     const config = autoCopyConfig.readConfig();
-    const nowCdmx = await getCdmxNowForHttp();
+    const nowCdmx = await getCdmxNowForTruncarScheduler();
+    appendTruncarAutoLog('TICK_VENTANA', {
+      fecha: nowCdmx.fecha,
+      hora: nowCdmx.horaSeg || nowCdmx.hora,
+      fuente_hora: nowCdmx.source,
+      activo: !!config.enabled,
+      ultimo_martes: config.lastRunBySlot && config.lastRunBySlot.truncar_auto_07_00,
+    });
     await ejecutarTruncarAutomaticoSiToca(config, nowCdmx);
   } catch (e) {
     console.error('[truncar-auto] Ventana rapida:', e.message);
@@ -1609,6 +1678,11 @@ async function tickTruncarVentanaScheduler() {
 
 function startTruncarVentanaScheduler() {
   if (truncarVentanaSchedulerInterval) return;
+  appendTruncarAutoLog('SCHEDULER_INICIADO', {
+    ventana_cdmx: 'martes 07:00-09:29',
+    intervalo_segundos: 60,
+    reloj_autoritativo: 'PHP estadoReportesAgente; respaldo reloj local del host',
+  });
   void tickTruncarVentanaScheduler();
   truncarVentanaSchedulerInterval = setInterval(tickTruncarVentanaScheduler, 60000);
 }

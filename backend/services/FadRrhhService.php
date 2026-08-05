@@ -8,10 +8,12 @@ use Models\FadRrhh;
 final class FadRrhhService
 {
     private ?FadRrhhPortalClient $client;
+    private FadRrhhTemplateCatalog $templates;
 
-    public function __construct(?FadRrhhPortalClient $client = null)
+    public function __construct(?FadRrhhPortalClient $client = null, ?FadRrhhTemplateCatalog $templates = null)
     {
         $this->client = $client;
+        $this->templates = $templates ?? new FadRrhhTemplateCatalog();
     }
 
     public function configuracion(): array
@@ -26,13 +28,21 @@ final class FadRrhhService
             'country_id' => $this->positiveId('FAD_RRHH_COUNTRY_ID'),
             'requisition_type_id' => $this->positiveId('FAD_RRHH_REQUISITION_TYPE_ID'),
             'sign_time_id' => $this->positiveId('FAD_RRHH_SIGN_TIME_ID'),
-            'signature_box' => $this->boxConfigValid('FAD_RRHH_SIGNATURE_BOX'),
-            'certificate_box' => $this->boxConfigValid('FAD_RRHH_CERTIFICATE_BOX'),
         ];
+        $templateCatalog = $this->templates->publicCatalog();
+        $approvedTemplates = array_values(array_filter(
+            $templateCatalog,
+            static fn(array $template): bool => !empty($template['approved'])
+        ));
         $connectionReady = $enabled
             && count(array_filter($connectionRequired, static fn($value) => $value === '')) === 0;
         $flowReady = $connectionReady
-            && count(array_filter($flowRequired, static fn($value) => $value === null)) === 0;
+            && count(array_filter($flowRequired, static fn($value) => $value === null)) === 0
+            && count($approvedTemplates) > 0;
+        $flowMissing = array_keys(array_filter($flowRequired, static fn($value) => $value === null));
+        if (!$approvedTemplates) {
+            $flowMissing[] = 'approved_template';
+        }
 
         return [
             'enabled' => $enabled,
@@ -40,7 +50,8 @@ final class FadRrhhService
             'auth_mode' => 'portal_bootstrap',
             'api_ready' => $connectionReady,
             'flow_ready' => $flowReady,
-            'flow_missing' => array_keys(array_filter($flowRequired, static fn($value) => $value === null)),
+            'flow_missing' => $flowMissing,
+            'templates' => $templateCatalog,
             'mode' => $enforce ? 'fad_required' : ($enabled ? 'fad_observation' : 'preparation'),
             'portal_url' => 'https://clientes.firmaautografa.com/home',
         ];
@@ -119,12 +130,27 @@ final class FadRrhhService
         $types = $this->portalClient()->getRequisitionTypes($token);
         $lifeTimes = $this->portalClient()->getLifeTimes($token);
         $signers = $this->portalClient()->getSigners($token, (string) $user['userId']);
+        $legalSigners = [];
+        foreach ($this->templates->all() as $template) {
+            $name = (string) $template['legal_signer_name'];
+            if (isset($legalSigners[$name])) {
+                continue;
+            }
+            try {
+                $signer = $this->findLegalSigner($signers, $name);
+                $this->legalPhone($signer);
+                $legalSigners[$name] = ['localizado' => true, 'contacto_completo' => true];
+            } catch (\Throwable $e) {
+                $legalSigners[$name] = ['localizado' => false, 'contacto_completo' => false];
+            }
+        }
         return [
             'conexion' => 'OK',
             'user_id_disponible' => !empty($user['userId']),
             'tipos_solicitud' => $this->safeCatalog($types),
             'vigencias' => $this->safeCatalog($lifeTimes),
             'pais_mexico_sugerido' => $this->suggestCountry($signers),
+            'representantes_legales' => $legalSigners,
             'escritura_realizada' => false,
         ];
     }
@@ -133,13 +159,21 @@ final class FadRrhhService
         int $idCandidato,
         string $pdfPath,
         string $originalName,
+        string $templateCode,
         ?int $idUsuario = null
     ): array {
+        $template = $this->templates->get($templateCode);
+        if (empty($template['approved'])) {
+            throw new \RuntimeException(
+                'La plantilla seleccionada todavía no tiene aprobadas sus posiciones de firma en FAD.'
+            );
+        }
         $config = $this->configuracion();
         if (empty($config['flow_ready'])) {
-            throw new \RuntimeException('La conexión o los catálogos/espacios de firma FAD están incompletos.');
+            throw new \RuntimeException('La conexión o los catálogos FAD están incompletos.');
         }
         $this->validatePdf($pdfPath);
+        $this->validatePdfPageCount($pdfPath, (int) $template['expected_pages']);
         $candidateResult = Candidatos::getById($idCandidato);
         if (empty($candidateResult['success']) || empty($candidateResult['datos'])) {
             throw new \RuntimeException('Candidato no encontrado.');
@@ -153,12 +187,38 @@ final class FadRrhhService
         $phone = substr($phone, -10);
         $record = FadRrhh::preparar($idCandidato, $idUsuario);
         if (!empty($record['requisition_id'])) {
+            if (($record['template_code'] ?? '') !== $template['code']) {
+                throw new \RuntimeException('El candidato ya tiene una solicitud creada con otro tipo de contrato.');
+            }
             return $this->estadoDesdeRegistro($record);
+        }
+        if (!empty($record['document_id'])
+            && !empty($record['template_code'])
+            && $record['template_code'] !== $template['code']) {
+            throw new \RuntimeException('El PDF ya cargado pertenece a otra plantilla contractual.');
         }
 
         $token = $this->token();
         $user = $this->portalClient()->getCurrentUser($token);
         $userId = (string) $user['userId'];
+        $legalSigner = $this->findLegalSigner(
+            $this->portalClient()->getSigners($token, $userId),
+            (string) $template['legal_signer_name']
+        );
+        $legalSignerId = $this->findValue($legalSigner, ['signerId', 'idSigner', 'id']);
+        if ($legalSignerId === '') {
+            throw new \RuntimeException('El representante legal localizado en FAD no tiene signer_id.');
+        }
+        $record = FadRrhh::guardarContextoFirma(
+            $idCandidato,
+            (string) $template['code'],
+            (string) $template['company_code'],
+            null,
+            $legalSignerId,
+            null,
+            null,
+            $idUsuario
+        );
         $documentId = trim((string) ($record['document_id'] ?? ''));
         if ($documentId === '') {
             $upload = $this->portalClient()->uploadDocument(
@@ -174,8 +234,8 @@ final class FadRrhhService
             $record = FadRrhh::guardarProgreso($idCandidato, $documentId, null, $idUsuario);
         }
 
-        $signerId = trim((string) ($record['signer_id'] ?? ''));
-        if ($signerId === '') {
+        $workerSignerId = trim((string) ($record['worker_signer_id'] ?? $record['signer_id'] ?? ''));
+        if ($workerSignerId === '') {
             $signer = $this->portalClient()->createSigner($token, $userId, [
                 'name' => trim((string) ($candidate['nombres'] ?? '')),
                 'lastName' => trim((string) ($candidate['apellidop'] ?? '')),
@@ -187,15 +247,31 @@ final class FadRrhhService
                 'countryId' => $this->env('FAD_RRHH_COUNTRY_ID'),
                 'countryCode' => $this->env('FAD_RRHH_COUNTRY_CODE', '+52'),
             ]);
-            $signerId = $this->findValue($signer, ['signerId', 'idSigner', 'id']);
-            if ($signerId === '') {
+            $workerSignerId = $this->findValue($signer, ['signerId', 'idSigner', 'id']);
+            if ($workerSignerId === '') {
                 throw new \RuntimeException('FAD recibió al firmante pero no devolvió signer_id.');
             }
-            $record = FadRrhh::guardarProgreso($idCandidato, null, $signerId, $idUsuario);
+            $record = FadRrhh::guardarContextoFirma(
+                $idCandidato,
+                (string) $template['code'],
+                (string) $template['company_code'],
+                $workerSignerId,
+                $legalSignerId,
+                null,
+                null,
+                $idUsuario
+            );
         }
 
-        $signature = $this->box('FAD_RRHH_SIGNATURE_BOX', true);
-        $certificate = $this->box('FAD_RRHH_CERTIFICATE_BOX', false);
+        $workerSignatures = array_map(
+            fn(array $box): array => $this->formatBox($box, true),
+            $template['worker_signatures']
+        );
+        $legalSignatures = array_map(
+            fn(array $box): array => $this->formatBox($box, true),
+            $template['legal_signatures']
+        );
+        $certificate = $this->formatBox($template['certificate'], false);
         $reference = (string) ($record['referencia'] ?? ('SPARTA-RRHH-CAND-' . $idCandidato));
         $fullName = trim(implode(' ', array_filter([
             $candidate['nombres'] ?? '',
@@ -217,7 +293,7 @@ final class FadRrhhService
             'isSingleDeviceSignAvailable' => false,
             'signOnWeb' => true,
             'signers' => [[
-                'signerId' => $signerId,
+                'signerId' => $workerSignerId,
                 'order' => 1,
                 'countryCode' => $this->env('FAD_RRHH_COUNTRY_CODE', '+52'),
                 'phone' => $phone,
@@ -225,7 +301,17 @@ final class FadRrhhService
                 'sendSMS' => true,
                 'signDevicePhone' => $this->env('FAD_RRHH_COUNTRY_CODE', '+52') . $phone,
                 'status' => 'ACTIVE',
-                'signatures' => [$signature],
+                'signatures' => $workerSignatures,
+            ], [
+                'signerId' => $legalSignerId,
+                'order' => 2,
+                'countryCode' => $this->legalCountryCode($legalSigner),
+                'phone' => $this->legalPhone($legalSigner),
+                'notification' => true,
+                'sendSMS' => true,
+                'signDevicePhone' => $this->legalCountryCode($legalSigner) . $this->legalPhone($legalSigner),
+                'status' => 'ACTIVE',
+                'signatures' => $legalSignatures,
             ]],
         ]);
         $requisitionId = $this->findValue($requisition, ['requisitionId', 'idRequisition', 'id']);
@@ -234,12 +320,23 @@ final class FadRrhhService
         }
         $ticket = $this->findValue($requisition, ['firstTicket', 'signingUrl', 'url']);
         $signingUrl = filter_var($ticket, FILTER_VALIDATE_URL) ? $ticket : null;
+        $legalSigningUrl = $this->findSigningUrlForSigner($requisition, $legalSignerId);
         $record = FadRrhh::vincularSolicitud(
             $idCandidato,
             $requisitionId,
             $documentId,
-            $signerId,
+            $workerSignerId,
             $signingUrl,
+            $idUsuario
+        );
+        $record = FadRrhh::guardarContextoFirma(
+            $idCandidato,
+            (string) $template['code'],
+            (string) $template['company_code'],
+            $workerSignerId,
+            $legalSignerId,
+            $signingUrl,
+            $legalSigningUrl,
             $idUsuario
         );
         return $this->estadoDesdeRegistro($record);
@@ -345,8 +442,9 @@ final class FadRrhhService
     private function publicRecord(array $record): array
     {
         $allowed = [
-            'id', 'id_candidato', 'referencia', 'document_id', 'signer_id',
-            'requisition_id', 'signing_url', 'estatus', 'pdf_firmado_sha256',
+            'id', 'id_candidato', 'referencia', 'template_code', 'company_code',
+            'document_id', 'signer_id', 'worker_signer_id', 'legal_signer_id',
+            'requisition_id', 'signing_url', 'legal_signing_url', 'estatus', 'pdf_firmado_sha256',
             'enviado_en', 'firmado_en', 'ultima_sync_en', 'creado_en', 'actualizado_en',
         ];
         return array_intersect_key($record, array_flip($allowed));
@@ -364,7 +462,7 @@ final class FadRrhhService
             if (empty($config['flow_ready'])) {
                 return ['Definir las posiciones de firma y certificado sobre la plantilla contractual.'];
             }
-            return ['Cargar contrato, registrar firmante y crear la solicitud mediante la API.'];
+            return ['Elegir la plantilla aprobada, cargar el PDF y crear la solicitud con trabajador y representante legal.'];
         }
         if (($record['estatus'] ?? '') === FadRrhh::STATUS_PENDING) {
             return ['Esperar la firma y sincronizar el estado de la solicitud.'];
@@ -452,6 +550,111 @@ final class FadRrhhService
         }
     }
 
+    private function validatePdfPageCount(string $path, int $expectedPages): void
+    {
+        $pdf = file_get_contents($path);
+        if (!is_string($pdf)) {
+            throw new \RuntimeException('No se pudo revisar la paginación del contrato.');
+        }
+        preg_match_all('/\/Type\s*\/Page\b/', $pdf, $matches);
+        $actualPages = count($matches[0] ?? []);
+        if ($actualPages !== $expectedPages) {
+            throw new \RuntimeException(sprintf(
+                'La plantilla seleccionada requiere %d páginas y el PDF recibido contiene %d.',
+                $expectedPages,
+                $actualPages
+            ));
+        }
+    }
+
+    private function findLegalSigner(array $signers, string $expectedName): array
+    {
+        $expected = $this->normalizePersonName($expectedName);
+        $bestDistance = null;
+        $best = [];
+        foreach ($signers as $signer) {
+            if (!is_array($signer)) {
+                continue;
+            }
+            $fullName = trim((string) ($signer['fullName'] ?? ''));
+            if ($fullName === '') {
+                $fullName = trim(implode(' ', array_filter([
+                    $signer['name'] ?? '',
+                    $signer['lastName'] ?? '',
+                    $signer['secondLastName'] ?? '',
+                ])));
+            }
+            $normalized = $this->normalizePersonName($fullName);
+            if ($normalized === '') {
+                continue;
+            }
+            $distance = levenshtein($expected, $normalized);
+            if ($bestDistance === null || $distance < $bestDistance) {
+                $bestDistance = $distance;
+                $best = [$signer];
+            } elseif ($distance === $bestDistance) {
+                $best[] = $signer;
+            }
+        }
+        if ($bestDistance === null || $bestDistance > 1) {
+            throw new \RuntimeException(
+                'No se encontró en FAD al representante legal ' . $expectedName . '. Capital Humano debe registrarlo primero.'
+            );
+        }
+        if (count($best) !== 1) {
+            throw new \RuntimeException(
+                'Hay más de un firmante parecido al representante legal ' . $expectedName . '; se requiere depurar el catálogo FAD.'
+            );
+        }
+        return $best[0];
+    }
+
+    private function normalizePersonName(string $name): string
+    {
+        $upper = mb_strtoupper(trim($name), 'UTF-8');
+        $ascii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $upper);
+        return trim((string) preg_replace('/[^A-Z0-9]+/', ' ', $ascii !== false ? $ascii : $upper));
+    }
+
+    private function legalPhone(array $signer): string
+    {
+        $phone = preg_replace('/\D+/', '', (string) ($signer['phone'] ?? ''));
+        if (!is_string($phone) || strlen($phone) < 10) {
+            throw new \RuntimeException('El representante legal no tiene un teléfono válido registrado en FAD.');
+        }
+        return substr($phone, -10);
+    }
+
+    private function legalCountryCode(array $signer): string
+    {
+        $countryCode = trim((string) ($signer['countryCode'] ?? ''));
+        return preg_match('/^\+\d{1,4}$/', $countryCode)
+            ? $countryCode
+            : $this->env('FAD_RRHH_COUNTRY_CODE', '+52');
+    }
+
+    private function findSigningUrlForSigner(array $data, string $signerId): ?string
+    {
+        $rowSignerId = $this->findValue($data, ['signerId', 'idSigner']);
+        if ($rowSignerId === $signerId) {
+            $url = $this->findValue($data, ['signingUrl', 'ticketUrl', 'url']);
+            $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+            if (filter_var($url, FILTER_VALIDATE_URL)
+                && ($host === 'firmaautografa.com' || str_ends_with($host, '.firmaautografa.com'))) {
+                return $url;
+            }
+        }
+        foreach ($data as $value) {
+            if (is_array($value)) {
+                $url = $this->findSigningUrlForSigner($value, $signerId);
+                if ($url !== null) {
+                    return $url;
+                }
+            }
+        }
+        return null;
+    }
+
     private function safePdfName(string $name, int $idCandidato): string
     {
         $base = preg_replace('/[^A-Za-z0-9._-]+/', '_', basename($name));
@@ -461,12 +664,11 @@ final class FadRrhhService
         return substr($base, 0, 180);
     }
 
-    private function box(string $envName, bool $signature): array
+    private function formatBox(array $box, bool $signature): array
     {
-        $box = json_decode($this->env($envName), true);
         $required = ['page', 'positionX1', 'positionX2', 'positionY1', 'positionY2'];
         if (!is_array($box) || array_diff($required, array_keys($box))) {
-            throw new \RuntimeException('La configuración ' . $envName . ' no es válida.');
+            throw new \RuntimeException('Una posición de firma de la plantilla no es válida.');
         }
         foreach (array_slice($required, 1) as $key) {
             $value = (float) $box[$key];

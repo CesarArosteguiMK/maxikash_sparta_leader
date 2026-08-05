@@ -1132,6 +1132,34 @@
         messages.scrollTop = messages.scrollHeight;
     }
 
+    function addQuickActions(actions) {
+        if (!Array.isArray(actions) || !actions.length || !form || !input) return;
+        var wrapper = document.createElement('div');
+        wrapper.className = 'leonidas-quick-actions';
+        wrapper.setAttribute('role', 'group');
+        wrapper.setAttribute('aria-label', 'Opciones disponibles');
+
+        actions.slice(0, 6).forEach(function (action) {
+            if (!action || !action.etiqueta || !action.mensaje) return;
+            var button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'leonidas-quick-actions__button';
+            if (action.estilo === 'cancel') button.classList.add('is-cancel');
+            button.textContent = String(action.etiqueta);
+            button.addEventListener('click', function () {
+                wrapper.querySelectorAll('button').forEach(function (item) { item.disabled = true; });
+                input.value = String(action.mensaje);
+                wrapper.remove();
+                form.requestSubmit();
+            });
+            wrapper.appendChild(button);
+        });
+
+        if (!wrapper.children.length) return;
+        messages.appendChild(wrapper);
+        messages.scrollTop = messages.scrollHeight;
+    }
+
     function renderResponse(response) {
         if (response.reemplaza_propuesta) {
             messages.querySelectorAll('.leonidas-proposal').forEach(function (proposal) {
@@ -1143,6 +1171,7 @@
         addReport(response.reporte);
         addChart(response.grafica);
         addMedia(response.medio);
+        addQuickActions(response.acciones_rapidas);
         addProposal(response.propuesta);
         setSecureInputMode(response.entrada_segura || null);
         if (response.navegar_a) {
@@ -1401,6 +1430,9 @@
             unlockVoiceContext();
             var value = input.value.trim();
             if (!value) return;
+            messages.querySelectorAll('.leonidas-quick-actions').forEach(function (actions) {
+                actions.remove();
+            });
             var isSecureNip = secureInputMode === 'nip';
             addMessage(isSecureNip ? 'NIP enviado de forma segura.' : value, 'user');
             input.value = '';

@@ -39,6 +39,12 @@ class LeonidasConveniosService
             ? $this->normalizar($normalizado)
             : $this->normalizar($mensaje);
 
+        // Este servicio solo explica y diagnostica. Las ordenes de escritura
+        // deben continuar al flujo auditable de LeonidasAgentService.
+        if ($this->esOrdenOperativa($normalizado)) {
+            return null;
+        }
+
         if (!$this->esConsultaDeConvenios($normalizado) || !$this->esPregunta($normalizado)) {
             return null;
         }
@@ -314,6 +320,30 @@ class LeonidasConveniosService
             return true;
         }
         return str_contains($mensaje, '?');
+    }
+
+    private function esOrdenOperativa(string $mensaje): bool
+    {
+        if (!$this->esConsultaDeConvenios($mensaje)) {
+            return false;
+        }
+
+        if (preg_match(
+            '/\b(crea|haz|levanta|registra|abre|reactiva|reabre|cancela|asigna|asignalo|reasigna)\b/u',
+            $mensaje
+        ) === 1) {
+            return true;
+        }
+
+        $acciones = '(?:crear|hacer|levantar|registrar|abrir|reactivar|reabrir|cancelar|asignar|reasignar)';
+        if (preg_match('/^\s*' . $acciones . '\b/u', $mensaje) === 1) {
+            return true;
+        }
+
+        return preg_match(
+            '/\b(?:quiero|necesito|solicito|ayudame\s+a|debes|debe|vas\s+a|puedes|podrias|favor\s+de)\b.{0,80}\b' . $acciones . '\b/u',
+            $mensaje
+        ) === 1;
     }
 
     private function bucketGeneralElegible(string $bucket): bool

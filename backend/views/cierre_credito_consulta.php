@@ -14,11 +14,29 @@
 .cc-header-gradient i  { color: #fff; }
 
 /* ── Pestañas ── */
+.cc-nav-tabs {
+    display: flex;
+    flex-wrap: wrap !important;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    gap: .25rem 0;
+}
+.cc-nav-tabs .nav-item {
+    flex: 1 1 9.25rem;
+    min-inline-size: 9.25rem;
+    max-inline-size: 100%;
+    white-space: normal;
+}
 .cc-nav-tabs .nav-link {
+    inline-size: 100%;
+    min-inline-size: 0;
+    block-size: 100%;
     font-weight: 600;
     color: #475569;
     border-radius: 0.5rem 0.5rem 0 0;
-    padding: 0.6rem 1.4rem;
+    padding: 0.6rem 0.75rem;
+    line-height: 1.25;
+    white-space: normal;
 }
 .cc-nav-tabs .nav-link.active {
     color: #1d4ed8;
@@ -27,6 +45,12 @@
 .cc-nav-tabs .nav-link:hover:not(.active) {
     color: #1d4ed8;
     background: #eff6ff;
+}
+@media (max-width: 575.98px) {
+    .cc-nav-tabs .nav-item {
+        flex-basis: 50%;
+        min-inline-size: 50%;
+    }
 }
 
 /* La búsqueda solo ocupa espacio cuando la pestaña activa tiene registros. */

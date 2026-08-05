@@ -7064,13 +7064,13 @@ window.migGuardar = function () {
                     }
                 });
             };
-            var onLibreError = function () {
+            var onLibreError = function (mensaje) {
                 var guardarBtnRest = getGuardarBtn();
                 if (guardarBtnRest) {
                     guardarBtnRest.disabled = false;
                     guardarBtnRest.innerHTML = '<i class="fas fa-save"></i> Registrar Convenio';
                 }
-                Swal.fire('Error', 'Error de conexión.', 'error');
+                Swal.fire('Error', mensaje || 'No se pudo conectar con el servidor.', 'error');
             };
 
             if (_pdfLibre) {
@@ -7083,6 +7083,8 @@ window.migGuardar = function () {
                     data: fdLibre,
                     contentType: false,
                     processData: false,
+                    // El botón ya se bloquea arriba; no cerrar alertas propias al finalizar.
+                    showLoader: false,
                     onSuccess: onLibreSuccess,
                     onError: onLibreError
                 });
@@ -7091,10 +7093,20 @@ window.migGuardar = function () {
                     endpoint: '/convenios/guardarConvenio',
                     method: 'POST',
                     data: _dataLibre,
+                    // El botón ya se bloquea arriba; no cerrar alertas propias al finalizar.
+                    showLoader: false,
                     onSuccess: onLibreSuccess,
                     onError: onLibreError
                 });
             }
+        }).catch(function (error) {
+            var guardarBtnRest = getGuardarBtn();
+            if (guardarBtnRest) {
+                guardarBtnRest.disabled = false;
+                guardarBtnRest.innerHTML = '<i class="fas fa-save"></i> Registrar Convenio';
+            }
+            console.error('Error al registrar el convenio con fechas específicas:', error);
+            Swal.fire('Error', 'No se pudo preparar el registro del convenio. Intenta nuevamente.', 'error');
         });
         return;
     }
