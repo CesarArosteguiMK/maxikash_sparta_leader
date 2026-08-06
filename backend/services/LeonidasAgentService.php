@@ -11,7 +11,15 @@ require_once __DIR__ . '/LeonidasOperationStore.php';
 require_once __DIR__ . '/LeonidasFinancialWorkflowService.php';
 require_once __DIR__ . '/LeonidasTrackingEvidenceService.php';
 require_once __DIR__ . '/LeonidasOperationalService.php';
+require_once __DIR__ . '/../core/Model.php';
+require_once __DIR__ . '/../core/Database.php';
+require_once __DIR__ . '/../core/DatabaseAWS.php';
+require_once __DIR__ . '/../core/DatabaseSegundometro.php';
+require_once __DIR__ . '/../core/UsuarioFantasmaReporteria.php';
 require_once __DIR__ . '/../core/DatabaseLegacy.php';
+require_once __DIR__ . '/../models/Convenios.php';
+require_once __DIR__ . '/../models/Adjudicacion.php';
+require_once __DIR__ . '/../models/Despachos.php';
 
 /**
  * Stateful, deterministic workflows for actions Leonidas may execute.
@@ -20,6 +28,7 @@ require_once __DIR__ . '/../core/DatabaseLegacy.php';
 class LeonidasAgentService
 {
     private const TASK_KEY = 'leonidas_agent_task';
+    private const CONVENIO_ASSIGNMENT_KEY = 'leonidas_convenio_assignment_task';
     private const TASK_TTL = 1200;
 
     /** @var array<string, callable> */
@@ -56,6 +65,51 @@ class LeonidasAgentService
         $this->adapters = $adapters + [
             'convenio_ofertas' => static fn(int $idCredito): array => \Models\Convenios::getOfertasElegibles($idCredito),
             'convenio_guardar' => static fn(array $datos): array => \Models\Convenios::guardarConvenio($datos),
+            'convenio_excepcion_preparar' => static fn(int $idCredito, string $fecha, float $monto): array =>
+                \Models\Convenios::prepararConvenioExcepcion($idCredito, $fecha, $monto),
+            'convenio_excepcion_guardar' => static fn(array $datos): array =>
+                \Models\Convenios::guardarConvenioExcepcion($datos),
+            'convenio_reactivacion_diagnosticar' => static fn(int $idCredito, int $idConvenio): array =>
+                \Models\Convenios::diagnosticarReactivacionConvenioCancelado($idCredito, $idConvenio),
+            'convenio_reactivar_cancelado' => static fn(int $idConvenio, string $usuario, string $motivo): array =>
+                \Models\Convenios::reactivarConvenioCancelado($idConvenio, $usuario, $motivo),
+            'convenio_asignacion_actual' => static fn(int $idCredito): ?array =>
+                (new \Models\Despachos())->obtenerAsignacionActivaCredito($idCredito),
+            'convenio_responsables_buscar' => static fn(int $idCelula, string $busqueda): array =>
+                (new \Models\Despachos())->buscarResponsablesPorCelula($idCelula, $busqueda),
+            'convenio_responsable_actual' => static fn(int $idPersona, int $idCelula): ?array =>
+                (new \Models\Despachos())->obtenerResponsableActivoPorCelula($idPersona, $idCelula),
+            'convenio_asignar_credito' => static function (int $idPersona, int $idCredito, int $idCelula, int $actorId): array {
+                $despachos = new \Models\Despachos();
+                $actual = $despachos->obtenerAsignacionActivaCredito($idCredito);
+                if ($actual) {
+                    $coincide = (int) ($actual['id_persona'] ?? 0) === $idPersona
+                        && (int) ($actual['id_celula'] ?? 0) === $idCelula;
+                    return [
+                        'success' => $coincide,
+                        'message' => $coincide
+                            ? 'El credito ya estaba asignado al responsable seleccionado.'
+                            : 'El credito fue asignado a otra persona mientras esperaba la confirmacion.',
+                        'asignacion' => $actual,
+                        'idempotente' => $coincide,
+                    ];
+                }
+
+                $ok = $despachos->asignarCredito($idPersona, $idCredito, $idCelula, $actorId);
+                $verificacion = $despachos->obtenerAsignacionActivaCredito($idCredito);
+                $verificado = $ok
+                    && is_array($verificacion)
+                    && (int) ($verificacion['id_persona'] ?? 0) === $idPersona
+                    && (int) ($verificacion['id_celula'] ?? 0) === $idCelula;
+
+                return [
+                    'success' => $verificado,
+                    'message' => $verificado
+                        ? 'Credito asignado y verificado antes de continuar con el convenio.'
+                        : 'No se pudo verificar la asignacion del credito.',
+                    'asignacion' => $verificacion,
+                ];
+            },
             'moto_buscar' => static fn(int $idCredito): array => (new \Models\Adjudicacion())->buscarCreditoPorId($idCredito),
             'moto_responsables' => static fn(): array => (new \Models\Adjudicacion())->obtenerResponsables(),
             'moto_asignar' => static function (int $idPersona, int $idCredito, int $actorId): array {
@@ -116,7 +170,15 @@ class LeonidasAgentService
     public static function accionesEjecutables(): array
     {
         return array_merge(
-            ['convenio_crear', 'moto_asignar', 'excel_aplicar', 'cartera_reactivar_tarea_movil'],
+            [
+                'convenio_crear',
+                'convenio_crear_excepcion',
+                'convenio_reactivar_cancelado',
+                'convenio_asignar_credito',
+                'moto_asignar',
+                'excel_aplicar',
+                'cartera_reactivar_tarea_movil',
+            ],
             LeonidasCapitalHumanoService::accionesEjecutables(),
             LeonidasLocalAgentService::accionesEjecutables(),
             LeonidasMotosAdjudicadasService::accionesEjecutables(),
@@ -140,6 +202,36 @@ class LeonidasAgentService
 
         // Do not depend on the caller to normalize casing or accents before routing an action.
         $normalizado = $this->normalizar($mensaje);
+
+        // La asignacion de un credito de Convenios es una operacion independiente:
+        // puede realizarse aunque el convenio ya exista y nunca debe abrir otro.
+        if ($this->solicitaAsignarCreditoConvenio($normalizado)) {
+            return $this->iniciarAsignacionCreditoConvenio($mensaje, $contexto);
+        }
+
+        // Las acciones de Convenios deben resolverse antes de los enrutadores
+        // genéricos; por ejemplo, "reactiva" también existe en Capital Humano.
+        if ($this->solicitaReactivarConvenioCancelado($normalizado)) {
+            return $this->resolverReactivacionConvenioCancelado($mensaje, $contexto);
+        }
+
+        if ($this->solicitaConvenioExcepcion($normalizado)) {
+            return $this->iniciarConvenioExcepcion($mensaje, $contexto);
+        }
+
+        // Las respuestas de asignacion del convenio pueden ser solo un area,
+        // un apellido o un nombre. Deben conservar prioridad sobre los routers
+        // generales para no perder el contexto del credito.
+        $tareaConvenio = $this->tareaActual((int) ($contexto['actor_id'] ?? 0));
+        if ($tareaConvenio !== null
+            && in_array((string) ($tareaConvenio['tipo'] ?? ''), ['convenio', 'convenio_excepcion', 'convenio_asignacion'], true)
+            && str_starts_with((string) ($tareaConvenio['paso'] ?? ''), 'asignacion_')) {
+            if (preg_match('/\b(cancelar|cancela|olvida|deten|detener)\b/u', $normalizado)) {
+                $this->limpiarTarea();
+                return $this->respuesta('Tarea cancelada. No se modifico ningun dato.', 'agente_cancelado');
+            }
+            return $this->continuarAsignacionConvenio($mensaje, $normalizado, $tareaConvenio, $contexto);
+        }
 
         $capitalHumano = $this->capitalHumano->resolver($mensaje, $normalizado, $contexto);
         if ($capitalHumano !== null) {
@@ -174,6 +266,7 @@ class LeonidasAgentService
 
             return match ((string) ($tarea['tipo'] ?? '')) {
                 'convenio' => $this->continuarConvenio($mensaje, $normalizado, $tarea, $contexto),
+                'convenio_excepcion' => $this->continuarConvenioExcepcion($mensaje, $tarea, $contexto),
                 'dictamen_moto' => $this->continuarDictamenMoto($mensaje, $normalizado, $tarea, $contexto),
                 default => $this->continuarMoto($mensaje, $normalizado, $tarea, $contexto),
             };
@@ -420,6 +513,15 @@ class LeonidasAgentService
         if ($accion === 'convenio_crear') {
             return $this->ejecutarConvenio($payload, $contexto);
         }
+        if ($accion === 'convenio_crear_excepcion') {
+            return $this->ejecutarConvenioExcepcion($payload, $contexto);
+        }
+        if ($accion === 'convenio_reactivar_cancelado') {
+            return $this->ejecutarReactivacionConvenioCancelado($payload, $contexto);
+        }
+        if ($accion === 'convenio_asignar_credito') {
+            return $this->ejecutarAsignacionConvenio($payload, $contexto);
+        }
         if ($accion === 'moto_asignar') {
             return $this->ejecutarMoto($payload, $contexto);
         }
@@ -444,22 +546,15 @@ class LeonidasAgentService
 
     public function limpiarTarea(): void
     {
-        unset($_SESSION[self::TASK_KEY]);
+        unset($_SESSION[self::TASK_KEY], $_SESSION[self::CONVENIO_ASSIGNMENT_KEY]);
         $this->capitalHumano->limpiarTarea();
         $this->operaciones->limpiarTarea();
     }
 
     public function entradaSeguraPendiente(int $actorId): ?string
     {
-        $tarea = is_array($_SESSION[self::TASK_KEY] ?? null) ? $_SESSION[self::TASK_KEY] : null;
+        $tarea = $this->tareaActual($actorId);
         if ($tarea === null) {
-            return null;
-        }
-        if ((int) ($tarea['expira_en'] ?? 0) < time()) {
-            $this->limpiarTarea();
-            return null;
-        }
-        if ((int) ($tarea['actor_id'] ?? 0) !== $actorId) {
             return null;
         }
         if (
@@ -472,6 +567,597 @@ class LeonidasAgentService
         return null;
     }
 
+    private function iniciarConvenioExcepcion(string $mensaje, array $contexto): array
+    {
+        if (empty($contexto['permisos_agente']['convenio'])) {
+            return $this->respuesta(
+                'No puedo crear un convenio de excepción porque tu perfil necesita Crear Convenio y Registrar convenio existente.',
+                'agente_denegado'
+            );
+        }
+
+        $datos = $this->extraerDatosConvenioExcepcion($mensaje);
+        if ((int) ($datos['id_credito'] ?? 0) <= 0) {
+            $this->guardarTarea('convenio_excepcion', 'datos', $datos, $contexto);
+            $monto = (float) ($datos['monto'] ?? 0);
+            $fecha = (string) ($datos['fecha_pago'] ?? '');
+            return $this->respuesta(
+                'Necesito el crédito objetivo para registrarlo: indícame el número de crédito.'
+                . ($monto > 0 && $fecha !== ''
+                    ? "\nCon eso prepararé el convenio de excepción de pago mixto, un solo pago por $"
+                        . $this->dinero($monto) . ' con fecha ' . $this->fechaHumana($fecha)
+                        . ', sin aplicar las validaciones normales.'
+                    : ''),
+                'agente_pregunta'
+            );
+        }
+
+        return $this->prepararPropuestaConvenioExcepcion($datos, $contexto);
+    }
+
+    private function continuarConvenioExcepcion(string $mensaje, array $tarea, array $contexto): array
+    {
+        if (empty($contexto['permisos_agente']['convenio'])) {
+            $this->limpiarTarea();
+            return $this->respuesta('Tus permisos cambiaron y ya no permiten crear convenios.', 'agente_denegado');
+        }
+
+        if (str_starts_with((string) ($tarea['paso'] ?? ''), 'asignacion_')) {
+            return $this->continuarAsignacionConvenio($mensaje, $this->normalizar($mensaje), $tarea, $contexto);
+        }
+
+        $datos = is_array($tarea['datos'] ?? null) ? $tarea['datos'] : [];
+        $nuevos = $this->extraerDatosConvenioExcepcion($mensaje);
+        foreach ($nuevos as $clave => $valor) {
+            if (($clave === 'id_credito' && (int) $valor > 0)
+                || ($clave === 'monto' && (float) $valor > 0)
+                || ($clave === 'fecha_pago' && (string) $valor !== '')) {
+                $datos[$clave] = $valor;
+            }
+        }
+        // En una respuesta corta como "el credito es 172307" no se debe tomar
+        // el año ni el monto previo como identificador.
+        if ((int) ($datos['id_credito'] ?? 0) <= 0) {
+            $datos['id_credito'] = $this->extraerCreditoExplicito($mensaje);
+        }
+
+        $faltantes = $this->faltantesConvenioExcepcion($datos);
+        if ($faltantes !== []) {
+            $this->guardarTarea('convenio_excepcion', 'datos', $datos, $contexto);
+            return $this->respuesta('Aún necesito ' . implode(' y ', $faltantes) . ' para preparar la excepción.', 'agente_pregunta');
+        }
+
+        $this->limpiarTarea();
+        return $this->prepararPropuestaConvenioExcepcion($datos, $contexto);
+    }
+
+    private function prepararPropuestaConvenioExcepcion(array $datos, array $contexto): array
+    {
+        $faltantes = $this->faltantesConvenioExcepcion($datos);
+        if ($faltantes !== []) {
+            return $this->respuesta('Necesito ' . implode(' y ', $faltantes) . ' para preparar la excepción.', 'agente_pregunta');
+        }
+
+        $preparado = (array) $this->llamar(
+            'convenio_excepcion_preparar',
+            (int) $datos['id_credito'],
+            (string) $datos['fecha_pago'],
+            (float) $datos['monto']
+        );
+        if (empty($preparado['success'])) {
+            return $this->respuesta($this->mensajeResultado($preparado), 'agente_error');
+        }
+        $p = (array) ($preparado['datos'] ?? []);
+        $datos['cliente'] = trim((string) ($p['cliente'] ?? ''));
+        $asignacionPendiente = $this->solicitarAsignacionConvenioSiFalta(
+            'convenio_excepcion',
+            $datos,
+            $contexto
+        );
+        if ($asignacionPendiente !== null) {
+            return $asignacionPendiente;
+        }
+
+        $lineas = [
+            'Vista previa del convenio de excepción:',
+            'Crédito: ' . (int) $p['id_credito'],
+            'Cliente: ' . (string) $p['cliente'],
+            'Producto: ' . (string) $p['producto'],
+            'Calendario: una sola cuota el ' . $this->fechaHumana((string) $p['fecha_pago']),
+            'Monto: $' . $this->dinero((float) $p['monto']),
+            'Base histórica S2: $' . $this->dinero((float) $p['adeudo_s2']),
+        ];
+        if (trim((string) ($p['status_credito_s2'] ?? '')) !== '') {
+            $lineas[] = 'Estado del crédito en S2 al corte: ' . trim((string) $p['status_credito_s2']);
+        }
+        if ((float) ($p['descuento_monto'] ?? 0) > 0) {
+            $lineas[] = 'Descuento de excepción: $' . $this->dinero((float) $p['descuento_monto'])
+                . ' (' . $this->numero((float) $p['porcentaje_descuento']) . '%)';
+        }
+        if ((float) ($p['monto_adicional'] ?? 0) > 0) {
+            $lineas[] = 'Monto adicional excepcional: $' . $this->dinero((float) $p['monto_adicional']);
+        }
+        $lineas[] = 'Esta operación omite las reglas normales de elegibilidad, pero volverá a consultar S2 y a verificar que no exista otro convenio activo al confirmar.';
+        $lineas[] = 'Confirma para registrarlo o cancela para no hacer cambios.';
+
+        return [
+            'mensaje' => implode("\n", $lineas),
+            'tipo' => 'agente_propuesta',
+            'propuesta_especificacion' => [
+                'accion' => 'convenio_crear_excepcion',
+                'resumen' => 'crear convenio de excepción del crédito ' . (int) $p['id_credito'],
+                'payload' => [
+                    'id_credito' => (int) $p['id_credito'],
+                    'fecha_pago' => (string) $p['fecha_pago'],
+                    'monto' => (float) $p['monto'],
+                ],
+            ],
+        ];
+    }
+
+    private function iniciarAsignacionCreditoConvenio(string $mensaje, array $contexto): array
+    {
+        if (empty($contexto['permisos_agente']['convenio'])) {
+            return $this->respuesta(
+                'No puedo asignar el credito porque tu perfil no tiene acceso operativo al modulo de Convenios.',
+                'agente_denegado'
+            );
+        }
+
+        $idCredito = $this->extraerCreditoExplicito($mensaje);
+        if ($idCredito <= 0) {
+            $idCredito = $this->extraerCredito($mensaje);
+        }
+        if ($idCredito <= 0) {
+            $this->guardarTarea('convenio_asignacion', 'asignacion_credito', [], $contexto);
+            return $this->respuesta(
+                'Entendido: solo asignare el credito en Convenios; no abrire otro convenio. ¿Cual es el ID del credito?',
+                'agente_pregunta'
+            );
+        }
+
+        return $this->solicitarAsignacionConvenioSiFalta(
+            'convenio_asignacion',
+            ['id_credito' => $idCredito],
+            $contexto
+        ) ?? $this->respuesta('No pude iniciar la asignacion del credito ' . $idCredito . '.', 'agente_error');
+    }
+
+    private function solicitarAsignacionConvenioSiFalta(
+        string $tipoFlujo,
+        array $datos,
+        array $contexto
+    ): ?array {
+        $idCredito = (int) ($datos['id_credito'] ?? 0);
+        if ($idCredito <= 0) {
+            return null;
+        }
+
+        try {
+            $asignacion = $this->llamar('convenio_asignacion_actual', $idCredito);
+        } catch (\Throwable $e) {
+            return $this->respuesta(
+                'No pude verificar la asignacion actual del credito ' . $idCredito
+                    . '. No preparare el convenio hasta comprobarla: ' . $e->getMessage(),
+                'agente_error'
+            );
+        }
+        if (is_array($asignacion) && (int) ($asignacion['id_persona'] ?? 0) > 0) {
+            if ($tipoFlujo === 'convenio_asignacion') {
+                return $this->respuesta(
+                    'El credito ' . $idCredito . ' ya tiene una asignacion activa en '
+                        . $this->etiquetaCelulaConvenio((int) ($asignacion['id_celula'] ?? 0))
+                        . ' con ' . trim((string) ($asignacion['nombre_completo'] ?? 'el responsable registrado'))
+                        . '. No realice cambios ni abri otro convenio.',
+                    'agente_diagnostico'
+                );
+            }
+            return null;
+        }
+
+        $this->guardarTarea($tipoFlujo, 'asignacion_celula', $datos, $contexto);
+        $cliente = trim((string) ($datos['cliente'] ?? ''));
+        return $this->respuesta(
+            'El credito ' . $idCredito . ($cliente !== '' ? ' de ' . $cliente : '')
+                . ' no tiene una asignacion activa. '
+                . ($tipoFlujo === 'convenio_asignacion'
+                    ? 'Para asignarlo en el modulo de Convenios necesito definir a donde va:'
+                    : 'Antes de abrir el convenio necesito definir a donde va:')
+                . "\n1. Despacho"
+                . "\n2. Gestion Call Center"
+                . "\n3. Campo"
+                . "\nIndica el numero o el nombre del area.",
+            'agente_opciones'
+        ) + [
+            'acciones_rapidas' => [
+                ['etiqueta' => 'Despacho', 'mensaje' => 'Despacho', 'estilo' => 'primary'],
+                ['etiqueta' => 'Gestion Call Center', 'mensaje' => 'Gestion Call Center', 'estilo' => 'primary'],
+                ['etiqueta' => 'Campo', 'mensaje' => 'Campo', 'estilo' => 'primary'],
+                ['etiqueta' => 'Cancelar', 'mensaje' => 'Cancelar', 'estilo' => 'cancel'],
+            ],
+        ];
+    }
+
+    private function continuarAsignacionConvenio(
+        string $mensaje,
+        string $normalizado,
+        array $tarea,
+        array $contexto
+    ): array {
+        if (empty($contexto['permisos_agente']['convenio'])) {
+            $this->limpiarTarea();
+            return $this->respuesta('Tus permisos ya no permiten preparar convenios.', 'agente_denegado');
+        }
+
+        $tipoFlujo = (string) ($tarea['tipo'] ?? '');
+        $paso = (string) ($tarea['paso'] ?? '');
+        $datos = is_array($tarea['datos'] ?? null) ? $tarea['datos'] : [];
+        $idCredito = (int) ($datos['id_credito'] ?? 0);
+        if ($paso === 'asignacion_credito' && $tipoFlujo === 'convenio_asignacion') {
+            $idCredito = $this->extraerCreditoExplicito($mensaje);
+            if ($idCredito <= 0) {
+                $idCredito = $this->extraerCredito($mensaje);
+            }
+            if ($idCredito <= 0) {
+                return $this->respuesta('Indica el ID numerico del credito que deseas asignar en Convenios.', 'agente_pregunta');
+            }
+            return $this->solicitarAsignacionConvenioSiFalta(
+                'convenio_asignacion',
+                ['id_credito' => $idCredito],
+                $contexto
+            ) ?? $this->respuesta('No pude iniciar la asignacion del credito.', 'agente_error');
+        }
+
+        if ($idCredito <= 0 || !in_array($tipoFlujo, ['convenio', 'convenio_excepcion', 'convenio_asignacion'], true)) {
+            $this->limpiarTarea();
+            return $this->respuesta('La solicitud perdio el credito o el tipo de operacion de Convenios. Inicia nuevamente.', 'agente_error');
+        }
+
+        $actual = $this->llamar('convenio_asignacion_actual', $idCredito);
+        if (is_array($actual) && (int) ($actual['id_persona'] ?? 0) > 0) {
+            $this->limpiarTarea();
+            if ($tipoFlujo === 'convenio_asignacion') {
+                return $this->respuesta(
+                    'El credito ' . $idCredito . ' ya fue asignado en '
+                        . $this->etiquetaCelulaConvenio((int) ($actual['id_celula'] ?? 0))
+                        . ' a ' . trim((string) ($actual['nombre_completo'] ?? 'el responsable registrado'))
+                        . '. No realice cambios ni abri otro convenio.',
+                    'agente_diagnostico'
+                );
+            }
+            return $this->continuarConvenioDespuesDeAsignacion($tipoFlujo, $datos, $contexto);
+        }
+
+        if ($paso === 'asignacion_celula') {
+            $idCelula = $this->resolverCelulaConvenio($normalizado);
+            if ($idCelula <= 0) {
+                return $this->respuesta(
+                    'No identifique el area. Responde 1 para Despacho, 2 para Gestion Call Center o 3 para Campo.',
+                    'agente_pregunta'
+                );
+            }
+            $datos['id_celula_asignacion'] = $idCelula;
+            unset($datos['opciones_responsable']);
+            $this->guardarTarea($tipoFlujo, 'asignacion_responsable', $datos, $contexto);
+            return $this->respuesta(
+                'Destino seleccionado: ' . $this->etiquetaCelulaConvenio($idCelula) . '.'
+                    . "\nEscribe el nombre, un apellido o el numero de empleado de la persona responsable. "
+                    . 'No necesitas conocer el nombre completo; te mostrare las coincidencias.',
+                'agente_pregunta'
+            );
+        }
+
+        if ($paso !== 'asignacion_responsable') {
+            $this->limpiarTarea();
+            return $this->respuesta('El paso de asignacion no es valido. No se realizaron cambios.', 'agente_error');
+        }
+
+        $idCelula = (int) ($datos['id_celula_asignacion'] ?? 0);
+        if (!in_array($idCelula, [1, 2, 3], true)) {
+            $this->guardarTarea($tipoFlujo, 'asignacion_celula', $datos, $contexto);
+            return $this->respuesta('Vuelve a indicar el area: Despacho, Gestion Call Center o Campo.', 'agente_pregunta');
+        }
+
+        $opcionesGuardadas = is_array($datos['opciones_responsable'] ?? null)
+            ? $datos['opciones_responsable']
+            : [];
+        $seleccion = null;
+        $confirmacionUnica = $opcionesGuardadas
+            && count($opcionesGuardadas) === 1
+            && preg_match('/^\s*(?:si|confirmar|confirmo|correcto|ese|esa)\s*$/u', $normalizado) === 1;
+        if ($opcionesGuardadas && ($confirmacionUnica || preg_match('/^\s*(\d+)\s*$/', $mensaje, $m) === 1)) {
+            $indice = $confirmacionUnica ? 1 : (int) $m[1];
+            foreach ($opcionesGuardadas as $opcion) {
+                if ((int) ($opcion['indice'] ?? 0) === $indice) {
+                    $seleccion = $opcion;
+                    break;
+                }
+            }
+            if ($seleccion === null) {
+                return $this->respuesta(
+                    'Esa opcion no existe. Elige uno de los numeros mostrados o escribe mas datos del nombre.',
+                    'agente_pregunta'
+                );
+            }
+        } else {
+            $busqueda = trim($mensaje);
+            if (mb_strlen($busqueda, 'UTF-8') < 2) {
+                return $this->respuesta('Escribe al menos dos caracteres del nombre, apellido o numero de empleado.', 'agente_pregunta');
+            }
+            $rows = (array) $this->llamar('convenio_responsables_buscar', $idCelula, $busqueda);
+            $opciones = [];
+            $vistos = [];
+            foreach ($rows as $row) {
+                $idPersona = (int) ($row['id_persona'] ?? 0);
+                if ($idPersona <= 0 || isset($vistos[$idPersona])) {
+                    continue;
+                }
+                $vistos[$idPersona] = true;
+                $opciones[] = [
+                    'indice' => count($opciones) + 1,
+                    'id_persona' => $idPersona,
+                    'id_celula' => $idCelula,
+                    'nombre' => trim((string) ($row['nombre_completo'] ?? $row['nombre'] ?? '')),
+                    'numero_empleado' => trim((string) ($row['numero_empleado'] ?? '')),
+                    'puesto' => trim((string) ($row['puesto'] ?? $row['nombre_puesto'] ?? '')),
+                ];
+            }
+
+            if ($opciones === []) {
+                return $this->respuesta(
+                    'No encontre responsables activos en ' . $this->etiquetaCelulaConvenio($idCelula)
+                        . ' con "' . $busqueda . '". Prueba con otro nombre, apellido o numero de empleado.',
+                    'agente_pregunta'
+                );
+            }
+            $datos['opciones_responsable'] = $opciones;
+            $this->guardarTarea($tipoFlujo, 'asignacion_responsable', $datos, $contexto);
+            $lineas = ['Encontre ' . (count($opciones) === 1 ? 'esta coincidencia' : 'estas coincidencias')
+                . ' en ' . $this->etiquetaCelulaConvenio($idCelula) . ':'];
+            foreach ($opciones as $opcion) {
+                $detalle = [];
+                if ($opcion['numero_empleado'] !== '') $detalle[] = 'No. empleado ' . $opcion['numero_empleado'];
+                if ($opcion['puesto'] !== '') $detalle[] = $opcion['puesto'];
+                $lineas[] = $opcion['indice'] . '. ' . $opcion['nombre']
+                    . ($detalle ? ' (' . implode(', ', $detalle) . ')' : '');
+            }
+            $lineas[] = count($opciones) === 1
+                ? 'Haz clic en el nombre o responde SI para seleccionarlo. Tambien puedes cancelar la gestion.'
+                : 'Haz clic en la persona correcta, indica su numero o escribe un nombre mas completo para refinar.';
+            return $this->respuesta(implode("\n", $lineas), 'agente_opciones') + [
+                'acciones_rapidas' => $this->accionesRapidasResponsablesConvenio($opciones),
+            ];
+        }
+
+        return $this->propuestaAsignacionConvenio($tipoFlujo, $datos, (array) $seleccion);
+    }
+
+    private function propuestaAsignacionConvenio(string $tipoFlujo, array $datos, array $responsable): array
+    {
+        $idCredito = (int) ($datos['id_credito'] ?? 0);
+        $idCelula = (int) ($responsable['id_celula'] ?? $datos['id_celula_asignacion'] ?? 0);
+        unset($datos['opciones_responsable']);
+        $this->limpiarTarea();
+
+        $soloAsignacion = $tipoFlujo === 'convenio_asignacion';
+        return [
+            'mensaje' => ($soloAsignacion
+                    ? 'Vista previa de asignacion del credito en Convenios:'
+                    : 'Vista previa de asignacion previa al convenio:')
+                . "\nCredito: " . $idCredito
+                . "\nDestino: " . $this->etiquetaCelulaConvenio($idCelula)
+                . "\nResponsable: " . (string) ($responsable['nombre'] ?? '')
+                . ((string) ($responsable['numero_empleado'] ?? '') !== ''
+                    ? "\nNo. empleado: " . (string) $responsable['numero_empleado']
+                    : '')
+                . ($soloAsignacion
+                    ? "\nAl confirmar asignare y verificare el credito. No creare ni modificare ningun convenio."
+                    : "\nAl confirmar asignare y verificare el credito. Despues continuare con la preparacion del convenio."),
+            'tipo' => 'agente_propuesta',
+            'propuesta_especificacion' => [
+                'accion' => 'convenio_asignar_credito',
+                'resumen' => $soloAsignacion
+                    ? 'asignar el credito ' . $idCredito . ' en el modulo de Convenios'
+                    : 'asignar el credito ' . $idCredito . ' antes de abrir su convenio',
+                'payload' => [
+                    'id_credito' => $idCredito,
+                    'id_persona' => (int) ($responsable['id_persona'] ?? 0),
+                    'id_celula' => $idCelula,
+                    'responsable' => (string) ($responsable['nombre'] ?? ''),
+                    'tipo_flujo' => $tipoFlujo,
+                    'datos_convenio' => $datos,
+                ],
+            ],
+        ];
+    }
+
+    private function ejecutarAsignacionConvenio(array $payload, array $contexto): array
+    {
+        if (empty($contexto['permisos_agente']['convenio'])) {
+            throw new \RuntimeException('Tu perfil ya no permite asignar creditos en el modulo de Convenios.');
+        }
+
+        $idCredito = (int) ($payload['id_credito'] ?? 0);
+        $idPersona = (int) ($payload['id_persona'] ?? 0);
+        $idCelula = (int) ($payload['id_celula'] ?? 0);
+        $tipoFlujo = (string) ($payload['tipo_flujo'] ?? '');
+        $datos = is_array($payload['datos_convenio'] ?? null) ? $payload['datos_convenio'] : [];
+        if ($idCredito <= 0 || $idPersona <= 0 || !in_array($idCelula, [1, 2, 3], true)
+            || !in_array($tipoFlujo, ['convenio', 'convenio_excepcion', 'convenio_asignacion'], true)) {
+            throw new \RuntimeException('La confirmacion de asignacion esta incompleta. Vuelve a iniciar la operacion en Convenios.');
+        }
+
+        $responsable = $this->llamar('convenio_responsable_actual', $idPersona, $idCelula);
+        if (!is_array($responsable) || (int) ($responsable['id_persona'] ?? 0) !== $idPersona) {
+            throw new \RuntimeException(
+                'La persona seleccionada ya no esta activa en ' . $this->etiquetaCelulaConvenio($idCelula)
+                    . '. No se realizo la asignacion.'
+            );
+        }
+
+        $resultado = (array) $this->llamar(
+            'convenio_asignar_credito',
+            $idPersona,
+            $idCredito,
+            $idCelula,
+            (int) ($contexto['actor_id'] ?? 0)
+        );
+        if (empty($resultado['success'])) {
+            throw new \RuntimeException($this->mensajeResultado($resultado));
+        }
+        $verificacion = $this->llamar('convenio_asignacion_actual', $idCredito);
+        if (!is_array($verificacion)
+            || (int) ($verificacion['id_persona'] ?? 0) !== $idPersona
+            || (int) ($verificacion['id_celula'] ?? 0) !== $idCelula) {
+            throw new \RuntimeException('La asignacion se intento, pero no pudo verificarse. No se realizaron mas cambios.');
+        }
+
+        $mensajeAsignacion = 'Asignacion verificada: credito ' . $idCredito . ' -> '
+            . $this->etiquetaCelulaConvenio($idCelula) . ' / '
+            . trim((string) ($verificacion['nombre_completo'] ?? $payload['responsable'] ?? 'responsable seleccionado')) . '.';
+        if ($tipoFlujo === 'convenio_asignacion') {
+            $continuacion = $this->respuesta(
+                $mensajeAsignacion . "\nNo se creo ni se modifico ningun convenio.",
+                'agente_ejecutado'
+            );
+        } else {
+            $continuacion = $this->continuarConvenioDespuesDeAsignacion($tipoFlujo, $datos, $contexto);
+            $continuacion['mensaje'] = $mensajeAsignacion . "\n\n" . (string) ($continuacion['mensaje'] ?? '');
+        }
+        $continuacion['ejecucion'] = [
+            'accion' => 'convenio_asignar_credito',
+            'id_credito' => $idCredito,
+            'id_persona' => $idPersona,
+            'id_celula' => $idCelula,
+            'asignacion_verificada' => true,
+        ];
+        return $continuacion;
+    }
+
+    private function continuarConvenioDespuesDeAsignacion(
+        string $tipoFlujo,
+        array $datos,
+        array $contexto
+    ): array {
+        if ($tipoFlujo === 'convenio_excepcion') {
+            return $this->prepararPropuestaConvenioExcepcion($datos, $contexto);
+        }
+
+        return $this->mostrarOpcionesConvenio($datos, $contexto);
+    }
+
+    private function mostrarOpcionesConvenio(array $datos, array $contexto): array
+    {
+        $opciones = is_array($datos['opciones'] ?? null) ? $datos['opciones'] : [];
+        if ($opciones === []) {
+            return $this->respuesta('La asignacion quedo lista, pero las ofertas expiraron. Vuelve a pedir el convenio.', 'agente_error');
+        }
+
+        $this->guardarTarea('convenio', 'oferta', $datos, $contexto);
+        $lineas = ['Encontre estas ofertas para ' . (string) ($datos['cliente'] ?? 'el cliente')
+            . ' (credito ' . (int) ($datos['id_credito'] ?? 0) . '):'];
+        foreach ($opciones as $opcion) {
+            $lineas[] = (int) ($opcion['indice'] ?? 0) . '. ' . (string) ($opcion['nombre'] ?? 'Oferta')
+                . ' | descuento ' . $this->numero((float) ($opcion['descuento'] ?? 0)) . '%'
+                . ' | total $' . $this->dinero((float) ($opcion['total'] ?? 0))
+                . ' | plazo de ' . (int) ($opcion['minimo'] ?? 1) . ' a ' . (int) ($opcion['maximo'] ?? 1) . ' semanas';
+        }
+        $lineas[] = 'Indica el numero de la oferta que deseas usar.';
+        return $this->respuesta(implode("\n", $lineas), 'agente_opciones');
+    }
+
+    private function resolverCelulaConvenio(string $normalizado): int
+    {
+        $normalizado = $this->normalizar($normalizado);
+        if (preg_match('/^\s*1\s*$/', $normalizado) === 1 || str_contains($normalizado, 'despacho')) return 1;
+        if (preg_match('/^\s*2\s*$/', $normalizado) === 1
+            || str_contains($normalizado, 'call center')
+            || str_contains($normalizado, 'callcenter')) return 2;
+        if (preg_match('/^\s*3\s*$/', $normalizado) === 1 || preg_match('/\bcampo\b/u', $normalizado) === 1) return 3;
+        return 0;
+    }
+
+    private function etiquetaCelulaConvenio(int $idCelula): string
+    {
+        return match ($idCelula) {
+            1 => 'Despacho',
+            2 => 'Gestion Call Center',
+            3 => 'Campo',
+            default => 'Celula no identificada',
+        };
+    }
+
+    private function accionesRapidasResponsablesConvenio(array $opciones): array
+    {
+        $acciones = [];
+        foreach (array_slice($opciones, 0, 5) as $opcion) {
+            $acciones[] = [
+                'etiqueta' => (string) ($opcion['nombre'] ?? ('Opcion ' . (int) ($opcion['indice'] ?? 0))),
+                'mensaje' => (string) (int) ($opcion['indice'] ?? 0),
+                'estilo' => 'primary',
+            ];
+        }
+        $acciones[] = ['etiqueta' => 'Cancelar', 'mensaje' => 'Cancelar', 'estilo' => 'cancel'];
+        return $acciones;
+    }
+
+    private function exigirAsignacionConvenio(int $idCredito): array
+    {
+        $asignacion = $this->llamar('convenio_asignacion_actual', $idCredito);
+        if (!is_array($asignacion) || (int) ($asignacion['id_persona'] ?? 0) <= 0) {
+            throw new \RuntimeException(
+                'El credito ' . $idCredito . ' no tiene una asignacion activa. '
+                . 'Vuelve a pedir el convenio para seleccionar Despacho, Gestion Call Center o Campo y su responsable.'
+            );
+        }
+        return $asignacion;
+    }
+
+    private function resolverReactivacionConvenioCancelado(string $mensaje, array $contexto): array
+    {
+        if (empty($contexto['permisos_agente']['convenio_reactivar_cancelado'])) {
+            return $this->respuesta(
+                'No puedo reactivar el convenio: además del acceso a Convenios, tu perfil necesita el permiso especial Reactivar oferta.',
+                'agente_denegado'
+            );
+        }
+
+        $idCredito = $this->extraerCreditoExplicito($mensaje);
+        $idConvenio = 0;
+        if (preg_match('/\bconvenio(?:\s+cancelado)?\s*(?:numero|no\.?|folio|#)?\s*#?\s*(\d+)\b/iu', $mensaje, $m)) {
+            $idConvenio = (int) $m[1];
+        }
+        if ($idCredito > 0) {
+            $idConvenio = 0;
+        }
+        if ($idCredito <= 0 && $idConvenio <= 0) {
+            return $this->respuesta('Indica el número de crédito o escribe "convenio #FOLIO" para localizar el cancelado.', 'agente_pregunta');
+        }
+
+        $resultado = (array) $this->llamar('convenio_reactivacion_diagnosticar', $idCredito, $idConvenio);
+        if (empty($resultado['success'])) {
+            return $this->respuesta($this->mensajeResultado($resultado), 'agente_error');
+        }
+        $d = (array) ($resultado['datos'] ?? []);
+        return [
+            'mensaje' => 'Vista previa de reactivación:'
+                . "\nConvenio: #" . (int) $d['id_convenio']
+                . "\nCrédito: " . (int) $d['id_credito']
+                . "\nCliente: " . (string) $d['cliente']
+                . "\nProducto: " . (string) $d['producto']
+                . "\nTotal: $" . $this->dinero((float) $d['total_a_pagar'])
+                . "\nCuotas pagadas que se conservarán: " . (int) $d['cuotas_pagadas']
+                . "\nCuotas canceladas que se reabrirán: " . (int) $d['cuotas_canceladas']
+                . "\nSe actualizarán juntas convenio_cliente y convenio_cliente_amortizacion. Confirma para continuar.",
+            'tipo' => 'agente_propuesta',
+            'propuesta_especificacion' => [
+                'accion' => 'convenio_reactivar_cancelado',
+                'resumen' => 'reactivar el convenio cancelado #' . (int) $d['id_convenio'],
+                'payload' => ['id_convenio' => (int) $d['id_convenio']],
+            ],
+        ];
+    }
+
     private function continuarConvenio(string $mensaje, string $normalizado, array $tarea, array $contexto): array
     {
         if (empty($contexto['permisos_agente']['convenio'])) {
@@ -481,6 +1167,9 @@ class LeonidasAgentService
 
         $paso = (string) ($tarea['paso'] ?? 'credito');
         $datos = is_array($tarea['datos'] ?? null) ? $tarea['datos'] : [];
+        if (str_starts_with($paso, 'asignacion_')) {
+            return $this->continuarAsignacionConvenio($mensaje, $normalizado, $tarea, $contexto);
+        }
         if ($paso === 'credito') {
             $idCredito = $this->extraerEntero($mensaje);
             if ($idCredito <= 0) {
@@ -523,6 +1212,10 @@ class LeonidasAgentService
                 'cliente' => trim((string) ($credito['Nombre_cliente'] ?? 'Sin nombre')),
                 'opciones' => $opciones,
             ];
+            $asignacionPendiente = $this->solicitarAsignacionConvenioSiFalta('convenio', $datos, $contexto);
+            if ($asignacionPendiente !== null) {
+                return $asignacionPendiente;
+            }
             $this->guardarTarea('convenio', 'oferta', $datos, $contexto);
 
             $lineas = ['Encontré estas ofertas para ' . $datos['cliente'] . ' (crédito ' . $idCredito . '):'];
@@ -630,6 +1323,7 @@ class LeonidasAgentService
                 'cliente' => trim((string) ($credito['nombre_cliente'] ?? 'Sin nombre')),
                 'asignacion_actual' => is_array($resultado['asignacion'] ?? null) ? $resultado['asignacion'] : [],
                 'responsables' => $responsables,
+                'fuente_credito' => trim((string) ($resultado['fuente_credito'] ?? 'S2')),
             ];
             $this->guardarTarea('moto', 'responsable', $datos, $contexto);
             $lineas = ['Crédito ' . $idCredito . ' de ' . $datos['cliente'] . '. Elige al responsable:'];
@@ -653,7 +1347,8 @@ class LeonidasAgentService
             (int) $datos['id_credito'],
             (string) $datos['cliente'],
             $responsable,
-            is_array($datos['asignacion_actual'] ?? null) ? $datos['asignacion_actual'] : []
+            is_array($datos['asignacion_actual'] ?? null) ? $datos['asignacion_actual'] : [],
+            (string) ($datos['fuente_credito'] ?? 'S2')
         );
     }
 
@@ -780,11 +1475,18 @@ class LeonidasAgentService
             $idCredito,
             $cliente,
             $responsable,
-            is_array($resultado['asignacion'] ?? null) ? $resultado['asignacion'] : []
+            is_array($resultado['asignacion'] ?? null) ? $resultado['asignacion'] : [],
+            trim((string) ($resultado['fuente_credito'] ?? 'S2'))
         );
     }
 
-    private function propuestaMoto(int $idCredito, string $cliente, array $responsable, array $asignacionActual = []): array
+    private function propuestaMoto(
+        int $idCredito,
+        string $cliente,
+        array $responsable,
+        array $asignacionActual = [],
+        string $fuenteCredito = 'S2'
+    ): array
     {
         $numeroEmpleado = trim((string) ($responsable['numero_empleado'] ?? ''));
         $externalId = trim((string) ($responsable['external_id'] ?? $numeroEmpleado));
@@ -807,6 +1509,7 @@ class LeonidasAgentService
             'mensaje' => 'Vista previa de ' . $tipoCambio . ':'
                 . "\nCrédito: " . $idCredito
                 . "\nCliente: " . $cliente
+                . "\nFuente del crédito: " . ($fuenteCredito !== '' ? $fuenteCredito : 'no identificada')
                 . $detalleActual
                 . "\nNuevo responsable: " . (string) $responsable['nombre']
                 . "\nNo. empleado: " . ($numeroEmpleado !== '' ? $numeroEmpleado : 'sin dato')
@@ -832,6 +1535,101 @@ class LeonidasAgentService
         ];
     }
 
+    private function ejecutarConvenioExcepcion(array $payload, array $contexto): array
+    {
+        if (empty($contexto['permisos_agente']['convenio'])) {
+            throw new \RuntimeException('Tu perfil ya no permite crear convenios de excepción.');
+        }
+        $idCredito = (int) ($payload['id_credito'] ?? 0);
+        $fechaPago = trim((string) ($payload['fecha_pago'] ?? ''));
+        $monto = round((float) ($payload['monto'] ?? 0), 2);
+        if ($idCredito <= 0 || $fechaPago === '' || $monto <= 0) {
+            throw new \RuntimeException('La propuesta de excepción está incompleta; vuelve a prepararla.');
+        }
+
+        $asignacionConvenio = $this->exigirAsignacionConvenio($idCredito);
+
+        $resultado = (array) $this->llamar('convenio_excepcion_guardar', [
+            'id_credito' => $idCredito,
+            'fecha_pago' => $fechaPago,
+            'monto' => $monto,
+            'usuario_alta' => (int) ($contexto['actor_id'] ?? 0),
+            'id_celula' => (int) ($asignacionConvenio['id_celula'] ?? 0) ?: null,
+        ]);
+        if (empty($resultado['success'])) {
+            throw new \RuntimeException($this->mensajeResultado($resultado));
+        }
+        $d = (array) ($resultado['datos'] ?? []);
+        $lineas = [
+            'Convenio de excepción creado: #' . (int) ($d['id_convenio'] ?? 0) . ' para el crédito ' . $idCredito . '.',
+            'Producto: ' . (string) ($d['producto'] ?? 'Convenio Pago Mixto'),
+            'Fecha única: ' . $this->fechaHumana($fechaPago),
+            'Monto: $' . $this->dinero($monto),
+            'Base S2 histórica: $' . $this->dinero((float) ($d['adeudo_s2'] ?? 0)),
+        ];
+        if (trim((string) ($d['status_credito_s2'] ?? '')) !== '') {
+            $lineas[] = 'Estado S2 al corte: ' . trim((string) $d['status_credito_s2']);
+        }
+        if ((float) ($d['descuento_monto'] ?? 0) > 0) {
+            $lineas[] = 'Descuento registrado: $' . $this->dinero((float) $d['descuento_monto'])
+                . ' (' . $this->numero((float) ($d['porcentaje_descuento'] ?? 0)) . '%)';
+        }
+        if ((float) ($d['monto_adicional'] ?? 0) > 0) {
+            $lineas[] = 'Monto adicional excepcional: $' . $this->dinero((float) $d['monto_adicional']);
+        }
+        $lineas[] = 'Estatus: ' . (string) ($d['estatus'] ?? 'activo')
+            . ', cuota ' . (string) ($d['estatus_cuota'] ?? 'pendiente') . '.';
+        $lineas[] = 'Quedó documentado como convenio de excepción autorizado y ya puede consultarse desde el crédito.';
+
+        return $this->respuesta(implode("\n", $lineas), 'agente_ejecutado') + [
+            'ejecucion' => [
+                'accion' => 'convenio_crear_excepcion',
+                'id_convenio' => (int) ($d['id_convenio'] ?? 0),
+                'id_credito' => $idCredito,
+            ],
+        ];
+    }
+
+    private function ejecutarReactivacionConvenioCancelado(array $payload, array $contexto): array
+    {
+        if (empty($contexto['permisos_agente']['convenio_reactivar_cancelado'])) {
+            throw new \RuntimeException('Tu perfil ya no permite reactivar convenios cancelados.');
+        }
+        $idConvenio = (int) ($payload['id_convenio'] ?? 0);
+        if ($idConvenio <= 0) {
+            throw new \RuntimeException('La propuesta de reactivación está incompleta.');
+        }
+
+        $diagnostico = (array) $this->llamar('convenio_reactivacion_diagnosticar', 0, $idConvenio);
+        if (empty($diagnostico['success'])) {
+            throw new \RuntimeException('La reactivación dejó de ser válida: ' . $this->mensajeResultado($diagnostico));
+        }
+        $resultado = (array) $this->llamar(
+            'convenio_reactivar_cancelado',
+            $idConvenio,
+            (string) ($contexto['nombre'] ?? $contexto['nombre_corto'] ?? ('usuario ' . (int) ($contexto['actor_id'] ?? 0))),
+            'Reactivación autorizada y confirmada mediante Leónidas.'
+        );
+        if (empty($resultado['success'])) {
+            throw new \RuntimeException($this->mensajeResultado($resultado));
+        }
+        $d = (array) ($resultado['datos'] ?? []);
+        return $this->respuesta(
+            'Convenio #' . $idConvenio . ' reactivado correctamente para el crédito ' . (int) ($d['id_credito'] ?? 0) . '.'
+            . "\nCabecera convenio_cliente: activo."
+            . "\nCuotas reabiertas en convenio_cliente_amortizacion: " . (int) ($d['cuotas_reabiertas'] ?? 0) . '.'
+            . "\nVencidas: " . (int) ($d['cuotas_vencidas'] ?? 0)
+            . ' | Pendientes: ' . (int) ($d['cuotas_pendientes'] ?? 0)
+            . ' | Pagadas conservadas: ' . (int) ($d['cuotas_pagadas'] ?? 0) . '.'
+            . "\nLa operación fue transaccional, verificada y auditada.",
+            'agente_ejecutado'
+        ) + ['ejecucion' => [
+            'accion' => 'convenio_reactivar_cancelado',
+            'id_convenio' => $idConvenio,
+            'id_credito' => (int) ($d['id_credito'] ?? 0),
+        ]];
+    }
+
     private function ejecutarConvenio(array $payload, array $contexto): array
     {
         if (empty($contexto['permisos_agente']['convenio'])) {
@@ -844,6 +1642,7 @@ class LeonidasAgentService
         if ($idCredito <= 0 || $idProducto <= 0 || $idDetalle <= 0 || $semanas <= 0) {
             throw new \RuntimeException('La propuesta del convenio está incompleta. Vuelve a prepararla antes de confirmar.');
         }
+        $asignacionConvenio = $this->exigirAsignacionConvenio($idCredito);
         $resultado = $this->llamar('convenio_ofertas', $idCredito);
         if (empty($resultado['success'])) {
             throw new \RuntimeException('No se pudo volver a validar el crédito: ' . $this->mensajeResultado($resultado));
@@ -890,7 +1689,7 @@ class LeonidasAgentService
             'id_peticion_reactivacion' => $oferta['id_peticion_reactivacion'] ?? null,
             'id_convenio_origen' => $oferta['id_convenio_origen'] ?? null,
             'reactivacion_numero' => $oferta['reactivacion_numero'] ?? null,
-            'id_celula' => $contexto['permisos_agente']['id_celula'] ?? null,
+            'id_celula' => (int) ($asignacionConvenio['id_celula'] ?? 0) ?: null,
         ];
         $guardado = $this->llamar('convenio_guardar', $datos);
         if (empty($guardado['success'])) {
@@ -1309,29 +2108,162 @@ class LeonidasAgentService
 
     private function tareaActual(int $actorId): ?array
     {
-        $tarea = is_array($_SESSION[self::TASK_KEY] ?? null) ? $_SESSION[self::TASK_KEY] : null;
-        if (!$tarea || (int) ($tarea['actor_id'] ?? 0) !== $actorId || (int) ($tarea['expira_en'] ?? 0) < time()) {
-            $this->limpiarTarea();
-            return null;
+        $principal = is_array($_SESSION[self::TASK_KEY] ?? null) ? $_SESSION[self::TASK_KEY] : null;
+        $respaldoConvenio = is_array($_SESSION[self::CONVENIO_ASSIGNMENT_KEY] ?? null)
+            ? $_SESSION[self::CONVENIO_ASSIGNMENT_KEY]
+            : null;
+
+        foreach ([$principal, $respaldoConvenio] as $tarea) {
+            if (!$tarea
+                || (int) ($tarea['actor_id'] ?? 0) !== $actorId
+                || (int) ($tarea['expira_en'] ?? 0) < time()) {
+                continue;
+            }
+            if ($tarea === $respaldoConvenio && $principal !== $respaldoConvenio) {
+                $_SESSION[self::TASK_KEY] = $tarea;
+            }
+            return $tarea;
         }
-        return $tarea;
+
+        $this->limpiarTarea();
+        return null;
     }
 
     private function guardarTarea(string $tipo, string $paso, array $datos, array $contexto): void
     {
-        $_SESSION[self::TASK_KEY] = [
+        $tarea = [
             'actor_id' => (int) ($contexto['actor_id'] ?? 0),
             'tipo' => $tipo,
             'paso' => $paso,
             'datos' => $datos,
             'expira_en' => time() + self::TASK_TTL,
         ];
+        $_SESSION[self::TASK_KEY] = $tarea;
+
+        if (in_array($tipo, ['convenio', 'convenio_excepcion', 'convenio_asignacion'], true)
+            && str_starts_with($paso, 'asignacion_')) {
+            $_SESSION[self::CONVENIO_ASSIGNMENT_KEY] = $tarea;
+        } else {
+            unset($_SESSION[self::CONVENIO_ASSIGNMENT_KEY]);
+        }
     }
 
     private function solicitaConvenio(string $mensaje): bool
     {
+        if ($this->solicitaAsignarCreditoConvenio($mensaje)
+            || preg_match('/\bno\s+(?:quiero|necesito|deseo)?\s*(?:abrir|crear|hacer|levantar|registrar)\b.*\bconvenio\b/u', $mensaje) === 1) {
+            return false;
+        }
+
         return preg_match('/\b(convenio)\b/u', $mensaje) === 1
-            && preg_match('/\b(crear|crea|hacer|haz|levantar|levanta|registrar|registra|quiero|necesito)\b/u', $mensaje) === 1;
+            && preg_match('/\b(crear|crea|hacer|haz|levantar|levanta|registrar|registra|abrir|abre|quiero|necesito)\b/u', $mensaje) === 1;
+    }
+
+    private function solicitaAsignarCreditoConvenio(string $mensaje): bool
+    {
+        return preg_match('/\bconvenios?\b/u', $mensaje) === 1
+            && preg_match(
+                '/\b(?:(?:asign|asgin)(?:ar(?:lo|la)?|a(?:lo|la|me)?)|reasign(?:ar(?:lo|la)?|a(?:lo|la)?))\b/u',
+                $mensaje
+            ) === 1;
+    }
+
+    private function solicitaConvenioExcepcion(string $mensaje): bool
+    {
+        return preg_match('/\bconvenio\b/u', $mensaje) === 1
+            && preg_match('/\b(crear|crea|hacer|haz|registrar|registra|abrir|abre|quiero|necesito)\b/u', $mensaje) === 1
+            && (
+                preg_match('/\bexcepcion(?:al)?\b/u', $mensaje) === 1
+                || preg_match('/\b(descartar|descarta|ignorar|ignora|omitir|omite|sin aplicar)\b.*\b(reglas?|validaciones?)\b/u', $mensaje) === 1
+            );
+    }
+
+    private function solicitaReactivarConvenioCancelado(string $mensaje): bool
+    {
+        return preg_match('/\b(reactivar|reactiva|reabrir|reabre|activar|activa)\b/u', $mensaje) === 1
+            && preg_match('/\bconvenio\b/u', $mensaje) === 1
+            && preg_match('/\b(cancelado|cancelada|cancelamiento)\b/u', $mensaje) === 1;
+    }
+
+    /** @return array{id_credito?:int,fecha_pago?:string,monto?:float} */
+    private function extraerDatosConvenioExcepcion(string $mensaje): array
+    {
+        $datos = [];
+        $credito = $this->extraerCreditoExplicito($mensaje);
+        if ($credito > 0) {
+            $datos['id_credito'] = $credito;
+        }
+
+        $meses = [
+            'enero' => 1, 'febrero' => 2, 'marzo' => 3, 'abril' => 4,
+            'mayo' => 5, 'junio' => 6, 'julio' => 7, 'agosto' => 8,
+            'septiembre' => 9, 'setiembre' => 9, 'octubre' => 10,
+            'noviembre' => 11, 'diciembre' => 12,
+        ];
+        if (preg_match('/\b(\d{1,2})\s+de\s+([a-záéíóú]+)\s+(?:de(?:l)?\s+)?(\d{4})\b/iu', $mensaje, $m)) {
+            $mes = $meses[$this->normalizar((string) $m[2])] ?? 0;
+            if ($mes > 0 && checkdate($mes, (int) $m[1], (int) $m[3])) {
+                $datos['fecha_pago'] = sprintf('%04d-%02d-%02d', (int) $m[3], $mes, (int) $m[1]);
+            }
+        } elseif (preg_match('/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/', $mensaje, $m)) {
+            if (checkdate((int) $m[2], (int) $m[1], (int) $m[3])) {
+                $datos['fecha_pago'] = sprintf('%04d-%02d-%02d', (int) $m[3], (int) $m[2], (int) $m[1]);
+            }
+        } elseif (preg_match('/\b(\d{4})-(\d{2})-(\d{2})\b/', $mensaje, $m)) {
+            if (checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+                $datos['fecha_pago'] = (string) $m[0];
+            }
+        }
+
+        if (preg_match('/\b(?:el\s+)?(?:pago|monto|importe)\s*(?:unico|total)?\s*(?:es\s+de|de|por|:)?\s*\$?\s*([0-9][0-9.,]*)\b/iu', $mensaje, $m)) {
+            $monto = $this->normalizarMonto((string) $m[1]);
+            if ($monto > 0) {
+                $datos['monto'] = $monto;
+            }
+        }
+
+        return $datos;
+    }
+
+    private function normalizarMonto(string $valor): float
+    {
+        $valor = trim(str_replace(['$', ' '], '', $valor));
+        if (str_contains($valor, ',') && str_contains($valor, '.')) {
+            if (strrpos($valor, ',') > strrpos($valor, '.')) {
+                $valor = str_replace('.', '', $valor);
+                $valor = str_replace(',', '.', $valor);
+            } else {
+                $valor = str_replace(',', '', $valor);
+            }
+        } elseif (substr_count($valor, ',') === 1 && preg_match('/,\d{1,2}$/', $valor)) {
+            $valor = str_replace(',', '.', $valor);
+        } else {
+            $valor = str_replace(',', '', $valor);
+        }
+        return is_numeric($valor) ? round((float) $valor, 2) : 0.0;
+    }
+
+    private function extraerCreditoExplicito(string $mensaje): int
+    {
+        return preg_match('/\bcredito(?:\s+(?:numero|no\.?|id))?\s*(?:es|:|#|-)?\s*(\d{3,})\b/iu', $this->normalizar($mensaje), $m)
+            ? (int) $m[1]
+            : 0;
+    }
+
+    /** @return string[] */
+    private function faltantesConvenioExcepcion(array $datos): array
+    {
+        $faltantes = [];
+        if ((int) ($datos['id_credito'] ?? 0) <= 0) $faltantes[] = 'el número de crédito';
+        if (trim((string) ($datos['fecha_pago'] ?? '')) === '') $faltantes[] = 'la fecha del pago';
+        if ((float) ($datos['monto'] ?? 0) <= 0) $faltantes[] = 'el monto del pago';
+        return $faltantes;
+    }
+
+    private function fechaHumana(string $fecha): string
+    {
+        $objeto = \DateTimeImmutable::createFromFormat('!Y-m-d', $fecha);
+        return $objeto ? $objeto->format('d/m/Y') : $fecha;
     }
 
     private function solicitaMoto(string $mensaje): bool

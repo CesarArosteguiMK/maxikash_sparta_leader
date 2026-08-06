@@ -100,9 +100,13 @@
     </div>
     <script>
         var qaRoot = document.getElementById('leonidasAssistant');
-        if (new URLSearchParams(window.location.search).has('modal')) {
+        var qaParams = new URLSearchParams(window.location.search);
+        if (qaParams.has('modal')) {
             qaRoot.style.width = '303px';
             qaRoot.style.height = '650px';
+        }
+        if (qaParams.has('greeting')) {
+            qaRoot.classList.add('is-greeting');
         }
         qaRoot._leonidasAppearance = {
             id: 'clasico',
@@ -113,9 +117,10 @@
             pechera_visible: true,
             cabello_visible: true,
             escudo_visible: false,
-            lanza_visible: false
+            lanza_visible: qaParams.has('spear')
         };
         document.querySelectorAll('[data-qa-gear]').forEach(function (input) {
+            input.checked = qaRoot._leonidasAppearance[input.dataset.qaGear] === true;
             input.addEventListener('change', function () {
                 var root = qaRoot;
                 root._leonidasAppearance[input.dataset.qaGear] = input.checked;
@@ -184,7 +189,21 @@
         document.querySelector('[data-qa-center-view]').addEventListener('click', function () {
             qaRoot.dispatchEvent(new CustomEvent('leonidas:preview-layout'));
         });
-        qaRoot.addEventListener('leonidas:model-ready', emitHelmet);
+        qaRoot.addEventListener('leonidas:model-ready', function () {
+            emitHelmet();
+            var requestedAngle = Number(qaParams.get('angle'));
+            if (Number.isFinite(requestedAngle)) {
+                qaRoot.dispatchEvent(new CustomEvent('leonidas:preview-rotation', {
+                    detail: { radians: requestedAngle * Math.PI / 180 }
+                }));
+            }
+            var walkDirection = qaParams.get('walk');
+            if (walkDirection === 'arrive' || walkDirection === 'depart') {
+                qaRoot.dispatchEvent(new CustomEvent('leonidas:delivery-walk', {
+                    detail: { direction: walkDirection }
+                }));
+            }
+        });
         qaRoot.addEventListener('leonidas:qa-helmet-ready', function (event) {
             var labels = { original: 'Casco original', aqueo: 'Aqueo oscuro', atico: 'Ático clásico' };
             helmetStatus.value = (labels[event.detail.id] || event.detail.id)
@@ -196,6 +215,6 @@
         });
         setHelmetControls(helmetDefaults.original);
     </script>
-    <script type="module" src="/assets/js/leonidas-3d.js?v=helmet-lab-43"></script>
+    <script type="module" src="/assets/js/leonidas-3d.js?v=helmet-lab-78"></script>
 </body>
 </html>

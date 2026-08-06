@@ -2088,7 +2088,7 @@ class Segundometro extends Controller
      * - Si no hay key, solo localhost.
      *
      * Regla operativa:
-     * - Solo martes 07:00-07:29 CDMX.
+     * - Solo martes 07:00-09:29 CDMX (ventana de recuperacion).
      */
     public function truncarAutomaticoAgente()
     {
@@ -2117,10 +2117,10 @@ class Segundometro extends Controller
             $minuto = (int)$ahora->format('i');
 
             $minutosDia = ($hora * 60) + $minuto;
-            if ($diaSemana != 2 || $minutosDia < (7 * 60) || $minutosDia >= (7 * 60 + 30)) {
+            if ($diaSemana != 2 || $minutosDia < (7 * 60) || $minutosDia >= (9 * 60 + 30)) {
                 self::respuestaJSON([
                     'success' => false,
-                    'mensaje' => 'Fuera de ventana para truncar automatico. Solo martes 07:00-07:29 CDMX.',
+                    'mensaje' => 'Fuera de ventana para truncar automatico. Solo martes 07:00-09:29 CDMX.',
                     'hora_cdmx' => $ahora->format('Y-m-d H:i:s') . ' CDMX'
                 ]);
                 return;

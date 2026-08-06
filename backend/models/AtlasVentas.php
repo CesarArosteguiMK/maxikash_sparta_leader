@@ -8,9 +8,15 @@ use Core\Model;
 class AtlasVentas extends Model
 {
     private const CACHE_TTL_MINUTES = 15;
+    private const CACHE_KEY = 'ventas:v5:bi';
     private const MAX_CANDIDATOS = 100001;
     private const MAX_RESULTADOS = 100000;
-    private const HISTORICAL_START = '1970-01-01';
+    private const HISTORICAL_START = '2025-01-01';
+    private const BI_DISPERSION_CUTOFF = '2026-06-29 00:00:00';
+    private const BI_SPECIAL_DISTRIBUTORS = [
+        736, 556, 531, 290, 211, 106, 70, 31, 14, 824, 849, 520,
+    ];
+    private const CRITERIO_DISPERSION_BANCARIA = 'DISPERSION_BANCARIA';
     private const CRITERIO_ACTIVACION = 'ACTIVACION_S2';
     private const CRITERIO_POR_DISPERSAR = 'POR_DISPERSAR';
     private const CRITERIO_DISPERSADO = 'DISPERSADO';
@@ -22,15 +28,24 @@ class AtlasVentas extends Model
         $hoy = new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City'));
         $inicio = self::HISTORICAL_START;
         $fin = $hoy->format('Y-m-d');
-        $cacheKey = 'ventas:v3:historico';
+        $cacheKey = self::CACHE_KEY;
         $db = null;
 
         try {
             $db = new Database();
             self::asegurarCachePrecarga($db);
+            self::asegurarCacheConsulta($db);
             if (!$forzarActualizacion) {
                 $cached = self::leerCachePrecarga($db, $cacheKey, $inicio, $fin);
                 if ($cached !== null) {
+                    $totalCache = count($cached['datos']['filas'] ?? []);
+                    if (!self::cacheConsultaLista($db, $cacheKey, $totalCache)) {
+                        try {
+                            self::guardarCacheConsulta($db, $cacheKey, $cached);
+                        } catch (\Throwable $e) {
+                            error_log('[AtlasVentas cache rows] ' . $e->getMessage());
+                        }
+                    }
                     return $cached;
                 }
             }
@@ -46,6 +61,7 @@ class AtlasVentas extends Model
         if (!empty($response['success']) && $db instanceof Database) {
             try {
                 self::guardarCachePrecarga($db, $cacheKey, $inicio, $fin, $response);
+                self::guardarCacheConsulta($db, $cacheKey, $response);
             } catch (\Throwable $e) {
                 error_log('[AtlasVentas cache] ' . $e->getMessage());
             }
@@ -57,10 +73,8 @@ class AtlasVentas extends Model
     {
         try {
             $filtros = self::normalizarFiltros($input);
-            $db = new Database();
             $maxi = new \core\DatabaseMaxiProd();
 
-            $reglas = self::normalizarReglas(self::cargarReglas($db));
             $candidatos = self::cargarCandidatos($maxi, $filtros);
             if (count($candidatos) >= self::MAX_CANDIDATOS) {
                 throw new \RuntimeException(
@@ -71,9 +85,8 @@ class AtlasVentas extends Model
 
             $ventas = [];
             foreach ($candidatos as $candidato) {
-                $seleccion = self::seleccionarVentaNormalizada(
+                $seleccion = self::seleccionarVentaBi(
                     $candidato,
-                    $reglas,
                     $filtros['fecha_inicio'],
                     $filtros['fecha_fin']
                 );
@@ -135,8 +148,9 @@ class AtlasVentas extends Model
                     ],
                     'catalogos' => $sinPaginacion ? [] : self::cargarCatalogos($maxi),
                     'regla' => [
-                        'descripcion' => 'Se aplica la regla vigente del distribuidor. Sin regla especifica, se toma Por dispersar, despues Dispersado y finalmente S2Credit.',
-                        'total_reglas' => count($reglas),
+                        'descripcion' => 'Criterio BI: distribuidores especiales usan S2Credit; los demas priorizan Dispersado, Por dispersar, Factura y S2Credit, con respaldo bancario antes del corte.',
+                        'fecha_corte' => self::BI_DISPERSION_CUTOFF,
+                        'total_distribuidores_especiales' => count(self::BI_SPECIAL_DISTRIBUTORS),
                     ],
                 ],
             ];
@@ -150,6 +164,44 @@ class AtlasVentas extends Model
                 'mensaje' => $e instanceof \RuntimeException
                     ? $e->getMessage()
                     : 'No se pudo consultar Ventas. Intenta nuevamente o contacta a soporte.',
+            ];
+        }
+    }
+
+    public static function consultarPaginado(
+        array $input,
+        bool $sinPaginacion = false,
+        bool $forzarActualizacion = false
+    ): array {
+        try {
+            $filtros = self::normalizarFiltros($input);
+            $db = new Database();
+            self::asegurarCachePrecarga($db);
+            self::asegurarCacheConsulta($db);
+
+            if ($forzarActualizacion || !self::cacheConsultaLista($db, self::CACHE_KEY)) {
+                $precarga = self::precargar($forzarActualizacion);
+                if (empty($precarga['success'])) {
+                    return $precarga;
+                }
+            }
+            if (!self::cacheConsultaLista($db, self::CACHE_KEY)) {
+                return [
+                    'success' => false,
+                    'status' => 503,
+                    'mensaje' => 'La consulta rápida de Ventas se está preparando. Intenta nuevamente en unos momentos.',
+                ];
+            }
+
+            return self::consultarCache($db, self::CACHE_KEY, $filtros, $sinPaginacion);
+        } catch (\InvalidArgumentException $e) {
+            return ['success' => false, 'status' => 422, 'mensaje' => $e->getMessage()];
+        } catch (\Throwable $e) {
+            error_log('[AtlasVentas cache query] ' . $e->getMessage());
+            return [
+                'success' => false,
+                'status' => 500,
+                'mensaje' => 'No se pudo consultar Ventas. Intenta nuevamente o contacta a soporte.',
             ];
         }
     }
@@ -187,6 +239,7 @@ class AtlasVentas extends Model
             'search' => mb_substr(trim((string)($input['search'] ?? '')), 0, 120, 'UTF-8'),
             'page' => max(1, (int)($input['page'] ?? 1)),
             'page_size' => $pageSize,
+            'include_catalogs' => filter_var($input['include_catalogs'] ?? false, FILTER_VALIDATE_BOOLEAN),
         ];
     }
 
@@ -196,9 +249,8 @@ class AtlasVentas extends Model
         string $fechaInicio,
         string $fechaFin
     ): ?array {
-        return self::seleccionarVentaNormalizada(
+        return self::seleccionarVentaBi(
             $fila,
-            self::normalizarReglas($reglas),
             self::fechaValida($fechaInicio, 'fecha inicial'),
             self::fechaValida($fechaFin, 'fecha final')
         );
@@ -297,6 +349,470 @@ class AtlasVentas extends Model
         ]);
     }
 
+    private static function asegurarCacheConsulta(Database $db): void
+    {
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS atlas_ventas_cache_filas (
+                cache_key VARCHAR(40) NOT NULL,
+                id_oferta BIGINT UNSIGNED NOT NULL,
+                id_persona BIGINT UNSIGNED NOT NULL DEFAULT 0,
+                nombre_cliente VARCHAR(255) NULL,
+                fecha_dispersion DATETIME NULL,
+                fecha_contabilizacion_venta DATETIME NULL,
+                sucursal VARCHAR(255) NULL,
+                distribuidor VARCHAR(255) NULL,
+                fecha_oferta DATETIME NULL,
+                fecha_etapa_actual DATETIME NULL,
+                etapa VARCHAR(100) NULL,
+                precio_moto DECIMAL(16,2) NOT NULL DEFAULT 0,
+                enganche DECIMAL(16,2) NOT NULL DEFAULT 0,
+                monto_financiar DECIMAL(16,2) NOT NULL DEFAULT 0,
+                semanas VARCHAR(60) NULL,
+                oferta VARCHAR(255) NULL,
+                modelo_moto VARCHAR(255) NULL,
+                marca_moto VARCHAR(255) NULL,
+                usuario VARCHAR(180) NULL,
+                nombre_vendedor VARCHAR(255) NULL,
+                pk_sucursal INT NOT NULL DEFAULT 0,
+                fk_distribuidor INT NOT NULL DEFAULT 0,
+                criterio_fecha_venta VARCHAR(80) NULL,
+                regla_dispersion_id BIGINT NULL,
+                PRIMARY KEY (cache_key, id_oferta),
+                INDEX idx_atlas_ventas_cache_dispersion (cache_key, fecha_dispersion, id_persona, id_oferta),
+                INDEX idx_atlas_ventas_cache_sucursal (cache_key, pk_sucursal, fecha_dispersion),
+                INDEX idx_atlas_ventas_cache_distribuidor (cache_key, fk_distribuidor, fecha_dispersion),
+                INDEX idx_atlas_ventas_cache_etapa (cache_key, etapa, fecha_dispersion)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS atlas_ventas_cache_estado (
+                cache_key VARCHAR(40) NOT NULL,
+                periodo_inicio DATE NULL,
+                periodo_fin DATE NULL,
+                total_registros INT UNSIGNED NOT NULL DEFAULT 0,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (cache_key)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS atlas_ventas_cache_catalogos (
+                cache_key VARCHAR(40) NOT NULL,
+                payload_gzip MEDIUMBLOB NOT NULL,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (cache_key)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $indiceDispersion = $db->queryOne("
+            SHOW INDEX FROM atlas_ventas_cache_filas
+            WHERE Key_name = 'idx_atlas_ventas_cache_dispersion'
+        ");
+        if (!$indiceDispersion) {
+            $db->CRUD("
+                ALTER TABLE atlas_ventas_cache_filas
+                ADD INDEX idx_atlas_ventas_cache_dispersion (
+                    cache_key, fecha_dispersion, id_persona, id_oferta
+                )
+            ");
+        }
+    }
+
+    private static function cacheConsultaLista(Database $db, string $cacheKey, ?int $totalEsperado = null): bool
+    {
+        $estado = $db->queryOne("
+            SELECT total_registros
+            FROM atlas_ventas_cache_estado
+            WHERE cache_key = :cache_key
+              AND updated_at >= DATE_SUB(NOW(), INTERVAL " . self::CACHE_TTL_MINUTES . " MINUTE)
+            LIMIT 1
+        ", ['cache_key' => $cacheKey]);
+        if (!$estado) {
+            return false;
+        }
+        return $totalEsperado === null || (int)$estado['total_registros'] === $totalEsperado;
+    }
+
+    private static function guardarCacheConsulta(Database $db, string $cacheKey, array $response): void
+    {
+        $filas = is_array($response['datos']['filas'] ?? null) ? $response['datos']['filas'] : [];
+        $columnas = [
+            'cache_key', 'id_oferta', 'id_persona', 'nombre_cliente', 'fecha_dispersion',
+            'fecha_contabilizacion_venta', 'sucursal', 'distribuidor', 'fecha_oferta',
+            'fecha_etapa_actual', 'etapa', 'precio_moto', 'enganche', 'monto_financiar',
+            'semanas', 'oferta', 'modelo_moto', 'marca_moto', 'usuario', 'nombre_vendedor',
+            'pk_sucursal', 'fk_distribuidor', 'criterio_fecha_venta', 'regla_dispersion_id',
+        ];
+        $inicio = null;
+        $fin = null;
+
+        $db->beginTransaction();
+        try {
+            $db->CRUD(
+                "DELETE FROM atlas_ventas_cache_filas WHERE cache_key = :cache_key",
+                ['cache_key' => $cacheKey]
+            );
+
+            foreach (array_chunk($filas, 200) as $lote) {
+                $valoresSql = [];
+                $parametros = [];
+                foreach ($lote as $indice => $fila) {
+                    $normalizada = self::normalizarFilaCache($fila);
+                    if ($normalizada['id_oferta'] <= 0) {
+                        continue;
+                    }
+                    $normalizada['cache_key'] = $cacheKey;
+                    $marcadores = [];
+                    foreach ($columnas as $columna) {
+                        $clave = 'r' . $indice . '_' . $columna;
+                        $marcadores[] = ':' . $clave;
+                        $parametros[$clave] = $normalizada[$columna] ?? null;
+                    }
+                    $valoresSql[] = '(' . implode(', ', $marcadores) . ')';
+                    $fechaVenta = self::fechaCache($normalizada['fecha_contabilizacion_venta'] ?? null);
+                    if ($fechaVenta !== null) {
+                        $fecha = substr($fechaVenta, 0, 10);
+                        $inicio = $inicio === null || $fecha < $inicio ? $fecha : $inicio;
+                        $fin = $fin === null || $fecha > $fin ? $fecha : $fin;
+                    }
+                }
+                if ($valoresSql) {
+                    $db->CRUD(
+                        'INSERT INTO atlas_ventas_cache_filas (' . implode(', ', $columnas) . ') VALUES '
+                        . implode(', ', $valoresSql),
+                        $parametros
+                    );
+                }
+            }
+
+            $periodo = is_array($response['datos']['periodo'] ?? null) ? $response['datos']['periodo'] : [];
+            $inicio = $inicio ?: self::fechaDesdeValor($periodo['fecha_inicio'] ?? null);
+            $fin = $fin ?: self::fechaDesdeValor($periodo['fecha_fin'] ?? null);
+            $db->CRUD("
+                INSERT INTO atlas_ventas_cache_estado (
+                    cache_key, periodo_inicio, periodo_fin, total_registros, updated_at
+                ) VALUES (
+                    :cache_key, :periodo_inicio, :periodo_fin, :total_registros, NOW()
+                )
+                ON DUPLICATE KEY UPDATE
+                    periodo_inicio = VALUES(periodo_inicio),
+                    periodo_fin = VALUES(periodo_fin),
+                    total_registros = VALUES(total_registros),
+                    updated_at = NOW()
+            ", [
+                'cache_key' => $cacheKey,
+                'periodo_inicio' => $inicio,
+                'periodo_fin' => $fin,
+                'total_registros' => count($filas),
+            ]);
+            self::guardarCatalogosCache(
+                $db,
+                $cacheKey,
+                self::construirCatalogosCache($db, $cacheKey)
+            );
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollback();
+            throw $e;
+        }
+    }
+
+    private static function normalizarFilaCache(array $fila): array
+    {
+        return [
+            'id_oferta' => (int)($fila['id_oferta'] ?? 0),
+            'id_persona' => (int)($fila['id_persona'] ?? 0),
+            'nombre_cliente' => self::nullableTextoCache($fila['nombre_cliente'] ?? null),
+            'fecha_dispersion' => self::fechaCache($fila['fecha_dispersion'] ?? null),
+            'fecha_contabilizacion_venta' => self::fechaCache($fila['fecha_contabilizacion_venta'] ?? null),
+            'sucursal' => self::nullableTextoCache($fila['sucursal'] ?? null),
+            'distribuidor' => self::nullableTextoCache($fila['distribuidor'] ?? null),
+            'fecha_oferta' => self::fechaCache($fila['fecha_oferta'] ?? null),
+            'fecha_etapa_actual' => self::fechaCache($fila['fecha_etapa_actual'] ?? null),
+            'etapa' => self::nullableTextoCache($fila['etapa'] ?? null),
+            'precio_moto' => round((float)($fila['precio_moto'] ?? 0), 2),
+            'enganche' => round((float)($fila['enganche'] ?? 0), 2),
+            'monto_financiar' => round((float)($fila['monto_financiar'] ?? 0), 2),
+            'semanas' => self::nullableTextoCache($fila['semanas'] ?? null),
+            'oferta' => self::nullableTextoCache($fila['oferta'] ?? null),
+            'modelo_moto' => self::nullableTextoCache($fila['modelo_moto'] ?? null),
+            'marca_moto' => self::nullableTextoCache($fila['marca_moto'] ?? null),
+            'usuario' => self::nullableTextoCache($fila['usuario'] ?? null),
+            'nombre_vendedor' => self::nullableTextoCache($fila['nombre_vendedor'] ?? null),
+            'pk_sucursal' => (int)($fila['pk_sucursal'] ?? 0),
+            'fk_distribuidor' => (int)($fila['fk_distribuidor'] ?? 0),
+            'criterio_fecha_venta' => self::nullableTextoCache($fila['criterio_fecha_venta'] ?? null),
+            'regla_dispersion_id' => isset($fila['regla_dispersion_id'])
+                ? (int)$fila['regla_dispersion_id']
+                : null,
+        ];
+    }
+
+    private static function fechaCache($valor): ?string
+    {
+        $texto = trim((string)$valor);
+        if ($texto === '' || !preg_match('/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?/', $texto, $m)) {
+            return null;
+        }
+        $fecha = str_replace('T', ' ', $m[0]);
+        if (strlen($fecha) === 10) {
+            return $fecha . ' 00:00:00';
+        }
+        return strlen($fecha) === 16 ? $fecha . ':00' : substr($fecha, 0, 19);
+    }
+
+    private static function nullableTextoCache($valor): ?string
+    {
+        $texto = trim((string)$valor);
+        return $texto === '' ? null : $texto;
+    }
+
+    private static function consultarCache(
+        Database $db,
+        string $cacheKey,
+        array $filtros,
+        bool $sinPaginacion
+    ): array {
+        [$rangoSql, $parametrosRango] = self::rangoSqlCache($cacheKey, $filtros);
+        [$filtrosSql, $parametrosFiltros] = self::filtrosSqlCache($filtros, 'venta');
+        $parametros = array_merge($parametrosRango, $parametrosFiltros, [
+            'cache_key_fila' => $cacheKey,
+        ]);
+        $ventasUnicasSql = "
+            FROM atlas_ventas_cache_filas venta
+            INNER JOIN (
+                SELECT id_persona, MAX(id_oferta) AS id_oferta
+                FROM atlas_ventas_cache_filas
+                WHERE {$rangoSql}
+                GROUP BY id_persona
+            ) ultima
+                    ON ultima.id_persona = venta.id_persona
+                   AND ultima.id_oferta = venta.id_oferta
+            WHERE venta.cache_key = :cache_key_fila
+              AND {$filtrosSql}
+        ";
+        $resumenRow = $db->queryOne("
+            SELECT
+                COUNT(*) AS unidades_vendidas,
+                COALESCE(SUM(venta.monto_financiar), 0) AS monto_financiado,
+                COALESCE(SUM(venta.precio_moto), 0) AS precio_motos,
+                COALESCE(SUM(venta.enganche), 0) AS enganche,
+                COUNT(DISTINCT NULLIF(venta.pk_sucursal, 0)) AS sucursales,
+                COUNT(DISTINCT NULLIF(venta.fk_distribuidor, 0)) AS distribuidores
+            {$ventasUnicasSql}
+        ", $parametros) ?: [];
+        $total = (int)($resumenRow['unidades_vendidas'] ?? 0);
+        $pagina = $sinPaginacion ? 1 : $filtros['page'];
+        $tamano = $sinPaginacion ? max($total, 1) : $filtros['page_size'];
+        $totalPaginas = max(1, (int)ceil($total / $tamano));
+        $pagina = min($pagina, $totalPaginas);
+        $limiteSql = '';
+        if (!$sinPaginacion) {
+            $offset = ($pagina - 1) * $tamano;
+            $limiteSql = " LIMIT {$tamano} OFFSET {$offset}";
+        }
+        $filas = $db->queryAll("
+            SELECT
+                venta.id_persona, venta.id_oferta, venta.nombre_cliente, venta.fecha_dispersion,
+                venta.fecha_contabilizacion_venta, venta.sucursal, venta.distribuidor, venta.fecha_oferta,
+                venta.fecha_etapa_actual, venta.etapa, venta.precio_moto, venta.enganche, venta.monto_financiar,
+                venta.semanas, venta.oferta, venta.modelo_moto, venta.marca_moto, venta.usuario,
+                venta.nombre_vendedor, venta.pk_sucursal, venta.fk_distribuidor,
+                venta.criterio_fecha_venta, venta.regla_dispersion_id
+            {$ventasUnicasSql}
+            ORDER BY venta.fecha_dispersion DESC, venta.id_oferta ASC
+            {$limiteSql}
+        ", $parametros);
+        $filas = array_map(static function (array $fila): array {
+            foreach (['id_persona', 'id_oferta', 'pk_sucursal', 'fk_distribuidor'] as $campo) {
+                $fila[$campo] = (int)($fila[$campo] ?? 0);
+            }
+            foreach (['precio_moto', 'enganche', 'monto_financiar'] as $campo) {
+                $fila[$campo] = (float)($fila[$campo] ?? 0);
+            }
+            $fila['regla_dispersion_id'] = isset($fila['regla_dispersion_id'])
+                ? (int)$fila['regla_dispersion_id']
+                : null;
+            return $fila;
+        }, $filas ?: []);
+        $estado = $db->queryOne("
+            SELECT periodo_inicio, periodo_fin, total_registros, updated_at
+            FROM atlas_ventas_cache_estado
+            WHERE cache_key = :cache_key
+            LIMIT 1
+        ", ['cache_key' => $cacheKey]) ?: [];
+        $catalogos = !empty($filtros['include_catalogs'])
+            ? self::cargarCatalogosCache($db, $cacheKey)
+            : [];
+
+        return [
+            'success' => true,
+            'mensaje' => $total === 1 ? 'Se encontro 1 venta.' : "Se encontraron {$total} ventas.",
+            'datos' => [
+                'filas' => $filas,
+                'resumen' => [
+                    'unidades_vendidas' => $total,
+                    'monto_financiado' => round((float)($resumenRow['monto_financiado'] ?? 0), 2),
+                    'precio_motos' => round((float)($resumenRow['precio_motos'] ?? 0), 2),
+                    'enganche' => round((float)($resumenRow['enganche'] ?? 0), 2),
+                    'sucursales' => (int)($resumenRow['sucursales'] ?? 0),
+                    'distribuidores' => (int)($resumenRow['distribuidores'] ?? 0),
+                ],
+                'periodo' => [
+                    'fecha_inicio' => $filtros['fecha_inicio'],
+                    'fecha_fin' => $filtros['fecha_fin'],
+                ],
+                'limites' => [
+                    'fecha_inicio' => (string)($estado['periodo_inicio'] ?? $filtros['fecha_inicio']),
+                    'fecha_fin' => (string)($estado['periodo_fin'] ?? $filtros['fecha_fin']),
+                ],
+                'paginacion' => [
+                    'page' => $pagina,
+                    'page_size' => $tamano,
+                    'total' => $total,
+                    'total_pages' => $totalPaginas,
+                ],
+                'catalogos' => $catalogos,
+                'cache' => [
+                    'total_registros' => (int)($estado['total_registros'] ?? 0),
+                    'actualizado_en' => (string)($estado['updated_at'] ?? ''),
+                ],
+                'regla' => [
+                    'descripcion' => 'Criterio de dispersion alineado con BI.',
+                    'fecha_corte' => self::BI_DISPERSION_CUTOFF,
+                    'total_distribuidores_especiales' => count(self::BI_SPECIAL_DISTRIBUTORS),
+                ],
+            ],
+        ];
+    }
+
+    private static function rangoSqlCache(string $cacheKey, array $filtros): array
+    {
+        $where = [
+            'cache_key = :cache_key_rango',
+            'id_persona > 0',
+            'fecha_dispersion IS NOT NULL',
+            'fecha_dispersion >= :fecha_inicio_rango',
+            'fecha_dispersion < DATE_ADD(:fecha_fin_rango, INTERVAL 1 DAY)',
+        ];
+        $parametros = [
+            'cache_key_rango' => $cacheKey,
+            'fecha_inicio_rango' => $filtros['fecha_inicio'],
+            'fecha_fin_rango' => $filtros['fecha_fin'],
+        ];
+        return [implode(' AND ', $where), $parametros];
+    }
+
+    private static function filtrosSqlCache(array $filtros, string $alias): array
+    {
+        $where = [];
+        $parametros = [];
+        if ($filtros['fk_sucursal'] > 0) {
+            $where[] = "{$alias}.pk_sucursal = :fk_sucursal_cache";
+            $parametros['fk_sucursal_cache'] = $filtros['fk_sucursal'];
+        }
+        if ($filtros['fk_distribuidor'] > 0) {
+            $where[] = "{$alias}.fk_distribuidor = :fk_distribuidor_cache";
+            $parametros['fk_distribuidor_cache'] = $filtros['fk_distribuidor'];
+        }
+        if ($filtros['etapa'] !== '') {
+            $where[] = "UPPER(TRIM({$alias}.etapa)) = :etapa_cache";
+            $parametros['etapa_cache'] = $filtros['etapa'];
+        }
+        if ($filtros['search'] !== '') {
+            $valor = '%' . $filtros['search'] . '%';
+            $campos = [
+                "CAST({$alias}.id_oferta AS CHAR)", "CAST({$alias}.id_persona AS CHAR)",
+                "{$alias}.nombre_cliente", "{$alias}.sucursal", "{$alias}.distribuidor",
+                "{$alias}.usuario", "{$alias}.nombre_vendedor", "{$alias}.modelo_moto",
+                "{$alias}.marca_moto", "{$alias}.etapa", "{$alias}.oferta",
+                "CAST({$alias}.pk_sucursal AS CHAR)",
+                "CAST({$alias}.fk_distribuidor AS CHAR)",
+            ];
+            $busquedas = [];
+            foreach ($campos as $indice => $campo) {
+                $clave = 'search_cache_' . $indice;
+                $busquedas[] = "COALESCE({$campo}, '') LIKE :{$clave}";
+                $parametros[$clave] = $valor;
+            }
+            $where[] = '(' . implode(' OR ', $busquedas) . ')';
+        }
+        return [$where ? implode(' AND ', $where) : '1 = 1', $parametros];
+    }
+
+    private static function cargarCatalogosCache(Database $db, string $cacheKey): array
+    {
+        $row = $db->queryOne("
+            SELECT payload_gzip
+            FROM atlas_ventas_cache_catalogos
+            WHERE cache_key = :cache_key
+            LIMIT 1
+        ", ['cache_key' => $cacheKey]);
+        if ($row && is_string($row['payload_gzip'] ?? null)) {
+            $json = gzdecode($row['payload_gzip']);
+            $catalogos = is_string($json) ? json_decode($json, true) : null;
+            if (is_array($catalogos)) {
+                return $catalogos;
+            }
+        }
+
+        $catalogos = self::construirCatalogosCache($db, $cacheKey);
+        self::guardarCatalogosCache($db, $cacheKey, $catalogos);
+        return $catalogos;
+    }
+
+    private static function construirCatalogosCache(Database $db, string $cacheKey): array
+    {
+        return [
+            'sucursales' => $db->queryAll("
+                SELECT
+                    pk_sucursal AS id,
+                    MAX(COALESCE(NULLIF(sucursal, ''), CONCAT('Sucursal ', pk_sucursal))) AS nombre,
+                    MAX(fk_distribuidor) AS fk_distribuidor
+                FROM atlas_ventas_cache_filas
+                WHERE cache_key = :cache_key
+                  AND pk_sucursal > 0
+                GROUP BY pk_sucursal
+                ORDER BY nombre ASC, pk_sucursal ASC
+            ", ['cache_key' => $cacheKey]),
+            'distribuidores' => $db->queryAll("
+                SELECT
+                    fk_distribuidor AS id,
+                    MAX(COALESCE(NULLIF(distribuidor, ''), CONCAT('Distribuidor ', fk_distribuidor))) AS nombre
+                FROM atlas_ventas_cache_filas
+                WHERE cache_key = :cache_key
+                  AND fk_distribuidor > 0
+                GROUP BY fk_distribuidor
+                ORDER BY nombre ASC, fk_distribuidor ASC
+            ", ['cache_key' => $cacheKey]),
+            'etapas' => $db->queryAll("
+                SELECT DISTINCT UPPER(TRIM(etapa)) AS valor
+                FROM atlas_ventas_cache_filas
+                WHERE cache_key = :cache_key
+                  AND etapa IS NOT NULL
+                  AND TRIM(etapa) <> ''
+                ORDER BY valor ASC
+            ", ['cache_key' => $cacheKey]),
+        ];
+    }
+
+    private static function guardarCatalogosCache(Database $db, string $cacheKey, array $catalogos): void
+    {
+        $json = json_encode($catalogos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $gzip = is_string($json) ? gzencode($json, 6) : false;
+        if (!is_string($gzip)) {
+            return;
+        }
+        $db->CRUD("
+            INSERT INTO atlas_ventas_cache_catalogos (cache_key, payload_gzip, updated_at)
+            VALUES (:cache_key, :payload_gzip, NOW())
+            ON DUPLICATE KEY UPDATE
+                payload_gzip = VALUES(payload_gzip),
+                updated_at = NOW()
+        ", [
+            'cache_key' => $cacheKey,
+            'payload_gzip' => $gzip,
+        ]);
+    }
+
     private static function cargarCandidatos(\core\DatabaseMaxiProd $maxi, array $filtros): array
     {
         $where = [];
@@ -305,10 +821,13 @@ class AtlasVentas extends Model
             'por_fin' => $filtros['fecha_fin'],
             's2_inicio' => $filtros['fecha_inicio'],
             's2_fin' => $filtros['fecha_fin'],
-            'activacion_inicio' => $filtros['fecha_inicio'],
-            'activacion_fin' => $filtros['fecha_fin'],
+            'factura_inicio' => $filtros['fecha_inicio'],
+            'factura_fin' => $filtros['fecha_fin'],
+            'bancaria_inicio' => $filtros['fecha_inicio'],
+            'bancaria_fin' => $filtros['fecha_fin'],
             'dispersado_inicio' => $filtros['fecha_inicio'],
             'dispersado_fin' => $filtros['fecha_fin'],
+            'oferta_desde' => self::HISTORICAL_START . ' 00:00:00',
         ];
 
         if ($filtros['fk_sucursal'] > 0) {
@@ -346,9 +865,9 @@ class AtlasVentas extends Model
         $whereSql = $where ? ' AND ' . implode(' AND ', $where) : '';
         return $maxi->queryAll("
             SELECT
-                o.fk_persona AS id_persona,
+                p.id_persona AS id_persona,
                 o.id_oferta,
-                o.fecha_hora AS fecha_oferta,
+                DATE_ADD(o.fecha_hora, INTERVAL -6 HOUR) AS fecha_oferta,
                 o.etapa,
                 o.precio_moto,
                 o.enganche,
@@ -371,53 +890,62 @@ class AtlasVentas extends Model
                 p.segundo_nombre AS cliente_segundo_nombre,
                 p.apellido_paterno AS cliente_apellido_paterno,
                 p.apellido_materno AS cliente_apellido_materno,
-                dispersion_s2.fecha_dispersion,
+                dispersion_bancaria.fecha_dispersion_bancaria,
                 etapas_venta.fecha_paso_s2credit,
                 etapas_venta.fecha_paso_por_dispersar,
+                etapas_venta.fecha_paso_factura,
                 etapas_venta.fecha_paso_dispersado,
-                (
-                    SELECT MAX(actual.fecha_hora)
-                    FROM oferta_bitacora actual
-                    WHERE actual.fk_oferta = o.id_oferta
-                      AND actual.etapa = o.etapa
-                      AND actual.fecha_hora IS NOT NULL
-                ) AS fecha_etapa_actual
+                ultima_etapa.fecha_etapa_actual
             FROM oferta o
+            INNER JOIN (
+                SELECT fk_oferta, MAX(fecha_hora) AS fecha_etapa_actual
+                FROM oferta_bitacora
+                WHERE fecha_hora IS NOT NULL
+                GROUP BY fk_oferta
+            ) ultima_etapa
+                    ON ultima_etapa.fk_oferta = o.id_oferta
             INNER JOIN usuario u
                     ON u.pk_usuario = o.fk_usuario_creacion
             INNER JOIN sucursal s
                     ON s.pk_sucursal = u.fk_sucursal
-            LEFT JOIN distribuidor d
-                   ON d.pk_distribuidor = s.fk_distribuidor
+            INNER JOIN distribuidor d
+                    ON d.pk_distribuidor = s.fk_distribuidor
             LEFT JOIN persona p
                    ON p.id_persona = o.fk_persona
             LEFT JOIN (
-                SELECT id_oferta, MIN(fecha_creacion) AS fecha_dispersion
+                SELECT id_oferta, MIN(fecha_creacion) AS fecha_dispersion_bancaria
                 FROM bitacora_dispersiones
                 WHERE fecha_creacion IS NOT NULL
                   AND estatus_operacion IS NOT NULL
                   AND UPPER(TRIM(estatus_operacion)) <> 'ER'
                 GROUP BY id_oferta
-            ) dispersion_s2
-                   ON dispersion_s2.id_oferta = o.id_oferta
+            ) dispersion_bancaria
+                   ON dispersion_bancaria.id_oferta = o.id_oferta
             LEFT JOIN (
                 SELECT
                     fk_oferta,
                     MIN(CASE WHEN etapa = 'S2CREDIT' THEN fecha_hora END) AS fecha_paso_s2credit,
                     MIN(CASE WHEN etapa = 'POR DISPERSAR' THEN fecha_hora END) AS fecha_paso_por_dispersar,
+                    MIN(CASE WHEN etapa = 'FACTURA' THEN fecha_hora END) AS fecha_paso_factura,
                     MIN(CASE WHEN etapa = 'DISPERSADO' THEN fecha_hora END) AS fecha_paso_dispersado
                 FROM oferta_bitacora
-                WHERE etapa IN ('S2CREDIT', 'POR DISPERSAR', 'DISPERSADO')
+                WHERE etapa IN ('S2CREDIT', 'POR DISPERSAR', 'FACTURA', 'DISPERSADO')
                   AND fecha_hora IS NOT NULL
                 GROUP BY fk_oferta
             ) etapas_venta
                    ON etapas_venta.fk_oferta = o.id_oferta
-            WHERE o.estatus = 1
+            WHERE o.fecha_hora >= :oferta_desde
               AND (
-                    DATE(etapas_venta.fecha_paso_por_dispersar) BETWEEN :por_inicio AND :por_fin
-                    OR DATE(etapas_venta.fecha_paso_s2credit) BETWEEN :s2_inicio AND :s2_fin
-                    OR DATE(dispersion_s2.fecha_dispersion) BETWEEN :activacion_inicio AND :activacion_fin
-                    OR DATE(etapas_venta.fecha_paso_dispersado) BETWEEN :dispersado_inicio AND :dispersado_fin
+                    (etapas_venta.fecha_paso_por_dispersar >= :por_inicio
+                     AND etapas_venta.fecha_paso_por_dispersar < DATE_ADD(:por_fin, INTERVAL 1 DAY))
+                    OR (etapas_venta.fecha_paso_s2credit >= :s2_inicio
+                        AND etapas_venta.fecha_paso_s2credit < DATE_ADD(:s2_fin, INTERVAL 1 DAY))
+                    OR (etapas_venta.fecha_paso_factura >= :factura_inicio
+                        AND etapas_venta.fecha_paso_factura < DATE_ADD(:factura_fin, INTERVAL 1 DAY))
+                    OR (dispersion_bancaria.fecha_dispersion_bancaria >= :bancaria_inicio
+                        AND dispersion_bancaria.fecha_dispersion_bancaria < DATE_ADD(:bancaria_fin, INTERVAL 1 DAY))
+                    OR (etapas_venta.fecha_paso_dispersado >= :dispersado_inicio
+                        AND etapas_venta.fecha_paso_dispersado < DATE_ADD(:dispersado_fin, INTERVAL 1 DAY))
               )
               {$whereSql}
             LIMIT " . self::MAX_CANDIDATOS . "
@@ -522,80 +1050,54 @@ class AtlasVentas extends Model
         return $reglas;
     }
 
-    private static function seleccionarVentaNormalizada(
+    private static function seleccionarVentaBi(
         array $fila,
-        array $reglas,
         string $fechaInicio,
         string $fechaFin
     ): ?array {
         $distribuidor = (int)($fila['fk_distribuidor'] ?? 0);
-        $coincidencias = [];
+        $esEspecial = in_array($distribuidor, self::BI_SPECIAL_DISTRIBUTORS, true);
+        $criterio = self::ETAPA_S2CREDIT;
+        $candidato = $fila['fecha_paso_s2credit'] ?? null;
 
-        foreach ($reglas as $regla) {
-            if ((int)$regla['fk_distribuidor'] !== $distribuidor) {
-                continue;
-            }
-            [$fechaEvento, $valorEvento] = self::eventoParaRegla($fila, $regla);
-            if ($fechaEvento === null || !self::fechaDentroDeRegla($fechaEvento, $regla)) {
-                continue;
-            }
-            $coincidencias[] = [$regla, $fechaEvento, $valorEvento];
-        }
-
-        if (count($coincidencias) > 1) {
-            throw new \RuntimeException("Hay mas de una regla aplicable para el distribuidor {$distribuidor}.");
-        }
-        if ($coincidencias) {
-            [$regla, $fechaEvento, $valorEvento] = $coincidencias[0];
-            if ((int)$regla['estatus'] !== 1 || $fechaEvento < $fechaInicio || $fechaEvento > $fechaFin) {
-                return null;
-            }
-            return [
-                'regla' => $regla,
-                'criterio_fecha_venta' => $regla['criterio_fecha'],
-                'fecha_contabilizacion_venta' => $valorEvento,
+        if (!$esEspecial) {
+            $eventos = [
+                self::CRITERIO_DISPERSADO => $fila['fecha_paso_dispersado'] ?? null,
+                self::CRITERIO_POR_DISPERSAR => $fila['fecha_paso_por_dispersar'] ?? null,
+                'FACTURA' => $fila['fecha_paso_factura'] ?? null,
+                self::ETAPA_S2CREDIT => $fila['fecha_paso_s2credit'] ?? null,
             ];
-        }
-
-        foreach (self::fechasEventos($fila) as $fechaEvento) {
-            if ($fechaEvento === null) {
-                continue;
-            }
-            $aplicables = array_filter($reglas, static function (array $regla) use ($distribuidor, $fechaEvento): bool {
-                return (int)$regla['fk_distribuidor'] === $distribuidor
-                    && self::fechaDentroDeRegla($fechaEvento, $regla);
-            });
-            if (count($aplicables) > 1) {
-                throw new \RuntimeException("Hay mas de una regla vigente para el distribuidor {$distribuidor}.");
-            }
-            if ($aplicables) {
-                return null;
+            $candidato = null;
+            foreach ($eventos as $tipo => $valor) {
+                if (trim((string)$valor) === '') {
+                    continue;
+                }
+                $criterio = $tipo;
+                $candidato = $valor;
+                break;
             }
         }
 
-        $eventosDefault = [
-            [self::CRITERIO_POR_DISPERSAR, $fila['fecha_paso_por_dispersar'] ?? null],
-            [self::CRITERIO_DISPERSADO, $fila['fecha_paso_dispersado'] ?? null],
-            [self::ETAPA_S2CREDIT, self::valorEventoS2($fila)],
+        $fechaDispersion = self::fechaCache($candidato);
+        if ($fechaDispersion === null || $fechaDispersion < self::BI_DISPERSION_CUTOFF) {
+            $criterio = self::CRITERIO_DISPERSION_BANCARIA;
+            $fechaDispersion = self::fechaCache($fila['fecha_dispersion_bancaria'] ?? null);
+        }
+        if ($fechaDispersion === null) {
+            return null;
+        }
+
+        $fecha = substr($fechaDispersion, 0, 10);
+        if ($fecha < $fechaInicio || $fecha > $fechaFin) {
+            return null;
+        }
+
+        return [
+            'regla' => ['id' => null],
+            'criterio_fecha_venta' => $criterio,
+            'fecha_dispersion' => $fechaDispersion,
+            'fecha_contabilizacion_venta' => $fechaDispersion,
         ];
-        foreach ($eventosDefault as [$criterio, $valorEvento]) {
-            $fechaEvento = self::fechaDesdeValor($valorEvento);
-            if ($fechaEvento !== null && $fechaEvento >= $fechaInicio && $fechaEvento <= $fechaFin) {
-                return [
-                    'regla' => [
-                        'id' => null,
-                        'nombre_distribuidor' => 'Regla general',
-                        'criterio_fecha' => self::CRITERIO_DISPERSADO,
-                        'etapa_requerida' => self::CRITERIO_DISPERSADO,
-                        'estatus' => 1,
-                    ],
-                    'criterio_fecha_venta' => $criterio,
-                    'fecha_contabilizacion_venta' => $valorEvento,
-                ];
-            }
-        }
-
-        return null;
     }
 
     private static function normalizarVenta(array $fila, array $seleccion): array
@@ -609,7 +1111,7 @@ class AtlasVentas extends Model
             'id_persona' => (int)($fila['id_persona'] ?? 0),
             'id_oferta' => (int)($fila['id_oferta'] ?? 0),
             'nombre_cliente' => $cliente,
-            'fecha_dispersion' => (string)($fila['fecha_dispersion'] ?? ''),
+            'fecha_dispersion' => (string)($seleccion['fecha_dispersion'] ?? ''),
             'fecha_contabilizacion_venta' => (string)($seleccion['fecha_contabilizacion_venta'] ?? ''),
             'sucursal' => trim((string)($fila['sucursal'] ?? '')),
             'distribuidor' => trim((string)($fila['distribuidor'] ?? '')),

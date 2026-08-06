@@ -283,7 +283,7 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
 
 <!-- Modal Documentación del candidato -->
 <div class="modal fade" id="modalDocumentacionCandidato" tabindex="-1" aria-labelledby="modalDocumentacionCandidatoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable" style="max-width: 85%;">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-documentacion-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalDocumentacionCandidatoLabel"><i class="fa fa-folder-open me-2"></i>Documentación</h5>
@@ -1539,10 +1539,204 @@ body.dark-mode #modalVisorDocumentoCandidato .visor-doc-candidato-loading { back
 #modalDocumentacionCandidato .modal-doc-toolbar #btnDescargarExpedienteCandidatoZip {
     flex-shrink: 0;
 }
-@media (max-width: 576px) {
+#modalDocumentacionCandidato .modal-documentacion-dialog {
+    width: min(85vw, 1600px);
+    max-width: min(85vw, 1600px);
+}
+#modalDocumentacionCandidato .doc-candidato-item,
+#modalDocumentacionCandidato .doc-candidato-pendiente {
+    gap: .85rem;
+}
+#modalDocumentacionCandidato .doc-candidato-info,
+#modalDocumentacionCandidato .doc-candidato-main {
+    min-width: 0;
+}
+#modalDocumentacionCandidato .doc-candidato-info {
+    flex: 1 1 auto;
+}
+#modalDocumentacionCandidato .doc-candidato-title-row,
+#modalDocumentacionCandidato .doc-candidato-status,
+#modalDocumentacionCandidato .doc-candidato-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .35rem;
+}
+#modalDocumentacionCandidato .doc-candidato-title,
+#modalDocumentacionCandidato .doc-candidato-meta {
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+#modalDocumentacionCandidato .doc-candidato-status:empty {
+    display: none;
+}
+#modalDocumentacionCandidato .doc-candidato-actions {
+    flex: 0 0 auto;
+    justify-content: flex-end;
+}
+
+@media (max-width: 767.98px) {
+    #modalDocumentacionCandidato .modal-documentacion-dialog {
+        width: 100%;
+        max-width: 100%;
+        height: 100dvh;
+        max-height: 100dvh;
+        margin: 0;
+    }
+    #modalDocumentacionCandidato .modal-content {
+        min-height: 100dvh;
+        max-height: 100dvh;
+        border: 0;
+        border-radius: 0;
+    }
+    #modalDocumentacionCandidato .modal-header {
+        flex: 0 0 auto;
+        padding: .85rem 1rem;
+        background: var(--bs-body-bg, #fff);
+        position: sticky;
+        top: 0;
+        z-index: 4;
+    }
+    #modalDocumentacionCandidato .modal-title {
+        min-width: 0;
+        font-size: 1.05rem;
+    }
+    #modalDocumentacionCandidato .modal-body {
+        padding: .85rem;
+        overflow-x: hidden;
+    }
     #modalDocumentacionCandidato .modal-doc-toolbar {
         align-items: flex-start;
         flex-direction: column;
+        gap: .65rem;
+        margin-bottom: .85rem;
+    }
+    #modalDocumentacionCandidato .modal-doc-toolbar #modalDocumentacionCandidatoNombre {
+        width: 100%;
+        color: var(--bs-body-color) !important;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+    }
+    #modalDocumentacionCandidato .modal-doc-toolbar #btnDescargarExpedienteCandidatoZip {
+        min-height: 40px;
+    }
+    #modalDocumentacionCandidatoLista {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+    }
+    #modalDocumentacionCandidato .doc-candidato-item,
+    #modalDocumentacionCandidato .doc-candidato-pendiente {
+        width: 100%;
+        margin-bottom: .7rem;
+        padding: .85rem;
+        flex-direction: column;
+        align-items: stretch !important;
+        border: 1px solid var(--bs-border-color, #dee2e6) !important;
+        border-radius: .75rem !important;
+        background: var(--bs-body-bg, #fff);
+        box-shadow: 0 2px 8px rgba(15, 23, 42, .06);
+        overflow: hidden;
+    }
+    #modalDocumentacionCandidato .doc-candidato-item.doc-candidato-validado {
+        border-left: 3px solid #198754 !important;
+    }
+    #modalDocumentacionCandidato .doc-candidato-info,
+    #modalDocumentacionCandidato .doc-candidato-main,
+    #modalDocumentacionCandidato .doc-candidato-title-row,
+    #modalDocumentacionCandidato .doc-candidato-status,
+    #modalDocumentacionCandidato .doc-candidato-meta {
+        width: 100%;
+    }
+    #modalDocumentacionCandidato .doc-candidato-title-row {
+        align-items: flex-start;
+    }
+    #modalDocumentacionCandidato .doc-candidato-title {
+        flex: 1 1 180px;
+        min-width: 0;
+        line-height: 1.3;
+    }
+    #modalDocumentacionCandidato .doc-candidato-status {
+        margin-top: .5rem;
+    }
+    #modalDocumentacionCandidato .doc-candidato-status .badge {
+        white-space: normal;
+        text-align: left;
+        line-height: 1.25;
+    }
+    #modalDocumentacionCandidato .doc-candidato-meta {
+        display: block;
+        margin-top: .5rem;
+        line-height: 1.4;
+    }
+    #modalDocumentacionCandidato .doc-candidato-actions {
+        width: 100%;
+        padding-top: .65rem;
+        border-top: 1px solid var(--bs-border-color, #e2e8f0);
+        justify-content: flex-end;
+    }
+    #modalDocumentacionCandidato .doc-candidato-actions .btn {
+        width: 42px;
+        height: 42px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: .65rem;
+    }
+    #modalDocumentacionCandidato .doc-candidato-pendiente .doc-candidato-actions .btn {
+        width: auto;
+        min-width: 42px;
+        padding: 0 .85rem;
+    }
+    #modalDocumentacionCandidato .doc-extra-gestor-head {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+    #modalDocumentacionCandidato .doc-extra-gestor-info {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+    #modalDocumentacionCandidato .doc-extra-gestor-info .badge {
+        margin-top: .35rem;
+        margin-left: 0 !important;
+        white-space: normal;
+    }
+    #modalDocumentacionCandidato .doc-extra-gestor-head .doc-candidato-actions {
+        justify-content: flex-end;
+    }
+    #modalDocumentacionCandidato .doc-extra-gestor-head .doc-candidato-actions .btn-subir-carta-extra-gestor {
+        width: auto;
+        padding: 0 .85rem;
+    }
+    #modalDocumentacionCandidato .modal-doc-col-stack {
+        margin-top: .25rem;
+    }
+    #modalDocumentacionCandidato .doc-sueldo-card .card-header,
+    #modalDocumentacionCandidato .doc-v2-card .card-header {
+        align-items: flex-start !important;
+        flex-wrap: wrap;
+    }
+    #modalDocumentacionCandidato .doc-sueldo-card .card-header > strong,
+    #modalDocumentacionCandidato .doc-v2-card .card-header > strong {
+        flex: 1 1 150px;
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+    #modalDocumentacionCandidato .doc-v2-card .card-header > span {
+        margin-left: auto;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+    #modalDocumentacionCandidato .modal-footer:not(.d-none) {
+        position: sticky;
+        bottom: 0;
+        z-index: 4;
+        background: var(--bs-body-bg, #fff);
+        padding: .75rem !important;
     }
 }
 #modalHistoricoCandidatos .historico-search {

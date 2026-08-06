@@ -76,6 +76,24 @@ final class DatabaseCliSupport
     }
 
     /**
+     * Las analiticas del modal de rastreo se consumen con fetch y su contrato es
+     * siempre JSON. Una base remota no disponible debe lanzar una excepcion para
+     * permitir que los modelos usen las demas fuentes, nunca imprimir HTML 503.
+     */
+    public static function esApiAnalyticsJsonRequest(): bool
+    {
+        if (isset($_GET['url'])) {
+            $ruta = strtolower(trim(str_replace('\\', '/', (string) $_GET['url']), '/'));
+            if ((bool) preg_match('#^api/analytics/(?:spatial|payments|compliance)/[0-9]+$#', $ruta)) {
+                return true;
+            }
+        }
+
+        $path = strtolower((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
+        return (bool) preg_match('#(?:^|/)api/analytics/(?:spatial|payments|compliance)/[0-9]+$#', trim($path, '/'));
+    }
+
+    /**
      * Histórico de gestiones (POST/GET): varias conexiones MySQL remotas.
      * Si falla PDO, no debe imprimirse HTML + exit (rompe el flujo); se lanza excepción y el modelo la captura.
      */
@@ -178,5 +196,42 @@ final class DatabaseCliSupport
         }
 
         return (bool) preg_match('#.*/caphum/(?:getresumendocumentoscolaborador|getresumendocumentosrrhh|getdocumentoscandidatolist|validardocumentocandidato|subirdocumentomanualcandidato|eliminardocumentocandidato|verificaractadocumentocandidato|gettokendocumentoscandidato|reactivartokendocumentoscandidato)$#', $path);
+    }
+
+    /**
+     * La bandeja de Evidencias intenta sincronizar datos auxiliares desde Legacy
+     * antes de devolver su lista. Si Legacy no responde, esa sincronización debe
+     * degradarse sin interrumpir el JSON de la bandeja local.
+     */
+    public static function esAtencionClientesEvidenciasJsonRequest(): bool
+    {
+        if (isset($_GET['url'])) {
+            $ruta = strtolower(trim(str_replace('\\', '/', (string) $_GET['url']), '/'));
+            if ($ruta === 'atencionclientes/obtenerrecibidos') {
+                return true;
+            }
+        }
+
+        $path = strtolower((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
+        return (bool) preg_match('#.*/atencionclientes/obtenerrecibidos$#', $path);
+    }
+
+    /**
+     * Todos los endpoints de Leonidas se consumen mediante fetch y su contrato es
+     * JSON (o NDJSON para voz en tiempo real). Una caida de una base remota debe
+     * convertirse en excepcion para que el controlador responda en ese formato;
+     * nunca debe imprimir la pagina HTML de "Sistema fuera de linea".
+     */
+    public static function esLeonidasJsonRequest(): bool
+    {
+        if (isset($_GET['url'])) {
+            $ruta = strtolower(trim(str_replace('\\', '/', (string) $_GET['url']), '/'));
+            if ($ruta === 'leonidas' || str_starts_with($ruta, 'leonidas/')) {
+                return true;
+            }
+        }
+
+        $path = strtolower((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
+        return (bool) preg_match('#(?:^|/)leonidas(?:/[^/]*)?$#', trim($path, '/'));
     }
 }

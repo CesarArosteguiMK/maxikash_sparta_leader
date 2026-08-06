@@ -26,6 +26,73 @@ final class LeonidasMotosAdjudicadasCaptureServiceStub extends LeonidasMotosAdju
     }
 }
 
+final class LeonidasMotosSinOperacionServiceStub extends LeonidasMotosAdjudicadasService
+{
+    public function __construct()
+    {
+    }
+
+    public function diagnosticar(int $idCredito): array
+    {
+        $task = [
+            'task_id' => 976252,
+            'credit_number' => (string) $idCredito,
+            'client_name' => 'AYLIN YESENIA OLVERA GONZALEZ',
+            'task_status' => '1',
+            'campaign_id' => 431,
+            'campaign_name' => 'SUPERVISORES V31',
+            'task_deleted_at' => null,
+            'campaign_deleted_at' => null,
+        ];
+        return [
+            'id_credito' => $idCredito,
+            'operacion' => null,
+            'asignacion_local' => null,
+            'legacy' => [
+                'disponible' => true,
+                'tasks' => [$task],
+                'assignments' => [],
+                'dictums' => [],
+                'motos_task' => null,
+                'otra_task_activa' => $task,
+            ],
+        ];
+    }
+}
+
+final class LeonidasMotosConEvidenciasServiceStub extends LeonidasMotosAdjudicadasService
+{
+    public string $estatus = 'Cierre Documentado';
+
+    public function __construct()
+    {
+    }
+
+    public function diagnosticar(int $idCredito): array
+    {
+        return [
+            'id_credito' => $idCredito,
+            'operacion' => [
+                'id' => 4256,
+                'id_credito' => $idCredito,
+                'nombre_cliente' => 'AYLIN YESENIA OLVERA GONZALEZ',
+                'estatus' => $this->estatus,
+                'datos_moto_at' => '2026-08-01 10:00:00',
+                'evidencias_total' => 14,
+            ],
+            'asignacion_local' => null,
+            'legacy' => [
+                'disponible' => true,
+                'tasks' => [],
+                'assignments' => [],
+                'dictums' => [],
+                'motos_task' => null,
+                'otra_task_activa' => null,
+            ],
+        ];
+    }
+}
+
 final class LeonidasMotosAdjudicadasCaptureTest extends TestCase
 {
     private LeonidasMotosAdjudicadasCaptureServiceStub $service;
@@ -117,6 +184,99 @@ final class LeonidasMotosAdjudicadasCaptureTest extends TestCase
 
         self::assertSame('agente_denegado', $result['tipo']);
         self::assertStringContainsString('no tiene acceso', $result['mensaje']);
+    }
+
+    public function testProponeCrearOperacionLocalAntesDeForzarEvidencias(): void
+    {
+        $service = new LeonidasMotosSinOperacionServiceStub();
+        $context = $this->context;
+        $context['permisos_agente']['motos_override_estatus'] = true;
+
+        $result = $service->resolver(
+            'MUEVE A EVIDENCIAS EL ID 2336022',
+            'mueve a evidencias el id 2336022',
+            $context
+        );
+
+        self::assertSame('agente_propuesta', $result['tipo']);
+        self::assertSame(
+            LeonidasMotosAdjudicadasService::ACTION_FORZAR_EVIDENCIAS,
+            $result['propuesta_especificacion']['accion']
+        );
+        self::assertTrue($result['propuesta_especificacion']['payload']['crear_operacion_local']);
+        self::assertSame(976252, $result['propuesta_especificacion']['payload']['legacy_task_id_fuente']);
+        self::assertStringContainsString('crear la operacion local', $result['mensaje']);
+    }
+
+    public function testNoPermiteMoverOperacionLocalCuandoLegacyNoEsteDisponible(): void
+    {
+        $context = $this->context;
+        $context['permisos_agente']['motos_override_estatus'] = true;
+
+        $result = $this->service->resolver(
+            'MUEVE A EVIDENCIAS EL ID 2257556',
+            'mueve a evidencias el id 2257556',
+            $context
+        );
+
+        self::assertSame('agente_diagnostico', $result['tipo']);
+        self::assertArrayNotHasKey('propuesta_especificacion', $result);
+        self::assertStringContainsString('la conexion a Legacy fallo', $result['mensaje']);
+        self::assertStringContainsString('Legacy es obligatorio', $result['mensaje']);
+        self::assertStringContainsString('No realice cambios', $result['mensaje']);
+    }
+
+    public function testNoCreaOperacionLocalSinPermisoOverride(): void
+    {
+        $service = new LeonidasMotosSinOperacionServiceStub();
+
+        $result = $service->resolver(
+            'MUEVE A EVIDENCIAS EL ID 2336022',
+            'mueve a evidencias el id 2336022',
+            $this->context
+        );
+
+        self::assertSame('agente_denegado', $result['tipo']);
+        self::assertArrayNotHasKey('propuesta_especificacion', $result);
+    }
+
+    public function testReposicionaOperacionQueEstaFueraDeEvidencias(): void
+    {
+        $service = new LeonidasMotosConEvidenciasServiceStub();
+        $context = $this->context;
+        $context['permisos_agente']['motos_override_estatus'] = true;
+
+        $result = $service->resolver(
+            'MUEVE A EVIDENCIAS EL ID 2336022',
+            'mueve a evidencias el id 2336022',
+            $context
+        );
+
+        self::assertSame('agente_propuesta', $result['tipo']);
+        self::assertSame(
+            LeonidasMotosAdjudicadasService::ACTION_FORZAR_EVIDENCIAS,
+            $result['propuesta_especificacion']['accion']
+        );
+        self::assertStringContainsString('Cierre Documentado', $result['mensaje']);
+        self::assertStringContainsString('reposicionarla', $result['mensaje']);
+    }
+
+    public function testUsaEnvioNormalCuandoOperacionYaEstaEnEvidencias(): void
+    {
+        $service = new LeonidasMotosConEvidenciasServiceStub();
+        $service->estatus = 'Recibido';
+
+        $result = $service->resolver(
+            'MUEVE A EVIDENCIAS EL ID 2336022',
+            'mueve a evidencias el id 2336022',
+            $this->context
+        );
+
+        self::assertSame('agente_propuesta', $result['tipo']);
+        self::assertSame(
+            LeonidasMotosAdjudicadasService::ACTION_ENVIAR_EVIDENCIAS,
+            $result['propuesta_especificacion']['accion']
+        );
     }
 
     private function completeMessage(): string

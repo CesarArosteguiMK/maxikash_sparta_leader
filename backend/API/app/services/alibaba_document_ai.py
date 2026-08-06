@@ -162,7 +162,14 @@ Reglas de lectura:
 16. CURP debe tener 18 caracteres alfanumericos, RFC 12 o 13 caracteres y NSS 11 digitos. Si dudas entre letras/numeros como O/0, I/1, G/6 o R/P, usa el valor con mayor evidencia visual; si la duda afecta el valor final, usa null y explicalo.
 17. Para carta_no_adeudo, el nombre_completo debe ser el nombre de la persona que declara/no adeuda. Si solo aparece en la linea manuscrita de "Nombre completo y firma", leelo con mucho cuidado; si no estas seguro, usa null y explica la duda.
 18. Para carta_no_adeudo, no uses "A quien corresponda", nombre de empresa, empleador, beneficiario, entidad emisora o texto de la firma como nombre_completo.
-19. Para carta_no_adeudo, confirma si el formato fue llenado y firmado. firma_detectada=true solo si hay trazo manuscrito o firma digital visible. Una linea impresa vacia, una raya sin nombre o el texto "Nombre completo y firma" no cuentan como firma. Si la linea esta vacia, si solo aparece la plantilla sin nombre, o si no hay firma/trazo manuscrito, marca nombre_y_firma_lleno=false, firma_detectada=false y evidencia_insuficiente=true.
+19. Para carta_no_adeudo, evalua el nombre y la firma de manera independiente.
+    firma_detectada=true si hay un trazo manuscrito o firma digital visible, aunque
+    el nombre completo no este escrito. firma_detectada=false solo cuando no exista
+    ningun trazo de firma; nunca la marques false solo porque falta el nombre. Devuelve
+    nombre_completo=null cuando el nombre no esta escrito o no es legible.
+    nombre_y_firma_lleno=true unicamente cuando ambos elementos estan presentes, y
+    false cuando falta cualquiera de ellos. evidencia_insuficiente=true solo cuando la
+    calidad visual impide decidir; no la uses como sinonimo de un campo faltante.
 20. Para infonavit_fonacot, acepta documentos reales de retencion, reporte mensual,
     aviso, estado de cuenta o descuento FONACOT/INFONAVIT cuando muestren credito,
     descuento, saldo, periodo o numero de credito. En esos casos NO exijas firma:
@@ -1202,9 +1209,13 @@ def quick_prompt_for(expected_doc_type: Optional[str], nombre_candidato: Optiona
             "mental y no cambies letras por parecido visual si no estas seguro. Si el nombre "
             "manuscrito coincide visualmente con el nombre registrado, devuelve el nombre "
             "normalizado como aparece en el registro. Si no es claro, deja nombre_completo "
-            "en null y agrega observacion. El formato en blanco NO es valido: si no hay "
-            "nombre escrito en la linea final o no hay firma/trazo manuscrito, devuelve "
-            "nombre_y_firma_lleno=false, firma_detectada=false y evidencia_insuficiente=true."
+            "en null y agrega observacion. Evalua nombre y firma por separado: si hay un "
+            "trazo de firma visible, devuelve firma_detectada=true aunque falte el nombre; "
+            "si hay nombre pero no trazo, devuelve firma_detectada=false. "
+            "nombre_y_firma_lleno debe ser true solo si ambos estan presentes y false si "
+            "falta cualquiera. Nunca marques la firma como ausente solo porque falta el "
+            "nombre. evidencia_insuficiente=true se reserva para una imagen que no permite "
+            "decidir visualmente, no para un faltante claramente visible."
         )
     elif expected_doc_type == "carta_compromiso_gestor":
         extra = (
@@ -1479,17 +1490,11 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
     if doc_type == "carta_no_adeudo":
         declarant = fields.get("nombre_completo")
         firma_detectada = _bool_from_field(fields.get("firma_detectada"))
-        nombre_y_firma_lleno = _bool_from_field(fields.get("nombre_y_firma_lleno"))
-        evidencia_insuficiente = _bool_from_field(data.get("evidencia_insuficiente"))
         if _blank_like_name(declarant):
             errors.append("La carta de no adeudo no tiene el nombre completo del candidato")
-        if evidencia_insuficiente is True:
-            errors.append("La carta de no adeudo no tiene evidencia suficiente de nombre y firma")
-        if nombre_y_firma_lleno is False:
-            errors.append("La linea de nombre completo y firma no esta llenada")
         if firma_detectada is False:
             errors.append("La carta de no adeudo no esta firmada")
-        if firma_detectada is None and nombre_y_firma_lleno is None:
+        elif firma_detectada is None:
             warnings.append("No se pudo confirmar automaticamente la firma de la carta")
 
     if doc_type == "carta_compromiso_gestor":

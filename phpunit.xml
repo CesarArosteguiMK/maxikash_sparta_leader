@@ -9,12 +9,9 @@
             <directory>backend/tests</directory>
         </testsuite>
     </testsuites>
-    <source>
+    <coverage>
         <include>
             <directory>backend/services</directory>
         </include>
-        <exclude>
-            <directory>backend/tests</directory>
-        </exclude>
-    </source>
+    </coverage>
 </phpunit>

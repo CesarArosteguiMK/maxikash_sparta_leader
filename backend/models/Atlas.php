@@ -682,6 +682,7 @@ class Atlas extends Model
             $db = new Database();
             self::asegurarColumnasPasoSucursal($db);
             self::asegurarResponsablesPersonaAtlas($db);
+            self::asegurarPresupuestosAtlas($db);
             $configuracionCalidad = self::getConfiguracionCalidadSucursales($db);
             $datos = $db->queryAll(
                 "
@@ -726,6 +727,13 @@ class Atlas extends Model
                         THEN 1 ELSE 0
                     END AS es_nuevo_ingreso,
                     s.fecha_actualizacion,
+                    0 AS pendiente_catalogo,
+                    0 AS origen_excel,
+                    NULL AS fecha_carga_excel,
+                    NULL AS fecha_carga_excel_fmt,
+                    NULL AS dias_antiguedad,
+                    'catalogo' AS antiguedad_grupo,
+                    99 AS prioridad_antiguedad,
                     tel.numero_telefono,
                     tel.nombre_contacto
                 FROM atlas_catalogo_sucursales s
@@ -748,8 +756,101 @@ class Atlas extends Model
                 "
             );
 
+            $pendientesCatalogo = $db->queryAll(
+                "
+                SELECT
+                    NULL AS id,
+                    pd.fk_sucursal,
+                    (
+                        SELECT MIN(d2.id)
+                        FROM atlas_catalogo_distribuidores d2
+                        WHERE d2.activo = 1
+                          AND UPPER(TRIM(d2.nombre)) COLLATE utf8mb4_unicode_ci
+                              = UPPER(TRIM(pd.distribuidor)) COLLATE utf8mb4_unicode_ci
+                    ) AS distribuidor_id,
+                    COALESCE(NULLIF(TRIM(pd.distribuidor), ''), 'Sin distribuidor') AS distribuidor_nombre,
+                    COALESCE(NULLIF(TRIM(pd.sucursal), ''), CONCAT('Sucursal ', pd.fk_sucursal)) AS sucursal,
+                    '' AS direccion,
+                    NULL AS coordenadas,
+                    NULL AS latitud,
+                    NULL AS longitud,
+                    NULL AS estado,
+                    NULL AS municipio,
+                    NULL AS localidad,
+                    NULL AS colonia,
+                    NULL AS codigo_postal,
+                    NULL AS asesor_id,
+                    pd.asesor_persona_id,
+                    COALESCE(NULLIF(TRIM(pd.asesor), ''), 'Sin asignar') AS asesor_nombre,
+                    pd.clasificacion_id,
+                    c.nombre AS clasificacion_nombre,
+                    c.icon_font AS clasificacion_icon_font,
+                    c.color_hex AS clasificacion_color_hex,
+                    0 AS paso_datos_completos,
+                    NULL AS paso_datos_completos_at,
+                    NULL AS paso_datos_completos_at_fmt,
+                    0 AS paso_asignacion_completa,
+                    NULL AS paso_asignacion_completa_at,
+                    NULL AS paso_asignacion_completa_at_fmt,
+                    NULL AS calle,
+                    NULL AS numero_exterior,
+                    NULL AS numero_interior,
+                    1 AS activo,
+                    nuevas.fecha_carga_excel AS fecha_alta,
+                    DATE_FORMAT(nuevas.fecha_carga_excel, '%d/%m/%Y %H:%i') AS fecha_alta_fmt,
+                    1 AS es_nuevo_ingreso,
+                    pd.fecha_actualizacion,
+                    1 AS pendiente_catalogo,
+                    1 AS origen_excel,
+                    nuevas.fecha_carga_excel,
+                    DATE_FORMAT(nuevas.fecha_carga_excel, '%d/%m/%Y %H:%i') AS fecha_carga_excel_fmt,
+                    DATEDIFF(CURDATE(), DATE(nuevas.fecha_carga_excel)) AS dias_antiguedad,
+                    CASE
+                        WHEN DATEDIFF(CURDATE(), DATE(nuevas.fecha_carga_excel)) < 7 THEN 'nuevas'
+                        WHEN DATEDIFF(CURDATE(), DATE(nuevas.fecha_carga_excel)) < 30 THEN 'semana'
+                        ELSE 'mes'
+                    END AS antiguedad_grupo,
+                    CASE
+                        WHEN DATEDIFF(CURDATE(), DATE(nuevas.fecha_carga_excel)) < 7 THEN 0
+                        WHEN DATEDIFF(CURDATE(), DATE(nuevas.fecha_carga_excel)) < 30 THEN 1
+                        ELSE 2
+                    END AS prioridad_antiguedad,
+                    NULL AS numero_telefono,
+                    NULL AS nombre_contacto
+                FROM atlas_presupuesto_sucursal_detalle pd
+                INNER JOIN (
+                    SELECT
+                        pdh.fk_sucursal,
+                        MAX(pdh.id) AS detalle_id,
+                        MIN(pdh.fecha_alta) AS fecha_carga_excel
+                    FROM atlas_presupuesto_sucursal_detalle pdh
+                    INNER JOIN atlas_presupuestos_mensuales ph
+                            ON ph.id = pdh.presupuesto_id
+                           AND ph.activo = 1
+                    LEFT JOIN atlas_catalogo_sucursales sch
+                           ON sch.fk_sucursal = pdh.fk_sucursal
+                    WHERE pdh.activo = 1
+                      AND sch.id IS NULL
+                    GROUP BY pdh.fk_sucursal
+                ) nuevas
+                        ON nuevas.detalle_id = pd.id
+                LEFT JOIN atlas_catalogo_clasificaciones c
+                       ON c.id = pd.clasificacion_id
+                      AND c.activo = 1
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM atlas_catalogo_sucursales sc
+                    WHERE sc.fk_sucursal = pd.fk_sucursal
+                )
+                ORDER BY nuevas.fecha_carga_excel DESC, pd.sucursal ASC, pd.fk_sucursal ASC
+                "
+            );
+
+            $datos = array_merge($pendientesCatalogo, $datos);
+
             $totales = [
                 'total' => count($datos),
+                'pendientes_catalogo' => count($pendientesCatalogo),
                 'activas' => 0,
                 'inactivas' => 0,
                 'con_coordenadas' => 0,
@@ -760,11 +861,18 @@ class Atlas extends Model
                 $row['activo'] = (int)($row['activo'] ?? 0);
                 $row['paso_datos_completos'] = (int)($row['paso_datos_completos'] ?? 0);
                 $row['paso_asignacion_completa'] = (int)($row['paso_asignacion_completa'] ?? 0);
-                $row['estado'] = $row['activo'] === 1 ? 'Activa' : 'Inactiva';
-                if ($row['activo'] === 1) {
-                    $totales['activas']++;
+                $row['pendiente_catalogo'] = (int)($row['pendiente_catalogo'] ?? 0);
+                $row['origen_excel'] = (int)($row['origen_excel'] ?? 0);
+                $row['dias_antiguedad'] = isset($row['dias_antiguedad']) ? (int)$row['dias_antiguedad'] : null;
+                if ($row['pendiente_catalogo'] === 1) {
+                    $row['estatus_sucursal'] = 'Por completar';
                 } else {
-                    $totales['inactivas']++;
+                    $row['estatus_sucursal'] = $row['activo'] === 1 ? 'Activa' : 'Inactiva';
+                    if ($row['activo'] === 1) {
+                        $totales['activas']++;
+                    } else {
+                        $totales['inactivas']++;
+                    }
                 }
                 if (trim((string)($row['latitud'] ?? '')) !== '' && trim((string)($row['longitud'] ?? '')) !== '') {
                     $totales['con_coordenadas']++;
@@ -790,6 +898,7 @@ class Atlas extends Model
                 'datos' => [],
                 'totales' => [
                     'total' => 0,
+                    'pendientes_catalogo' => 0,
                     'activas' => 0,
                     'inactivas' => 0,
                     'con_coordenadas' => 0,
@@ -1030,6 +1139,7 @@ class Atlas extends Model
         try {
             $db = new Database();
             self::asegurarColumnasPasoSucursal($db);
+            self::asegurarPresupuestosAtlas($db);
 
             $usuarioId = self::intVal($input['_usuario_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
             $permisos = self::permisosSucursalAtlas($usuarioId);
@@ -1052,6 +1162,7 @@ class Atlas extends Model
 
             $sucursal = self::strVal($input['sucursal'] ?? '');
             $distribuidorId = self::intVal($input['distribuidor_id'] ?? 0);
+            $fkSucursalSolicitada = self::intVal($input['fk_sucursal'] ?? 0);
             $fkSucursal = 0;
 
             if ($id > 0) {
@@ -1075,9 +1186,40 @@ class Atlas extends Model
                     $sucursal = self::strVal($input['sucursal'] ?? '');
                     $distribuidorId = self::intVal($input['distribuidor_id'] ?? 0);
                 }
+            } elseif ($fkSucursalSolicitada > 0) {
+                $yaCatalogada = $db->queryOne(
+                    "SELECT id FROM atlas_catalogo_sucursales WHERE fk_sucursal = :fk_sucursal LIMIT 1",
+                    ['fk_sucursal' => $fkSucursalSolicitada]
+                );
+                if ($yaCatalogada) {
+                    return ['success' => false, 'mensaje' => 'La sucursal ya fue incorporada al catalogo. Recarga el listado para continuar.'];
+                }
+                $pendientePresupuesto = $db->queryOne(
+                    "
+                    SELECT pd.fk_sucursal
+                    FROM atlas_presupuesto_sucursal_detalle pd
+                    INNER JOIN atlas_presupuestos_mensuales p
+                            ON p.id = pd.presupuesto_id
+                           AND p.activo = 1
+                    WHERE pd.fk_sucursal = :fk_sucursal
+                      AND pd.activo = 1
+                    ORDER BY pd.id DESC
+                    LIMIT 1
+                    ",
+                    ['fk_sucursal' => $fkSucursalSolicitada]
+                );
+                if (!$pendientePresupuesto) {
+                    return ['success' => false, 'mensaje' => 'La PK indicada no corresponde a una sucursal pendiente cargada desde Presupuestos.'];
+                }
+                $fkSucursal = $fkSucursalSolicitada;
             } else {
                 $siguiente = $db->queryOne(
-                    "SELECT COALESCE(MAX(fk_sucursal), 0) + 1 AS fk_sucursal FROM atlas_catalogo_sucursales"
+                    "
+                    SELECT GREATEST(
+                        (SELECT COALESCE(MAX(fk_sucursal), 0) FROM atlas_catalogo_sucursales),
+                        (SELECT COALESCE(MAX(fk_sucursal), 0) FROM atlas_presupuesto_sucursal_detalle)
+                    ) + 1 AS fk_sucursal
+                    "
                 );
                 $fkSucursal = self::intVal($siguiente['fk_sucursal'] ?? 0);
             }
@@ -5754,6 +5896,7 @@ class Atlas extends Model
                     $esperadasPorFk[$fkEsperada] = $sucursalEsperada;
                 }
             }
+            $catalogoPorFk = self::getSucursalesCatalogoPresupuestoPorFk($db);
             $sucursalesObligatorias = $presupuestoId > 0
                 ? $actualesPorFk
                 : $esperadasPorFk;
@@ -5782,13 +5925,16 @@ class Atlas extends Model
                     ];
                 }
                 if (!isset($esperadasPorFk[$fkSucursal])) {
+                    $catalogoSucursal = $catalogoPorFk[$fkSucursal] ?? null;
                     $extras[] = [
                         'fila' => $excelRow,
                         'fk_sucursal' => $fkSucursal,
                         'sucursal' => self::strVal($fila['sucursal'] ?? ''),
                         'distribuidor' => self::strVal($fila['distribuidor'] ?? ''),
+                        'motivo' => $catalogoSucursal
+                            ? 'sucursal_inactiva'
+                            : 'alta_presupuesto',
                     ];
-                    continue;
                 }
                 $filasUnicas[$fkSucursal] = $fila;
             }
@@ -5848,16 +5994,17 @@ class Atlas extends Model
             foreach ($filasUnicas as $fkSucursal => $fila) {
                 $excelRow = (int)($fila['_excel_row'] ?? 0);
                 $sucursalEsperada = $esperadasPorFk[$fkSucursal] ?? [];
+                $sucursalCatalogo = $catalogoPorFk[$fkSucursal] ?? [];
+                $sucursalReferencia = $sucursalEsperada ?: $sucursalCatalogo;
                 $asesorExcel = self::strVal($fila['asesor'] ?? '');
                 $asesorPersonaId = null;
                 $asesorNombre = $asesorExcel;
-                $firmaAsesor = self::firmaNombrePersonaPresupuesto($asesorExcel);
-                $coincidencias = $firmaAsesor !== '' ? ($personasPorNombre[$firmaAsesor] ?? []) : [];
+                $coincidencias = self::resolverPersonasPresupuestoPorNombre($asesorExcel, $personasPorNombre);
                 if ($asesorExcel === '' || count($coincidencias) !== 1) {
                     $erroresAsignacion[] = [
                         'fila' => $excelRow,
                         'fk_sucursal' => $fkSucursal,
-                        'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? $fila['sucursal'] ?? ''),
+                        'sucursal' => self::strVal($sucursalReferencia['sucursal'] ?? $fila['sucursal'] ?? ''),
                         'asesor_excel' => $asesorExcel,
                         'falla' => $asesorExcel === ''
                             ? 'El Excel no trae responsable para esta sucursal.'
@@ -5880,7 +6027,7 @@ class Atlas extends Model
                         $erroresClasificacion[] = [
                             'fila' => $excelRow,
                             'fk_sucursal' => $fkSucursal,
-                            'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? $fila['sucursal'] ?? ''),
+                            'sucursal' => self::strVal($sucursalReferencia['sucursal'] ?? $fila['sucursal'] ?? ''),
                             'clasificacion_excel' => $clasificacionExcel,
                             'falla' => 'La clasificacion no existe en el catalogo principal.',
                         ];
@@ -5891,9 +6038,9 @@ class Atlas extends Model
                     }
                 }
 
-                $metaCreditos = self::decimalPresupuesto($fila['meta_creditos'] ?? 0);
-                $metaCash = self::decimalPresupuesto($fila['meta_cash'] ?? 0);
-                $presupuestoBase = self::nullableDecimalPresupuesto($fila['comisiona_a_partir_de'] ?? null);
+                $metaCreditos = self::decimalPresupuestoPersistible($fila['meta_creditos'] ?? 0);
+                $metaCash = self::decimalPresupuestoPersistible($fila['meta_cash'] ?? 0);
+                $presupuestoBase = self::nullableDecimalPresupuestoPersistible($fila['comisiona_a_partir_de'] ?? null);
                 $valoresPresupuestoValidos = self::valorPresupuestoEsNumerico($fila['meta_creditos'] ?? null)
                     && self::valorPresupuestoEsNumerico($fila['meta_cash'] ?? null)
                     && self::valorPresupuestoEsNumerico($fila['comisiona_a_partir_de'] ?? null);
@@ -5906,23 +6053,31 @@ class Atlas extends Model
                     $erroresPresupuesto[] = [
                         'fila' => $excelRow,
                         'fk_sucursal' => $fkSucursal,
-                        'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? $fila['sucursal'] ?? ''),
+                        'sucursal' => self::strVal($sucursalReferencia['sucursal'] ?? $fila['sucursal'] ?? ''),
                         'falla' => 'Creditos, cash y presupuesto base deben ser valores mayores o iguales a cero.',
                     ];
                 }
 
-                $validacionDistribuidor = self::validarPresupuestoSucursalDistribuidorOperativo(
-                    $db,
-                    $fkSucursal,
-                    $metaCreditos,
-                    $metaCash,
-                    $sucursalEsperada
-                );
+                $validacionDistribuidor = !$sucursalCatalogo
+                    ? ['success' => true]
+                    : ((int)($sucursalCatalogo['activo'] ?? 0) !== 1
+                        && (abs($metaCreditos) >= 0.0001 || abs($metaCash) >= 0.0001)
+                        ? [
+                        'success' => false,
+                        'mensaje' => 'La sucursal existe en el catalogo, pero esta inactiva. Reactivala antes de asignarle presupuesto.',
+                        ]
+                        : self::validarPresupuestoSucursalDistribuidorOperativo(
+                            $db,
+                            $fkSucursal,
+                            $metaCreditos,
+                            $metaCash,
+                            $sucursalReferencia
+                        ));
                 if (empty($validacionDistribuidor['success'])) {
                     $erroresOperacion[] = [
                         'fila' => $excelRow,
                         'fk_sucursal' => $fkSucursal,
-                        'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? $fila['sucursal'] ?? ''),
+                        'sucursal' => self::strVal($sucursalReferencia['sucursal'] ?? $fila['sucursal'] ?? ''),
                         'falla' => self::strVal($validacionDistribuidor['mensaje'] ?? 'La sucursal no admite presupuesto en este momento.'),
                     ];
                 }
@@ -5940,8 +6095,8 @@ class Atlas extends Model
                     'clasificacion_id' => self::nullableInt($anteriorRaw['clasificacion_id'] ?? null),
                 ] : null;
                 $despues = [
-                    'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? $fila['sucursal'] ?? ''),
-                    'distribuidor' => self::strVal($sucursalEsperada['distribuidor'] ?? $fila['distribuidor'] ?? ''),
+                    'sucursal' => self::strVal($sucursalReferencia['sucursal'] ?? $fila['sucursal'] ?? ''),
+                    'distribuidor' => self::strVal($sucursalReferencia['distribuidor'] ?? $fila['distribuidor'] ?? ''),
                     'responsable' => $asesorNombre,
                     'responsable_persona_id' => $asesorPersonaId,
                     'creditos' => $metaCreditos,
@@ -5997,8 +6152,9 @@ class Atlas extends Model
                         'fila' => $excelRow,
                         'tipo' => $anterior ? 'modificacion' : 'alta',
                         'fk_sucursal' => $fkSucursal,
-                        'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? $fila['sucursal'] ?? ''),
-                        'distribuidor' => self::strVal($sucursalEsperada['distribuidor'] ?? $fila['distribuidor'] ?? ''),
+                        'sucursal' => self::strVal($sucursalReferencia['sucursal'] ?? $fila['sucursal'] ?? ''),
+                        'distribuidor' => self::strVal($sucursalReferencia['distribuidor'] ?? $fila['distribuidor'] ?? ''),
+                        'fuera_catalogo' => $sucursalCatalogo ? 0 : 1,
                         'campos' => $campos,
                         'antes' => $anterior,
                         'despues' => $despues,
@@ -6026,7 +6182,7 @@ class Atlas extends Model
                 ? 'Las sucursales ausentes conservaran sin cambios su presupuesto actual; la ausencia no se interpreta como una orden de eliminacion.'
                 : 'Las sucursales ausentes simplemente no se crearan en este presupuesto; la ausencia no se interpreta como una orden de eliminacion.';
             foreach ([
-                'extras' => [count($extras), 'Las PK que no existen en el catalogo se omitiran; las demas filas pueden aplicarse.'],
+                'extras' => [count(array_filter($extras, static fn($item) => ($item['motivo'] ?? '') === 'alta_presupuesto')), 'Las PK nuevas se agregaran al presupuesto mensual. Su alta en el catalogo operativo debe completarse por separado.'],
                 'faltantes' => [count($faltantes), $mensajeFaltantes],
                 'asignaciones' => [count($erroresAsignacion), 'El presupuesto puede cargarse, pero esas filas no actualizaran la asignacion operativa; se conservara la actual cuando exista.'],
             ] as $tipo => [$cantidad, $mensaje]) {
@@ -6097,6 +6253,7 @@ class Atlas extends Model
                         'altas' => $altas,
                         'duplicadas' => count($duplicadas),
                         'extras' => count($extras),
+                        'altas_fuera_catalogo' => count(array_filter($extras, static fn($item) => ($item['motivo'] ?? '') === 'alta_presupuesto')),
                         'faltantes' => count($faltantes),
                         'errores_asignacion' => count($erroresAsignacion),
                         'errores_clasificacion' => count($erroresClasificacion),
@@ -6361,6 +6518,7 @@ class Atlas extends Model
                     $esperadasPorFk[$fkEsperada] = $sucursalEsperada;
                 }
             }
+            $catalogoPorFk = self::getSucursalesCatalogoPresupuestoPorFk($db);
             $sucursalesObligatorias = $esRecarga
                 ? $detallesAnteriores
                 : $esperadasPorFk;
@@ -6386,13 +6544,16 @@ class Atlas extends Model
                     ];
                 }
                 if ($esperadasPorFk && !isset($esperadasPorFk[$fkSucursal])) {
+                    $catalogoSucursal = $catalogoPorFk[$fkSucursal] ?? null;
                     $extras[] = [
                         'fila' => $excelRow,
                         'fk_sucursal' => $fkSucursal,
                         'sucursal' => self::strVal($fila['sucursal'] ?? ''),
                         'distribuidor' => self::strVal($fila['distribuidor'] ?? ''),
+                        'motivo' => $catalogoSucursal
+                            ? 'sucursal_inactiva'
+                            : 'alta_presupuesto',
                     ];
-                    continue;
                 }
                 $filasUnicas[$fkSucursal] = $fila;
             }
@@ -6423,8 +6584,7 @@ class Atlas extends Model
                     continue;
                 }
 
-                $firmaAsesor = self::firmaNombrePersonaPresupuesto($asesorExcel);
-                $coincidencias = $firmaAsesor !== '' ? ($personasPorNombre[$firmaAsesor] ?? []) : [];
+                $coincidencias = self::resolverPersonasPresupuestoPorNombre($asesorExcel, $personasPorNombre);
                 if (count($coincidencias) !== 1) {
                     $erroresAsignacion[] = [
                         'fila' => $excelRow,
@@ -6463,10 +6623,13 @@ class Atlas extends Model
             $catalogoAsesorActualizado = 0;
             $cambiosRegistrados = 0;
             $altasRegistradas = 0;
+            $registrosPersistidos = 0;
             foreach ($filasUnicas as $fkSucursal => $fila) {
                 $sucursalEsperada = $esperadasPorFk[$fkSucursal] ?? [];
+                $sucursalCatalogo = $catalogoPorFk[$fkSucursal] ?? [];
+                $sucursalReferencia = $sucursalEsperada ?: $sucursalCatalogo;
                 $clasificacionExcel = self::strVal($fila['clasificacion'] ?? '');
-                $clasificacionOficial = self::strVal($sucursalEsperada['clasificacion'] ?? '');
+                $clasificacionOficial = self::strVal($sucursalReferencia['clasificacion'] ?? '');
                 $clasificacionId = null;
 
                 if ($clasificacionExcel !== '') {
@@ -6486,6 +6649,80 @@ class Atlas extends Model
 
                     $clasificacionId = (int)$clasificacionesPorNombre[$clasificacionKey]['id'];
                     $clasificacionOficial = self::strVal($clasificacionesPorNombre[$clasificacionKey]['nombre'] ?? $clasificacionExcel);
+                }
+
+                $datos = [
+                    'presupuesto_id' => $presupuestoId,
+                    'fk_sucursal' => (int)$fkSucursal,
+                    'sucursal' => self::strVal($sucursalReferencia['sucursal'] ?? $fila['sucursal'] ?? ''),
+                    'distribuidor' => self::strVal($sucursalReferencia['distribuidor'] ?? $fila['distribuidor'] ?? ''),
+                    'asesor' => self::strVal($fila['_asesor_persona_nombre'] ?? $fila['asesor'] ?? ''),
+                    'asesor_persona_id' => self::nullableInt($fila['_asesor_persona_id'] ?? null),
+                    'clasificacion_id' => $clasificacionId,
+                    'meta_creditos' => self::decimalPresupuestoPersistible($fila['meta_creditos'] ?? 0),
+                    'meta_cash' => self::decimalPresupuestoPersistible($fila['meta_cash'] ?? 0),
+                    'comisiona_a_partir_de' => self::nullableDecimalPresupuestoPersistible($fila['comisiona_a_partir_de'] ?? null),
+                    'usuario' => $usuarioId ?: null,
+                ];
+
+                $validacionDistribuidor = !$sucursalCatalogo
+                    ? ['success' => true]
+                    : ((int)($sucursalCatalogo['activo'] ?? 0) !== 1
+                        && (abs((float)$datos['meta_creditos']) >= 0.0001 || abs((float)$datos['meta_cash']) >= 0.0001)
+                        ? [
+                        'success' => false,
+                        'mensaje' => 'La sucursal existe en el catalogo, pero esta inactiva. Reactivala antes de asignarle presupuesto.',
+                        ]
+                        : self::validarPresupuestoSucursalDistribuidorOperativo(
+                            $db,
+                            (int)$fkSucursal,
+                            (float)$datos['meta_creditos'],
+                            (float)$datos['meta_cash'],
+                            $sucursalReferencia
+                        ));
+                if (!($validacionDistribuidor['success'] ?? false)) {
+                    $db->rollback();
+                    return [
+                        'success' => false,
+                        'mensaje' => $validacionDistribuidor['mensaje'] ?? 'No se puede cargar presupuesto para sucursales con distribuidor detenido.',
+                        'datos' => [
+                            'fk_sucursal' => (int)$fkSucursal,
+                            'sucursal' => $datos['sucursal'],
+                            'distribuidor' => $validacionDistribuidor['distribuidor'] ?? null,
+                            'estatus_distribuidor' => $validacionDistribuidor['estatus'] ?? null,
+                        ],
+                    ];
+                }
+
+                $anterior = $detallesAnteriores[(int)$fkSucursal] ?? null;
+                $metaCreditosAnterior = $anterior ? self::decimalPresupuesto($anterior['meta_creditos'] ?? 0) : null;
+                $metaCashAnterior = $anterior ? self::decimalPresupuesto($anterior['meta_cash'] ?? 0) : null;
+                $metaCreditosNueva = self::decimalPresupuesto($datos['meta_creditos'] ?? 0);
+                $metaCashNueva = self::decimalPresupuesto($datos['meta_cash'] ?? 0);
+                $clasificacionAnteriorId = $anterior ? self::nullableInt($anterior['clasificacion_id'] ?? null) : null;
+                $clasificacionNuevaId = self::nullableInt($datos['clasificacion_id'] ?? null);
+                $comisionAnterior = $anterior ? self::nullableDecimalPresupuesto($anterior['comisiona_a_partir_de'] ?? null) : null;
+                $comisionNueva = self::nullableDecimalPresupuesto($datos['comisiona_a_partir_de'] ?? null);
+                $cambioMeta = !$anterior
+                    || abs(($metaCreditosAnterior ?? 0) - $metaCreditosNueva) > 0.0001
+                    || abs(($metaCashAnterior ?? 0) - $metaCashNueva) > 0.0001;
+                $cambioComision = ($comisionAnterior === null) !== ($comisionNueva === null)
+                    || ($comisionAnterior !== null && $comisionNueva !== null && abs($comisionAnterior - $comisionNueva) > 0.0001);
+                $cambioDatos = $anterior && (
+                    self::strVal($anterior['sucursal'] ?? '') !== self::strVal($datos['sucursal'] ?? '')
+                    || self::strVal($anterior['distribuidor'] ?? '') !== self::strVal($datos['distribuidor'] ?? '')
+                    || self::nullableInt($anterior['asesor_persona_id'] ?? null) !== self::nullableInt($datos['asesor_persona_id'] ?? null)
+                    || self::firmaNombrePersonaPresupuesto($anterior['asesor'] ?? '') !== self::firmaNombrePersonaPresupuesto($datos['asesor'] ?? '')
+                    || $clasificacionAnteriorId !== $clasificacionNuevaId
+                    || $cambioComision
+                );
+
+                if ($esReajusteMasivo && !$cambioMeta && !$cambioDatos) {
+                    $importadas++;
+                    continue;
+                }
+
+                if ($clasificacionExcel !== '' && $sucursalCatalogo && (int)($sucursalCatalogo['activo'] ?? 0) === 1) {
                     $actualizados = $db->CRUD("
                         UPDATE atlas_catalogo_sucursales
                         SET clasificacion_id = :clasificacion_id
@@ -6501,42 +6738,7 @@ class Atlas extends Model
                     }
                 }
 
-                $datos = [
-                    'presupuesto_id' => $presupuestoId,
-                    'fk_sucursal' => (int)$fkSucursal,
-                    'sucursal' => self::strVal($sucursalEsperada['sucursal'] ?? $fila['sucursal'] ?? ''),
-                    'distribuidor' => self::strVal($sucursalEsperada['distribuidor'] ?? $fila['distribuidor'] ?? ''),
-                    'asesor' => self::strVal($fila['_asesor_persona_nombre'] ?? $fila['asesor'] ?? ''),
-                    'asesor_persona_id' => self::nullableInt($fila['_asesor_persona_id'] ?? null),
-                    'clasificacion_id' => $clasificacionId,
-                    'meta_creditos' => self::decimalPresupuesto($fila['meta_creditos'] ?? 0),
-                    'meta_cash' => self::decimalPresupuesto($fila['meta_cash'] ?? 0),
-                    'comisiona_a_partir_de' => self::nullableDecimalPresupuesto($fila['comisiona_a_partir_de'] ?? null),
-                    'usuario' => $usuarioId ?: null,
-                ];
-
-                $validacionDistribuidor = self::validarPresupuestoSucursalDistribuidorOperativo(
-                    $db,
-                    (int)$fkSucursal,
-                    (float)$datos['meta_creditos'],
-                    (float)$datos['meta_cash'],
-                    $sucursalEsperada
-                );
-                if (!($validacionDistribuidor['success'] ?? false)) {
-                    $db->rollback();
-                    return [
-                        'success' => false,
-                        'mensaje' => $validacionDistribuidor['mensaje'] ?? 'No se puede cargar presupuesto para sucursales con distribuidor detenido.',
-                        'datos' => [
-                            'fk_sucursal' => (int)$fkSucursal,
-                            'sucursal' => $datos['sucursal'],
-                            'distribuidor' => $validacionDistribuidor['distribuidor'] ?? null,
-                            'estatus_distribuidor' => $validacionDistribuidor['estatus'] ?? null,
-                        ],
-                    ];
-                }
-
-                if (!empty($datos['asesor_persona_id'])) {
+                if (!empty($datos['asesor_persona_id']) && $sucursalCatalogo && (int)($sucursalCatalogo['activo'] ?? 0) === 1) {
                     $actualizados = $db->CRUD("
                         UPDATE atlas_catalogo_sucursales
                         SET asesor_persona_id = :asesor_persona_id
@@ -6572,6 +6774,7 @@ class Atlas extends Model
                         activo = 1,
                         updated_by = VALUES(updated_by)
                 ", $datos);
+                $registrosPersistidos++;
 
                 if ($esRecarga) {
                     $detalleActual = $db->queryOne("
@@ -6584,29 +6787,8 @@ class Atlas extends Model
                         'presupuesto_id' => $presupuestoId,
                         'fk_sucursal' => (int)$fkSucursal,
                     ]) ?: [];
-                    $anterior = $detallesAnteriores[(int)$fkSucursal] ?? null;
-                    $metaCreditosAnterior = $anterior ? self::decimalPresupuesto($anterior['meta_creditos'] ?? 0) : null;
-                    $metaCashAnterior = $anterior ? self::decimalPresupuesto($anterior['meta_cash'] ?? 0) : null;
-                    $metaCreditosNueva = self::decimalPresupuesto($datos['meta_creditos'] ?? 0);
-                    $metaCashNueva = self::decimalPresupuesto($datos['meta_cash'] ?? 0);
-                    $clasificacionAnteriorId = $anterior ? self::nullableInt($anterior['clasificacion_id'] ?? null) : null;
-                    $clasificacionNuevaId = self::nullableInt($datos['clasificacion_id'] ?? null);
-                    $comisionAnterior = $anterior ? self::nullableDecimalPresupuesto($anterior['comisiona_a_partir_de'] ?? null) : null;
-                    $comisionNueva = self::nullableDecimalPresupuesto($datos['comisiona_a_partir_de'] ?? null);
-                    $cambioMeta = !$anterior
-                        || abs(($metaCreditosAnterior ?? 0) - $metaCreditosNueva) > 0.0001
-                        || abs(($metaCashAnterior ?? 0) - $metaCashNueva) > 0.0001;
-                    $cambioDatos = $anterior && (
-                        self::strVal($anterior['sucursal'] ?? '') !== self::strVal($datos['sucursal'] ?? '')
-                        || self::strVal($anterior['distribuidor'] ?? '') !== self::strVal($datos['distribuidor'] ?? '')
-                        || self::strVal($anterior['asesor'] ?? '') !== self::strVal($datos['asesor'] ?? '')
-                        || self::nullableInt($anterior['asesor_persona_id'] ?? null) !== self::nullableInt($datos['asesor_persona_id'] ?? null)
-                        || $clasificacionAnteriorId !== $clasificacionNuevaId
-                        || $comisionAnterior !== $comisionNueva
-                    );
-
                     if ($cambioMeta || $cambioDatos) {
-                        if ($esReajusteMasivo && !empty($detalleActual['id'])) {
+                        if ($esReajusteMasivo && $anterior && !empty($detalleActual['id'])) {
                             $db->CRUD("
                                 UPDATE atlas_presupuesto_sucursal_gestores
                                 SET activo = 0,
@@ -6704,11 +6886,14 @@ class Atlas extends Model
                 'filas_leidas' => $filasRecibidas,
                 'sucursales_esperadas' => count($sucursalesObligatorias),
                 'registros_importados' => $importadas,
+                'registros_persistidos' => $registrosPersistidos,
+                'registros_sin_cambios' => max(0, $importadas - $registrosPersistidos),
                 'duplicados' => count($duplicadas),
                 'extras' => count($extras),
+                'altas_fuera_catalogo' => count(array_filter($extras, static fn($item) => ($item['motivo'] ?? '') === 'alta_presupuesto')),
                 'faltantes' => count($faltantes),
                 'omitidos_invalidos' => $omitidasInvalidas,
-                'total_omitidos' => count($duplicadas) + count($extras) + count($faltantes) + $omitidasInvalidas,
+                'total_omitidos' => count($duplicadas) + $omitidasInvalidas,
                 'catalogo_clasificacion_actualizado' => $catalogoClasificacionActualizado,
                 'catalogo_asesor_actualizado' => $catalogoAsesorActualizado,
                 'errores_asignacion' => count($erroresAsignacion),
@@ -6761,6 +6946,14 @@ class Atlas extends Model
             if ($db->inTransaction()) {
                 $db->rollback();
             }
+            error_log(sprintf(
+                '[Atlas Presupuestos] Fallo al guardar %04d-%02d evento=%s filas=%d: %s',
+                $anio,
+                $mes,
+                $eventoLote !== '' ? $eventoLote : 'carga',
+                count($filas),
+                $e->getMessage()
+            ));
             return ['success' => false, 'mensaje' => 'No se pudo guardar el presupuesto mensual.', 'error' => $e->getMessage()];
         }
     }
@@ -7169,20 +7362,100 @@ class Atlas extends Model
         ") ?: [];
 
         $map = [];
+        $personas = [];
         foreach ($rows as $row) {
             $firma = self::firmaNombrePersonaPresupuesto($row['nombre'] ?? '');
             if ($firma === '') {
                 continue;
             }
-            $map[$firma][] = [
+            $persona = [
                 'id' => (int)($row['id'] ?? 0),
                 'nombre' => self::strVal($row['nombre'] ?? ''),
                 'numero_empleado' => self::strVal($row['numero_empleado'] ?? ''),
                 'user_name' => self::strVal($row['user_name'] ?? ''),
+                '_firma_presupuesto' => $firma,
             ];
+            $map[$firma][] = $persona;
+            $personas[] = $persona;
         }
 
-        return $map;
+        return [
+            'por_firma' => $map,
+            'personas' => $personas,
+        ];
+    }
+
+    private static function resolverPersonasPresupuestoPorNombre($nombre, array $catalogo): array
+    {
+        $firma = self::firmaNombrePersonaPresupuesto($nombre);
+        if ($firma === '') {
+            return [];
+        }
+
+        $exactas = $catalogo['por_firma'][$firma] ?? [];
+        if ($exactas) {
+            return $exactas;
+        }
+
+        $tokensExcel = explode('|', $firma);
+        $candidatas = [];
+        foreach ($catalogo['personas'] ?? [] as $persona) {
+            $firmaPersona = self::strVal($persona['_firma_presupuesto'] ?? '');
+            if ($firmaPersona === '') {
+                $firmaPersona = self::firmaNombrePersonaPresupuesto($persona['nombre'] ?? '');
+            }
+            $tokensPersona = $firmaPersona !== '' ? explode('|', $firmaPersona) : [];
+            if (count($tokensExcel) !== count($tokensPersona)) {
+                continue;
+            }
+
+            $diferencias = 0;
+            $coincidenciaSegura = true;
+            foreach ($tokensExcel as $idx => $tokenExcel) {
+                $tokenPersona = $tokensPersona[$idx] ?? '';
+                if ($tokenExcel === $tokenPersona) {
+                    continue;
+                }
+
+                $diferencias++;
+                if (
+                    $diferencias > 1
+                    || min(strlen($tokenExcel), strlen($tokenPersona)) < 4
+                    || levenshtein($tokenExcel, $tokenPersona) > 1
+                ) {
+                    $coincidenciaSegura = false;
+                    break;
+                }
+            }
+
+            if ($coincidenciaSegura && $diferencias === 1) {
+                $candidatas[] = $persona;
+            }
+        }
+
+        if ($candidatas) {
+            return $candidatas;
+        }
+
+        if (count($tokensExcel) < 3) {
+            return [];
+        }
+
+        foreach ($catalogo['personas'] ?? [] as $persona) {
+            $firmaPersona = self::strVal($persona['_firma_presupuesto'] ?? '');
+            if ($firmaPersona === '') {
+                $firmaPersona = self::firmaNombrePersonaPresupuesto($persona['nombre'] ?? '');
+            }
+            $tokensPersona = $firmaPersona !== '' ? explode('|', $firmaPersona) : [];
+            if (count($tokensPersona) !== count($tokensExcel) + 1) {
+                continue;
+            }
+            if (!array_diff($tokensExcel, $tokensPersona)) {
+                $candidatas[] = $persona;
+            }
+        }
+
+        return $candidatas;
     }
 
     private static function getDistribuidorSucursalPresupuesto(Database $db, int $fkSucursal): ?array
@@ -7359,6 +7632,31 @@ class Atlas extends Model
         ") ?: [];
     }
 
+    private static function getSucursalesCatalogoPresupuestoPorFk(Database $db): array
+    {
+        $rows = $db->queryAll("
+            SELECT
+                s.fk_sucursal,
+                s.activo,
+                COALESCE(s.sucursal, '') AS sucursal,
+                COALESCE(d.nombre, '') AS distribuidor,
+                COALESCE(d.estatus, 'activo') AS distribuidor_estatus,
+                COALESCE(cls.nombre, '') AS clasificacion
+            FROM atlas_catalogo_sucursales s
+            LEFT JOIN atlas_catalogo_distribuidores d ON d.id = s.distribuidor_id
+            LEFT JOIN atlas_catalogo_clasificaciones cls ON cls.id = s.clasificacion_id
+        ") ?: [];
+
+        $porFk = [];
+        foreach ($rows as $row) {
+            $fkSucursal = (int)($row['fk_sucursal'] ?? 0);
+            if ($fkSucursal > 0) {
+                $porFk[$fkSucursal] = $row;
+            }
+        }
+        return $porFk;
+    }
+
     private static function recalcularTotalesPresupuesto(Database $db, int $presupuestoId): void
     {
         $tot = $db->queryOne("
@@ -7428,6 +7726,11 @@ class Atlas extends Model
         return is_numeric($text) ? (float)$text : 0.0;
     }
 
+    private static function decimalPresupuestoPersistible($value): float
+    {
+        return round(self::decimalPresupuesto($value), 2, PHP_ROUND_HALF_UP);
+    }
+
     private static function valorPresupuestoEsNumerico($value): bool
     {
         if ($value === null || trim((string)$value) === '') {
@@ -7446,6 +7749,14 @@ class Atlas extends Model
             return null;
         }
         return self::decimalPresupuesto($value);
+    }
+
+    private static function nullableDecimalPresupuestoPersistible($value): ?float
+    {
+        if ($value === null || trim((string)$value) === '') {
+            return null;
+        }
+        return self::decimalPresupuestoPersistible($value);
     }
 
     public static function getRiesgosOperativos(): array

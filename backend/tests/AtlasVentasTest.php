@@ -10,18 +10,21 @@ require_once dirname(__DIR__) . '/services/AtlasVentasReportService.php';
 
 final class AtlasVentasTest extends TestCase
 {
-    public function testGeneralRulePrioritizesPorDispersar(): void
+    public function testBiRulePrioritizesDispersadoForRegularDistributors(): void
     {
         $selection = AtlasVentas::seleccionarVenta([
             'fk_distribuidor' => 10,
             'fecha_paso_por_dispersar' => '2026-07-12 10:00:00',
             'fecha_paso_dispersado' => '2026-07-10 09:00:00',
+            'fecha_paso_factura' => '2026-07-11 08:30:00',
             'fecha_paso_s2credit' => '2026-07-08 08:00:00',
+            'fecha_dispersion_bancaria' => '2026-07-07 07:00:00',
         ], [], '2026-07-01', '2026-07-31');
 
         self::assertNotNull($selection);
-        self::assertSame('POR_DISPERSAR', $selection['criterio_fecha_venta']);
-        self::assertSame('2026-07-12 10:00:00', $selection['fecha_contabilizacion_venta']);
+        self::assertSame('DISPERSADO', $selection['criterio_fecha_venta']);
+        self::assertSame('2026-07-10 09:00:00', $selection['fecha_dispersion']);
+        self::assertSame('2026-07-10 09:00:00', $selection['fecha_contabilizacion_venta']);
     }
 
     public function testGeneralRuleFallsBackToS2Credit(): void
@@ -37,50 +40,78 @@ final class AtlasVentasTest extends TestCase
         self::assertSame('S2CREDIT', $selection['criterio_fecha_venta']);
     }
 
-    public function testSpecificActivationRuleUsesS2Credit(): void
+    public function testBiGeneralRuleUsesFacturaBeforeS2Credit(): void
     {
         $selection = AtlasVentas::seleccionarVenta([
-            'fk_distribuidor' => 236,
-            'fecha_paso_por_dispersar' => '2026-07-20 10:00:00',
-            'fecha_paso_dispersado' => '2026-07-21 10:00:00',
-            'fecha_paso_s2credit' => '2026-07-15 08:00:00',
-        ], [[
-            'id' => 9,
-            'fk_distribuidor' => 236,
-            'criterio_fecha' => 'ACTIVACION',
-            'etapa_requerida' => 'S2CREDIT',
-            'estatus' => 1,
-            'vigencia_desde' => '1970-01-01',
-            'vigencia_hasta' => null,
-        ]], '2026-07-01', '2026-07-31');
+            'fk_distribuidor' => 10,
+            'fecha_paso_factura' => '2026-07-19 14:00:00',
+            'fecha_paso_s2credit' => '2026-07-18 12:30:00',
+        ], [], '2026-07-01', '2026-07-31');
 
         self::assertNotNull($selection);
-        self::assertSame('ACTIVACION_S2', $selection['criterio_fecha_venta']);
-        self::assertSame('2026-07-15 08:00:00', $selection['fecha_contabilizacion_venta']);
-        self::assertSame(9, $selection['regla']['id']);
+        self::assertSame('FACTURA', $selection['criterio_fecha_venta']);
+        self::assertSame('2026-07-19 14:00:00', $selection['fecha_dispersion']);
     }
 
-    public function testInactiveSpecificRuleExcludesTheSale(): void
+    public function testAllBiSpecialDistributorsUseOnlyS2Credit(): void
+    {
+        foreach ([736, 556, 531, 290, 211, 106, 70, 31, 14, 824, 849, 520] as $distributor) {
+            $selection = AtlasVentas::seleccionarVenta([
+                'fk_distribuidor' => $distributor,
+                'fecha_paso_por_dispersar' => '2026-07-20 10:00:00',
+                'fecha_paso_dispersado' => '2026-07-21 10:00:00',
+                'fecha_paso_factura' => '2026-07-19 09:00:00',
+                'fecha_paso_s2credit' => '2026-07-15 08:00:00',
+                'fecha_dispersion_bancaria' => '2026-07-14 07:00:00',
+            ], [], '2026-07-01', '2026-07-31');
+
+            self::assertNotNull($selection, "Distribuidor especial {$distributor}");
+            self::assertSame('S2CREDIT', $selection['criterio_fecha_venta']);
+            self::assertSame('2026-07-15 08:00:00', $selection['fecha_dispersion']);
+        }
+    }
+
+    public function testBiRuleUsesBankDispersionBeforeTheCutoff(): void
     {
         $selection = AtlasVentas::seleccionarVenta([
-            'fk_distribuidor' => 824,
-            'fecha_paso_por_dispersar' => '2026-07-20 10:00:00',
-            'fecha_paso_dispersado' => '2026-07-21 10:00:00',
-            'fecha_paso_s2credit' => '2026-07-15 08:00:00',
-        ], [[
-            'id' => 10,
-            'fk_distribuidor' => 824,
-            'criterio_fecha' => 'ACTIVACION',
-            'etapa_requerida' => 'POR DISPERSAR',
-            'estatus' => 0,
-            'vigencia_desde' => '1970-01-01',
-            'vigencia_hasta' => null,
-        ]], '2026-07-01', '2026-07-31');
+            'fk_distribuidor' => 10,
+            'fecha_paso_dispersado' => '2026-06-20 10:00:00',
+            'fecha_dispersion_bancaria' => '2026-06-22 11:30:00',
+        ], [], '2026-06-01', '2026-06-30');
 
-        self::assertNull($selection);
+        self::assertNotNull($selection);
+        self::assertSame('DISPERSION_BANCARIA', $selection['criterio_fecha_venta']);
+        self::assertSame('2026-06-22 11:30:00', $selection['fecha_contabilizacion_venta']);
     }
 
-    public function testSaleKeepsDispersionDateSeparateFromAccountingDate(): void
+    public function testBiUsesBankWhenTheHighestPriorityStageIsBeforeTheCutoff(): void
+    {
+        $selection = AtlasVentas::seleccionarVenta([
+            'fk_distribuidor' => 10,
+            'fecha_paso_dispersado' => '2026-06-28 23:59:59',
+            'fecha_paso_por_dispersar' => '2026-07-04 10:00:00',
+            'fecha_dispersion_bancaria' => '2026-07-02 09:15:00',
+        ], [], '2026-07-01', '2026-07-31');
+
+        self::assertNotNull($selection);
+        self::assertSame('DISPERSION_BANCARIA', $selection['criterio_fecha_venta']);
+        self::assertSame('2026-07-02 09:15:00', $selection['fecha_dispersion']);
+    }
+
+    public function testBiCutoffIsInclusive(): void
+    {
+        $selection = AtlasVentas::seleccionarVenta([
+            'fk_distribuidor' => 10,
+            'fecha_paso_dispersado' => '2026-06-29 00:00:00',
+            'fecha_dispersion_bancaria' => '2026-06-28 12:00:00',
+        ], [], '2026-06-01', '2026-06-30');
+
+        self::assertNotNull($selection);
+        self::assertSame('DISPERSADO', $selection['criterio_fecha_venta']);
+        self::assertSame('2026-06-29 00:00:00', $selection['fecha_dispersion']);
+    }
+
+    public function testSalePublishesTheSameBiDateForScreenAndAccounting(): void
     {
         $method = new ReflectionMethod(AtlasVentas::class, 'normalizarVenta');
         $method->setAccessible(true);
@@ -88,17 +119,18 @@ final class AtlasVentasTest extends TestCase
             'id_persona' => 387902,
             'id_oferta' => 2219592,
             'cliente_nombre_completo' => 'CESAR JAHIR CORTES ROSALES',
-            'fecha_dispersion' => '2026-07-13 20:21:35',
+            'fecha_dispersion_bancaria' => '2026-07-13 20:21:35',
         ], [
-            'fecha_contabilizacion_venta' => '2026-07-12 10:00:00',
-            'criterio_fecha_venta' => 'POR_DISPERSAR',
+            'fecha_dispersion' => '2026-07-15 08:00:00',
+            'fecha_contabilizacion_venta' => '2026-07-15 08:00:00',
+            'criterio_fecha_venta' => 'DISPERSADO',
             'regla' => ['id' => null],
         ]);
 
         self::assertSame(2219592, $sale['id_oferta']);
         self::assertSame('CESAR JAHIR CORTES ROSALES', $sale['nombre_cliente']);
-        self::assertSame('2026-07-13 20:21:35', $sale['fecha_dispersion']);
-        self::assertSame('2026-07-12 10:00:00', $sale['fecha_contabilizacion_venta']);
+        self::assertSame('2026-07-15 08:00:00', $sale['fecha_dispersion']);
+        self::assertSame($sale['fecha_dispersion'], $sale['fecha_contabilizacion_venta']);
     }
 
     public function testFilterRejectsAnInvertedRange(): void
@@ -130,8 +162,25 @@ final class AtlasVentasTest extends TestCase
         ]);
 
         self::assertTrue($filters['historico']);
-        self::assertSame('1970-01-01', $filters['fecha_inicio']);
+        self::assertSame('2025-01-01', $filters['fecha_inicio']);
         self::assertSame('2026-07-31', $filters['fecha_fin']);
+    }
+
+    public function testHistoricalCacheRangeStillHonorsTheRequestedEndDate(): void
+    {
+        $filters = AtlasVentas::normalizarFiltros([
+            'historico' => true,
+            'fecha_fin' => '2026-07-31',
+        ]);
+        $method = new ReflectionMethod(AtlasVentas::class, 'rangoSqlCache');
+        $method->setAccessible(true);
+
+        [$sql, $params] = $method->invoke(null, 'ventas:v5:bi', $filters);
+
+        self::assertStringContainsString('fecha_dispersion >= :fecha_inicio_rango', $sql);
+        self::assertStringContainsString('fecha_dispersion < DATE_ADD(:fecha_fin_rango, INTERVAL 1 DAY)', $sql);
+        self::assertSame('2025-01-01', $params['fecha_inicio_rango']);
+        self::assertSame('2026-07-31', $params['fecha_fin_rango']);
     }
 
     public function testReportKeepsTheReceivedLayoutHeadersAndOrder(): void
@@ -141,7 +190,7 @@ final class AtlasVentasTest extends TestCase
             'id_persona' => 387902,
             'id_oferta' => 2219592,
             'nombre_cliente' => 'CESAR JAHIR CORTES ROSALES',
-            'fecha_dispersion' => '2026-07-13 20:21:35',
+            'fecha_dispersion' => '2026-07-15 08:00:00',
             'fecha_contabilizacion_venta' => '2026-07-15 08:00:00',
             'sucursal' => 'ZMOTO PASO DEL MACHO',
             'distribuidor' => 'DISTRIBUIDOR DEMO',
@@ -168,10 +217,11 @@ final class AtlasVentasTest extends TestCase
                 [AtlasVentasReportService::HEADERS],
                 $sheet->rangeToArray('A1:T1', null, true, false)
             );
+            self::assertSame('Fecha de dispersión', $sheet->getCell('D1')->getValue());
             self::assertSame('usuario ', $sheet->getCell('Q1')->getValue());
             self::assertCount(1, $sheet->getTableCollection());
             self::assertSame(2219592, $sheet->getCell('B2')->getValue());
-            self::assertSame('13/07/2026 20:21:35', $sheet->getCell('D2')->getFormattedValue());
+            self::assertSame('15/07/2026 08:00:00', $sheet->getCell('D2')->getFormattedValue());
         } finally {
             $spreadsheet->disconnectWorksheets();
         }
@@ -255,39 +305,57 @@ final class AtlasVentasTest extends TestCase
         self::assertStringContainsString('public function ventas()', $controller);
         self::assertStringContainsString('public function getVentas()', $controller);
         self::assertStringContainsString('public function exportarVentas()', $controller);
+        self::assertStringContainsString('$this->validarAccesoVentas(true)', $controller);
+        self::assertStringContainsString('session_status() === PHP_SESSION_ACTIVE', $controller);
+        self::assertStringContainsString("error_log('[Atlas ventas export] '", $controller);
         self::assertStringContainsString("\$this->set('layoutVendorLite', true)", $controller);
-        self::assertStringContainsString("\$this->set('layoutPreloadSweetAlert', true)", $controller);
         self::assertStringContainsString("\$this->set('layoutSelect2', true)", $controller);
+        self::assertStringNotContainsString("\$this->set('layoutPreloadSweetAlert', true)", $controller);
         self::assertStringNotContainsString("header('Location: /Atlas/ventas'", $controller);
-        self::assertStringContainsString('AtlasVentasDAO::precargar($forzarActualizacion)', $controller);
+        self::assertStringContainsString("\$query['historico'] = true", $controller);
+        self::assertStringContainsString('AtlasVentasDAO::consultarPaginado($query, true, $forzarActualizacion)', $controller);
+        self::assertStringContainsString('AtlasVentasDAO::consultarPaginado($query, false, $forzarActualizacion)', $controller);
+        self::assertStringContainsString('AtlasVentasDAO::consultarPaginado($query, true)', $controller);
         self::assertStringContainsString('jsonComprimido($response)', $controller);
         self::assertStringContainsString("'/Atlas/ventas'", $menu);
-        self::assertStringContainsString('if ($layoutPreloadSweetAlert)', $menu);
-        self::assertStringContainsString('if (!$layoutPreloadSweetAlert)', $menu);
-        self::assertStringContainsString('window.__atlasVentasPreload', $menu);
-        self::assertLessThan(
-            strpos($menu, '<!-- Layout wrapper -->'),
-            strpos($menu, 'window.__atlasVentasPreload')
-        );
-        self::assertStringContainsString("'/Atlas/getVentas?carga_completa=1'", $view);
-        self::assertStringContainsString('fetch(preloadUrl', $view);
+        self::assertStringNotContainsString('carga_completa=1', $view);
+        self::assertStringContainsString('paramsFromFilters(true)', $view);
+        self::assertStringContainsString('new AbortController()', $view);
+        self::assertStringContainsString('setTimeout(() =>', $view);
+        self::assertStringContainsString('}, 250);', $view);
+        self::assertStringContainsString('fetch(`/Atlas/getVentas?${params.toString()}`', $view);
         self::assertStringContainsString("mode: 'range'", $view);
-        self::assertStringContainsString("state.allRows.filter", $view);
-        self::assertStringContainsString("elements.search.addEventListener('input', scheduleFilter)", $view);
+        self::assertStringContainsString("monthSelectorType: 'dropdown'", $view);
+        self::assertStringContainsString('showMonths: 1', $view);
+        self::assertStringContainsString("instance.monthNav.querySelector('.flatpickr-monthDropdown-months')", $view);
+        self::assertStringContainsString("yearSelector.setAttribute('aria-label', 'Seleccionar año')", $view);
+        self::assertStringNotContainsString('minDate: dateFromIso', $view);
+        self::assertStringNotContainsString('maxDate: dateFromIso', $view);
+        self::assertStringNotContainsString('state.allRows', $view);
+        self::assertStringNotContainsString('state.filteredRows', $view);
+        self::assertStringContainsString("elements.search.addEventListener('input', scheduleLoad)", $view);
         self::assertStringContainsString('id="atlasSalesStage"', $view);
         self::assertStringContainsString('atlas-sales-filters-secondary', $view);
         self::assertStringContainsString("minimumResultsForSearch: 0", $view);
-        self::assertStringContainsString("&& (!stage || row._stage === stage)", $view);
         self::assertStringContainsString("state.start = '';", $view);
         self::assertStringContainsString("state.end = '';", $view);
         self::assertStringContainsString('>Limpiar', $view);
         self::assertStringContainsString('>Listo', $view);
         self::assertStringContainsString('atlasSalesRefresh', $view);
-        self::assertStringContainsString('const preloadStartedAt = showPreload();', $view);
-        self::assertStringContainsString('await closePreload(preloadStartedAt);', $view);
         self::assertStringContainsString("document.addEventListener('DOMContentLoaded', initializeAtlasSales", $view);
-        self::assertStringContainsString('atlas-sales-inline-loader', $view);
-        self::assertSame(1, substr_count($view, 'fetch('));
+        self::assertStringNotContainsString('atlas-sales-inline-loader', $view);
+        self::assertStringNotContainsString('Consultando ventas...', $view);
+        self::assertStringNotContainsString('Preparando consulta...', $view);
+        self::assertStringNotContainsString("title: 'No se pudieron cargar las ventas'", $view);
+        self::assertSame(2, substr_count($view, 'fetch('));
+        self::assertStringContainsString('const exportSales = async () =>', $view);
+        self::assertStringContainsString("title: 'Preparando todo...'", $view);
+        self::assertStringContainsString("title: 'Cargando ventas...'", $view);
+        self::assertStringContainsString("title: 'Generando archivo Excel...'", $view);
+        self::assertStringContainsString('Swal.update(progress[progressIndex])', $view);
+        self::assertStringContainsString('response.blob()', $view);
+        self::assertStringContainsString('response.redirected', $view);
+        self::assertStringContainsString('URL.revokeObjectURL(objectUrl), 60000', $view);
         self::assertStringNotContainsString('atlasSalesConsult', $view);
         self::assertStringNotContainsString('atlasSalesStart', $view);
         self::assertStringNotContainsString('atlasSalesEnd', $view);
@@ -296,10 +364,26 @@ final class AtlasVentasTest extends TestCase
         self::assertStringNotContainsString('restoreFiltersFromUrl', $view);
         self::assertStringNotContainsString('new URLSearchParams(location.search)', $view);
         self::assertStringContainsString('atlas_ventas_precarga_cache', $model);
-        self::assertStringContainsString("'ventas:v3:historico'", $model);
-        self::assertStringContainsString("WHERE etapa IN ('S2CREDIT', 'POR DISPERSAR', 'DISPERSADO')", $model);
+        self::assertStringContainsString('atlas_ventas_cache_filas', $model);
+        self::assertStringContainsString('atlas_ventas_cache_estado', $model);
+        self::assertStringContainsString('atlas_ventas_cache_catalogos', $model);
+        self::assertStringContainsString('idx_atlas_ventas_cache_dispersion', $model);
+        self::assertStringContainsString('LIMIT {$tamano} OFFSET {$offset}', $model);
+        self::assertStringContainsString("private const CACHE_KEY = 'ventas:v5:bi'", $model);
+        self::assertStringContainsString('DATE_ADD(o.fecha_hora, INTERVAL -6 HOUR) AS fecha_oferta', $model);
+        self::assertStringContainsString("private const BI_DISPERSION_CUTOFF = '2026-06-29 00:00:00'", $model);
+        self::assertStringContainsString('MAX(id_oferta) AS id_oferta', $model);
+        self::assertStringContainsString('GROUP BY id_persona', $model);
+        self::assertStringContainsString("'id_persona > 0'", $model);
+        self::assertStringContainsString('p.id_persona AS id_persona', $model);
+        self::assertStringContainsString('venta.fecha_dispersion DESC, venta.id_oferta ASC', $model);
+        self::assertStringContainsString('"{$alias}.etapa", "{$alias}.oferta"', $model);
+        self::assertStringContainsString("WHERE etapa IN ('S2CREDIT', 'POR DISPERSAR', 'FACTURA', 'DISPERSADO')", $model);
         self::assertStringContainsString("UPPER(TRIM(o.etapa)) = :etapa_actual", $model);
         self::assertStringContainsString('/Atlas/exportarVentas?', $view);
-        self::assertStringContainsString("link.download = '';", $view);
+        self::assertStringContainsString('link.download = filenameFromDisposition', $view);
+        self::assertStringContainsString('if (forceRefresh) state.catalogsLoaded = false', $view);
+        self::assertStringContainsString('initDatePicker();', $view);
+        self::assertStringNotContainsString("state.picker.set('maxDate'", $view);
     }
 }

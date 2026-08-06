@@ -718,6 +718,8 @@
             comparativoPorPagina: 50,
             analisisProgreso: null,
             analisisDuracionStorageKey: 'atlas_presupuesto_analisis_duracion_ms',
+            confirmacionProgreso: null,
+            confirmacionDuracionStorageKey: 'atlas_presupuesto_confirmacion_duracion_ms',
             modalImport: null,
             modalComparativo: null,
             modalEdit: null,
@@ -2159,6 +2161,145 @@
                 if (typeof Swal !== 'undefined') Swal.close();
             },
 
+            formatearDuracionProceso(duracionMs) {
+                const segundos = Math.max(0, Math.round(Number(duracionMs || 0) / 1000));
+                if (segundos < 60) return `${segundos} s`;
+                const minutos = Math.floor(segundos / 60);
+                const segundosRestantes = segundos % 60;
+                return segundosRestantes > 0
+                    ? `${minutos} min ${segundosRestantes} s`
+                    : `${minutos} min`;
+            },
+
+            estimarDuracionConfirmacion(analisis) {
+                const resumen = analisis?.resumen || {};
+                const filas = Math.max(1, Number(resumen.sucursales_archivo || resumen.filas_leidas || 0));
+                const cambios = Math.max(1, Number(resumen.cambios || 0));
+                const estimadoPorVolumen = 30000 + Math.min(70000, (filas * 20) + (cambios * 120));
+                let duracionAnterior = 0;
+                try {
+                    duracionAnterior = Number(window.localStorage.getItem(this.confirmacionDuracionStorageKey) || 0);
+                } catch (err) {
+                    duracionAnterior = 0;
+                }
+                const estimado = duracionAnterior >= 5000 && duracionAnterior <= 180000
+                    ? (duracionAnterior * .7) + (estimadoPorVolumen * .3)
+                    : estimadoPorVolumen;
+                return Math.round(Math.min(150000, Math.max(20000, estimado)) / 1000) * 1000;
+            },
+
+            guardarDuracionConfirmacion(duracionMs) {
+                if (!Number.isFinite(duracionMs) || duracionMs < 1000 || duracionMs > 180000) return;
+                try {
+                    window.localStorage.setItem(this.confirmacionDuracionStorageKey, String(Math.round(duracionMs)));
+                } catch (err) {
+                    // La confirmacion conserva su estimado por volumen si no hay almacenamiento local.
+                }
+            },
+
+            mostrarProgresoConfirmacion(analisis) {
+                const estimadoMs = this.estimarDuracionConfirmacion(analisis);
+                const totalCambios = Number(analisis?.resumen?.cambios || 0);
+                this.confirmacionProgreso = {
+                    inicio: this.relojAnalisis(),
+                    estimadoMs,
+                    timer: null
+                };
+                if (typeof Swal === 'undefined') return;
+
+                Swal.fire({
+                    title: '',
+                    html: `
+                        <div class="atlas-pres-analysis">
+                            <div class="atlas-pres-analysis-head">
+                                <span class="atlas-pres-analysis-icon"><i class="fa-solid fa-arrows-rotate"></i></span>
+                                <div class="min-w-0">
+                                    <div class="atlas-pres-analysis-title">Aplicando reajuste</div>
+                                    <div class="atlas-pres-analysis-file">${this.escape(analisis?.nombre_mes || '')} ${this.escape(analisis?.anio || '')} · ${this.number(totalCambios)} cambio${totalCambios === 1 ? '' : 's'}</div>
+                                </div>
+                            </div>
+                            <div class="atlas-pres-analysis-status" id="atlasPresConfirmacionEstado" role="status" aria-live="polite">
+                                Estamos preparando la actualización del presupuesto...
+                            </div>
+                            <div class="progress atlas-pres-analysis-progress" role="progressbar" aria-label="Avance estimado del reajuste" aria-valuemin="0" aria-valuemax="100" aria-valuenow="5" id="atlasPresConfirmacionProgreso">
+                                <div class="progress-bar" id="atlasPresConfirmacionBarra" style="width:5%"></div>
+                            </div>
+                            <div class="atlas-pres-analysis-meta">
+                                <span id="atlasPresConfirmacionEstimado">Tiempo estimado: cerca de ${this.formatearDuracionProceso(estimadoMs)}</span>
+                                <span id="atlasPresConfirmacionTranscurrido">Transcurrido: 0 s</span>
+                            </div>
+                        </div>`,
+                    customClass: { popup: 'atlas-pres-analysis-popup' },
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        this.actualizarProgresoConfirmacion();
+                        if (this.confirmacionProgreso) {
+                            this.confirmacionProgreso.timer = window.setInterval(() => this.actualizarProgresoConfirmacion(), 500);
+                        }
+                    }
+                });
+            },
+
+            actualizarProgresoConfirmacion() {
+                const progreso = this.confirmacionProgreso;
+                if (!progreso) return;
+                const transcurridoMs = Math.max(0, this.relojAnalisis() - progreso.inicio);
+                const proporcion = transcurridoMs / progreso.estimadoMs;
+                const porcentaje = proporcion <= 1
+                    ? Math.min(88, 5 + (83 * proporcion))
+                    : Math.min(96, 88 + ((proporcion - 1) * 5));
+                let mensaje = 'Estamos preparando la actualización del presupuesto...';
+                if (proporcion >= .12) mensaje = 'Estamos verificando que el presupuesto siga listo para actualizarse...';
+                if (proporcion >= .32) mensaje = 'Estamos aplicando responsables, metas y sucursales...';
+                if (proporcion >= .58) mensaje = 'Estamos recalculando los totales del presupuesto...';
+                if (proporcion >= .82) mensaje = 'Ya falta poco, estamos registrando el reajuste...';
+                if (proporcion >= 1.1) mensaje = 'El reajuste es amplio y sigue procesándose de forma segura...';
+                if (proporcion >= 1.6) mensaje = 'Está tomando más de lo habitual; no cierres esta ventana...';
+
+                const barra = document.getElementById('atlasPresConfirmacionBarra');
+                const contenedor = document.getElementById('atlasPresConfirmacionProgreso');
+                const estado = document.getElementById('atlasPresConfirmacionEstado');
+                const estimado = document.getElementById('atlasPresConfirmacionEstimado');
+                const transcurrido = document.getElementById('atlasPresConfirmacionTranscurrido');
+                if (barra) barra.style.width = `${porcentaje.toFixed(1)}%`;
+                if (contenedor) contenedor.setAttribute('aria-valuenow', String(Math.round(porcentaje)));
+                if (estado) estado.textContent = mensaje;
+                if (estimado && proporcion > 1) estimado.textContent = 'La operación continúa en curso';
+                if (transcurrido) transcurrido.textContent = `Transcurrido: ${this.formatearDuracionProceso(transcurridoMs)}`;
+            },
+
+            detenerProgresoConfirmacion() {
+                const progreso = this.confirmacionProgreso;
+                if (!progreso) return 0;
+                if (progreso.timer) window.clearInterval(progreso.timer);
+                progreso.timer = null;
+                return Math.max(0, this.relojAnalisis() - progreso.inicio);
+            },
+
+            completarProgresoConfirmacion(duracionMs) {
+                this.detenerProgresoConfirmacion();
+                this.guardarDuracionConfirmacion(duracionMs);
+                const barra = document.getElementById('atlasPresConfirmacionBarra');
+                const contenedor = document.getElementById('atlasPresConfirmacionProgreso');
+                const estado = document.getElementById('atlasPresConfirmacionEstado');
+                const estimado = document.getElementById('atlasPresConfirmacionEstimado');
+                const transcurrido = document.getElementById('atlasPresConfirmacionTranscurrido');
+                if (barra) barra.style.width = '100%';
+                if (contenedor) contenedor.setAttribute('aria-valuenow', '100');
+                if (estado) estado.textContent = 'Reajuste aplicado. Estamos preparando el resultado...';
+                if (estimado) estimado.textContent = 'Actualización completada';
+                if (transcurrido) transcurrido.textContent = `Completado en ${this.formatearDuracionProceso(duracionMs)}`;
+                return new Promise(resolve => window.setTimeout(resolve, 300));
+            },
+
+            cancelarProgresoConfirmacion() {
+                this.detenerProgresoConfirmacion();
+                this.confirmacionProgreso = null;
+                if (typeof Swal !== 'undefined') Swal.close();
+            },
+
             importar(ev) {
                 ev.preventDefault();
                 const form = ev.currentTarget;
@@ -2282,16 +2423,16 @@
                         <strong>${this.number(resumen.cambios || 0)}</strong>
                     </div>
                     <div class="atlas-pres-adjust-metric is-green">
-                        <span>Reasignaciones</span>
-                        <strong>${this.number(resumen.reasignaciones || 0)}</strong>
+                        <span>Altas nuevas</span>
+                        <strong>${this.number(resumen.altas || 0)}</strong>
                     </div>
                     <div class="atlas-pres-adjust-metric is-violet">
                         <span>Ajustes de presupuesto</span>
                         <strong>${this.number(resumen.ajustes_presupuesto || 0)}</strong>
                     </div>
                     <div class="atlas-pres-adjust-metric is-slate">
-                        <span>Sin cambios</span>
-                        <strong>${this.number(resumen.sin_cambios || 0)}</strong>
+                        <span>Reasignaciones</span>
+                        <strong>${this.number(resumen.reasignaciones || 0)}</strong>
                     </div>
                 `;
                 this.renderTotalesComparativoReajuste(datos);
@@ -2458,7 +2599,7 @@
 
             badgeCampoReajuste(campo) {
                 const etiquetas = {
-                    alta: 'Alta',
+                    alta: 'Alta nueva',
                     responsable: 'Responsable',
                     creditos: 'Créditos',
                     cash: 'Cash',
@@ -2517,7 +2658,7 @@
                 const operacion = resumir(datos.detalle_errores_operacion, item => `fila ${item?.fila || '-'} · PK ${item?.fk_sucursal || ''}`);
                 const invalidas = resumir(datos.detalle_filas_invalidas, item => `fila ${item?.fila || '-'} · ${item?.pk_sucursal || 'sin PK'}`);
                 if (faltantes) partes.push(`Faltantes del presupuesto mensual: ${faltantes}.`);
-                if (extras) partes.push(`PK inexistentes en catálogo: ${extras}.`);
+                if (extras) partes.push(`PK nuevas para el presupuesto: ${extras}.`);
                 if (duplicadas) partes.push(`Duplicadas: ${duplicadas}.`);
                 if (responsables) partes.push(`Responsables: ${responsables}.`);
                 if (clasificaciones) partes.push(`Clasificaciones: ${clasificaciones}.`);
@@ -2558,6 +2699,7 @@
 
                 const boton = document.getElementById('atlasPresComparativoConfirmar');
                 if (boton) boton.disabled = true;
+                this.mostrarProgresoConfirmacion(analisis);
                 http.request({
                     endpoint: '/Atlas/confirmarReajustePresupuesto',
                     metodo: 'POST',
@@ -2567,10 +2709,13 @@
                     }),
                     contentType: 'application/json; charset=UTF-8',
                     processData: false,
-                    showLoader: true,
+                    showLoader: false,
                     timeout: 120000,
+                    retry: 0,
                     onSuccess: (resp) => {
+                        const duracionMs = this.detenerProgresoConfirmacion();
                         if (!resp || resp.success === false) {
+                            this.cancelarProgresoConfirmacion();
                             showError(resp?.mensaje || 'No se pudo aplicar el reajuste.');
                             if ([409, 410].includes(Number(resp?.status || 0))) {
                                 this.reajusteAnalisis = null;
@@ -2581,7 +2726,11 @@
                         const resultado = resp.datos || {};
                         const presupuestoId = parseInt(resultado.presupuesto_id, 10);
                         this.calendariosPorAnio = {};
-                        this.cerrarModalComparativo().then(() => {
+                        this.completarProgresoConfirmacion(duracionMs).then(() => {
+                            this.confirmacionProgreso = null;
+                            if (typeof Swal !== 'undefined') Swal.close();
+                            return this.cerrarModalComparativo();
+                        }).then(() => {
                             this.reajusteAnalisis = null;
                             const aviso = this.mostrarResultadoImportacion(resultado);
                             Promise.resolve(aviso).finally(() => {
@@ -2592,7 +2741,33 @@
                             });
                         });
                     },
-                    onError: (mensajeError) => showError(mensajeError || 'No se pudo aplicar el reajuste.'),
+                    onError: (mensajeError, xhr) => {
+                        this.cancelarProgresoConfirmacion();
+                        const esTimeout = String(xhr?.statusText || '').toLowerCase() === 'timeout';
+                        console.error('[Atlas Presupuestos] Fallo al confirmar reajuste', {
+                            status: Number(xhr?.status || 0),
+                            statusText: String(xhr?.statusText || ''),
+                            mensaje: mensajeError || ''
+                        });
+                        this.reajusteAnalisis = null;
+                        const motivoControl = document.getElementById('atlasPresComparativoMotivo');
+                        if (motivoControl) motivoControl.disabled = true;
+                        this.cerrarModalComparativo().then(() => {
+                            const mensaje = esTimeout
+                                ? 'La actualización superó el tiempo de espera. No se enviará de nuevo automáticamente. Pulsa Actualizar para comprobar si se aplicó antes de cargar nuevamente el Excel.'
+                                : 'No pudimos confirmar el resultado del reajuste. No se enviará de nuevo automáticamente. Pulsa Actualizar para comprobar el estado antes de cargar nuevamente el Excel.';
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'No pudimos confirmar el resultado',
+                                    text: mensaje,
+                                    confirmButtonText: 'Entendido'
+                                });
+                            } else {
+                                showError(mensaje);
+                            }
+                        });
+                    },
                     onAlways: () => this.actualizarEstadoConfirmacionReajuste()
                 });
             },
@@ -2639,7 +2814,7 @@
                 }
                 if (Number(resumen.extras || 0) > 0) {
                     const muestra = (resumen.detalle_extras || []).map(x => `fila ${x.fila}: ${x.fk_sucursal}`).join(', ');
-                    detalle.push(`${this.number(resumen.extras)} sucursal(es) extra no venían en el template y no se cargaron${muestra ? ` (${muestra})` : ''}.`);
+                    detalle.push(`${this.number(resumen.extras)} sucursal(es) nueva(s) se agregaron al presupuesto${muestra ? ` (${muestra})` : ''}.`);
                 }
                 if (Number(resumen.faltantes || 0) > 0) {
                     const muestra = (resumen.detalle_faltantes || []).join(', ');
@@ -2662,9 +2837,11 @@
                         <div class="atlas-pres-import-result">
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Esperadas</span><span class="atlas-pres-import-result-value">${this.number(resumen.sucursales_esperadas || 0)}</span></div>
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Leídas</span><span class="atlas-pres-import-result-value">${this.number(resumen.filas_leidas || 0)}</span></div>
-                            <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Cargadas</span><span class="atlas-pres-import-result-value">${this.number(resumen.registros_importados || datos.registros_importados || 0)}</span></div>
+                            <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Revisadas</span><span class="atlas-pres-import-result-value">${this.number(resumen.registros_importados || datos.registros_importados || 0)}</span></div>
+                            <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Aplicadas</span><span class="atlas-pres-import-result-value">${this.number(resumen.registros_persistidos ?? resumen.registros_importados ?? datos.registros_importados ?? 0)}</span></div>
+                            <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Sin cambios</span><span class="atlas-pres-import-result-value">${this.number(resumen.registros_sin_cambios || 0)}</span></div>
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Duplicadas</span><span class="atlas-pres-import-result-value">${this.number(resumen.duplicados || 0)}</span></div>
-                            <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Extras</span><span class="atlas-pres-import-result-value">${this.number(resumen.extras || 0)}</span></div>
+                            <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Nuevas</span><span class="atlas-pres-import-result-value">${this.number(resumen.altas_fuera_catalogo || resumen.extras || 0)}</span></div>
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Faltantes</span><span class="atlas-pres-import-result-value">${this.number(resumen.faltantes || 0)}</span></div>
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Catalogo actualizado</span><span class="atlas-pres-import-result-value">${this.number(resumen.catalogo_clasificacion_actualizado || 0)}</span></div>
                             <div class="atlas-pres-import-result-item"><span class="atlas-pres-import-result-label">Asesores actualizados</span><span class="atlas-pres-import-result-value">${this.number(resumen.catalogo_asesor_actualizado || 0)}</span></div>
@@ -2714,7 +2891,8 @@
                 if (Number(resumen.extras || 0) > 0) {
                     bloques.push(`
                         <div class="mb-2">
-                            <div><strong>${this.number(resumen.extras)} sucursal(es) extra no venian en el template y no se cargaron.</strong></div>
+                            <div><strong>${this.number(resumen.altas_fuera_catalogo || resumen.extras)} sucursal(es) nueva(s) se agregaron al presupuesto mensual.</strong></div>
+                            <div class="small">Su alta completa en el catalogo operativo se administra por separado.</div>
                             <ul class="atlas-pres-import-warning-list">${(resumen.detalle_extras || []).map(x => `<li>${this.detalleSucursalImportacion(x, true)}</li>`).join('')}</ul>
                         </div>
                     `);
@@ -2775,7 +2953,7 @@
                     leidas: 'Filas validas leidas del Excel con Pk_Sucursal numerico.',
                     cargadas: 'Sucursales que si se guardaron en el presupuesto mensual.',
                     duplicadas: 'FK repetidos dentro del Excel. El sistema conserva el ultimo registro encontrado para esa sucursal.',
-                    extras: 'Sucursales que venian en el Excel, pero no existen en el template esperado. No se cargan.',
+                    extras: 'Sucursales nuevas del Excel que se agregaron al presupuesto mensual. El catalogo operativo se completa por separado con sus datos administrativos y de ubicacion.',
                     faltantes: 'Sucursales del template oficial que no llegaron en el Excel. Deben revisarse porque quedaron sin cargar.',
                     catalogo: 'Clasificaciones del catalogo de sucursales que fueron actualizadas para empatar con el Excel.',
                     asesores_actualizados: 'Sucursales cuyo asesor se actualizo automaticamente en el catalogo a partir del nombre recibido en el Excel.',

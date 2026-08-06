@@ -305,6 +305,55 @@ body.dark-mode .nav-leonidas-call.is-present {
 .leonidas-message--assistant { background: #eef3fb; color: #294365; }
 .leonidas-message--user { align-self: flex-end; background: #243a5c; color: #fff; }
 
+.leonidas-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .38rem;
+    max-width: 94%;
+    padding: .08rem 0 .18rem;
+}
+
+.leonidas-quick-actions__button {
+    max-width: 100%;
+    min-height: 2rem;
+    padding: .38rem .62rem;
+    border: 1px solid #315fbd;
+    border-radius: 999px;
+    background: #eef3ff;
+    color: #274f9f;
+    font-size: .7rem;
+    font-weight: 700;
+    line-height: 1.1;
+    text-align: left;
+    white-space: normal;
+    cursor: pointer;
+    transition: background .16s ease, color .16s ease, transform .16s ease;
+}
+
+.leonidas-quick-actions__button:hover:not(:disabled),
+.leonidas-quick-actions__button:focus-visible {
+    background: #315fbd;
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.leonidas-quick-actions__button.is-cancel {
+    border-color: #c88b25;
+    background: #fff8e9;
+    color: #8a5b12;
+}
+
+.leonidas-quick-actions__button.is-cancel:hover:not(:disabled),
+.leonidas-quick-actions__button.is-cancel:focus-visible {
+    background: #c88b25;
+    color: #fff;
+}
+
+.leonidas-quick-actions__button:disabled {
+    opacity: .58;
+    cursor: wait;
+}
+
 .leonidas-media-card {
     display: grid;
     gap: .65rem;
@@ -777,6 +826,52 @@ video.leonidas-media-card__preview {
     box-shadow: 0 30px 80px rgba(15, 23, 42, .3);
 }
 
+/* El editor conserva una caja estable. Los acordeones desplazan solamente
+   su propia columna; nunca cambian las dimensiones del modal ni del avatar. */
+@media (min-width: 576px) {
+    .leonidas-appearance-modal .modal-dialog {
+        height: min(690px, calc(100vh - 2rem));
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .leonidas-appearance-modal .modal-content {
+        height: 100%;
+        max-height: none;
+    }
+
+    .leonidas-appearance-modal .modal-header,
+    .leonidas-appearance-modal .modal-footer {
+        flex: 0 0 auto;
+    }
+
+    .leonidas-appearance-modal .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .leonidas-appearance-modal .leonidas-appearance-editor {
+        height: 100%;
+        min-height: 0;
+        align-items: stretch;
+    }
+
+    .leonidas-appearance-modal .leonidas-appearance-preview {
+        height: 100%;
+        min-height: 0;
+    }
+
+    .leonidas-appearance-modal .leonidas-appearance-controls {
+        max-height: 100%;
+        overflow-x: hidden;
+        overflow-y: auto;
+        padding-right: .3rem;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+    }
+}
+
 .leonidas-appearance-modal .modal-header {
     align-items: flex-start;
     padding: 1.2rem 1.35rem;
@@ -1010,13 +1105,92 @@ video.leonidas-media-card__preview {
 
 .leonidas-appearance-custom {
     margin-top: 1rem;
-    padding: .85rem;
+    overflow: hidden;
     border: 1px solid #dce4ef;
     border-radius: .85rem;
     background: #f8fafc;
 }
 
-.leonidas-appearance-custom > label {
+.leonidas-appearance-section + .leonidas-appearance-section {
+    border-top: 1px solid #dce4ef;
+}
+
+.leonidas-appearance-section > summary {
+    display: flex;
+    min-height: 3.4rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .65rem .8rem;
+    color: #2a3d57;
+    cursor: pointer;
+    list-style: none;
+    transition: background-color .16s ease;
+}
+
+.leonidas-appearance-section > summary::-webkit-details-marker,
+.leonidas-helmet-selector > summary::-webkit-details-marker {
+    display: none;
+}
+
+.leonidas-appearance-section > summary:hover {
+    background: #f0f5fb;
+}
+
+.leonidas-appearance-section > summary:focus-visible,
+.leonidas-helmet-selector > summary:focus-visible {
+    outline: 2px solid #2f63c4;
+    outline-offset: -2px;
+}
+
+.leonidas-appearance-section__title {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: .65rem;
+}
+
+.leonidas-appearance-section__title > i {
+    width: 1.2rem;
+    color: #9a641d;
+    text-align: center;
+}
+
+.leonidas-appearance-section__title strong,
+.leonidas-appearance-section__title small {
+    display: block;
+}
+
+.leonidas-appearance-section__title strong {
+    color: #2a3d57;
+    font-size: .78rem;
+}
+
+.leonidas-appearance-section__title small {
+    margin-top: .08rem;
+    color: #748197;
+    font-size: .64rem;
+    font-weight: 400;
+}
+
+.leonidas-appearance-section__chevron,
+.leonidas-helmet-selector > summary i {
+    color: #6b7d94;
+    font-size: .7rem;
+    transition: transform .18s ease;
+}
+
+.leonidas-appearance-section[open] > summary .leonidas-appearance-section__chevron,
+.leonidas-helmet-selector[open] > summary i {
+    transform: rotate(180deg);
+}
+
+.leonidas-appearance-section__body {
+    padding: 0 .8rem .55rem;
+    border-top: 1px solid #e5eaf1;
+}
+
+.leonidas-appearance-section__body > label {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1025,7 +1199,11 @@ video.leonidas-media-card__preview {
     border-top: 1px solid #e5eaf1;
 }
 
-.leonidas-appearance-custom > label > span:first-child {
+.leonidas-appearance-section__body > label + label {
+    border-top: 1px solid #e5eaf1;
+}
+
+.leonidas-appearance-section__body > label > span:first-child {
     color: #2a3d57;
     font-size: .76rem;
     font-weight: 700;
@@ -1064,41 +1242,20 @@ video.leonidas-media-card__preview {
 }
 
 .leonidas-appearance-gear {
-    margin-top: .55rem;
-    padding-top: .65rem;
-    border-top: 1px solid #e5eaf1;
+    margin: 0;
 }
 
 .leonidas-appearance-gear[hidden] {
     display: none !important;
 }
 
-.leonidas-appearance-gear > div p {
-    margin-bottom: .35rem;
-}
-
-.leonidas-appearance-gear > label {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    min-height: 2.25rem;
-    color: #2a3d57;
-    font-size: .76rem;
-    font-weight: 700;
-}
-
-.leonidas-appearance-gear > label + label {
-    border-top: 1px solid #e5eaf1;
-}
-
-.leonidas-appearance-gear > label span {
+.leonidas-appearance-gear .leonidas-appearance-section__body > label span {
     display: inline-flex;
     align-items: center;
     gap: .45rem;
 }
 
-.leonidas-appearance-gear > label i {
+.leonidas-appearance-gear .leonidas-appearance-section__body > label i {
     width: 1rem;
     color: #9a641d;
     text-align: center;
@@ -1111,6 +1268,91 @@ video.leonidas-media-card__preview {
     margin: 0;
     accent-color: #315fbd;
     cursor: pointer;
+}
+
+.leonidas-helmet-selector {
+    margin: 0;
+    border-top: 1px solid #e5eaf1;
+    border-bottom: 1px solid #e5eaf1;
+}
+
+.leonidas-helmet-selector > summary {
+    display: flex;
+    min-height: 2.45rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .45rem 0;
+    color: #2a3d57;
+    font-size: .72rem;
+    font-weight: 800;
+    cursor: pointer;
+    list-style: none;
+}
+
+.leonidas-helmet-selector > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .45rem;
+    padding: 0 0 .65rem;
+}
+
+.leonidas-helmet-selector label {
+    position: relative;
+    margin: 0;
+    cursor: pointer;
+}
+
+.leonidas-helmet-selector input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.leonidas-helmet-selector label > span {
+    display: flex;
+    min-height: 3.5rem;
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    gap: .1rem;
+    padding: .55rem .65rem;
+    border: 1px solid #d4deeb;
+    border-radius: .65rem;
+    background: #fff;
+    transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+
+.leonidas-helmet-selector label:hover > span {
+    border-color: #8ba9dc;
+}
+
+.leonidas-helmet-selector input:checked + span {
+    border-color: #2f63c4;
+    background: #f3f7ff;
+    box-shadow: 0 0 0 2px rgba(47, 99, 196, .12);
+}
+
+.leonidas-helmet-selector input:focus-visible + span {
+    outline: 2px solid #2f63c4;
+    outline-offset: 2px;
+}
+
+.leonidas-helmet-selector input:disabled + span {
+    opacity: .52;
+    cursor: not-allowed;
+}
+
+.leonidas-helmet-selector strong {
+    color: #2a3d57;
+    font-size: .72rem;
+}
+
+.leonidas-helmet-selector small {
+    margin: 0;
+    line-height: 1.25;
 }
 
 .leonidas-appearance-note {
@@ -1160,22 +1402,41 @@ body.dark-mode .leonidas-appearance-theme {
 
 body.dark-mode .leonidas-appearance-controls h6,
 body.dark-mode .leonidas-appearance-theme__text strong,
-body.dark-mode .leonidas-appearance-custom > label > span:first-child,
-body.dark-mode .leonidas-appearance-gear > label {
+body.dark-mode .leonidas-appearance-section__title strong,
+body.dark-mode .leonidas-appearance-section__body > label > span:first-child,
+body.dark-mode .leonidas-helmet-selector > summary,
+body.dark-mode .leonidas-helmet-selector strong {
     color: #e5e7eb;
 }
 
 body.dark-mode .leonidas-appearance-modal .modal-header p,
 body.dark-mode .leonidas-appearance-controls p,
 body.dark-mode .leonidas-appearance-theme__text small,
+body.dark-mode .leonidas-appearance-section__title small,
 body.dark-mode .leonidas-appearance-custom label small,
 body.dark-mode .leonidas-appearance-note {
     color: #a7b0c0;
 }
 
+body.dark-mode .leonidas-appearance-section + .leonidas-appearance-section,
+body.dark-mode .leonidas-appearance-section__body,
 body.dark-mode .leonidas-appearance-gear,
-body.dark-mode .leonidas-appearance-gear > label + label {
+body.dark-mode .leonidas-helmet-selector {
     border-color: #334155;
+}
+
+body.dark-mode .leonidas-appearance-section > summary:hover {
+    background: #263449;
+}
+
+body.dark-mode .leonidas-helmet-selector label > span {
+    border-color: #3b4960;
+    background: #172033;
+}
+
+body.dark-mode .leonidas-helmet-selector input:checked + span {
+    border-color: #6f9aef;
+    background: #1d2b46;
 }
 
 @keyframes leonidas-panel-in {
@@ -1202,6 +1463,7 @@ body.dark-mode .leonidas-appearance-gear > label + label {
     .leonidas-appearance-preview { min-height: 390px; }
     .leonidas-appearance-preview__fallback { height: 350px; }
     .leonidas-appearance-themes { grid-template-columns: 1fr; }
+    .leonidas-helmet-selector > div { grid-template-columns: 1fr; }
     .leonidas-appearance-modal .modal-footer {
         align-items: stretch;
         flex-direction: column;

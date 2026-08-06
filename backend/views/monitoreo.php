@@ -3,20 +3,35 @@ $cssPath = dirname(__DIR__, 2) . '/public/assets/css/monitoreo.css';
 $jsPath = dirname(__DIR__, 2) . '/public/assets/js/monitoreo.js';
 $cssVersion = is_file($cssPath) ? filemtime($cssPath) : time();
 $jsVersion = is_file($jsPath) ? filemtime($jsPath) : time();
+$modoPlaneador = !empty($modoPlaneador);
 ?>
 <link rel="stylesheet" href="/assets/css/monitoreo.css?v=<?= (int) $cssVersion ?>">
+<?php if ($modoPlaneador): ?>
+<script>
+  document.documentElement.classList.add('monitor-wall-active');
+  document.body.classList.add('monitor-wall-active');
+</script>
+<?php endif; ?>
 
-<main class="monitor-page" id="monitorApp">
+<main class="monitor-page<?= $modoPlaneador ? ' monitor-page-wall' : '' ?>" id="monitorApp" data-wall-mode="<?= $modoPlaneador ? '1' : '0' ?>">
   <header class="monitor-hero">
     <div class="monitor-hero-main">
       <div class="monitor-nav">
-        <a class="monitor-back" href="/inicio"><i class="fa-solid fa-arrow-left"></i>Inicio</a>
+        <a class="monitor-back" href="<?= $modoPlaneador ? '/monitoreo' : '/inicio' ?>"><i class="fa-solid fa-arrow-left"></i><?= $modoPlaneador ? 'Salir del modo planeador' : 'Inicio' ?></a>
         <span class="monitor-private"><i class="fa-solid fa-lock"></i>Acceso privado · Pedro</span>
+        <?php if ($modoPlaneador): ?>
+        <span class="monitor-wall-live"><i></i>EN VIVO</span>
+        <?php endif; ?>
       </div>
       <p class="monitor-eyebrow">Centro de operaciones</p>
-      <h1 class="monitor-title">Monitoreo de servicios web</h1>
+      <h1 class="monitor-title"><?= $modoPlaneador ? 'Centro de operaciones web' : 'Monitoreo de servicios web' ?></h1>
       <p class="monitor-subtitle">Disponibilidad, latencia, cambios, pruebas OpenAPI y control seguro del servicio local desde un solo lugar.</p>
     </div>
+    <?php if ($modoPlaneador): ?>
+    <div class="monitor-wall-clock" aria-label="Hora actual">
+      <span>Hora local</span><strong id="monitorWallClock">--:--:--</strong>
+    </div>
+    <?php endif; ?>
     <div class="monitor-hero-controls">
       <label class="monitor-interval-label" for="monitorInterval">Actualizar cada</label>
       <select class="monitor-select monitor-select-dark" id="monitorInterval">
@@ -33,6 +48,11 @@ $jsVersion = is_file($jsPath) ? filemtime($jsPath) : time();
       <button type="button" class="monitor-refresh" id="monitorRefresh">
         <i class="fa-solid fa-arrows-rotate"></i><span>Comprobar ahora</span>
       </button>
+      <?php if ($modoPlaneador): ?>
+      <button type="button" class="monitor-ghost-btn monitor-fullscreen" id="monitorFullscreen" aria-pressed="false">
+        <i class="fa-solid fa-expand"></i><span>Pantalla completa</span>
+      </button>
+      <?php endif; ?>
     </div>
   </header>
 
@@ -52,10 +72,22 @@ $jsVersion = is_file($jsPath) ? filemtime($jsPath) : time();
       <strong id="monitorKpiAvailability">—</strong>
       <small>Porcentaje de muestras con respuesta</small>
     </article>
-    <article class="monitor-kpi">
+    <article class="monitor-kpi monitor-kpi-latency">
       <div class="monitor-kpi-head"><span>Latencia promedio</span><i class="fa-solid fa-gauge-high"></i></div>
       <strong id="monitorKpiLatency">—</strong>
       <small>Promedio de las últimas 24 horas</small>
+      <details class="monitor-kpi-help">
+        <summary><span>¿Cómo leer la latencia?</span><i class="fa-solid fa-chevron-down"></i></summary>
+        <div class="monitor-kpi-help-panel">
+          <p><b>Latencia:</b> tiempo que tarda la API en responder.</p>
+          <ul>
+            <li class="good"><b>Buena</b><span>Menos de 300 ms</span></li>
+            <li class="average"><b>Promedio</b><span>300 a 800 ms</span></li>
+            <li class="slow"><b>Lenta</b><span>801 a 1,500 ms</span></li>
+            <li class="bad"><b>Mala</b><span>Más de 1,500 ms o no responde</span></li>
+          </ul>
+        </div>
+      </details>
     </article>
     <article class="monitor-kpi">
       <div class="monitor-kpi-head"><span>Incidentes 24 h</span><i class="fa-solid fa-triangle-exclamation"></i></div>
@@ -100,7 +132,10 @@ $jsVersion = is_file($jsPath) ? filemtime($jsPath) : time();
   <section class="monitor-activity">
     <div class="monitor-section-head">
       <div><h2>Actividad reciente</h2><p>Cambios de estado, OpenAPI, controles de Python y pruebas ejecutadas.</p></div>
-      <span class="monitor-source-chip"><i class="fa-regular fa-clock"></i>Últimos eventos</span>
+      <div class="monitor-activity-actions">
+        <span class="monitor-source-chip"><i class="fa-regular fa-clock"></i>Últimos eventos</span>
+        <button type="button" class="monitor-activity-log-btn" id="monitorActivityOpen"><i class="fa-solid fa-list"></i><span>Ver todo el log</span><b id="monitorActivityCount">0</b></button>
+      </div>
     </div>
     <div class="monitor-timeline" id="monitorTimeline">
       <div class="monitor-empty">Todavía no hay eventos registrados.</div>
@@ -120,12 +155,14 @@ $jsVersion = is_file($jsPath) ? filemtime($jsPath) : time();
   </header>
   <nav class="monitor-tabs" aria-label="Secciones del servicio">
     <button type="button" class="active" data-monitor-tab="overview">Resumen</button>
+    <button type="button" data-monitor-tab="diagnostics">Diagnóstico <span class="monitor-tab-count" id="monitorDiagnosticsBadge" hidden>0</span></button>
     <button type="button" data-monitor-tab="endpoints">Endpoints</button>
     <button type="button" data-monitor-tab="changes">Cambios</button>
     <button type="button" data-monitor-tab="logs" id="monitorLogsTab">Logs</button>
   </nav>
   <div class="monitor-drawer-body">
     <section class="monitor-tab-panel active" data-monitor-panel="overview" id="monitorOverviewPanel"></section>
+    <section class="monitor-tab-panel" data-monitor-panel="diagnostics" id="monitorDiagnosticsPanel"></section>
     <section class="monitor-tab-panel" data-monitor-panel="endpoints">
       <div class="monitor-endpoint-layout">
         <div>
@@ -134,17 +171,48 @@ $jsVersion = is_file($jsPath) ? filemtime($jsPath) : time();
         </div>
         <form class="monitor-tester" id="monitorTester">
           <div class="monitor-panel-title"><h3>Probar desde Sparta</h3><span class="monitor-safe-badge"><i class="fa-solid fa-lock"></i>Allowlist OpenAPI</span></div>
-          <p class="monitor-form-help">Selecciona un endpoint, sustituye sus parámetros de ruta y ejecuta la petición desde el servidor.</p>
+          <p class="monitor-form-help">Selecciona un endpoint; Sparta generará sus campos, autenticación y ejemplo de uso desde OpenAPI.</p>
+          <div class="monitor-endpoint-selected" id="monitorEndpointSelected" hidden></div>
           <div class="monitor-request-line">
             <select class="monitor-select" id="monitorTestMethod" aria-label="Método HTTP">
-              <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option>
+              <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option>
             </select>
             <input class="monitor-input" id="monitorTestPath" placeholder="/health" required>
           </div>
-          <label class="monitor-field"><span>Query JSON</span><textarea class="monitor-textarea" id="monitorTestQuery" rows="3" spellcheck="false">{}</textarea></label>
+          <div class="monitor-parameter-fields" id="monitorParameterFields"></div>
+          <details class="monitor-advanced-request">
+            <summary><i class="fa-solid fa-code"></i>Query JSON avanzado</summary>
+            <label class="monitor-field"><span>Query JSON</span><textarea class="monitor-textarea" id="monitorTestQuery" rows="4" spellcheck="false">{}</textarea></label>
+          </details>
           <label class="monitor-field" id="monitorBodyField" hidden><span>Body JSON</span><textarea class="monitor-textarea" id="monitorTestBody" rows="5" spellcheck="false">{}</textarea></label>
+
+          <section class="monitor-auth-panel">
+            <div class="monitor-auth-head">
+              <div><h4>Autenticación</h4><p>El token se usa sólo en esta prueba; no se guarda ni aparece en logs.</p></div>
+              <span class="monitor-auth-status idle" id="monitorAuthStatus"><i class="fa-solid fa-circle"></i>Sin verificar</span>
+            </div>
+            <label class="monitor-field"><span>Tipo</span><select class="monitor-select" id="monitorAuthMode">
+              <option value="none">Sin autenticación</option>
+              <option value="bearer">Bearer token</option>
+              <option value="api_key">API key en header</option>
+              <option value="http">Token HTTP personalizado</option>
+            </select></label>
+            <label class="monitor-field" id="monitorAuthTokenField" hidden><span>Token / API key</span><input class="monitor-input" id="monitorAuthToken" type="password" autocomplete="new-password" placeholder="Secreto temporal"></label>
+            <div class="monitor-auth-row" id="monitorAuthHeaderFields" hidden>
+              <label class="monitor-field"><span>Header</span><input class="monitor-input" id="monitorAuthHeader" value="Authorization" placeholder="Authorization"></label>
+              <label class="monitor-field" id="monitorAuthPrefixField"><span>Prefijo opcional</span><input class="monitor-input" id="monitorAuthPrefix" placeholder="Bearer"></label>
+            </div>
+            <p class="monitor-auth-hint" id="monitorAuthHint">Este endpoint no declara autenticación obligatoria.</p>
+            <button type="button" class="monitor-secondary-btn monitor-check-btn" id="monitorConnectionCheck"><i class="fa-solid fa-plug-circle-check"></i>Verificar conexión</button>
+          </section>
+
+          <section class="monitor-usage-panel">
+            <div class="monitor-usage-head"><div><h4>Cómo usar este endpoint</h4><p id="monitorUsageHelp">Selecciona un endpoint del inventario.</p></div><button type="button" id="monitorCopyCurl"><i class="fa-regular fa-copy"></i>Copiar cURL</button></div>
+            <pre id="monitorCurlPreview">Selecciona un endpoint para generar el ejemplo.</pre>
+          </section>
+
           <label class="monitor-confirm-row" id="monitorMutationConfirm" hidden><input type="checkbox" id="monitorMutationCheckbox"><span>Confirmo que esta petición puede modificar datos.</span></label>
-          <button type="submit" class="monitor-primary-btn" id="monitorTestSubmit"><i class="fa-solid fa-play"></i>Ejecutar prueba</button>
+          <button type="submit" class="monitor-primary-btn" id="monitorTestSubmit"><i class="fa-solid fa-play"></i>Ejecutar prueba completa</button>
           <div class="monitor-response" id="monitorTestResponse" hidden>
             <div class="monitor-response-head"><span id="monitorTestResponseMeta">Respuesta</span><button type="button" id="monitorCopyResponse"><i class="fa-regular fa-copy"></i>Copiar</button></div>
             <pre id="monitorTestResponseBody"></pre>
@@ -181,6 +249,16 @@ $jsVersion = is_file($jsPath) ? filemtime($jsPath) : time();
     </section>
   </div>
 </aside>
+
+<dialog class="monitor-dialog monitor-activity-dialog" id="monitorActivityDialog" aria-labelledby="monitorActivityDialogTitle">
+  <div class="monitor-activity-dialog-shell">
+    <header class="monitor-activity-dialog-head">
+      <div><span>Historial operativo</span><h2 id="monitorActivityDialogTitle">Todo el log de actividad</h2><p>Últimos cambios, pruebas, alertas y controles registrados.</p></div>
+      <button type="button" class="monitor-icon-btn" id="monitorActivityClose" aria-label="Cerrar log de actividad"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="monitor-activity-full" id="monitorActivityFull"><div class="monitor-empty">Todavía no hay eventos registrados.</div></div>
+  </div>
+</dialog>
 
 <dialog class="monitor-dialog" id="monitorConfirmDialog">
   <form method="dialog">

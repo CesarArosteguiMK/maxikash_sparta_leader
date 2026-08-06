@@ -748,6 +748,111 @@ SQL;
     /**
      * Verificar si un crédito ya está asignado a un despacho (activo)
      */
+    public function obtenerAsignacionActivaCredito(int $idCredito): ?array
+    {
+        if ($idCredito <= 0) {
+            return null;
+        }
+
+        $query = <<<'SQL'
+SELECT acd.id,
+       acd.id_credito,
+       acd.id_despacho,
+       d.id_persona,
+       COALESCE(acd.id_celula, acd.celula, d.id_celula, 1) AS id_celula,
+       TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre_completo,
+       TRIM(COALESCE(per.numero_empleado, '')) AS numero_empleado,
+       TRIM(COALESCE(pu.nombre, '')) AS puesto
+FROM asigna_creditos_despacho acd
+INNER JOIN despachos d ON d.id = acd.id_despacho
+INNER JOIN persona per ON per.id = d.id_persona
+LEFT JOIN asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
+LEFT JOIN puesto pu ON pu.id = ap.id_puesto
+WHERE acd.id_credito = :id_credito
+  AND acd.estatus = '1'
+  AND acd.baja IS NULL
+ORDER BY acd.fecha_alta DESC, acd.id DESC, ap.id DESC
+LIMIT 1
+SQL;
+
+        return $this->db->queryOne($query, ['id_credito' => $idCredito]) ?: null;
+    }
+
+    public function buscarResponsablesPorCelula(int $idCelula, string $busqueda = '', int $limite = 12): array
+    {
+        if (!in_array($idCelula, [1, 2, 3], true)) {
+            return [];
+        }
+
+        $limite = max(1, min(25, $limite));
+        $busqueda = trim(preg_replace('/\s+/u', ' ', $busqueda) ?? $busqueda);
+        $tokens = array_values(array_filter(preg_split('/\s+/u', $busqueda) ?: []));
+        $params = ['id_celula' => $idCelula];
+        $condiciones = [];
+        foreach (array_slice($tokens, 0, 5) as $indice => $token) {
+            $key = 'q' . $indice;
+            $params[$key] = '%' . addcslashes($token, '%_\\') . '%';
+            $condiciones[] = "CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom, per.numero_empleado, pu.nombre) LIKE :{$key}";
+        }
+        $filtro = $condiciones ? ' AND ' . implode(' AND ', $condiciones) : '';
+        $predPer = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('per');
+
+        $query = "SELECT d.id AS id_despacho,
+                         d.id_persona,
+                         d.id_celula,
+                         TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre_completo,
+                         TRIM(COALESCE(per.numero_empleado, '')) AS numero_empleado,
+                         TRIM(COALESCE(GROUP_CONCAT(DISTINCT pu.nombre ORDER BY pu.nombre SEPARATOR ' / '), '')) AS puesto
+                    FROM despachos d
+                    INNER JOIN persona per ON per.id = d.id_persona
+                    LEFT JOIN asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
+                    LEFT JOIN puesto pu ON pu.id = ap.id_puesto
+                   WHERE d.id_celula = :id_celula
+                     AND d.estatus = 'Activo'
+                     AND COALESCE(per.estatus, 'Activo') <> 'Baja'
+                     AND ({$predPer}){$filtro}
+                   GROUP BY d.id, d.id_persona, d.id_celula, per.nombres,
+                            per.segundo_nombre, per.apellidop, per.apellidom,
+                            per.numero_empleado
+                   ORDER BY nombre_completo ASC, d.id ASC
+                   LIMIT {$limite}";
+
+        return $this->db->queryAll($query, $params);
+    }
+
+    public function obtenerResponsableActivoPorCelula(int $idPersona, int $idCelula): ?array
+    {
+        if ($idPersona <= 0 || !in_array($idCelula, [1, 2, 3], true)) {
+            return null;
+        }
+
+        $predPer = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('per');
+        $query = "SELECT d.id AS id_despacho,
+                         d.id_persona,
+                         d.id_celula,
+                         TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre_completo,
+                         TRIM(COALESCE(per.numero_empleado, '')) AS numero_empleado,
+                         TRIM(COALESCE(GROUP_CONCAT(DISTINCT pu.nombre ORDER BY pu.nombre SEPARATOR ' / '), '')) AS puesto
+                    FROM despachos d
+                    INNER JOIN persona per ON per.id = d.id_persona
+                    LEFT JOIN asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
+                    LEFT JOIN puesto pu ON pu.id = ap.id_puesto
+                   WHERE d.id_persona = :id_persona
+                     AND d.id_celula = :id_celula
+                     AND d.estatus = 'Activo'
+                     AND COALESCE(per.estatus, 'Activo') <> 'Baja'
+                     AND ({$predPer})
+                   GROUP BY d.id, d.id_persona, d.id_celula, per.nombres,
+                            per.segundo_nombre, per.apellidop, per.apellidom,
+                            per.numero_empleado
+                   LIMIT 1";
+
+        return $this->db->queryOne($query, [
+            'id_persona' => $idPersona,
+            'id_celula' => $idCelula,
+        ]) ?: null;
+    }
+
     public function verificarAsignacion($idCredito)
 {
     $query = <<<SQL
@@ -773,7 +878,7 @@ SQL;
  * @return bool
  */
 
-public function asignarCredito($idPersona, $idCredito, $idCelula = 1)
+public function asignarCredito($idPersona, $idCredito, $idCelula = 1, $idUsuarioAsignacion = null)
 {
     // Primero obtener el id del despacho
     $queryDespacho = "SELECT id FROM despachos WHERE id_persona = :idPersona AND estatus = 'Activo' LIMIT 1";
@@ -814,7 +919,10 @@ SQL;
         'idCredito' => $idCredito
     ]);
 
-    $usuarioAsignacion = $_SESSION['usuario_id'] ?? 1;
+    $usuarioAsignacion = (int) ($idUsuarioAsignacion ?? ($_SESSION['usuario_id'] ?? 1));
+    if ($usuarioAsignacion <= 0) {
+        $usuarioAsignacion = 1;
+    }
 
     $fechaAlta = $this->fechaHoraCdmx();
 

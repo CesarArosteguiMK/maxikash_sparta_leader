@@ -45,8 +45,11 @@ class ServiciosAdministradosMonitorService
             $endpoints = $openapi
                 ? $this->extraerEndpoints($openapi)
                 : (array) ($servicio['fallback_endpoints'] ?? []);
+            $securitySchemes = $openapi ? $this->extraerEsquemasSeguridad($openapi) : [];
             $info = is_array($openapi['info'] ?? null) ? $openapi['info'] : [];
             $repositorio = $this->gitRepositorio((string) $servicio['workspace']);
+            $proceso = $servicio['id'] === 'condonaciones' ? $this->procesoLocalInfo() : null;
+            $diagnostico = $this->diagnosticarServicio($servicio, $estado, $remoto, $local, $repositorio, $proceso);
 
             $servicios[] = [
                 'id' => $servicio['id'],
@@ -62,10 +65,12 @@ class ServiciosAdministradosMonitorService
                 'api_version' => (string) ($info['version'] ?? 'No disponible'),
                 'endpoint_count' => count($endpoints),
                 'endpoints' => $endpoints,
+                'security_schemes' => $securitySchemes,
                 'endpoint_signature' => hash('sha256', json_encode($endpoints, JSON_UNESCAPED_SLASHES) ?: ''),
                 'modifications' => $repositorio['commits'],
                 'repository' => $repositorio,
-                'process' => $servicio['id'] === 'condonaciones' ? $this->procesoLocalInfo() : null,
+                'process' => $proceso,
+                'diagnostic' => $diagnostico,
                 'test_note' => 'Prueba GET de /health y /openapi.json ejecutada desde el servidor de Sparta.',
             ];
         }
@@ -79,6 +84,19 @@ class ServiciosAdministradosMonitorService
             $servicio['samples_24h'] = $detalle['samples_24h'] ?? 0;
             $servicio['last_available_at'] = $detalle['last_available_at'] ?? null;
             $servicio['last_outage_at'] = $detalle['last_outage_at'] ?? null;
+            $incidentesServicio = array_values(array_filter(
+                (array) ($telemetria['incidents'] ?? []),
+                static fn($incidente): bool => is_array($incidente)
+                    && (string) ($incidente['service'] ?? '') === (string) ($servicio['id'] ?? '')
+            ));
+            $servicio['incidents'] = array_slice($incidentesServicio, 0, 20);
+            $servicio['active_incident'] = null;
+            foreach ($incidentesServicio as $incidente) {
+                if (($incidente['status'] ?? '') === 'active') {
+                    $servicio['active_incident'] = $incidente;
+                    break;
+                }
+            }
         }
         unset($servicio);
 
@@ -89,6 +107,9 @@ class ServiciosAdministradosMonitorService
             'metrics' => $telemetria['metrics'],
             'events' => $telemetria['events'],
             'alerts' => $telemetria['alerts'],
+            'incidents' => $telemetria['incidents'],
+            'notification_channels' => $this->estadoCanalesNotificacion(),
+            'incident_log_url' => '/monitoreo/incidentesLog',
             'history_window' => '24h',
             'services' => $servicios,
         ];
@@ -406,6 +427,22 @@ class ServiciosAdministradosMonitorService
         return ['path' => $path, 'name' => basename($path)];
     }
 
+    /** @return array{path:string,name:string} */
+    public function obtenerLogIncidentes(): array
+    {
+        $path = $this->storagePath('sparta-monitoreo-incidentes.log');
+        if (!is_file($path)) {
+            $header = "SPARTA LEDGER - REGISTRO DE INCIDENTES DE SERVICIOS\n"
+                . 'Generado: ' . date(DATE_ATOM) . "\n"
+                . "Este archivo no contiene tokens ni credenciales.\n"
+                . str_repeat('=', 72) . "\n\n";
+            if (@file_put_contents($path, $header, LOCK_EX) === false) {
+                throw new \RuntimeException('No se pudo preparar el log de incidentes.');
+            }
+        }
+        return ['path' => $path, 'name' => 'sparta-monitoreo-incidentes.log'];
+    }
+
     /** @return array<string, mixed> */
     public function probarEndpoint(
         string $servicioId,
@@ -413,7 +450,8 @@ class ServiciosAdministradosMonitorService
         string $path,
         array $query = [],
         ?array $body = null,
-        bool $confirmarMutacion = false
+        bool $confirmarMutacion = false,
+        array $auth = []
     ): array {
         $servicio = $this->resolverServicio($servicioId);
         $metodo = strtoupper(trim($metodo));
@@ -441,17 +479,17 @@ class ServiciosAdministradosMonitorService
         $openapiCheck = $this->httpJson($base . '/openapi.json', 4000);
         $openapi = is_array($openapiCheck['json'] ?? null) ? $openapiCheck['json'] : null;
         $endpoints = $openapi ? $this->extraerEndpoints($openapi) : (array) ($servicio['fallback_endpoints'] ?? []);
-        $permitido = false;
+        $endpointPermitido = null;
         foreach ($endpoints as $endpoint) {
             if (strtoupper((string) ($endpoint['method'] ?? '')) !== $metodo) {
                 continue;
             }
             if ($this->rutaCoincidePlantilla($path, (string) ($endpoint['path'] ?? ''))) {
-                $permitido = true;
+                $endpointPermitido = $endpoint;
                 break;
             }
         }
-        if (!$permitido) {
+        if (!is_array($endpointPermitido)) {
             throw new \InvalidArgumentException('La ruta y el metodo no pertenecen al OpenAPI autorizado del servicio.');
         }
 
@@ -475,8 +513,9 @@ class ServiciosAdministradosMonitorService
         if (!$ch) {
             throw new \RuntimeException('No se pudo inicializar cURL.');
         }
-        $headers = ['Accept: application/json'];
-        if ($metodo !== 'GET') {
+        $authResult = $this->construirAutenticacionPrueba($auth, $endpointPermitido, $openapi ?? []);
+        $headers = array_merge(['Accept: application/json'], $authResult['headers']);
+        if ($bodyJson !== '') {
             $headers[] = 'Content-Type: application/json';
         }
         @curl_setopt_array($ch, [
@@ -490,7 +529,7 @@ class ServiciosAdministradosMonitorService
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_USERAGENT => 'SpartaLedger/MonitoreoEndpointTester',
         ]);
-        if ($metodo !== 'GET' && $bodyJson !== '') {
+        if ($bodyJson !== '') {
             @curl_setopt($ch, CURLOPT_POSTFIELDS, $bodyJson);
         }
         $started = microtime(true);
@@ -508,23 +547,124 @@ class ServiciosAdministradosMonitorService
         }
         $decoded = $raw !== '' ? json_decode($raw, true) : null;
         $response = is_array($decoded) ? $decoded : $raw;
+        $okHttp = $errno === 0 && $status >= 200 && $status < 400;
+        if ($errno !== 0 || $status === 0) {
+            $connectionStatus = 'network_error';
+            $connectionMessage = $error !== '' ? $error : 'El servicio no respondio.';
+        } elseif (in_array($status, [401, 403], true)) {
+            $connectionStatus = 'auth_failed';
+            $connectionMessage = 'El servicio respondio, pero rechazo las credenciales.';
+        } elseif ($okHttp) {
+            $connectionStatus = 'connected';
+            $connectionMessage = 'Conexion y credenciales aceptadas por el endpoint.';
+        } else {
+            $connectionStatus = 'http_error';
+            $connectionMessage = 'El servicio respondio HTTP ' . $status . '; revise los parametros enviados.';
+        }
         $this->registrarEventoManual(
             'endpoint_tested',
             (string) $servicio['id'],
             $metodo . ' ' . $path . ' respondio HTTP ' . ($status ?: 'sin respuesta') . ' en ' . $latency . ' ms.',
-            ($errno === 0 && $status >= 200 && $status < 400) ? 'info' : 'warning'
+            $okHttp ? 'info' : 'warning'
         );
 
         return [
             'success' => true,
-            'ok_http' => $errno === 0 && $status >= 200 && $status < 400,
+            'ok_http' => $okHttp,
             'request' => ['service' => $servicio['id'], 'method' => $metodo, 'url' => $url],
+            'auth_applied' => $authResult['applied'],
+            'auth_mode' => $authResult['mode'],
+            'connection_status' => $connectionStatus,
+            'connection_message' => $connectionMessage,
             'status' => $status ?: null,
             'latency_ms' => $latency,
             'content_type' => $contentType,
             'error' => $error,
             'truncated' => $truncated,
             'response' => $response,
+        ];
+    }
+
+    /**
+     * Construye exclusivamente headers declarados por OpenAPI. El secreto se usa
+     * en memoria durante esta solicitud y nunca forma parte de la respuesta o log.
+     *
+     * @return array{headers:list<string>,applied:bool,mode:string}
+     */
+    private function construirAutenticacionPrueba(array $auth, array $endpoint, array $openapi): array
+    {
+        $mode = strtolower(trim((string) ($auth['mode'] ?? 'none')));
+        if ($mode === '' || $mode === 'none') {
+            return ['headers' => [], 'applied' => false, 'mode' => 'none'];
+        }
+        if (!in_array($mode, ['bearer', 'api_key', 'http'], true)) {
+            throw new \InvalidArgumentException('Modo de autenticacion no permitido.');
+        }
+
+        $token = trim((string) ($auth['token'] ?? ''));
+        if ($token === '' || strlen($token) > 4096 || preg_match('/[\r\n\x00]/', $token)) {
+            throw new \InvalidArgumentException('Capture un token valido de hasta 4096 caracteres.');
+        }
+
+        $allowedHeaders = [];
+        $endpointSecurity = array_fill_keys((array) ($endpoint['security'] ?? []), true);
+        foreach ((array) ($endpoint['parameters'] ?? []) as $parameter) {
+            if (!is_array($parameter) || strtolower((string) ($parameter['in'] ?? '')) !== 'header') {
+                continue;
+            }
+            $name = trim((string) ($parameter['name'] ?? ''));
+            if ($name !== '' && preg_match('/^[A-Za-z0-9-]{1,80}$/', $name)) {
+                $allowedHeaders[strtolower($name)] = $name;
+            }
+        }
+        foreach ((array) ($openapi['components']['securitySchemes'] ?? []) as $schemeKey => $scheme) {
+            if (!is_array($scheme) || !isset($endpointSecurity[(string) $schemeKey])) {
+                continue;
+            }
+            $schemeType = strtolower((string) ($scheme['type'] ?? ''));
+            if ($schemeType === 'http' && strtolower((string) ($scheme['scheme'] ?? '')) === 'bearer') {
+                $allowedHeaders['authorization'] = 'Authorization';
+                continue;
+            }
+            if ($schemeType !== 'apikey' || strtolower((string) ($scheme['in'] ?? '')) !== 'header') {
+                continue;
+            }
+            $name = trim((string) ($scheme['name'] ?? ''));
+            if ($name !== '' && preg_match('/^[A-Za-z0-9-]{1,80}$/', $name)) {
+                $allowedHeaders[strtolower($name)] = $name;
+            }
+        }
+
+        if ($mode === 'bearer') {
+            if (!isset($allowedHeaders['authorization'])) {
+                throw new \InvalidArgumentException('El endpoint no declara autenticacion Bearer en OpenAPI.');
+            }
+            $token = preg_replace('/^Bearer\s+/i', '', $token) ?? $token;
+            return [
+                'headers' => ['Authorization: Bearer ' . $token],
+                'applied' => true,
+                'mode' => 'bearer',
+            ];
+        }
+
+        $requestedHeader = trim((string) ($auth['header'] ?? ($mode === 'api_key' ? 'X-API-Key' : 'Authorization')));
+        if (!preg_match('/^[A-Za-z0-9-]{1,80}$/', $requestedHeader)) {
+            throw new \InvalidArgumentException('Nombre de header de autenticacion invalido.');
+        }
+        $headerKey = strtolower($requestedHeader);
+        if (!isset($allowedHeaders[$headerKey])) {
+            throw new \InvalidArgumentException('El header de autenticacion no esta declarado por el OpenAPI seleccionado.');
+        }
+
+        $prefix = $mode === 'http' ? trim((string) ($auth['prefix'] ?? '')) : '';
+        if ($prefix !== '' && !preg_match('/^[A-Za-z0-9._-]{1,30}$/', $prefix)) {
+            throw new \InvalidArgumentException('Prefijo HTTP invalido.');
+        }
+        $value = $prefix !== '' ? $prefix . ' ' . $token : $token;
+        return [
+            'headers' => [$allowedHeaders[$headerKey] . ': ' . $value],
+            'applied' => true,
+            'mode' => $mode,
         ];
     }
 
@@ -841,7 +981,7 @@ class ServiciosAdministradosMonitorService
     {
         $ch = @curl_init($url);
         if (!$ch) {
-            return ['ok' => false, 'status' => null, 'ms' => null, 'error' => 'No se pudo inicializar cURL.', 'json' => null];
+            return ['ok' => false, 'status' => null, 'ms' => null, 'errno' => null, 'error' => 'No se pudo inicializar cURL.', 'json' => null];
         }
         @curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -871,28 +1011,59 @@ class ServiciosAdministradosMonitorService
             'ok' => $ok,
             'status' => $status > 0 ? $status : null,
             'ms' => $ms,
+            'errno' => $errno > 0 ? $errno : null,
             'error' => $error,
             'json' => is_array($json) ? $json : null,
         ];
     }
 
-    /** @return list<array{method:string,path:string,summary:string}> */
+    /** @return list<array<string, mixed>> */
     private function extraerEndpoints(array $openapi): array
     {
         $metodos = ['get', 'post', 'put', 'patch', 'delete'];
+        $globalSecurity = is_array($openapi['security'] ?? null) ? $openapi['security'] : [];
         $out = [];
         foreach ((array) ($openapi['paths'] ?? []) as $path => $definiciones) {
             if (!is_array($definiciones)) {
                 continue;
             }
+            $pathParameters = $this->normalizarParametrosOpenApi((array) ($definiciones['parameters'] ?? []), $openapi);
             foreach ($metodos as $metodo) {
                 if (!isset($definiciones[$metodo]) || !is_array($definiciones[$metodo])) {
                     continue;
                 }
+                $operation = $definiciones[$metodo];
+                $parameters = [];
+                foreach (array_merge($pathParameters, $this->normalizarParametrosOpenApi((array) ($operation['parameters'] ?? []), $openapi)) as $parameter) {
+                    $key = strtolower((string) ($parameter['in'] ?? '')) . ':' . strtolower((string) ($parameter['name'] ?? ''));
+                    $parameters[$key] = $parameter;
+                }
+                $requirements = array_key_exists('security', $operation) && is_array($operation['security'])
+                    ? $operation['security']
+                    : $globalSecurity;
+                $securityNames = [];
+                $securityOptional = false;
+                foreach ((array) $requirements as $requirement) {
+                    if (!is_array($requirement)) {
+                        continue;
+                    }
+                    if ($requirement === []) {
+                        $securityOptional = true;
+                    }
+                    foreach (array_keys($requirement) as $schemeName) {
+                        $securityNames[] = (string) $schemeName;
+                    }
+                }
+                $securityNames = array_values(array_unique(array_filter($securityNames)));
                 $out[] = [
                     'method' => strtoupper($metodo),
                     'path' => (string) $path,
-                    'summary' => trim((string) ($definiciones[$metodo]['summary'] ?? '')),
+                    'summary' => trim((string) ($operation['summary'] ?? '')),
+                    'description' => trim((string) ($operation['description'] ?? '')),
+                    'parameters' => array_values($parameters),
+                    'request_body' => $this->extraerRequestBodyOpenApi($operation, $openapi),
+                    'security' => $securityNames,
+                    'security_required' => $securityNames !== [] && !$securityOptional,
                 ];
             }
         }
@@ -900,6 +1071,466 @@ class ServiciosAdministradosMonitorService
             return [$a['path'], $a['method']] <=> [$b['path'], $b['method']];
         });
         return $out;
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function normalizarParametrosOpenApi(array $parameters, array $openapi): array
+    {
+        $out = [];
+        foreach ($parameters as $parameter) {
+            if (!is_array($parameter)) {
+                continue;
+            }
+            $parameter = $this->resolverRefOpenApi($parameter, $openapi);
+            $name = trim((string) ($parameter['name'] ?? ''));
+            $location = strtolower(trim((string) ($parameter['in'] ?? '')));
+            if ($name === '' || !in_array($location, ['path', 'query', 'header'], true)) {
+                continue;
+            }
+            $schema = is_array($parameter['schema'] ?? null)
+                ? $this->resolverSchemaPrincipal($parameter['schema'], $openapi)
+                : [];
+            $example = $parameter['example'] ?? $schema['example'] ?? $schema['default'] ?? null;
+            $enum = is_array($schema['enum'] ?? null) ? array_values(array_slice($schema['enum'], 0, 50)) : [];
+            $lowerName = strtolower($name);
+            $out[] = [
+                'name' => $name,
+                'in' => $location,
+                'required' => $location === 'path' || !empty($parameter['required']),
+                'description' => trim((string) ($parameter['description'] ?? $schema['description'] ?? '')),
+                'type' => $this->tipoSchemaOpenApi($schema),
+                'format' => trim((string) ($schema['format'] ?? '')),
+                'default' => $schema['default'] ?? null,
+                'example' => $example,
+                'enum' => $enum,
+                'minimum' => $schema['minimum'] ?? null,
+                'maximum' => $schema['maximum'] ?? null,
+                'auth_parameter' => $location === 'header' && in_array($lowerName, ['authorization', 'x-api-key', 'api-key', 'apikey'], true),
+            ];
+        }
+        return $out;
+    }
+
+    /** @return array<string, mixed>|null */
+    private function extraerRequestBodyOpenApi(array $operation, array $openapi): ?array
+    {
+        if (!is_array($operation['requestBody'] ?? null)) {
+            return null;
+        }
+        $requestBody = $this->resolverRefOpenApi($operation['requestBody'], $openapi);
+        $content = is_array($requestBody['content'] ?? null) ? $requestBody['content'] : [];
+        if ($content === []) {
+            return null;
+        }
+        $contentType = isset($content['application/json']) ? 'application/json' : (string) array_key_first($content);
+        $media = is_array($content[$contentType] ?? null) ? $content[$contentType] : [];
+        $schema = is_array($media['schema'] ?? null) ? $media['schema'] : [];
+        $example = $media['example'] ?? null;
+        if ($example === null && is_array($media['examples'] ?? null)) {
+            foreach ($media['examples'] as $candidate) {
+                if (is_array($candidate) && array_key_exists('value', $candidate)) {
+                    $example = $candidate['value'];
+                    break;
+                }
+            }
+        }
+        if ($example === null) {
+            $example = $this->generarEjemploSchemaOpenApi($schema, $openapi);
+        }
+        return [
+            'required' => !empty($requestBody['required']),
+            'content_type' => $contentType,
+            'description' => trim((string) ($requestBody['description'] ?? '')),
+            'example' => $example,
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function extraerEsquemasSeguridad(array $openapi): array
+    {
+        $out = [];
+        foreach ((array) ($openapi['components']['securitySchemes'] ?? []) as $key => $rawScheme) {
+            if (!is_array($rawScheme)) {
+                continue;
+            }
+            $scheme = $this->resolverRefOpenApi($rawScheme, $openapi);
+            $type = strtolower(trim((string) ($scheme['type'] ?? '')));
+            if (!in_array($type, ['http', 'apikey'], true)) {
+                continue;
+            }
+            $httpScheme = strtolower(trim((string) ($scheme['scheme'] ?? '')));
+            $header = $type === 'apikey' && strtolower((string) ($scheme['in'] ?? '')) === 'header'
+                ? trim((string) ($scheme['name'] ?? 'X-API-Key'))
+                : ($type === 'http' ? 'Authorization' : '');
+            $out[] = [
+                'key' => (string) $key,
+                'type' => $type,
+                'scheme' => $httpScheme,
+                'header' => $header,
+                'bearer_format' => trim((string) ($scheme['bearerFormat'] ?? '')),
+                'description' => trim((string) ($scheme['description'] ?? '')),
+            ];
+        }
+        return $out;
+    }
+
+    /** @return array<string, mixed> */
+    private function resolverRefOpenApi(array $value, array $openapi): array
+    {
+        $ref = (string) ($value['$ref'] ?? '');
+        if ($ref === '' || !str_starts_with($ref, '#/')) {
+            return $value;
+        }
+        $resolved = $openapi;
+        foreach (explode('/', substr($ref, 2)) as $part) {
+            $part = str_replace(['~1', '~0'], ['/', '~'], $part);
+            if (!is_array($resolved) || !array_key_exists($part, $resolved)) {
+                return $value;
+            }
+            $resolved = $resolved[$part];
+        }
+        if (!is_array($resolved)) {
+            return $value;
+        }
+        unset($value['$ref']);
+        return array_replace($resolved, $value);
+    }
+
+    /** @return array<string, mixed> */
+    private function resolverSchemaPrincipal(array $schema, array $openapi): array
+    {
+        $schema = $this->resolverRefOpenApi($schema, $openapi);
+        foreach (['anyOf', 'oneOf', 'allOf'] as $combinator) {
+            if (!is_array($schema[$combinator] ?? null)) {
+                continue;
+            }
+            foreach ($schema[$combinator] as $candidate) {
+                if (!is_array($candidate)) {
+                    continue;
+                }
+                $candidate = $this->resolverRefOpenApi($candidate, $openapi);
+                if (($candidate['type'] ?? '') !== 'null') {
+                    return array_replace($schema, $candidate);
+                }
+            }
+        }
+        return $schema;
+    }
+
+    private function tipoSchemaOpenApi(array $schema): string
+    {
+        $type = strtolower(trim((string) ($schema['type'] ?? '')));
+        if ($type !== '') {
+            return $type;
+        }
+        if (isset($schema['properties'])) {
+            return 'object';
+        }
+        if (isset($schema['items'])) {
+            return 'array';
+        }
+        return 'string';
+    }
+
+    /** @return mixed */
+    private function generarEjemploSchemaOpenApi(array $schema, array $openapi, int $depth = 0)
+    {
+        if ($depth > 6) {
+            return null;
+        }
+        $schema = $this->resolverSchemaPrincipal($schema, $openapi);
+        foreach (['example', 'default'] as $key) {
+            if (array_key_exists($key, $schema)) {
+                return $schema[$key];
+            }
+        }
+        if (is_array($schema['enum'] ?? null) && $schema['enum'] !== []) {
+            return $schema['enum'][0];
+        }
+        $type = $this->tipoSchemaOpenApi($schema);
+        if ($type === 'object') {
+            $example = [];
+            foreach (array_slice((array) ($schema['properties'] ?? []), 0, 40, true) as $name => $property) {
+                if (!is_array($property) || !empty($property['readOnly'])) {
+                    continue;
+                }
+                $example[(string) $name] = $this->generarEjemploSchemaOpenApi($property, $openapi, $depth + 1);
+            }
+            return $example !== [] ? $example : new \stdClass();
+        }
+        if ($type === 'array') {
+            $items = is_array($schema['items'] ?? null) ? $schema['items'] : [];
+            return [$this->generarEjemploSchemaOpenApi($items, $openapi, $depth + 1)];
+        }
+        if ($type === 'boolean') {
+            return false;
+        }
+        if (in_array($type, ['integer', 'number'], true)) {
+            if (isset($schema['minimum']) && is_numeric($schema['minimum'])) {
+                return $type === 'integer' ? (int) $schema['minimum'] : (float) $schema['minimum'];
+            }
+            if (isset($schema['exclusiveMinimum']) && is_numeric($schema['exclusiveMinimum'])) {
+                return $type === 'integer' ? ((int) $schema['exclusiveMinimum'] + 1) : ((float) $schema['exclusiveMinimum'] + 1);
+            }
+            return 0;
+        }
+        return match (strtolower((string) ($schema['format'] ?? ''))) {
+            'date' => '2026-01-01',
+            'date-time' => '2026-01-01T00:00:00Z',
+            'email' => 'usuario@ejemplo.com',
+            'uuid' => '00000000-0000-4000-8000-000000000000',
+            default => 'string',
+        };
+    }
+
+    /**
+     * Convierte las pruebas técnicas en una explicación administrativa. Las
+     * causas internas de Cloud Run se mantienen como probables hasta disponer
+     * de Google Cloud Logging o de otro proveedor de trazas.
+     *
+     * @param array<string, mixed> $catalogo
+     * @param array<string, mixed>|null $remoto
+     * @param array<string, mixed> $local
+     * @param array<string, mixed> $repositorio
+     * @param array<string, mixed>|null $proceso
+     * @return array<string, mixed>
+     */
+    private function diagnosticarServicio(
+        array $catalogo,
+        string $estado,
+        ?array $remoto,
+        array $local,
+        array $repositorio,
+        ?array $proceso
+    ): array {
+        $source = $remoto ?? $local;
+        $health = is_array($source['health'] ?? null) ? $source['health'] : [];
+        $openapi = is_array($source['openapi'] ?? null) ? $source['openapi'] : [];
+        $healthOk = !empty($health['ok']);
+        $openapiOk = !empty($openapi['ok']);
+        $http = (int) (($health['status'] ?? null) ?: ($openapi['status'] ?? null) ?: 0);
+        $errno = (int) (($health['errno'] ?? null) ?: ($openapi['errno'] ?? null) ?: 0);
+        $latency = is_numeric($source['latency_ms'] ?? null) ? (int) $source['latency_ms'] : null;
+        $error = trim((string) (($health['error'] ?? '') ?: ($openapi['error'] ?? '') ?: ($source['error'] ?? '')));
+        $isLocal = empty($catalogo['remote_url']);
+
+        $diagnostico = [
+            'level' => $estado === 'offline' ? 'critical' : ($estado === 'degraded' ? 'warning' : 'ok'),
+            'cause_code' => 'unknown',
+            'title' => 'Estado por confirmar',
+            'summary' => 'La evidencia disponible no permite aislar una causa todavía.',
+            'confidence' => 'low',
+            'confidence_label' => 'Confianza baja',
+            'confirmed' => false,
+            'evidence' => [],
+            'actions' => [],
+            'logs_available' => $isLocal,
+            'logs_note' => $isLocal
+                ? 'La terminal local puede aportar el error exacto de Python.'
+                : 'Para confirmar la causa interna se requiere conectar Google Cloud Logging.',
+            'observed_at' => date(DATE_ATOM),
+        ];
+
+        if ($estado === 'stable' && $latency !== null && $latency > 1500) {
+            $diagnostico = array_replace($diagnostico, [
+                'level' => 'warning',
+                'cause_code' => 'high_latency',
+                'title' => 'Servicio disponible con respuesta lenta',
+                'summary' => 'La API responde, pero superó 1,500 ms en la lectura actual.',
+                'confidence' => 'high',
+                'confidence_label' => 'Confianza alta',
+                'confirmed' => true,
+                'actions' => [
+                    'Repetir la comprobación para descartar una demora aislada.',
+                    'Revisar consultas a base de datos y servicios externos.',
+                    'Comparar la hora de la demora con los últimos cambios publicados.',
+                ],
+            ]);
+        } elseif ($estado === 'stable') {
+            $diagnostico = array_replace($diagnostico, [
+                'level' => 'ok',
+                'cause_code' => 'operational',
+                'title' => 'Operación normal',
+                'summary' => 'Health check y esquema OpenAPI responden correctamente.',
+                'confidence' => 'high',
+                'confidence_label' => 'Confianza alta',
+                'confirmed' => true,
+                'actions' => ['No se requiere acción; mantener la supervisión automática.'],
+            ]);
+        } elseif ($isLocal && $estado === 'offline') {
+            $diagnostico = array_replace($diagnostico, [
+                'level' => 'critical',
+                'cause_code' => 'local_process_unavailable',
+                'title' => 'Proceso local no disponible',
+                'summary' => 'No se identificó la API de Condonaciones en los puertos configurados.',
+                'confidence' => 'high',
+                'confidence_label' => 'Confianza alta',
+                'actions' => [
+                    'Abrir Localhost / Terminal e iniciar python main.py.',
+                    'Confirmar que el puerto 8083 quede escuchando.',
+                    'Si Python termina de inmediato, revisar las últimas líneas del log local.',
+                ],
+            ]);
+        } elseif (in_array($http, [401, 403], true)) {
+            $diagnostico = array_replace($diagnostico, [
+                'cause_code' => 'authentication_rejected',
+                'title' => 'Autenticación rechazada',
+                'summary' => 'El servicio respondió, pero rechazó las credenciales de la comprobación.',
+                'confidence' => 'high',
+                'confidence_label' => 'Confianza alta',
+                'confirmed' => true,
+                'actions' => [
+                    'Validar que el health check pueda consultarse sin token o configurar una credencial de monitoreo.',
+                    'Revisar vigencia, prefijo y permisos del token.',
+                ],
+            ]);
+        } elseif ($http === 429) {
+            $diagnostico = array_replace($diagnostico, [
+                'cause_code' => 'rate_limited',
+                'title' => 'Límite de solicitudes alcanzado',
+                'summary' => 'El servicio respondió HTTP 429 y está rechazando solicitudes temporalmente.',
+                'confidence' => 'high',
+                'confidence_label' => 'Confianza alta',
+                'confirmed' => true,
+                'actions' => [
+                    'Esperar la ventana de recuperación y volver a comprobar.',
+                    'Revisar límites, concurrencia y tráfico reciente del servicio.',
+                ],
+            ]);
+        } elseif ($http >= 500) {
+            $diagnostico = array_replace($diagnostico, [
+                'cause_code' => 'server_error',
+                'title' => 'Error interno del servicio',
+                'summary' => 'La aplicación o su infraestructura respondió HTTP ' . $http . '.',
+                'confidence' => 'medium',
+                'confidence_label' => 'Confianza media',
+                'actions' => [
+                    'Revisar el stacktrace y la revisión activa del servicio.',
+                    'Comprobar base de datos, secretos y dependencias externas.',
+                    'Comparar el incidente con el último despliegue; revertir sólo si se confirma relación.',
+                ],
+            ]);
+        } elseif ($errno === 6 || stripos($error, 'resolve host') !== false) {
+            $diagnostico = array_replace($diagnostico, [
+                'cause_code' => 'dns_failure',
+                'title' => 'No se pudo resolver el dominio',
+                'summary' => 'El servidor de Sparta no logró convertir el dominio en una dirección de red.',
+                'confidence' => 'high',
+                'confidence_label' => 'Confianza alta',
+                'actions' => [
+                    'Comprobar DNS y que la URL configurada siga vigente.',
+                    'Validar conectividad desde el servidor de Sparta.',
+                ],
+            ]);
+        } elseif (in_array($errno, [35, 51, 58, 60], true) || preg_match('/ssl|tls|certificate/i', $error)) {
+            $diagnostico = array_replace($diagnostico, [
+                'cause_code' => 'tls_failure',
+                'title' => 'Fallo de certificado o conexión segura',
+                'summary' => 'La negociación HTTPS no pudo completarse.',
+                'confidence' => 'high',
+                'confidence_label' => 'Confianza alta',
+                'actions' => [
+                    'Revisar vigencia y cadena del certificado TLS.',
+                    'Confirmar fecha, hora y certificados raíz del servidor de Sparta.',
+                ],
+            ]);
+        } elseif ($errno === 28 || stripos($error, 'timed out') !== false || stripos($error, 'timeout') !== false) {
+            $diagnostico = array_replace($diagnostico, [
+                'cause_code' => 'timeout',
+                'title' => 'Tiempo de espera agotado',
+                'summary' => 'El servicio no respondió dentro del límite configurado.',
+                'confidence' => 'high',
+                'confidence_label' => 'Confianza alta',
+                'actions' => [
+                    'Reintentar para determinar si fue una demora temporal.',
+                    'Revisar carga, escalado y dependencias lentas.',
+                    'Consultar logs de la aplicación en la misma hora del incidente.',
+                ],
+            ]);
+        } elseif ($errno === 7 || stripos($error, 'failed to connect') !== false || stripos($error, 'connection refused') !== false) {
+            $diagnostico = array_replace($diagnostico, [
+                'cause_code' => 'connection_refused',
+                'title' => 'Conexión rechazada',
+                'summary' => 'El destino existe, pero no aceptó la conexión del monitor.',
+                'confidence' => 'high',
+                'confidence_label' => 'Confianza alta',
+                'actions' => [
+                    'Confirmar que el contenedor o proceso esté iniciado y escuchando.',
+                    'Revisar puerto, reglas de ingreso y estado de la revisión desplegada.',
+                ],
+            ]);
+        } elseif ($estado === 'degraded' && $healthOk && !$openapiOk) {
+            $diagnostico = array_replace($diagnostico, [
+                'cause_code' => 'openapi_unavailable',
+                'title' => 'API activa, documentación no disponible',
+                'summary' => 'El health check responde, pero /openapi.json falló.',
+                'confidence' => 'high',
+                'confidence_label' => 'Confianza alta',
+                'confirmed' => true,
+                'actions' => [
+                    'Revisar la generación o publicación del esquema OpenAPI.',
+                    'Confirmar que /openapi.json no requiera autenticación.',
+                ],
+            ]);
+        } elseif ($estado === 'degraded' && !$healthOk && $openapiOk) {
+            $diagnostico = array_replace($diagnostico, [
+                'cause_code' => 'health_failed',
+                'title' => 'Aplicación accesible, health check con error',
+                'summary' => 'El esquema OpenAPI responde, pero /health indica una falla.',
+                'confidence' => 'medium',
+                'confidence_label' => 'Confianza media',
+                'actions' => [
+                    'Revisar qué dependencia valida el health check.',
+                    'Consultar logs de base de datos y servicios externos.',
+                ],
+            ]);
+        } else {
+            $diagnostico = array_replace($diagnostico, [
+                'cause_code' => 'unreachable',
+                'title' => 'Servicio sin respuesta',
+                'summary' => 'Health check y OpenAPI no entregaron una respuesta utilizable.',
+                'confidence' => 'medium',
+                'confidence_label' => 'Confianza media',
+                'actions' => [
+                    'Repetir la comprobación desde Sparta.',
+                    'Revisar disponibilidad de la revisión y logs de la aplicación.',
+                    'Confirmar red, dominio y dependencias del servicio.',
+                ],
+            ]);
+        }
+
+        $evidence = [];
+        if ($health !== []) {
+            $evidence[] = $this->resumirPruebaDiagnostico('/health', $health);
+        }
+        if ($openapi !== []) {
+            $evidence[] = $this->resumirPruebaDiagnostico('/openapi.json', $openapi);
+        }
+        if ($isLocal && trim((string) ($local['note'] ?? '')) !== '') {
+            $evidence[] = trim((string) $local['note']);
+        }
+        if ($proceso !== null) {
+            $evidence[] = !empty($proceso['owned'])
+                ? 'Proceso controlado por Sparta: PID ' . (int) ($proceso['pid'] ?? 0) . '.'
+                : 'Proceso Python: externo, detenido o no identificado.';
+        }
+        if (!empty($repositorio['dirty'])) {
+            $evidence[] = 'Workspace con ' . (int) ($repositorio['changed_files'] ?? 0) . ' cambios locales sin confirmar.';
+        }
+        $diagnostico['evidence'] = array_values(array_filter($evidence));
+        return $diagnostico;
+    }
+
+    /** @param array<string, mixed> $prueba */
+    private function resumirPruebaDiagnostico(string $ruta, array $prueba): string
+    {
+        $status = (int) ($prueba['status'] ?? 0);
+        $ms = is_numeric($prueba['ms'] ?? null) ? (int) $prueba['ms'] : null;
+        if (!empty($prueba['ok'])) {
+            return $ruta . ': HTTP ' . $status . ($ms !== null ? ' en ' . $ms . ' ms.' : '.');
+        }
+        $error = trim((string) ($prueba['error'] ?? 'Sin respuesta'));
+        return $ruta . ': ' . ($status > 0 ? 'HTTP ' . $status : $error) . ($ms !== null ? ' después de ' . $ms . ' ms.' : '.');
     }
 
     /** @return array<string, mixed> */
@@ -946,16 +1577,27 @@ class ServiciosAdministradosMonitorService
                     'endpoint_count' => (int) ($servicio['endpoint_count'] ?? 0),
                     'endpoint_signature' => (string) ($servicio['endpoint_signature'] ?? ''),
                     'error' => trim((string) (($remote['error'] ?? '') ?: ($local['error'] ?? ''))),
+                    'diagnostic' => is_array($servicio['diagnostic'] ?? null) ? $servicio['diagnostic'] : [],
                 ];
                 $previous = $lastByService[$id] ?? null;
-                if (is_array($previous) && ($previous['status'] ?? '') !== $current['status']) {
-                    $isDown = $current['status'] === 'offline';
+                if (!is_array($previous) && $current['status'] === 'offline') {
                     $nuevosEventos[] = [
-                        'type' => $isDown ? 'status_offline' : 'status_changed',
+                        'type' => 'status_offline',
+                        'service' => $id,
+                        'message' => 'Se detectó el servicio sin respuesta en la primera lectura disponible.',
+                        'severity' => 'critical',
+                    ];
+                } elseif (is_array($previous) && ($previous['status'] ?? '') !== $current['status']) {
+                    $isDown = $current['status'] === 'offline';
+                    $isRecovered = ($previous['status'] ?? '') === 'offline' && $current['status'] !== 'offline';
+                    $nuevosEventos[] = [
+                        'type' => $isDown ? 'status_offline' : ($isRecovered ? 'status_recovered' : 'status_changed'),
                         'service' => $id,
                         'message' => $isDown
                             ? 'El servicio dejo de responder.'
-                            : 'El servicio cambio de ' . ($previous['status'] ?? 'desconocido') . ' a ' . $current['status'] . '.',
+                            : ($isRecovered
+                                ? 'El servicio volvió a responder; estado actual: ' . $current['status'] . '.'
+                                : 'El servicio cambio de ' . ($previous['status'] ?? 'desconocido') . ' a ' . $current['status'] . '.'),
                         'severity' => $isDown ? 'critical' : ($current['status'] === 'degraded' ? 'warning' : 'info'),
                     ];
                 }
@@ -1007,6 +1649,7 @@ class ServiciosAdministradosMonitorService
             );
         }
 
+        $incidentHistory = $this->registrarIncidentes($servicios, $now);
         $events = $this->leerJson('events.json', []);
         $events = is_array($events) ? array_reverse(array_slice($events, -60)) : [];
         $windowStart = $now - 86400;
@@ -1059,7 +1702,7 @@ class ServiciosAdministradosMonitorService
                 'last_outage_at' => $lastOutage,
             ];
         }
-        $incidents = count(array_filter($events, static function ($event) use ($windowStart): bool {
+        $incidentCount = count(array_filter($events, static function ($event) use ($windowStart): bool {
             return is_array($event)
                 && (int) ($event['timestamp'] ?? 0) >= $windowStart
                 && in_array((string) ($event['type'] ?? ''), ['status_offline', 'openapi_changed'], true);
@@ -1076,11 +1719,355 @@ class ServiciosAdministradosMonitorService
                 'availability_24h' => $allSamples > 0 ? round(($allAvailable / $allSamples) * 100, 1) : null,
                 'average_latency_24h' => $allLatencies !== [] ? (int) round(array_sum($allLatencies) / count($allLatencies)) : null,
                 'samples_24h' => $allSamples,
-                'incidents_24h' => $incidents,
+                'incidents_24h' => $incidentCount,
                 'window_label' => 'Ultimas 24 horas',
             ],
             'events' => array_slice($events, 0, 40),
             'alerts' => array_slice($alerts, 0, 12),
+            'incidents' => array_slice($incidentHistory, 0, 100),
+        ];
+    }
+
+    /**
+     * Mantiene un ciclo de vida por caída. La escritura se protege con el
+     * mismo bloqueo de los archivos JSON para evitar alertas duplicadas si dos
+     * comprobaciones coinciden en el tiempo.
+     *
+     * @param list<array<string, mixed>> $servicios
+     * @return list<array<string, mixed>>
+     */
+    private function registrarIncidentes(array $servicios, int $now): array
+    {
+        $transiciones = [];
+        $incidentes = $this->actualizarJson('incidents.json', function ($actual) use ($servicios, $now, &$transiciones): array {
+            $actual = is_array($actual) ? array_values(array_filter($actual, 'is_array')) : [];
+            foreach ($servicios as $servicio) {
+                $serviceId = trim((string) ($servicio['id'] ?? ''));
+                if ($serviceId === '') {
+                    continue;
+                }
+                $status = (string) ($servicio['status'] ?? 'offline');
+                $diagnostico = is_array($servicio['diagnostic'] ?? null) ? $servicio['diagnostic'] : [];
+                $activeIndex = null;
+                for ($index = count($actual) - 1; $index >= 0; $index--) {
+                    if (($actual[$index]['service'] ?? '') === $serviceId && ($actual[$index]['status'] ?? '') === 'active') {
+                        $activeIndex = $index;
+                        break;
+                    }
+                }
+
+                if ($status === 'offline') {
+                    if ($activeIndex === null) {
+                        $incidente = [
+                            'id' => 'INC-' . date('Ymd-His', $now) . '-' . strtoupper(substr(hash('sha256', $serviceId . '|' . $now . '|' . microtime(true)), 0, 6)),
+                            'service' => $serviceId,
+                            'service_name' => (string) ($servicio['name'] ?? $serviceId),
+                            'status' => 'active',
+                            'opened_timestamp' => $now,
+                            'opened_at' => date(DATE_ATOM, $now),
+                            'last_seen_at' => date(DATE_ATOM, $now),
+                            'recovered_timestamp' => null,
+                            'recovered_at' => null,
+                            'duration_seconds' => null,
+                            'recovery_status' => null,
+                            'diagnostic' => $diagnostico,
+                            'notifications' => null,
+                        ];
+                        $actual[] = $incidente;
+                        $transiciones[] = ['kind' => 'down', 'incident' => $incidente];
+                    } else {
+                        $actual[$activeIndex]['last_seen_at'] = date(DATE_ATOM, $now);
+                        $actual[$activeIndex]['diagnostic'] = $diagnostico;
+                    }
+                    continue;
+                }
+
+                if ($activeIndex !== null) {
+                    $opened = (int) ($actual[$activeIndex]['opened_timestamp'] ?? $now);
+                    $actual[$activeIndex]['status'] = 'resolved';
+                    $actual[$activeIndex]['recovered_timestamp'] = $now;
+                    $actual[$activeIndex]['recovered_at'] = date(DATE_ATOM, $now);
+                    $actual[$activeIndex]['duration_seconds'] = max(0, $now - $opened);
+                    $actual[$activeIndex]['recovery_status'] = $status;
+                    $actual[$activeIndex]['recovery_diagnostic'] = $diagnostico;
+                    $transiciones[] = ['kind' => 'recovered', 'incident' => $actual[$activeIndex]];
+                }
+            }
+
+            usort($actual, static fn(array $a, array $b): int => ((int) ($b['opened_timestamp'] ?? 0)) <=> ((int) ($a['opened_timestamp'] ?? 0)));
+            return array_slice($actual, 0, 100);
+        }, []);
+
+        foreach ($transiciones as $transicion) {
+            $kind = (string) ($transicion['kind'] ?? 'down');
+            $incidente = is_array($transicion['incident'] ?? null) ? $transicion['incident'] : [];
+            $this->escribirLogIncidente($kind, $incidente);
+            $entregas = $this->notificarTransicionIncidente($kind, $incidente);
+            $this->guardarEntregasIncidente((string) ($incidente['id'] ?? ''), $entregas);
+            $this->escribirLogEntrega((string) ($incidente['id'] ?? ''), $entregas);
+        }
+
+        $incidentes = $this->leerJson('incidents.json', $incidentes);
+        return is_array($incidentes) ? array_values(array_filter($incidentes, 'is_array')) : [];
+    }
+
+    /** @param array<string, mixed> $incidente */
+    private function escribirLogIncidente(string $kind, array $incidente): void
+    {
+        try {
+            $archivo = $this->obtenerLogIncidentes();
+        } catch (\Throwable $e) {
+            error_log('[Monitoreo incident log] ' . $e->getMessage());
+            return;
+        }
+        $diagnostico = is_array($incidente['diagnostic'] ?? null) ? $incidente['diagnostic'] : [];
+        $lineas = [
+            '[' . date('Y-m-d H:i:s P') . '] ' . ($kind === 'recovered' ? 'SERVICIO REACTIVADO' : 'CAÍDA DE SERVICIO'),
+            'Incidente: ' . (string) ($incidente['id'] ?? 'Sin identificador'),
+            'Servicio: ' . (string) ($incidente['service_name'] ?? $incidente['service'] ?? 'Desconocido'),
+            'Estado: ' . ($kind === 'recovered' ? 'RESUELTO' : 'ACTIVO'),
+        ];
+        if ($kind === 'recovered') {
+            $lineas[] = 'Inicio: ' . (string) ($incidente['opened_at'] ?? 'No disponible');
+            $lineas[] = 'Recuperación: ' . (string) ($incidente['recovered_at'] ?? date(DATE_ATOM));
+            $lineas[] = 'Duración: ' . $this->formatearDuracionIncidente((int) ($incidente['duration_seconds'] ?? 0));
+            $lineas[] = 'Estado al recuperarse: ' . (string) ($incidente['recovery_status'] ?? 'stable');
+        }
+        $lineas[] = 'Causa probable: ' . (string) ($diagnostico['title'] ?? 'No determinada');
+        $lineas[] = 'Confianza: ' . (string) ($diagnostico['confidence_label'] ?? 'No disponible');
+        $lineas[] = 'Resumen: ' . (string) ($diagnostico['summary'] ?? 'Sin resumen');
+        $lineas[] = 'Evidencia:';
+        foreach ((array) ($diagnostico['evidence'] ?? []) as $evidencia) {
+            $lineas[] = '  - ' . preg_replace('/\s+/', ' ', trim((string) $evidencia));
+        }
+        $lineas[] = 'Acciones sugeridas:';
+        foreach ((array) ($diagnostico['actions'] ?? []) as $index => $accion) {
+            $lineas[] = '  ' . ((int) $index + 1) . '. ' . preg_replace('/\s+/', ' ', trim((string) $accion));
+        }
+        $lineas[] = str_repeat('-', 72);
+        @file_put_contents((string) $archivo['path'], implode("\n", $lineas) . "\n\n", FILE_APPEND | LOCK_EX);
+    }
+
+    /** @param array<string, mixed> $entregas */
+    private function escribirLogEntrega(string $incidentId, array $entregas): void
+    {
+        try {
+            $archivo = $this->obtenerLogIncidentes();
+        } catch (\Throwable $e) {
+            return;
+        }
+        $chat = is_array($entregas['google_chat'] ?? null) ? $entregas['google_chat'] : [];
+        $email = is_array($entregas['email_fallback'] ?? null) ? $entregas['email_fallback'] : [];
+        $linea = '[' . date('Y-m-d H:i:s P') . '] NOTIFICACIONES | Incidente ' . $incidentId
+            . ' | Google Chat: ' . (string) ($chat['status'] ?? 'disabled')
+            . ' | Correo de respaldo: ' . (string) ($email['status'] ?? 'disabled') . "\n\n";
+        @file_put_contents((string) $archivo['path'], $linea, FILE_APPEND | LOCK_EX);
+    }
+
+    private function formatearDuracionIncidente(int $seconds): string
+    {
+        $seconds = max(0, $seconds);
+        $hours = intdiv($seconds, 3600);
+        $minutes = intdiv($seconds % 3600, 60);
+        $remaining = $seconds % 60;
+        return ($hours > 0 ? $hours . ' h ' : '') . ($minutes > 0 ? $minutes . ' min ' : '') . $remaining . ' s';
+    }
+
+    /** @param array<string, mixed> $incidente
+     *  @return array<string, mixed>
+     */
+    private function notificarTransicionIncidente(string $kind, array $incidente): array
+    {
+        $webhook = trim((string) (getenv('SPARTA_MONITOREO_GOOGLE_CHAT_WEBHOOK') ?: ''));
+        $chat = $webhook === ''
+            ? ['status' => 'disabled', 'message' => 'Webhook pendiente de configurar.']
+            : $this->enviarGoogleChat($webhook, $this->mensajeIncidente($kind, $incidente));
+        $email = ['status' => 'standby', 'message' => 'Sólo se utiliza si falla un webhook configurado.'];
+
+        if (($chat['status'] ?? '') === 'failed') {
+            $this->registrarEventoManual(
+                'notification_failed',
+                (string) ($incidente['service'] ?? ''),
+                'Google Chat no recibió el aviso del incidente ' . (string) ($incidente['id'] ?? '') . '.',
+                'warning'
+            );
+            $email = $this->enviarCorreoRespaldo($kind, $incidente);
+        } elseif (($chat['status'] ?? '') === 'disabled') {
+            $email = ['status' => 'disabled', 'message' => 'No se intenta correo mientras Google Chat no esté configurado.'];
+        }
+        return ['google_chat' => $chat, 'email_fallback' => $email, 'attempted_at' => date(DATE_ATOM)];
+    }
+
+    /** @param array<string, mixed> $incidente */
+    private function mensajeIncidente(string $kind, array $incidente): string
+    {
+        $diagnostico = is_array($incidente['diagnostic'] ?? null) ? $incidente['diagnostic'] : [];
+        $titulo = $kind === 'recovered' ? '✅ SERVICIO REACTIVADO' : '🔴 CAÍDA DE SERVICIO';
+        $lineas = [
+            $titulo,
+            'Servicio: ' . (string) ($incidente['service_name'] ?? $incidente['service'] ?? 'Desconocido'),
+            'Incidente: ' . (string) ($incidente['id'] ?? 'Sin identificador'),
+            'Hora: ' . date('Y-m-d H:i:s'),
+        ];
+        if ($kind === 'recovered') {
+            $lineas[] = 'Duración: ' . $this->formatearDuracionIncidente((int) ($incidente['duration_seconds'] ?? 0));
+        }
+        $lineas[] = 'Causa probable: ' . (string) ($diagnostico['title'] ?? 'No determinada');
+        $lineas[] = 'Detalle: ' . (string) ($diagnostico['summary'] ?? 'Sin detalle');
+        $acciones = (array) ($diagnostico['actions'] ?? []);
+        if ($kind !== 'recovered' && $acciones !== []) {
+            $lineas[] = 'Primera acción: ' . (string) $acciones[0];
+        }
+        $lineas[] = 'Consulta el diagnóstico completo en Sparta Ledger > Monitoreo.';
+        return implode("\n", $lineas);
+    }
+
+    /** @return array{status:string,message:string,http_status?:int} */
+    private function enviarGoogleChat(string $webhook, string $message): array
+    {
+        $parts = parse_url($webhook);
+        if (!is_array($parts)
+            || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+            || strtolower((string) ($parts['host'] ?? '')) !== 'chat.googleapis.com'
+            || !str_starts_with((string) ($parts['path'] ?? ''), '/v1/spaces/')) {
+            return ['status' => 'failed', 'message' => 'La URL del webhook de Google Chat no es válida.'];
+        }
+        $payload = json_encode(['text' => $message], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $ch = @curl_init($webhook);
+        if (!$ch || !is_string($payload)) {
+            return ['status' => 'failed', 'message' => 'No se pudo preparar el envío a Google Chat.'];
+        }
+        @curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_TIMEOUT_MS => 6000,
+            CURLOPT_CONNECTTIMEOUT_MS => 2500,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json; charset=utf-8'],
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_USERAGENT => 'SpartaLedger/MonitoreoAlertas',
+        ]);
+        @curl_exec($ch);
+        $status = (int) @curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $error = trim((string) @curl_error($ch));
+        $errno = (int) @curl_errno($ch);
+        @curl_close($ch);
+        if ($errno === 0 && $status >= 200 && $status < 300) {
+            return ['status' => 'sent', 'message' => 'Aviso entregado a Google Chat.', 'http_status' => $status];
+        }
+        return [
+            'status' => 'failed',
+            'message' => $error !== '' ? $error : 'Google Chat respondió HTTP ' . ($status ?: 'sin respuesta') . '.',
+            'http_status' => $status,
+        ];
+    }
+
+    /** @param array<string, mixed> $incidente
+     *  @return array{status:string,message:string}
+     */
+    private function enviarCorreoRespaldo(string $kind, array $incidente): array
+    {
+        $recipientsRaw = trim((string) (getenv('SPARTA_MONITOREO_ALERT_EMAIL_TO') ?: ''));
+        $host = trim((string) (getenv('MAIL_SMTP_HOST') ?: ''));
+        $user = trim((string) (getenv('MAIL_SMTP_USER') ?: ''));
+        $password = (string) (getenv('MAIL_SMTP_PASS') ?: '');
+        $recipients = array_values(array_filter(
+            preg_split('/[;,\s]+/', $recipientsRaw) ?: [],
+            static fn(string $email): bool => filter_var($email, FILTER_VALIDATE_EMAIL) !== false
+        ));
+        if ($recipients === [] || $host === '' || $user === '' || $password === '') {
+            return ['status' => 'disabled', 'message' => 'Correo de respaldo pendiente de destinatarios o SMTP.'];
+        }
+        if (!class_exists(\PHPMailer\PHPMailer\PHPMailer::class)) {
+            $bootstrap = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'bootstrap_composer.php';
+            if (is_file($bootstrap)) {
+                require_once $bootstrap;
+                if (function_exists('sparta_require_composer_autoload')) {
+                    sparta_require_composer_autoload();
+                }
+            }
+        }
+        if (!class_exists(\PHPMailer\PHPMailer\PHPMailer::class)) {
+            return ['status' => 'failed', 'message' => 'PHPMailer no está disponible.'];
+        }
+        try {
+            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+            $mail->isSMTP();
+            $mail->Host = $host;
+            $mail->Port = max(1, (int) (getenv('MAIL_SMTP_PORT') ?: 465));
+            $mail->Timeout = 8;
+            $mail->Timelimit = 10;
+            $mail->SMTPAuth = true;
+            $mail->Username = $user;
+            $mail->Password = $password;
+            $secure = strtolower(trim((string) (getenv('MAIL_SMTP_SECURE') ?: ($mail->Port === 465 ? 'ssl' : 'tls'))));
+            $mail->SMTPSecure = $secure === 'ssl'
+                ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
+                : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->CharSet = 'UTF-8';
+            $from = trim((string) (getenv('MAIL_SMTP_FROM') ?: getenv('MAIL_FROM') ?: $user));
+            $fromName = trim((string) (getenv('MAIL_SMTP_FROM_NAME') ?: getenv('MAIL_FROM_NAME') ?: 'Sparta Monitoreo'));
+            $mail->setFrom($from, $fromName);
+            foreach ($recipients as $recipient) {
+                $mail->addAddress($recipient);
+            }
+            $mail->Subject = ($kind === 'recovered' ? '[RECUPERADO] ' : '[CAÍDA] ')
+                . (string) ($incidente['service_name'] ?? $incidente['service'] ?? 'Servicio web');
+            $plain = $this->mensajeIncidente($kind, $incidente);
+            $mail->isHTML(true);
+            $mail->Body = '<pre style="font:14px/1.5 Arial,sans-serif;white-space:pre-wrap">'
+                . htmlspecialchars($plain, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</pre>';
+            $mail->AltBody = $plain;
+            $incidentLog = $this->obtenerLogIncidentes();
+            $mail->addAttachment($incidentLog['path'], $incidentLog['name']);
+            $mail->send();
+            return ['status' => 'sent', 'message' => 'Correo de respaldo enviado.'];
+        } catch (\Throwable $e) {
+            error_log('[Monitoreo correo respaldo] ' . $e->getMessage());
+            return ['status' => 'failed', 'message' => 'No se pudo enviar el correo de respaldo.'];
+        }
+    }
+
+    /** @param array<string, mixed> $entregas */
+    private function guardarEntregasIncidente(string $incidentId, array $entregas): void
+    {
+        if ($incidentId === '') {
+            return;
+        }
+        $this->actualizarJson('incidents.json', static function ($incidentes) use ($incidentId, $entregas): array {
+            $incidentes = is_array($incidentes) ? array_values($incidentes) : [];
+            foreach ($incidentes as &$incidente) {
+                if (is_array($incidente) && ($incidente['id'] ?? '') === $incidentId) {
+                    $incidente['notifications'] = $entregas;
+                    break;
+                }
+            }
+            unset($incidente);
+            return $incidentes;
+        }, []);
+    }
+
+    /** @return array<string, mixed> */
+    private function estadoCanalesNotificacion(): array
+    {
+        $chatEnabled = trim((string) (getenv('SPARTA_MONITOREO_GOOGLE_CHAT_WEBHOOK') ?: '')) !== '';
+        $emailEnabled = trim((string) (getenv('SPARTA_MONITOREO_ALERT_EMAIL_TO') ?: '')) !== ''
+            && trim((string) (getenv('MAIL_SMTP_HOST') ?: '')) !== ''
+            && trim((string) (getenv('MAIL_SMTP_USER') ?: '')) !== ''
+            && (string) (getenv('MAIL_SMTP_PASS') ?: '') !== '';
+        return [
+            'google_chat' => [
+                'enabled' => $chatEnabled,
+                'label' => $chatEnabled ? 'Configurado' : 'Pendiente de webhook',
+                'events' => ['status_offline', 'status_recovered'],
+            ],
+            'email_fallback' => [
+                'enabled' => $emailEnabled,
+                'label' => $emailEnabled ? 'Listo como respaldo' : 'Pendiente de SMTP y destinatarios',
+                'only_on_webhook_failure' => true,
+            ],
         ];
     }
 

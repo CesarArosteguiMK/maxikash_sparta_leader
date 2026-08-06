@@ -34,6 +34,7 @@ if ($__assetsVer === '.' || $__assetsVer === '') $__assetsVer = (string) time();
 $__personaIdAsistente = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
 $__leonidasSessionToken = (string) ($_SESSION['leonidas_session_token'] ?? '');
 $__esPropietarioLeonidas = $__personaIdAsistente === 878;
+$__esPedroMonitoreo = $__personaIdAsistente === 877;
 $__mostrarLeonidas = false;
 if ($__personaIdAsistente > 0 && isset($_SESSION['login'])) {
     try {
@@ -878,6 +879,13 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                                         <button type="button" class="dropdown-item user-dropdown-leonidas" data-leonidas-appearance-open>
                                             <i class="fa-solid fa-palette fa-fw"></i><span>Vestuario de Leónidas</span>
                                         </button>
+                                    </li>
+                                    <?php endif; ?>
+                                    <?php if ($__esPedroMonitoreo): ?>
+                                    <li>
+                                        <a class="dropdown-item user-dropdown-planeador" href="/monitoreo?modo=planeador">
+                                            <i class="fa-solid fa-display fa-fw"></i><span>Modo planeador</span>
+                                        </a>
                                     </li>
                                     <?php endif; ?>
                                     <li><hr class="dropdown-divider"></li>
@@ -1949,62 +1957,106 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                                 <div class="leonidas-appearance-themes" data-leonidas-appearance-themes></div>
                             </div>
                             <div class="leonidas-appearance-custom">
-                                <div>
-                                    <h6>Personalizar colores</h6>
-                                    <p>Modifica tela principal, detalles y metal conservando la textura original.</p>
-                                </div>
-                                <label>
-                                    <span>Tela principal<small>Tela interior y base del faldón</small></span>
-                                    <span class="leonidas-color-control">
-                                        <input type="color" value="#0048B7" data-leonidas-color="color_principal">
-                                        <output data-leonidas-color-output="color_principal">#0048B7</output>
-                                    </span>
-                                </label>
-                                <label>
-                                    <span>Cuero y detalles<small>Correas, ribetes y acentos</small></span>
-                                    <span class="leonidas-color-control">
-                                        <input type="color" value="#D2D854" data-leonidas-color="color_secundario">
-                                        <output data-leonidas-color-output="color_secundario">#D2D854</output>
-                                    </span>
-                                </label>
-                                <label>
-                                    <span>Metal<small>Pechera, grebas, brazales y broches</small></span>
-                                    <span class="leonidas-color-control">
-                                        <input type="color" value="#D7E0EA" data-leonidas-color="color_metal">
-                                        <output data-leonidas-color-output="color_metal">#D7E0EA</output>
-                                    </span>
-                                </label>
-                                <div class="leonidas-appearance-gear" data-leonidas-gear-controls hidden>
-                                    <div>
-                                        <h6>Piezas visibles</h6>
-                                        <p>Combina armadura, cabello y equipo del modelo validado.</p>
+                                <details class="leonidas-appearance-section" data-leonidas-editor-section>
+                                    <summary>
+                                        <span class="leonidas-appearance-section__title">
+                                            <i class="fa-solid fa-palette" aria-hidden="true"></i>
+                                            <span>
+                                                <strong>Personalizar colores</strong>
+                                                <small>Tela, cuero y metal</small>
+                                            </span>
+                                        </span>
+                                        <i class="fa-solid fa-chevron-down leonidas-appearance-section__chevron" aria-hidden="true"></i>
+                                    </summary>
+                                    <div class="leonidas-appearance-section__body">
+                                        <label>
+                                            <span>Tela principal<small>Tela interior y base del faldón</small></span>
+                                            <span class="leonidas-color-control">
+                                                <input type="color" value="#0048B7" data-leonidas-color="color_principal">
+                                                <output data-leonidas-color-output="color_principal">#0048B7</output>
+                                            </span>
+                                        </label>
+                                        <label>
+                                            <span>Cuero y detalles<small>Correas, ribetes y acentos</small></span>
+                                            <span class="leonidas-color-control">
+                                                <input type="color" value="#D2D854" data-leonidas-color="color_secundario">
+                                                <output data-leonidas-color-output="color_secundario">#D2D854</output>
+                                            </span>
+                                        </label>
+                                        <label>
+                                            <span>Metal<small>Pechera, grebas, brazales y broches</small></span>
+                                            <span class="leonidas-color-control">
+                                                <input type="color" value="#D7E0EA" data-leonidas-color="color_metal">
+                                                <output data-leonidas-color-output="color_metal">#D7E0EA</output>
+                                            </span>
+                                        </label>
                                     </div>
-                                    <label>
-                                        <span><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i>Casco</span>
-                                        <input type="checkbox" role="switch" checked
-                                               data-leonidas-part="casco_visible">
-                                    </label>
-                                    <label>
-                                        <span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i>Pechera y correas</span>
-                                        <input type="checkbox" role="switch" checked
-                                               data-leonidas-part="pechera_visible">
-                                    </label>
-                                    <label>
-                                        <span><i class="fa-solid fa-scissors" aria-hidden="true"></i>Cabello</span>
-                                        <input type="checkbox" role="switch" checked
-                                               data-leonidas-part="cabello_visible">
-                                    </label>
-                                    <label>
-                                        <span><i class="fa-solid fa-shield" aria-hidden="true"></i>Escudo</span>
-                                        <input type="checkbox" role="switch" checked
-                                               data-leonidas-part="escudo_visible">
-                                    </label>
-                                    <label>
-                                        <span><i class="fa-solid fa-wand-sparkles" aria-hidden="true"></i>Lanza</span>
-                                        <input type="checkbox" role="switch" checked
-                                               data-leonidas-part="lanza_visible">
-                                    </label>
-                                </div>
+                                </details>
+                                <details class="leonidas-appearance-section leonidas-appearance-gear"
+                                         data-leonidas-editor-section data-leonidas-gear-controls hidden>
+                                    <summary>
+                                        <span class="leonidas-appearance-section__title">
+                                            <i class="fa-solid fa-person-military-rifle" aria-hidden="true"></i>
+                                            <span>
+                                                <strong>Piezas visibles</strong>
+                                                <small>Armadura, cabello y equipo</small>
+                                            </span>
+                                        </span>
+                                        <i class="fa-solid fa-chevron-down leonidas-appearance-section__chevron" aria-hidden="true"></i>
+                                    </summary>
+                                    <div class="leonidas-appearance-section__body">
+                                        <label>
+                                            <span><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i>Casco</span>
+                                            <input type="checkbox" role="switch" checked
+                                                   data-leonidas-part="casco_visible">
+                                        </label>
+                                        <details class="leonidas-helmet-selector"
+                                                 data-leonidas-editor-section data-leonidas-helmet-selector>
+                                            <summary>
+                                                <span>Diseño del casco</span>
+                                                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                                            </summary>
+                                            <div role="radiogroup" aria-label="Diseño del casco de Leónidas">
+                                                <label>
+                                                    <input type="radio" name="leonidasHelmetModel" value="original"
+                                                           data-leonidas-helmet-model checked>
+                                                    <span>
+                                                        <strong>Original</strong>
+                                                        <small>Casco espartano clásico del avatar.</small>
+                                                    </span>
+                                                </label>
+                                                <label>
+                                                    <input type="radio" name="leonidasHelmetModel" value="aqueo"
+                                                           data-leonidas-helmet-model>
+                                                    <span>
+                                                        <strong>Áqueo oscuro</strong>
+                                                        <small>Acero negro y cresta sagital.</small>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </details>
+                                        <label>
+                                            <span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i>Pechera y correas</span>
+                                            <input type="checkbox" role="switch" checked
+                                                   data-leonidas-part="pechera_visible">
+                                        </label>
+                                        <label>
+                                            <span><i class="fa-solid fa-scissors" aria-hidden="true"></i>Cabello</span>
+                                            <input type="checkbox" role="switch" checked
+                                                   data-leonidas-part="cabello_visible">
+                                        </label>
+                                        <label>
+                                            <span><i class="fa-solid fa-shield" aria-hidden="true"></i>Escudo</span>
+                                            <input type="checkbox" role="switch" checked
+                                                   data-leonidas-part="escudo_visible">
+                                        </label>
+                                        <label>
+                                            <span><i class="fa-solid fa-wand-sparkles" aria-hidden="true"></i>Lanza</span>
+                                            <input type="checkbox" role="switch" checked
+                                                   data-leonidas-part="lanza_visible">
+                                        </label>
+                                    </div>
+                                </details>
                                 <p class="leonidas-appearance-note" data-leonidas-gear-note>
                                     <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
                                     El modelo actual conserva casco y pechera porque forman parte de una sola malla. Los controles se habilitan solamente con anatomía modular validada.

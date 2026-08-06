@@ -4312,7 +4312,6 @@ class CapHum extends Model
         try {
             $db = new Database();
             self::asegurarPersonaEsExterno($db);
-            self::asegurarPlantillaActivaExpedientes($db);
 
             $tipos = $db->queryAll("
                 SELECT id, nombre, clave, obligatorio
@@ -4330,7 +4329,7 @@ class CapHum extends Model
                     TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
                     p.correo,
                     COALESCE(p.estatus, '') AS estatus,
-                    MIN(pla.id_empresa) AS id_empresa,
+                    p.id_empresa AS id_empresa,
                     CASE
                         WHEN LOWER(COALESCE(emp.nombre_comercial, '')) LIKE '%furia%'
                             THEN 'furia_moto'
@@ -4340,11 +4339,8 @@ class CapHum extends Model
                     GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', ') AS departamentos,
                     GROUP_CONCAT(DISTINCT pp.nombre ORDER BY pp.nombre SEPARATOR ', ') AS puestos
                 FROM estado_cuenta.persona p
-                INNER JOIN estado_cuenta.rrhh_plantilla_activa pla
-                    ON pla.id_persona = p.id
-                   AND pla.activo = 1
                 LEFT JOIN estado_cuenta.rrhh_empresas emp
-                    ON emp.id = pla.id_empresa
+                    ON emp.id = p.id_empresa
                 LEFT JOIN estado_cuenta.asigna_puesto ap
                     ON ap.id_persona = p.id
                    AND COALESCE(ap.activo, 1) = 1
@@ -4354,7 +4350,7 @@ class CapHum extends Model
                     ON d.id = pp.departamento_id
                 WHERE p.estatus = 'Activo'
                   AND COALESCE(p.es_externo, 0) = 0
-                GROUP BY p.id, p.numero_empleado, p.codigo_contpac, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.correo, p.estatus, emp.nombre_comercial
+                GROUP BY p.id, p.numero_empleado, p.codigo_contpac, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.correo, p.estatus, p.id_empresa, emp.nombre_comercial
                 ORDER BY nombre_completo ASC
             ");
 
@@ -4372,9 +4368,6 @@ class CapHum extends Model
                     FROM estado_cuenta.carga_documento_persona cdp
                     INNER JOIN estado_cuenta.persona p
                         ON p.id = cdp.id_persona
-                    INNER JOIN estado_cuenta.rrhh_plantilla_activa pla
-                        ON pla.id_persona = cdp.id_persona
-                       AND pla.activo = 1
                     WHERE cdp.id_documento IN (" . implode(',', $idsConsulta) . ")
                       AND p.estatus = 'Activo'
                       AND COALESCE(p.es_externo, 0) = 0
@@ -4501,8 +4494,8 @@ class CapHum extends Model
     }
 
     /**
-     * Devuelve una muestra acotada de la plantilla vigente. La consulta vuelve a
-     * validar activo, empresa y externo en servidor antes de cualquier descarga.
+     * Devuelve una muestra acotada de colaboradores internos activos. La consulta
+     * vuelve a validar estatus, empresa y externo antes de cualquier descarga.
      */
     public static function getPersonasMuestraExpedientesRrhh(string $empresa, array $idsPersona = [], bool $aleatorio = true, int $limite = 10)
     {
@@ -4513,7 +4506,6 @@ class CapHum extends Model
 
             $db = new Database();
             self::asegurarPersonaEsExterno($db);
-            self::asegurarPlantillaActivaExpedientes($db);
 
             $params = [];
             $where = [
@@ -4543,20 +4535,17 @@ class CapHum extends Model
                     p.id AS id_persona,
                     p.codigo_contpac,
                     TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
-                    pla.id_empresa,
+                    p.id_empresa,
                     CASE
                         WHEN $empresaTexto LIKE '%furia%' THEN 'furia_moto'
                         ELSE 'maxikash'
                     END AS empresa_clave,
                     COALESCE(NULLIF(emp.nombre_comercial, ''), 'MaxiKash') AS empresa_nombre
                 FROM estado_cuenta.persona p
-                INNER JOIN estado_cuenta.rrhh_plantilla_activa pla
-                    ON pla.id_persona = p.id
-                   AND pla.activo = 1
                 LEFT JOIN estado_cuenta.rrhh_empresas emp
-                    ON emp.id = pla.id_empresa
+                    ON emp.id = p.id_empresa
                 WHERE " . implode(' AND ', $where) . "
-                GROUP BY p.id, p.codigo_contpac, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, pla.id_empresa, emp.nombre_comercial
+                GROUP BY p.id, p.codigo_contpac, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.id_empresa, emp.nombre_comercial
                 ORDER BY $orden
                 LIMIT $limite
             ", $params);

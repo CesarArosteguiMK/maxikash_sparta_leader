@@ -3,6 +3,7 @@ const CACHE_TTL_MS = 20000;
 const ALLOW_LOCAL_FALLBACK = (process.env.ALLOW_LOCAL_TIME_FALLBACK || '0') === '1';
 const REMOTE_TIMEOUT_MS = Math.max(800, parseInt(process.env.CDMX_TIME_REMOTE_TIMEOUT_MS || '2500', 10) || 2500);
 const REMOTE_FAIL_COOLDOWN_MS = Math.max(30000, parseInt(process.env.CDMX_TIME_REMOTE_FAIL_COOLDOWN_MS || '120000', 10) || 120000);
+const MAX_REMOTE_CLOCK_SKEW_MS = Math.max(5000, parseInt(process.env.CDMX_TIME_MAX_SKEW_MS || '90000', 10) || 90000);
 
 let cache = null;
 let remoteBlockedUntilMs = 0;
@@ -44,10 +45,44 @@ async function fetchWithTimeout(url) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), REMOTE_TIMEOUT_MS);
   try {
-    return await fetch(url, { method: 'GET', signal: ctrl.signal });
+    const cacheBuster = '_sparta_now=' + Date.now();
+    const freshUrl = url + (url.includes('?') ? '&' : '?') + cacheBuster;
+    return await fetch(freshUrl, {
+      method: 'GET',
+      signal: ctrl.signal,
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+    });
   } finally {
     clearTimeout(timer);
   }
+}
+
+function wallClockMs(value) {
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value && value.fecha || ''));
+  const hms = /^(\d{2}):(\d{2}):(\d{2})$/.exec(String(value && value.horaSeg || ''));
+  if (!ymd || !hms) return NaN;
+  return Date.UTC(
+    Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]),
+    Number(hms[1]), Number(hms[2]), Number(hms[3])
+  );
+}
+
+function validateRemoteClock(value, localReference = localFallbackNow()) {
+  const remoteWall = wallClockMs(value);
+  const localWall = wallClockMs(localReference);
+  if (!Number.isFinite(remoteWall) || !Number.isFinite(localWall)) {
+    throw new Error((value && value.source || 'fuente remota') + ' devolvio una hora invalida.');
+  }
+  const clockSkewMs = remoteWall - localWall;
+  if (Math.abs(clockSkewMs) > MAX_REMOTE_CLOCK_SKEW_MS) {
+    throw new Error(
+      (value.source || 'fuente remota') +
+      ' rechazada por desfase de ' + Math.round(clockSkewMs / 1000) + ' s (maximo ' +
+      Math.round(MAX_REMOTE_CLOCK_SKEW_MS / 1000) + ' s).'
+    );
+  }
+  return { ...value, clockSkewMs };
 }
 
 async function fetchWorldTimeApi() {
@@ -105,15 +140,21 @@ async function getAccurateCdmxNow() {
   }
 
   let value = null;
+  let firstError = null;
   try {
-    value = await fetchWorldTimeApi();
-  } catch (_) {
+    value = validateRemoteClock(await fetchWorldTimeApi());
+  } catch (e) {
+    firstError = e;
     try {
-      value = await fetchTimeApiIo();
-    } catch (_) {
+      value = validateRemoteClock(await fetchTimeApiIo());
+    } catch (secondError) {
       if (!ALLOW_LOCAL_FALLBACK) {
         remoteBlockedUntilMs = Date.now() + REMOTE_FAIL_COOLDOWN_MS;
-        throw new Error('No se pudo obtener hora CDMX remota (worldtimeapi/timeapi.io).');
+        throw new Error(
+          'No se pudo obtener una hora CDMX remota confiable. ' +
+          'worldtimeapi: ' + (firstError && firstError.message || 'fallo') + '; ' +
+          'timeapi.io: ' + (secondError && secondError.message || 'fallo')
+        );
       }
       value = localFallbackNow();
       remoteBlockedUntilMs = Date.now() + REMOTE_FAIL_COOLDOWN_MS;
@@ -137,4 +178,9 @@ function getCdmxLocalSync() {
 module.exports = {
   getAccurateCdmxNow,
   getCdmxLocalSync,
+  _test: {
+    MAX_REMOTE_CLOCK_SKEW_MS,
+    wallClockMs,
+    validateRemoteClock,
+  },
 };

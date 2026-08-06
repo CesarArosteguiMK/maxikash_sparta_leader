@@ -9,12 +9,14 @@ final class AtlasExpedientesTest extends TestCase
 {
     private string $view;
     private string $controllerSource;
+    private string $cacheSource;
 
     protected function setUp(): void
     {
         $backend = dirname(__DIR__);
         $this->view = (string)file_get_contents($backend . '/views/atlas_expedientes.php');
         $this->controllerSource = (string)file_get_contents($backend . '/controllers/Atlas.php');
+        $this->cacheSource = (string)file_get_contents($backend . '/services/AtlasExpedientesCacheService.php');
     }
 
     public function testListRequestsHistoricalS2CreditWithoutAStageSelector(): void
@@ -23,41 +25,44 @@ final class AtlasExpedientesTest extends TestCase
         $this->assertStringContainsString('Cr&eacute;ditos activos en S2Credit', $this->view);
         $this->assertStringNotContainsString('id="atlasExpedientesStage"', $this->view);
         $this->assertStringNotContainsString("params.set('etapa'", $this->view);
-        $this->assertStringContainsString("const activationDate = String(row.fecha_activacion_s2", $this->view);
+        $this->assertStringContainsString("params.set('fecha_inicio', startInput.value)", $this->view);
+        $this->assertStringContainsString("params.set('fecha_fin', endInput.value)", $this->view);
     }
 
-    public function testListingLoadsOnceAndSearchesAndFiltersInTheBrowser(): void
+    public function testListingUsesCancelableServerPaginationAndSearch(): void
     {
-        $this->assertStringContainsString("fetch('/Atlas/getExpedientes?all=1'", $this->view);
-        $this->assertSame(1, substr_count($this->view, "fetch('/Atlas/getExpedientes?all=1'"));
-        $this->assertStringContainsString('serverSide: false', $this->view);
+        $this->assertStringNotContainsString("fetch('/Atlas/getExpedientes?all=1'", $this->view);
+        $this->assertStringContainsString('serverSide: true', $this->view);
         $this->assertStringContainsString('deferRender: true', $this->view);
-        $this->assertStringContainsString('data: []', $this->view);
-        $this->assertStringContainsString('expedienteMatchesFilters', $this->view);
-        $this->assertStringContainsString("table.rows({ search: 'applied' })", $this->view);
-        $this->assertStringContainsString("dataTableFilters.push(expedienteMatchesFilters)", $this->view);
-        $this->assertStringNotContainsString('serverSide: true', $this->view);
-        $this->assertStringNotContainsString('table.ajax.reload', $this->view);
-        $this->assertStringNotContainsString("params.set('estatus'", $this->view);
-        $this->assertStringNotContainsString("params.set('fk_sucursal'", $this->view);
-        $this->assertStringNotContainsString("params.set('search'", $this->view);
+        $this->assertStringContainsString('ajax: fetchListing', $this->view);
+        $this->assertStringContainsString('searchDelay: 300', $this->view);
+        $this->assertStringContainsString('new AbortController()', $this->view);
+        $this->assertStringContainsString('listRequest?.abort()', $this->view);
+        $this->assertStringContainsString('table.ajax.reload', $this->view);
+        $this->assertStringContainsString("params.set('estatus'", $this->view);
+        $this->assertStringContainsString("params.set('fk_sucursal'", $this->view);
+        $this->assertStringContainsString("params.set('search'", $this->view);
+        $this->assertStringNotContainsString('expedienteMatchesFilters', $this->view);
+        $this->assertStringNotContainsString("Consultando expedientes...", $this->view);
+        $this->assertStringNotContainsString('showExpedientesLoading', $this->view);
     }
 
-    public function testCompleteListingIsAggregatedBySpartaForOneBrowserResponse(): void
+    public function testCompleteSnapshotFeedsAPersistentSpartaIndex(): void
     {
         $this->assertStringContainsString("(int)(\$_GET['all'] ?? 0) === 1", $this->controllerSource);
-        $this->assertStringContainsString("['completo' => 1, 'compacto' => 1, 'actualizar' => 1]", $this->controllerSource);
+        $this->assertStringContainsString("'completo' => 1", $this->controllerSource);
+        $this->assertStringContainsString("'compacto' => 1", $this->controllerSource);
+        $this->assertStringContainsString("'actualizar' => \$forceRefresh ? 1 : 0", $this->controllerSource);
+        $this->assertStringContainsString('new AtlasExpedientesCacheService()', $this->controllerSource);
+        $this->assertStringContainsString('replaceSnapshot', $this->controllerSource);
         $this->assertStringContainsString('normalizeListingRows', $this->view);
-        $this->assertStringContainsString("data.formato === 'columnar'", $this->view);
         $this->assertStringContainsString('payload.datos || payload.data || {}', $this->view);
         $this->assertStringContainsString("CURLOPT_ENCODING => ''", $this->controllerSource);
-        $this->assertStringNotContainsString('atlasAdminExpedientesCompleto', $this->controllerSource);
-        $this->assertStringNotContainsString('La carga completa supera el limite operativo permitido.', $this->controllerSource);
         $this->assertStringContainsString('streamAtlasExpedientesSnapshot($bulkQuery)', $this->controllerSource);
-        $this->assertStringContainsString("'Accept-Encoding: gzip'", $this->controllerSource);
-        $this->assertStringContainsString('CURLOPT_HTTP_CONTENT_DECODING => false', $this->controllerSource);
-        $this->assertStringContainsString("(\$responseHeaders['x-atlas-format'] ?? '') !== 'columnar'", $this->controllerSource);
-        $this->assertStringContainsString("header('Content-Encoding: ' . \$responseHeaders['content-encoding'])", $this->controllerSource);
+        $this->assertStringContainsString('atlas_expedientes_sparta_cache', $this->cacheSource);
+        $this->assertStringContainsString('idx_atlas_exp_fecha', $this->cacheSource);
+        $this->assertStringContainsString('LIMIT \' . $pageSize . \' OFFSET \' . $offset', $this->cacheSource);
+        $this->assertStringContainsString('search_text LIKE :search', $this->cacheSource);
         $this->assertStringContainsString('Pulsa Actualizar para consultar los cambios aplicados.', $this->view);
     }
 

@@ -1142,21 +1142,23 @@ def _v2_choose_curp_principal(values: List[str]) -> Optional[str]:
 
 
 def _v2_pdf_page_count(doc: Dict[str, Any], summary: Any = None) -> Optional[int]:
-    for key in ("paginas_pdf", "paginas", "paginas_analizadas"):
+    # El archivo real, cuando viene en el payload, es la fuente autoritativa.
+    # No permitir que un metadato reconstruido o antiguo anule su PageTree.
+    file_bytes = doc.get("bytes") or b""
+    filename = str(doc.get("filename") or "")
+    if file_bytes and filename.lower().endswith(".pdf"):
         try:
-            value = doc.get(key)
-            if value:
-                return int(value)
+            pdf_doc = fitz.open(stream=file_bytes, filetype="pdf")
+            count = int(pdf_doc.page_count or 0)
+            pdf_doc.close()
+            if count > 0:
+                return count
         except Exception:
             pass
+
     if isinstance(summary, dict):
-        for key in ("paginas_pdf", "paginas", "paginas_analizadas"):
-            try:
-                value = summary.get(key)
-                if value:
-                    return int(value)
-            except Exception:
-                pass
+        # La validacion previa obtuvo paginas_pdf al abrir el PDF durante el
+        # precheck. Debe ganar a la envoltura PHP, que puede ser reconstruida.
         previo = summary.get("validacion_previa")
         if isinstance(previo, dict):
             for key in ("paginas_pdf", "paginas", "paginas_analizadas"):
@@ -1166,17 +1168,24 @@ def _v2_pdf_page_count(doc: Dict[str, Any], summary: Any = None) -> Optional[int
                         return int(value)
                 except Exception:
                     pass
-    file_bytes = doc.get("bytes") or b""
-    filename = str(doc.get("filename") or "")
-    if not file_bytes or not filename.lower().endswith(".pdf"):
-        return None
-    try:
-        pdf_doc = fitz.open(stream=file_bytes, filetype="pdf")
-        count = int(pdf_doc.page_count or 0)
-        pdf_doc.close()
-        return count or None
-    except Exception:
-        return None
+        for key in ("paginas_pdf", "paginas", "paginas_analizadas"):
+            try:
+                value = summary.get(key)
+                if value:
+                    return int(value)
+            except Exception:
+                pass
+
+    # Metadatos del documento son el ultimo recurso: pueden venir de sistemas
+    # legacy y no deben sobreescribir un conteo ya verificado por un parser.
+    for key in ("paginas_pdf", "paginas", "paginas_analizadas"):
+        try:
+            value = doc.get(key)
+            if value:
+                return int(value)
+        except Exception:
+            pass
+    return None
 
 
 def _v2_clean_acta_nombre(value: Optional[str]) -> Optional[str]:
@@ -1878,11 +1887,20 @@ def _v2_document_contribution(
 
     if key == "hoja_retencion":
         if tipo == "carta_no_adeudo":
-            ok = _v2_doc_has_any_value(out, ["nombre"]) and out.get("firma_detectada") is not False
+            tiene_nombre = _v2_doc_has_any_value(out, ["nombre"])
+            firma_detectada = _v2_bool(out.get("firma_detectada"))
+            ok = tiene_nombre and firma_detectada is True
+            faltantes: List[str] = []
+            if not tiene_nombre:
+                faltantes.append("falta nombre completo")
+            if firma_detectada is False:
+                faltantes.append("falta firma o trazo manuscrito")
+            elif firma_detectada is None:
+                faltantes.append("no se pudo confirmar la firma")
             return ok, "aviso", (
                 "Carta de no adeudo aporta nombre y firma/trazo."
                 if ok
-                else "Carta de no adeudo requiere revision: no aporto nombre y firma/trazo suficientes."
+                else "Carta de no adeudo requiere revision: " + "; ".join(faltantes) + "."
             )
         ok = tipo in {"infonavit_fonacot", "carta_no_adeudo"} or _v2_doc_has_any_value(out, ["nombre", "fecha_emision"])
         return ok, "aviso", (
@@ -2406,18 +2424,14 @@ def _resultado_v2_reglas_expediente(
             )
 
         if key == "hoja_retencion" and detected_type == "carta_no_adeudo":
-            firma_detectada = out.get("firma_detectada")
-            nombre_y_firma_lleno = out.get("nombre_y_firma_lleno")
-            evidencia_insuficiente = out.get("evidencia_insuficiente")
+            firma_detectada = _v2_bool(out.get("firma_detectada"))
             problemas_carta: List[str] = []
             if not out.get("nombre"):
-                problemas_carta.append("no se leyo nombre del declarante")
-            if evidencia_insuficiente is True:
-                problemas_carta.append("no hay evidencia suficiente de nombre y firma")
-            if nombre_y_firma_lleno is False:
-                problemas_carta.append("la linea de nombre completo y firma esta vacia o incompleta")
+                problemas_carta.append("falta el nombre completo del declarante")
             if firma_detectada is False:
-                problemas_carta.append("no se detecto firma")
+                problemas_carta.append("falta la firma o trazo manuscrito")
+            elif firma_detectada is None:
+                problemas_carta.append("no se pudo confirmar la firma")
             if problemas_carta:
                 msg_carta = "La carta de no adeudo no esta completa: " + "; ".join(problemas_carta) + "."
                 out["estado"] = "no_coincide"
@@ -5756,8 +5770,6 @@ async def verificar_calidad_identificacion_pdf(
                 if a and a.strip() and not any(a.strip() in n for n in notas):
                     notas.append("Reverso: " + a.strip())
 
-        if not notas:
-            notas.append("Revisión automática sin observaciones. Revisar identificación manualmente si lo considera necesario.")
     except Exception as e:
         logger.exception(f"verificar_calidad_identificacion_pdf: {e}")
         notas = ["Error al procesar la revisión de calidad. Revisar identificación manualmente."]

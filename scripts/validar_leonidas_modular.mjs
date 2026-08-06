@@ -99,19 +99,20 @@ if (!configuredAsset) {
         ) {
             fail('body no declara la separacion semantica de piel y vestuario');
         } else if (
-            found.helmet.node.extras?.leonidasHelmetOpenFace !== false
+            found.helmet.node.extras?.leonidasHelmetOpenFace !== true
         ) {
-            fail('helmet no declara la restauracion cerrada del modelo original');
+            fail('helmet no declara la apertura facial limpia');
         } else if (
             Number(found.helmet.node.extras?.leonidasHelmetOriginalFaces || 0) < 1000
         ) {
             fail('helmet no conserva la geometria esculpida de alta densidad');
         } else if (
             found.helmet.node.extras?.leonidasHelmetConstruction !== 'original-source'
-            || found.helmet.node.extras?.leonidasHelmetFaceOpening !== 'source-model'
+            || found.helmet.node.extras?.leonidasHelmetFaceOpening !== 't-visor-embedded-face-v2'
+            || Number(found.helmet.node.extras?.leonidasHelmetFaceOpeningFaces || 0) < 1
             || (document.meshes?.[found.helmet.node.mesh]?.primitives || []).length !== 1
         ) {
-            fail('helmet no conserva intacta la pieza original del FBX');
+            fail('helmet no conserva la carcasa con un visor geometrico limpio');
         } else if (
             !String(found.chest.node.extras?.leonidasChestSemanticFaces || '')
                 .includes('original=')
@@ -123,6 +124,8 @@ if (!configuredAsset) {
             || Number(found.shield.node.extras?.leonidasShieldCircuitRoutes || 0) < 16
             || found.shield.node.extras?.leonidasShieldEmblem !== 'corporate-interlock'
             || found.shield.node.extras?.leonidasShieldRearGrip !== true
+            || found.shield.node.extras?.leonidasShieldConstruction !== 'convex-pbr-v2'
+            || found.shield.node.extras?.leonidasShieldDimensions !== '0.444x0.582'
             || !materialNames.has('leonidasshieldcircuitglow')
         ) {
             fail('shield no contiene la construccion procedural corporativa completa');
@@ -130,6 +133,8 @@ if (!configuredAsset) {
             found.spear.node.extras?.leonidasProcedural !== true
             || found.spear.node.extras?.leonidasSpearBlade !== 'faceted-forged-steel'
             || found.spear.node.extras?.leonidasSpearShaft !== 'procedural-dark-wood'
+            || found.spear.node.extras?.leonidasSpearConstruction !== 'forged-pbr-v2'
+            || found.spear.node.extras?.leonidasSpearGrip !== 'occluded-hand-channel-v2'
             || !materialNames.has('leonidasspearwood')
             || !materialNames.has('leonidasspearmetal')
         ) {

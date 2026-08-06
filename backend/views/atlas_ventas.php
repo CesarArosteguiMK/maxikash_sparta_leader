@@ -13,14 +13,9 @@ $atlasVentasHeaders = [
 $atlasVentasColumnCount = count($atlasVentasHeaders);
 ?>
 
-<div class="container-fluid py-3 atlas-sales-page is-loading" id="atlasSalesPage">
+<div class="container-fluid py-3 atlas-sales-page" id="atlasSalesPage">
     <style>
         .atlas-sales-page { color:#22303e; }
-        .atlas-sales-page.is-loading .atlas-sales-workspace { visibility:hidden; }
-        .atlas-sales-page:not(.is-loading) .atlas-sales-inline-loader { display:none; }
-        .atlas-sales-inline-loader { display:grid; min-height:18rem; place-items:center; color:#64748b; }
-        .atlas-sales-inline-loader-content { display:flex; align-items:center; gap:.7rem; font-size:.84rem; font-weight:800; }
-        .atlas-sales-workspace { visibility:visible; }
         .atlas-sales-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
         .atlas-sales-head-actions { display:flex; align-items:center; gap:.5rem; }
         .atlas-sales-title { display:flex; align-items:center; gap:.65rem; margin:0; color:#173756; font-size:1.35rem; font-weight:900; }
@@ -45,7 +40,7 @@ $atlasVentasColumnCount = count($atlasVentasHeaders);
         .atlas-sales-table-head { display:flex; align-items:center; justify-content:space-between; gap:.8rem; padding:.72rem .9rem; border-bottom:1px solid #e5e7eb; }
         .atlas-sales-table-title { margin:0; color:#173756; font-size:.9rem; font-weight:900; }
         .atlas-sales-table-meta { color:#64748b; font-size:.75rem; font-weight:800; }
-        .atlas-sales-scroll { overflow:auto; max-height:65vh; }
+        .atlas-sales-scroll { min-height:13rem; overflow:auto; max-height:65vh; }
         .atlas-sales-table { min-width:1080px; margin:0; table-layout:fixed; }
         .atlas-sales-table th { position:sticky; top:0; z-index:2; background:#f8fafc; color:#566a7f; font-size:.67rem; font-weight:900; white-space:nowrap; }
         .atlas-sales-table td { color:#566a7f; font-size:.75rem; font-weight:700; vertical-align:middle; overflow-wrap:anywhere; transition:background-color .15s ease; }
@@ -93,7 +88,6 @@ $atlasVentasColumnCount = count($atlasVentasHeaders);
         .atlas-sales-detail-item-content { min-width:0; }
         .atlas-sales-detail-item dt { margin:0 0 .16rem; color:#8a99aa; font-size:.68rem; font-weight:800; }
         .atlas-sales-detail-item dd { margin:0; color:#22303e; font-size:.82rem; font-weight:800; overflow-wrap:anywhere; }
-        .atlas-sales-loading { display:flex; align-items:center; justify-content:center; gap:.65rem; min-height:12rem; color:#64748b; font-size:.82rem; font-weight:800; }
         .atlas-sales-empty { display:grid; place-items:center; min-height:13rem; padding:2rem; color:#64748b; text-align:center; }
         .atlas-sales-empty i { margin-bottom:.6rem; color:#94a3b8; font-size:1.75rem; }
         .atlas-sales-empty strong { display:block; color:#334155; font-size:.9rem; }
@@ -121,6 +115,10 @@ $atlasVentasColumnCount = count($atlasVentasHeaders);
         .flatpickr-calendar .flatpickr-day.selected,
         .flatpickr-calendar .flatpickr-day.startRange,
         .flatpickr-calendar .flatpickr-day.endRange { border-color:#2563eb; background:#2563eb; color:#fff; }
+        .atlas-sales-calendar .flatpickr-current-month { inline-size:calc(100% - 5rem); inset-inline-start:2.5rem; overflow:visible; }
+        .atlas-sales-calendar .flatpickr-current-month .flatpickr-monthDropdown-months { min-inline-size:7.5rem; border:1px solid #dbe4ef; border-radius:.4rem; background:#fff; color:#334155; padding:.25rem .5rem; font-weight:700; }
+        .atlas-sales-calendar .flatpickr-current-month .numInputWrapper { min-inline-size:5rem; border:1px solid #dbe4ef; border-radius:.4rem; background:#fff; }
+        .atlas-sales-calendar .flatpickr-current-month input.cur-year { cursor:text; font-weight:700; }
         @media (max-width: 1399.98px) {
             .atlas-sales-filters { grid-template-columns:repeat(2, minmax(12rem, 1fr)); }
             .atlas-sales-metrics { grid-template-columns:repeat(3, minmax(9rem, 1fr)); }
@@ -134,13 +132,6 @@ $atlasVentasColumnCount = count($atlasVentasHeaders);
             .atlas-sales-detail-grid { grid-template-columns:1fr; }
         }
     </style>
-
-    <div class="atlas-sales-inline-loader" role="status" aria-live="polite">
-        <div class="atlas-sales-inline-loader-content">
-            <span class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></span>
-            <span>Cargando ventas...</span>
-        </div>
-    </div>
 
     <div class="atlas-sales-workspace" id="atlasSalesWorkspace" aria-busy="true">
     <header class="atlas-sales-head">
@@ -204,7 +195,7 @@ $atlasVentasColumnCount = count($atlasVentasHeaders);
 
     <div class="atlas-sales-rule">
         <i class="fa-solid fa-circle-info"></i>
-        <span>La regla vigente del distribuidor tiene prioridad. Cuando no existe una regla particular, la venta se contabiliza al pasar por Por dispersar; si no pas&oacute; por esa etapa, se usa Dispersado y finalmente S2Credit.</span>
+        <span>Criterio alineado con BI: los distribuidores especiales usan S2Credit; los dem&aacute;s priorizan Dispersado, Por dispersar, Factura y S2Credit. Para eventos anteriores al 29/06/2026 se usa la dispersi&oacute;n bancaria v&aacute;lida.</span>
     </div>
 
     <div class="alert alert-danger atlas-sales-alert d-none" role="alert" id="atlasSalesError"></div>
@@ -235,7 +226,7 @@ $atlasVentasColumnCount = count($atlasVentasHeaders);
     <section class="atlas-sales-table-panel" aria-label="Detalle de ventas">
         <div class="atlas-sales-table-head">
             <h2 class="atlas-sales-table-title">Detalle de ventas</h2>
-            <div class="atlas-sales-table-meta" id="atlasSalesTableMeta">Preparando consulta...</div>
+            <div class="atlas-sales-table-meta" id="atlasSalesTableMeta"></div>
         </div>
         <div class="atlas-sales-scroll">
             <table class="table table-sm table-hover atlas-sales-table">
@@ -246,9 +237,7 @@ $atlasVentasColumnCount = count($atlasVentasHeaders);
                         <?php endforeach; ?>
                     </tr>
                 </thead>
-                <tbody id="atlasSalesRows">
-                    <tr><td colspan="<?= $atlasVentasColumnCount ?>"><div class="atlas-sales-loading"><span class="spinner-border spinner-border-sm"></span>Consultando ventas...</div></td></tr>
-                </tbody>
+                <tbody id="atlasSalesRows"></tbody>
             </table>
         </div>
         <footer class="atlas-sales-pagination">
@@ -331,15 +320,14 @@ const initializeAtlasSales = () => {
         totalPages: 1,
         total: 0,
         request: null,
-        allRows: [],
-        filteredRows: [],
+        rows: [],
         branches: [],
-        filterFrame: null,
+        searchTimer: null,
+        catalogsLoaded: false,
+        exporting: false,
         picker: null,
         start: elements.dates.dataset.start,
         end: elements.dates.dataset.end,
-        minDate: elements.dates.dataset.start,
-        maxDate: elements.dates.dataset.end,
     };
     const currency = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
     const integer = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
@@ -379,48 +367,11 @@ const initializeAtlasSales = () => {
         String(value.getDate()).padStart(2, '0'),
     ].join('-');
 
-    const normalizeSearch = (value) => String(value ?? '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLocaleLowerCase('es-MX')
-        .trim();
-
     const setLoading = (loading) => {
-        elements.refresh.disabled = loading;
-        elements.export.disabled = loading;
+        elements.refresh.disabled = loading || state.exporting;
+        elements.export.disabled = loading || state.exporting;
         elements.pageSize.disabled = loading;
         elements.workspace.setAttribute('aria-busy', loading ? 'true' : 'false');
-        elements.page.classList.toggle('is-loading', loading);
-    };
-
-    const showPreload = () => {
-        if (typeof Swal === 'undefined') return null;
-        const existing = window.__atlasVentasPreload;
-        if (existing?.active && Number.isFinite(existing.startedAt) && Swal.isVisible()) {
-            return existing.startedAt;
-        }
-        const startedAt = performance.now();
-        window.__atlasVentasPreload = { active: true, startedAt };
-        Swal.fire({
-            title: 'Cargando ventas',
-            text: 'Preparando la informaci\u00f3n...',
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            showConfirmButton: false,
-            didOpen: () => Swal.showLoading(),
-        });
-        return startedAt;
-    };
-
-    const closePreload = async (startedAt) => {
-        if (startedAt !== null) {
-            const remaining = 500 - (performance.now() - startedAt);
-            if (remaining > 0) {
-                await new Promise((resolve) => setTimeout(resolve, remaining));
-            }
-        }
-        if (typeof Swal !== 'undefined' && Swal.isVisible()) Swal.close();
-        window.__atlasVentasPreload = null;
     };
 
     const showError = (message = '') => {
@@ -428,7 +379,7 @@ const initializeAtlasSales = () => {
         elements.error.classList.toggle('d-none', !message);
     };
 
-    const paramsFromFilters = () => {
+    const paramsFromFilters = (includePaging = false) => {
         const params = new URLSearchParams();
         if (state.start && state.end) {
             params.set('fecha_inicio', state.start);
@@ -443,6 +394,11 @@ const initializeAtlasSales = () => {
         if (branch) params.set('fk_sucursal', branch);
         if (stage) params.set('etapa', stage);
         if (elements.search.value.trim()) params.set('search', elements.search.value.trim());
+        if (includePaging) {
+            params.set('page', String(state.page));
+            params.set('page_size', elements.pageSize.value || '25');
+            if (!state.catalogsLoaded) params.set('include_catalogs', '1');
+        }
         return params;
     };
 
@@ -489,7 +445,7 @@ const initializeAtlasSales = () => {
 
     const renderStages = (rows) => {
         const selected = elements.stage.value;
-        const stages = [...new Set(rows.map((row) => stageKey(row.etapa)).filter(Boolean))]
+        const stages = [...new Set(rows.map((row) => stageKey(row.valor || row.etapa)).filter(Boolean))]
             .map((value) => ({ value, label: stagePresentation(value).label }))
             .sort((a, b) => a.label.localeCompare(b.label, 'es-MX'));
         elements.stage.innerHTML = optionHtml('', 'Todas las etapas')
@@ -498,30 +454,11 @@ const initializeAtlasSales = () => {
         notifySelectChanged(elements.stage);
     };
 
-    const renderCatalogs = (rows) => {
-        const distributorMap = new Map();
-        const branchMap = new Map();
-        rows.forEach((row) => {
-            const distributorId = Number(row.fk_distribuidor || 0);
-            const branchId = Number(row.pk_sucursal || 0);
-            if (distributorId > 0) {
-                distributorMap.set(distributorId, {
-                    id: distributorId,
-                    nombre: row.distribuidor || `Distribuidor ${distributorId}`,
-                });
-            }
-            if (branchId > 0) {
-                branchMap.set(branchId, {
-                    id: branchId,
-                    nombre: row.sucursal || `Sucursal ${branchId}`,
-                    fk_distribuidor: distributorId,
-                });
-            }
-        });
-        const distributors = [...distributorMap.values()]
-            .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es-MX'));
-        state.branches = [...branchMap.values()]
-            .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es-MX'));
+    const renderCatalogs = (catalogs = {}) => {
+        const distributors = (Array.isArray(catalogs.distribuidores) ? catalogs.distribuidores : [])
+            .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es-MX'));
+        state.branches = (Array.isArray(catalogs.sucursales) ? catalogs.sucursales : [])
+            .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es-MX'));
         const selectedDistributor = elements.distributor.value;
         elements.distributor.innerHTML = optionHtml('', 'Todos los distribuidores')
             + distributors.map((item) => optionHtml(item.id, `${item.nombre} (#${item.id})`)).join('');
@@ -530,7 +467,8 @@ const initializeAtlasSales = () => {
         }
         notifySelectChanged(elements.distributor);
         renderBranches();
-        renderStages(rows);
+        renderStages(Array.isArray(catalogs.etapas) ? catalogs.etapas : []);
+        state.catalogsLoaded = true;
     };
 
     const renderSummary = (summary = {}) => {
@@ -541,45 +479,9 @@ const initializeAtlasSales = () => {
         elements.branches.textContent = integer.format(Number(summary.sucursales || 0));
     };
 
-    const summarizeRows = (rows) => {
-        const branches = new Set();
-        return rows.reduce((summary, row) => {
-            summary.unidades_vendidas++;
-            summary.monto_financiado += Number(row.monto_financiar || 0);
-            summary.enganche += Number(row.enganche || 0);
-            summary.precio_motos += Number(row.precio_moto || 0);
-            if (Number(row.pk_sucursal || 0) > 0) branches.add(Number(row.pk_sucursal));
-            summary.sucursales = branches.size;
-            return summary;
-        }, {
-            unidades_vendidas: 0,
-            monto_financiado: 0,
-            enganche: 0,
-            precio_motos: 0,
-            sucursales: 0,
-        });
-    };
-
     const prepareRows = (rows) => rows.map((row, detailIndex) => ({
         ...row,
         _detailIndex: detailIndex,
-        _saleDate: String(row.fecha_contabilizacion_venta || '').slice(0, 10),
-        _stage: stageKey(row.etapa),
-        _search: normalizeSearch([
-            row.id_persona,
-            row.id_oferta,
-            row.nombre_cliente,
-            row.sucursal,
-            row.distribuidor,
-            row.etapa,
-            row.oferta,
-            row.modelo_moto,
-            row.marca_moto,
-            row.usuario,
-            row.nombre_vendedor,
-            row.pk_sucursal,
-            row.fk_distribuidor,
-        ].join(' ')),
     }));
 
     const stageHtml = (value) => {
@@ -708,48 +610,16 @@ const initializeAtlasSales = () => {
         elements.next.disabled = state.page >= state.totalPages;
     };
 
-    const renderCurrentPage = () => {
-        const pageSize = Number(elements.pageSize.value || 25);
-        state.total = state.filteredRows.length;
-        state.totalPages = Math.max(1, Math.ceil(state.total / pageSize));
-        state.page = Math.min(Math.max(1, state.page), state.totalPages);
-        const offset = (state.page - 1) * pageSize;
-        renderRows(state.filteredRows.slice(offset, offset + pageSize));
-        renderPagination({
-            page: state.page,
-            page_size: pageSize,
-            total: state.total,
-            total_pages: state.totalPages,
-        });
+    const scheduleLoad = () => {
+        if (state.searchTimer !== null) clearTimeout(state.searchTimer);
+        state.searchTimer = setTimeout(() => {
+            state.searchTimer = null;
+            state.page = 1;
+            loadSales();
+        }, 250);
     };
 
-    const applyFilters = (resetPage = true) => {
-        if (resetPage) state.page = 1;
-        const distributor = Number(elements.distributor.value || 0);
-        const branch = Number(elements.branch.value || 0);
-        const stage = stageKey(elements.stage.value);
-        const search = normalizeSearch(elements.search.value);
-        state.filteredRows = state.allRows.filter((row) => (
-            (!state.start || row._saleDate >= state.start)
-            && (!state.end || row._saleDate <= state.end)
-            && (!distributor || Number(row.fk_distribuidor) === distributor)
-            && (!branch || Number(row.pk_sucursal) === branch)
-            && (!stage || row._stage === stage)
-            && (!search || row._search.includes(search))
-        ));
-        renderSummary(summarizeRows(state.filteredRows));
-        renderCurrentPage();
-    };
-
-    const scheduleFilter = () => {
-        if (state.filterFrame !== null) cancelAnimationFrame(state.filterFrame);
-        state.filterFrame = requestAnimationFrame(() => {
-            state.filterFrame = null;
-            applyFilters(true);
-        });
-    };
-
-    const initDatePicker = (minDate, maxDate) => {
+    const initDatePicker = () => {
         if (typeof flatpickr !== 'function') {
             throw new Error('No se pudo iniciar el calendario de fechas.');
         }
@@ -769,13 +639,24 @@ const initializeAtlasSales = () => {
             mode: 'range',
             dateFormat: 'd/m/Y',
             defaultDate: selectedRange(),
-            minDate: dateFromIso(minDate),
-            maxDate: dateFromIso(maxDate),
+            monthSelectorType: 'dropdown',
+            showMonths: 1,
             locale,
             allowInput: false,
             closeOnSelect: false,
             disableMobile: true,
             onReady: (selectedDates, _dateText, instance) => {
+                instance.calendarContainer.classList.add('atlas-sales-calendar');
+                const monthSelector = instance.monthNav.querySelector('.flatpickr-monthDropdown-months');
+                const yearSelector = instance.monthNav.querySelector('input.cur-year');
+                if (monthSelector) {
+                    monthSelector.title = 'Seleccionar mes';
+                    monthSelector.setAttribute('aria-label', 'Seleccionar mes');
+                }
+                if (yearSelector) {
+                    yearSelector.title = 'Escribe o selecciona el año';
+                    yearSelector.setAttribute('aria-label', 'Seleccionar año');
+                }
                 const footer = document.createElement('div');
                 footer.className = 'atlas-sales-calendar-footer';
                 clearButton = document.createElement('button');
@@ -788,7 +669,8 @@ const initializeAtlasSales = () => {
                     state.end = '';
                     calendarCommitted = true;
                     instance.close();
-                    applyFilters(true);
+                    state.page = 1;
+                    loadSales();
                 });
                 applyButton = document.createElement('button');
                 applyButton.type = 'button';
@@ -800,7 +682,8 @@ const initializeAtlasSales = () => {
                     state.end = dateToIso(instance.selectedDates[1]);
                     calendarCommitted = true;
                     instance.close();
-                    applyFilters(true);
+                    state.page = 1;
+                    loadSales();
                 });
                 footer.append(clearButton, applyButton);
                 instance.calendarContainer.appendChild(footer);
@@ -821,17 +704,16 @@ const initializeAtlasSales = () => {
 
     const loadSales = async (forceRefresh = false) => {
         if (state.request) state.request.abort();
+        if (forceRefresh) state.catalogsLoaded = false;
         const request = new AbortController();
         state.request = request;
         setLoading(true);
         showError('');
-        const preloadStartedAt = showPreload();
 
         try {
-            const preloadUrl = forceRefresh
-                ? '/Atlas/getVentas?carga_completa=1&actualizar=1'
-                : '/Atlas/getVentas?carga_completa=1';
-            const response = await fetch(preloadUrl, {
+            const params = paramsFromFilters(true);
+            if (forceRefresh) params.set('actualizar', '1');
+            const response = await fetch(`/Atlas/getVentas?${params.toString()}`, {
                 headers: { Accept: 'application/json' },
                 signal: request.signal,
                 cache: 'no-store',
@@ -841,63 +723,136 @@ const initializeAtlasSales = () => {
                 throw new Error(payload?.mensaje || 'No se pudo consultar Ventas.');
             }
             const data = payload.datos || {};
-            state.allRows = prepareRows(Array.isArray(data.filas) ? data.filas : []);
-            renderCatalogs(state.allRows);
-
-            const availableDates = state.allRows.map((row) => row._saleDate).filter(Boolean);
-            const period = data.periodo || {};
-            let minDate = /^\d{4}-\d{2}-\d{2}$/.test(period.fecha_inicio || '')
-                ? period.fecha_inicio
-                : (availableDates.length
-                    ? availableDates.reduce((minimum, date) => date < minimum ? date : minimum)
-                    : state.start);
-            const maxDate = /^\d{4}-\d{2}-\d{2}$/.test(period.fecha_fin || '')
-                ? period.fecha_fin
-                : elements.dates.dataset.end;
-            if (minDate > maxDate) minDate = maxDate;
-            state.minDate = minDate;
-            state.maxDate = maxDate;
-            if (state.start && state.end) {
-                if (state.start < minDate) state.start = minDate;
-                if (state.end > maxDate) state.end = maxDate;
-                if (state.start > state.end) {
-                    state.start = maxDate;
-                    state.end = maxDate;
-                }
+            state.rows = prepareRows(Array.isArray(data.filas) ? data.filas : []);
+            if (data.catalogos && Object.keys(data.catalogos).length) {
+                renderCatalogs(data.catalogos);
             }
-
-            initDatePicker(minDate, maxDate);
-            applyFilters(false);
-            state.request = null;
-            await closePreload(preloadStartedAt);
-            setLoading(false);
+            renderSummary(data.resumen || {});
+            renderRows(state.rows);
+            renderPagination(data.paginacion || {});
         } catch (error) {
             if (error.name === 'AbortError') return;
+            const message = error.message || 'No se pudo consultar Ventas.';
+            showError(message);
+        } finally {
             if (state.request === request) {
                 state.request = null;
-            }
-            window.__atlasVentasPreload = null;
-            const message = error.message || 'No se pudo consultar Ventas.';
-            if (typeof Swal === 'undefined') {
                 setLoading(false);
-                showError(message);
-                return;
             }
-            const action = await Swal.fire({
-                icon: 'error',
-                title: 'No se pudieron cargar las ventas',
-                text: message,
-                confirmButtonText: 'Reintentar',
-                cancelButtonText: 'Volver',
-                showCancelButton: true,
+        }
+    };
+
+    const filenameFromDisposition = (disposition) => {
+        const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposition || '');
+        if (utf8?.[1]) {
+            try {
+                return decodeURIComponent(utf8[1].replace(/^"|"$/g, ''));
+            } catch (_error) {
+                return utf8[1].replace(/^"|"$/g, '');
+            }
+        }
+        const plain = /filename="?([^";]+)"?/i.exec(disposition || '');
+        return plain?.[1] || 'ventas_atlas.xlsx';
+    };
+
+    const exportSales = async () => {
+        if (state.exporting) return;
+        state.exporting = true;
+        elements.export.disabled = true;
+        elements.refresh.disabled = true;
+
+        const progress = [
+            { title: 'Preparando todo...', text: 'Validando los filtros del reporte.' },
+            { title: 'Cargando ventas...', text: 'Reuniendo las ventas alineadas con BI.' },
+            { title: 'Generando archivo Excel...', text: 'Aplicando formato y preparando la descarga.' },
+        ];
+        let progressIndex = 0;
+        let progressTimer = null;
+        const hasSwal = typeof Swal !== 'undefined';
+
+        if (hasSwal) {
+            Swal.fire({
+                title: progress[0].title,
+                text: progress[0].text,
                 allowOutsideClick: false,
                 allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading(),
             });
-            if (action.isConfirmed) {
-                loadSales(forceRefresh);
-            } else {
-                window.location.assign('/Inicio');
+            progressTimer = window.setInterval(() => {
+                if (progressIndex >= progress.length - 1 || !Swal.isVisible()) return;
+                progressIndex++;
+                Swal.update(progress[progressIndex]);
+                Swal.showLoading();
+            }, 1300);
+        }
+
+        try {
+            const params = paramsFromFilters();
+            const response = await fetch(`/Atlas/exportarVentas?${params.toString()}`, {
+                headers: {
+                    Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                },
+                cache: 'no-store',
+            });
+            const contentType = (response.headers.get('Content-Type') || '').toLowerCase();
+            const isExcel = contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                || contentType.includes('application/octet-stream');
+            if (!response.ok || !isExcel) {
+                let detail = '';
+                if (contentType.includes('application/json')) {
+                    const payload = await response.json().catch(() => null);
+                    detail = String(payload?.mensaje || '').trim();
+                } else if (contentType.includes('text/plain')) {
+                    detail = (await response.text().catch(() => '')).trim().slice(0, 400);
+                } else if (response.redirected || contentType.includes('text/html')) {
+                    detail = 'Tu sesión terminó o ya no tienes permiso para exportar ventas. Recarga la página.';
+                }
+                throw new Error(detail || 'No se pudo generar el reporte de ventas.');
             }
+
+            const blob = await response.blob();
+            if (!blob.size) throw new Error('El reporte se generó vacío. Intenta nuevamente.');
+            const objectUrl = URL.createObjectURL(blob);
+            window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+            const link = document.createElement('a');
+            link.href = objectUrl;
+            link.download = filenameFromDisposition(response.headers.get('Content-Disposition'));
+            link.hidden = true;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            if (progressTimer !== null) window.clearInterval(progressTimer);
+            progressTimer = null;
+            if (hasSwal) {
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Excel listo',
+                    text: 'La descarga del reporte de ventas comenzó correctamente.',
+                    showConfirmButton: false,
+                    timer: 1400,
+                });
+            }
+        } catch (error) {
+            if (progressTimer !== null) window.clearInterval(progressTimer);
+            progressTimer = null;
+            const message = error?.message || 'No se pudo generar el reporte de ventas.';
+            if (hasSwal) {
+                await Swal.fire({
+                    icon: 'error',
+                    title: 'No se pudo generar el Excel',
+                    text: message,
+                    confirmButtonText: 'Cerrar',
+                });
+            } else {
+                window.alert(message);
+            }
+        } finally {
+            if (progressTimer !== null) window.clearInterval(progressTimer);
+            state.exporting = false;
+            elements.export.disabled = Boolean(state.request);
+            elements.refresh.disabled = Boolean(state.request);
         }
     };
 
@@ -926,44 +881,37 @@ const initializeAtlasSales = () => {
     window.jQuery(elements.distributor).on('change.atlasSales', () => {
         elements.branch.value = '';
         renderBranches();
-        applyFilters(true);
+        state.page = 1;
+        loadSales();
     });
-    window.jQuery(elements.branch).on('change.atlasSales', () => applyFilters(true));
-    window.jQuery(elements.stage).on('change.atlasSales', () => applyFilters(true));
-    elements.search.addEventListener('input', scheduleFilter);
+    window.jQuery(elements.branch).on('change.atlasSales', () => { state.page = 1; loadSales(); });
+    window.jQuery(elements.stage).on('change.atlasSales', () => { state.page = 1; loadSales(); });
+    elements.search.addEventListener('input', scheduleLoad);
     elements.refresh.addEventListener('click', () => loadSales(true));
     elements.rows.addEventListener('click', (event) => {
         const button = event.target.closest?.('[data-atlas-sale-detail]');
         if (!button) return;
-        const row = state.allRows[Number(button.dataset.atlasSaleDetail)];
+        const row = state.rows[Number(button.dataset.atlasSaleDetail)];
         if (row) renderDetails(row);
     });
     elements.pageSize.addEventListener('change', () => {
         state.page = 1;
-        renderCurrentPage();
+        loadSales();
     });
     elements.previous.addEventListener('click', () => {
         if (state.page <= 1) return;
         state.page--;
-        renderCurrentPage();
+        loadSales();
     });
     elements.next.addEventListener('click', () => {
         if (state.page >= state.totalPages) return;
         state.page++;
-        renderCurrentPage();
+        loadSales();
     });
-    elements.export.addEventListener('click', () => {
-        const params = paramsFromFilters();
-        const link = document.createElement('a');
-        link.href = `/Atlas/exportarVentas?${params.toString()}`;
-        link.download = '';
-        link.hidden = true;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-    });
+    elements.export.addEventListener('click', exportSales);
 
     initializeSearchableSelects();
+    initDatePicker();
     loadSales();
 };
 

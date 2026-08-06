@@ -11,6 +11,7 @@ use Core\Database;
 class LeonidasAssistantService
 {
     private const PENDING_KEY = 'leonidas_pending_actions';
+    private const LATEST_PENDING_KEY = 'leonidas_latest_pending_action';
     private const MESSAGE_DRAFT_KEY = 'leonidas_message_draft';
     private const VACATION_DRAFT_KEY = 'leonidas_vacation_draft';
     private const MAX_PENDING = 12;
@@ -31,7 +32,13 @@ class LeonidasAssistantService
         $normalizado = $this->normalizar($mensaje);
         $contexto['archivo_token'] = $archivoToken;
 
-        if ($archivoToken !== null && $archivoToken !== '') {
+        $confirmacionTextual = ($archivoToken === null || $archivoToken === '')
+            ? $this->confirmarAsignacionConvenioPorTexto($normalizado, $contexto)
+            : null;
+
+        if ($confirmacionTextual !== null) {
+            $respuesta = $confirmacionTextual;
+        } elseif ($archivoToken !== null && $archivoToken !== '') {
             $adjuntos = new LeonidasAttachmentService();
             if ($adjuntos->existe($archivoToken, (int) $contexto['actor_id'])) {
                 $flujoOperativo = (new LeonidasAgentService())->resolver($mensaje, $normalizado, $contexto);
@@ -93,10 +100,6 @@ class LeonidasAssistantService
             ];
         } elseif ($flujoMensaje = $this->resolverFlujoMensaje($mensaje, $normalizado, $contexto)) {
             $respuesta = $flujoMensaje;
-        } elseif ($consultaConvenios = (new LeonidasConveniosService())->resolver($mensaje, $normalizado)) {
-            $respuesta = $consultaConvenios;
-        } elseif ($consultaEstadoCuenta = (new LeonidasEstadoCuentaService())->resolver($mensaje, $contexto, $normalizado)) {
-            $respuesta = $consultaEstadoCuenta;
         } elseif ($flujoAgente = (new LeonidasAgentService())->resolver($mensaje, $normalizado, $contexto)) {
             $respuesta = $flujoAgente;
             if (is_array($respuesta['propuesta_especificacion'] ?? null)) {
@@ -106,6 +109,10 @@ class LeonidasAssistantService
                 );
                 unset($respuesta['propuesta_especificacion']);
             }
+        } elseif ($consultaConvenios = (new LeonidasConveniosService())->resolver($mensaje, $normalizado)) {
+            $respuesta = $consultaConvenios;
+        } elseif ($consultaEstadoCuenta = (new LeonidasEstadoCuentaService())->resolver($mensaje, $contexto, $normalizado)) {
+            $respuesta = $consultaEstadoCuenta;
         } elseif ($flujoVacaciones = $this->resolverFlujoVacaciones($mensaje, $normalizado)) {
             $respuesta = $flujoVacaciones;
         } elseif ($this->esSaludo($normalizado)) {
@@ -221,6 +228,9 @@ class LeonidasAssistantService
         if ((int) ($accion['expira_en'] ?? 0) < time()) {
             unset($pendientes[$token]);
             $_SESSION[self::PENDING_KEY] = $pendientes;
+            if ((string) ($_SESSION[self::LATEST_PENDING_KEY] ?? '') === $token) {
+                unset($_SESSION[self::LATEST_PENDING_KEY]);
+            }
             throw new \RuntimeException('La solicitud expiro. Vuelve a pedirla a Leonidas.');
         }
 
@@ -234,6 +244,9 @@ class LeonidasAssistantService
             );
             unset($pendientes[$token]);
             $_SESSION[self::PENDING_KEY] = $pendientes;
+            if ((string) ($_SESSION[self::LATEST_PENDING_KEY] ?? '') === $token) {
+                unset($_SESSION[self::LATEST_PENDING_KEY]);
+            }
             unset($_SESSION[self::MESSAGE_DRAFT_KEY]);
             $this->auditar($contexto, 'mensaje_enviado', [
                 'mensaje_id' => $envio['id'],
@@ -254,6 +267,9 @@ class LeonidasAssistantService
             } catch (\Throwable $error) {
                 unset($pendientes[$token]);
                 $_SESSION[self::PENDING_KEY] = $pendientes;
+                if ((string) ($_SESSION[self::LATEST_PENDING_KEY] ?? '') === $token) {
+                    unset($_SESSION[self::LATEST_PENDING_KEY]);
+                }
                 $this->auditar($contexto, 'agente_ejecucion_fallida', [
                     'accion' => (string) $accion['accion'],
                     'token' => $token,
@@ -264,16 +280,29 @@ class LeonidasAssistantService
 
             unset($pendientes[$token]);
             $_SESSION[self::PENDING_KEY] = $pendientes;
+            if ((string) ($_SESSION[self::LATEST_PENDING_KEY] ?? '') === $token) {
+                unset($_SESSION[self::LATEST_PENDING_KEY]);
+            }
             $this->auditar($contexto, 'agente_ejecucion_exitosa', [
                 'accion' => (string) $accion['accion'],
                 'token' => $token,
                 'ejecucion' => $resultado['ejecucion'] ?? null,
             ]);
+            if (is_array($resultado['propuesta_especificacion'] ?? null)) {
+                $resultado['propuesta'] = $this->registrarPropuesta(
+                    $resultado['propuesta_especificacion'],
+                    $contexto
+                );
+                unset($resultado['propuesta_especificacion']);
+            }
             return $resultado;
         }
 
         unset($pendientes[$token]);
         $_SESSION[self::PENDING_KEY] = $pendientes;
+        if ((string) ($_SESSION[self::LATEST_PENDING_KEY] ?? '') === $token) {
+            unset($_SESSION[self::LATEST_PENDING_KEY]);
+        }
 
         $this->auditar($contexto, 'confirmacion_recibida', [
             'accion' => $accion['accion'],
@@ -299,6 +328,9 @@ class LeonidasAssistantService
         $esMensaje = (string) ($accion['accion'] ?? '') === 'mensaje';
         unset($pendientes[$token], $_SESSION[self::MESSAGE_DRAFT_KEY]);
         $_SESSION[self::PENDING_KEY] = $pendientes;
+        if ((string) ($_SESSION[self::LATEST_PENDING_KEY] ?? '') === $token) {
+            unset($_SESSION[self::LATEST_PENDING_KEY]);
+        }
         (new LeonidasAgentService())->limpiarTarea();
         $this->auditar($contexto, 'confirmacion_cancelada', [
             'accion' => (string) ($accion['accion'] ?? 'operacion'),
@@ -374,6 +406,9 @@ class LeonidasAssistantService
                 : 'Usuario',
             'permisos_agente' => [
                 'convenio' => $this->tieneAccesoModulo(46) && $this->tieneAccesoModulo(32),
+                'convenio_reactivar_cancelado' => $this->tieneAccesoModulo(46)
+                    && $this->tieneAccesoModulo(32)
+                    && $this->tieneAccesoModulo(146),
                 'motos' => $this->tieneAccesoModulo(62) || $this->tieneAccesoModulo(80),
                 'motos_override_estatus' => $this->tieneAccesoModulo(192),
                 'asignaciones_movil' => $this->tieneAccesoModulo(20),
@@ -1474,6 +1509,7 @@ class LeonidasAssistantService
             'expira_en' => time() + 600,
         ];
         $_SESSION[self::PENDING_KEY] = $pendientes;
+        $_SESSION[self::LATEST_PENDING_KEY] = $token;
 
         return [
             'token' => $token,
@@ -1481,6 +1517,36 @@ class LeonidasAssistantService
             'resumen' => $resumen,
             'requiere_confirmacion' => true,
         ];
+    }
+
+    private function confirmarAsignacionConvenioPorTexto(string $mensaje, array $contexto): ?array
+    {
+        if (preg_match('/^\s*(?:si|confirmar|confirmo|adelante|correcto)\s*$/u', $mensaje) !== 1) {
+            return null;
+        }
+
+        $token = trim((string) ($_SESSION[self::LATEST_PENDING_KEY] ?? ''));
+        $pendientes = is_array($_SESSION[self::PENDING_KEY] ?? null) ? $_SESSION[self::PENDING_KEY] : [];
+        $accion = $token !== '' && is_array($pendientes[$token] ?? null) ? $pendientes[$token] : null;
+        if (!$accion
+            || (int) ($accion['actor_id'] ?? 0) !== (int) ($contexto['actor_id'] ?? 0)
+            || (string) ($accion['accion'] ?? '') !== 'convenio_asignar_credito') {
+            return null;
+        }
+
+        if ((int) ($accion['expira_en'] ?? 0) < time()) {
+            unset($pendientes[$token], $_SESSION[self::LATEST_PENDING_KEY]);
+            $_SESSION[self::PENDING_KEY] = $pendientes;
+            return [
+                'mensaje' => 'La vista previa de asignacion expiro. Vuelve a buscar al responsable para confirmar con datos vigentes.',
+                'tipo' => 'agente_error',
+                'reemplaza_propuesta' => true,
+            ];
+        }
+
+        $resultado = $this->confirmar($token);
+        $resultado['reemplaza_propuesta'] = true;
+        return $resultado;
     }
 
     private function resolverCelulaConvenio(): ?int

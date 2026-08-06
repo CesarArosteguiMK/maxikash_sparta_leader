@@ -92,15 +92,16 @@ JS;
             $detalle = GestionesDAO::getDetalleGestion($idCredito, $nombre);
 
             $fallosDbConsole = GestionesDAO::getHistoricoDbFallos();
+            $huboFalloHistorico = GestionesDAO::huboHistoricoDbFallo();
             if ($fallosDbConsole !== []) {
                 self::set('gestionesDbFallosConsole', $fallosDbConsole);
                 // Si aun así hay filas, el fallo es solo de una fuente (p. ej. Legacy); la consola lo aclara como aviso.
-                self::set('gestionesDbFallosModoParcial', !empty($GestionesAll) || !empty($detalle));
+                self::set('gestionesDbFallosModoParcial', !empty($GestionesAll));
             }
 
             if (empty($GestionesAll) && empty($detalle)) {
                 self::set("titulo", "Sin resultados para solicitud");
-                if (GestionesDAO::huboHistoricoDbFallo()) {
+                if ($huboFalloHistorico) {
                     self::set(
                         "errorGestiones",
                         'No fue posible consultar temporalmente una de las fuentes del histórico. '
@@ -117,7 +118,13 @@ JS;
 
             self::set("gestiones", $GestionesAll);
             self::set("detalle", $detalle);
-            self::set("gestionesSinHistorial", empty($GestionesAll));
+            $idCreditoConsulta = $idCredito !== ''
+                ? $idCredito
+                : trim((string) ($detalle[0]['id_credito'] ?? ''));
+            self::set("idCreditoConsulta", $idCreditoConsulta);
+            self::set("gestionesHistorialNoDisponible", empty($GestionesAll) && $huboFalloHistorico);
+            self::set("gestionesHistorialParcial", !empty($GestionesAll) && $huboFalloHistorico);
+            self::set("gestionesSinHistorial", empty($GestionesAll) && !$huboFalloHistorico);
             self::set("titulo", "Resultado de la solicitud");
             self::set("script", $script);
             return self::render("gestiones_request");
