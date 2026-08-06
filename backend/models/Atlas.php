@@ -5999,8 +5999,7 @@ class Atlas extends Model
                 $asesorExcel = self::strVal($fila['asesor'] ?? '');
                 $asesorPersonaId = null;
                 $asesorNombre = $asesorExcel;
-                $firmaAsesor = self::firmaNombrePersonaPresupuesto($asesorExcel);
-                $coincidencias = $firmaAsesor !== '' ? ($personasPorNombre[$firmaAsesor] ?? []) : [];
+                $coincidencias = self::resolverPersonasPresupuestoPorNombre($asesorExcel, $personasPorNombre);
                 if ($asesorExcel === '' || count($coincidencias) !== 1) {
                     $erroresAsignacion[] = [
                         'fila' => $excelRow,
@@ -6585,8 +6584,7 @@ class Atlas extends Model
                     continue;
                 }
 
-                $firmaAsesor = self::firmaNombrePersonaPresupuesto($asesorExcel);
-                $coincidencias = $firmaAsesor !== '' ? ($personasPorNombre[$firmaAsesor] ?? []) : [];
+                $coincidencias = self::resolverPersonasPresupuestoPorNombre($asesorExcel, $personasPorNombre);
                 if (count($coincidencias) !== 1) {
                     $erroresAsignacion[] = [
                         'fila' => $excelRow,
@@ -7364,20 +7362,100 @@ class Atlas extends Model
         ") ?: [];
 
         $map = [];
+        $personas = [];
         foreach ($rows as $row) {
             $firma = self::firmaNombrePersonaPresupuesto($row['nombre'] ?? '');
             if ($firma === '') {
                 continue;
             }
-            $map[$firma][] = [
+            $persona = [
                 'id' => (int)($row['id'] ?? 0),
                 'nombre' => self::strVal($row['nombre'] ?? ''),
                 'numero_empleado' => self::strVal($row['numero_empleado'] ?? ''),
                 'user_name' => self::strVal($row['user_name'] ?? ''),
+                '_firma_presupuesto' => $firma,
             ];
+            $map[$firma][] = $persona;
+            $personas[] = $persona;
         }
 
-        return $map;
+        return [
+            'por_firma' => $map,
+            'personas' => $personas,
+        ];
+    }
+
+    private static function resolverPersonasPresupuestoPorNombre($nombre, array $catalogo): array
+    {
+        $firma = self::firmaNombrePersonaPresupuesto($nombre);
+        if ($firma === '') {
+            return [];
+        }
+
+        $exactas = $catalogo['por_firma'][$firma] ?? [];
+        if ($exactas) {
+            return $exactas;
+        }
+
+        $tokensExcel = explode('|', $firma);
+        $candidatas = [];
+        foreach ($catalogo['personas'] ?? [] as $persona) {
+            $firmaPersona = self::strVal($persona['_firma_presupuesto'] ?? '');
+            if ($firmaPersona === '') {
+                $firmaPersona = self::firmaNombrePersonaPresupuesto($persona['nombre'] ?? '');
+            }
+            $tokensPersona = $firmaPersona !== '' ? explode('|', $firmaPersona) : [];
+            if (count($tokensExcel) !== count($tokensPersona)) {
+                continue;
+            }
+
+            $diferencias = 0;
+            $coincidenciaSegura = true;
+            foreach ($tokensExcel as $idx => $tokenExcel) {
+                $tokenPersona = $tokensPersona[$idx] ?? '';
+                if ($tokenExcel === $tokenPersona) {
+                    continue;
+                }
+
+                $diferencias++;
+                if (
+                    $diferencias > 1
+                    || min(strlen($tokenExcel), strlen($tokenPersona)) < 4
+                    || levenshtein($tokenExcel, $tokenPersona) > 1
+                ) {
+                    $coincidenciaSegura = false;
+                    break;
+                }
+            }
+
+            if ($coincidenciaSegura && $diferencias === 1) {
+                $candidatas[] = $persona;
+            }
+        }
+
+        if ($candidatas) {
+            return $candidatas;
+        }
+
+        if (count($tokensExcel) < 3) {
+            return [];
+        }
+
+        foreach ($catalogo['personas'] ?? [] as $persona) {
+            $firmaPersona = self::strVal($persona['_firma_presupuesto'] ?? '');
+            if ($firmaPersona === '') {
+                $firmaPersona = self::firmaNombrePersonaPresupuesto($persona['nombre'] ?? '');
+            }
+            $tokensPersona = $firmaPersona !== '' ? explode('|', $firmaPersona) : [];
+            if (count($tokensPersona) !== count($tokensExcel) + 1) {
+                continue;
+            }
+            if (!array_diff($tokensExcel, $tokensPersona)) {
+                $candidatas[] = $persona;
+            }
+        }
+
+        return $candidatas;
     }
 
     private static function getDistribuidorSucursalPresupuesto(Database $db, int $fkSucursal): ?array

@@ -2,6 +2,9 @@
 
 use PHPUnit\Framework\TestCase;
 
+require_once dirname(__DIR__) . '/core/Model.php';
+require_once dirname(__DIR__) . '/models/Atlas.php';
+
 final class AtlasPresupuestoReajusteMasivoTest extends TestCase
 {
     private string $view;
@@ -221,5 +224,83 @@ final class AtlasPresupuestoReajusteMasivoTest extends TestCase
         $this->assertStringContainsString("\$row['comisiona_a_partir_de'] ?? ''", $this->controller);
         $this->assertStringContainsString('$templateRows = [];', $this->model);
         $this->assertStringContainsString('return $templateRows;', $this->model);
+    }
+
+    public function testAdvisorMatchingAllowsOnlyOneUnambiguousSingleCharacterCorrection(): void
+    {
+        $resolver = new ReflectionMethod(\Models\Atlas::class, 'resolverPersonasPresupuestoPorNombre');
+        $resolver->setAccessible(true);
+
+        $rosibell = [
+            'id' => 1277,
+            'nombre' => 'ROSIBELL AGUIRRE CONTRERAS',
+            'numero_empleado' => '999999981',
+            'user_name' => 'aguirrerose892',
+            '_firma_presupuesto' => 'aguirre|contreras|rosibell',
+        ];
+        $catalogo = [
+            'por_firma' => ['aguirre|contreras|rosibell' => [$rosibell]],
+            'personas' => [$rosibell],
+        ];
+
+        $exacta = $resolver->invoke(null, 'AGUIRRE CONTRERAS ROSIBELL', $catalogo);
+        $this->assertSame(1277, $exacta[0]['id'] ?? null);
+
+        $corregida = $resolver->invoke(null, 'AGUIRRE CONTRERAS ROSIBEL', $catalogo);
+        $this->assertSame(1277, $corregida[0]['id'] ?? null);
+
+        $this->assertSame([], $resolver->invoke(null, 'GARCIA CONTRERAS ROSIBEL', $catalogo));
+    }
+
+    public function testAdvisorMatchingRejectsAmbiguousNearNames(): void
+    {
+        $resolver = new ReflectionMethod(\Models\Atlas::class, 'resolverPersonasPresupuestoPorNombre');
+        $resolver->setAccessible(true);
+
+        $catalogo = [
+            'por_firma' => [],
+            'personas' => [
+                [
+                    'id' => 1277,
+                    'nombre' => 'ROSIBELL AGUIRRE CONTRERAS',
+                    '_firma_presupuesto' => 'aguirre|contreras|rosibell',
+                ],
+                [
+                    'id' => 2000,
+                    'nombre' => 'ROSIBELA AGUIRRE CONTRERAS',
+                    '_firma_presupuesto' => 'aguirre|contreras|rosibela',
+                ],
+            ],
+        ];
+
+        $coincidencias = $resolver->invoke(null, 'AGUIRRE CONTRERAS ROSIBEL', $catalogo);
+        $this->assertCount(2, $coincidencias);
+    }
+
+    public function testAdvisorMatchingAllowsOneAdditionalTokenOnlyWhenAllExcelTokensMatch(): void
+    {
+        $resolver = new ReflectionMethod(\Models\Atlas::class, 'resolverPersonasPresupuestoPorNombre');
+        $resolver->setAccessible(true);
+
+        $julio = [
+            'id' => 2275,
+            'nombre' => 'JULIO ALFONSO GUTIERREZ SOSA',
+            '_firma_presupuesto' => 'alfonso|gutierrez|julio|sosa',
+        ];
+        $catalogo = [
+            'por_firma' => [],
+            'personas' => [$julio],
+        ];
+
+        $coincidencias = $resolver->invoke(null, 'GUTIERREZ JULIO ALFONSO', $catalogo);
+        $this->assertSame(2275, $coincidencias[0]['id'] ?? null);
+        $this->assertSame([], $resolver->invoke(null, 'CASTILLO EDSON ISRAEL', $catalogo));
+
+        $catalogo['personas'][] = [
+            'id' => 3000,
+            'nombre' => 'JULIO ALFONSO GUTIERREZ LOPEZ',
+            '_firma_presupuesto' => 'alfonso|gutierrez|julio|lopez',
+        ];
+        $this->assertCount(2, $resolver->invoke(null, 'GUTIERREZ JULIO ALFONSO', $catalogo));
     }
 }
