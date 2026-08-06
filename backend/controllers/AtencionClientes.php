@@ -313,10 +313,11 @@ class AtencionClientes extends Controller
     {
         header('Content-Type: application/json; charset=utf-8');
         try {
-            // La sincronización con Legacy es auxiliar y puede quedar indisponible.
-            // La bandeja debe responder con los datos locales sin quedar bloqueada
-            // esperando esa conexión remota.
-            $datos = $this->model->obtenerRecibidos(false);
+            // Antes se mandaba `false` y la importación de dictámenes móviles
+            // nunca se ejecutaba desde la bandeja. El modelo tiene candado y
+            // ventana de cinco minutos, por lo que sincronizar aquí no provoca
+            // consultas duplicadas cuando varios analistas refrescan la vista.
+            $datos = $this->model->obtenerRecibidos(true);
             echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             error_log('[AtencionClientes/obtenerRecibidos] ' . $e->getMessage());

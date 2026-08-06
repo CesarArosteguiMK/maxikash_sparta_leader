@@ -10,15 +10,15 @@ import re
 import shutil
 import tempfile
 import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
-
-from lxml import etree
 
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 NS = {"w": W_NS}
 W = "{%s}" % W_NS
 ROOT = Path(__file__).resolve().parents[1]
+SOURCE_NAMESPACES: dict[int, list[tuple[str, str]]] = {}
 
 TEMPLATES = {
     "AMIGO_GENERAL_NUEVO": {
@@ -28,6 +28,10 @@ TEMPLATES = {
     "PENSIONAMAX_NUEVO": {
         "path": ROOT / "backend/storage/fad_rrhh_templates/pensionamax_nuevo.docx",
         "sha256": "eaceeb2db9599a4ca3d16122748807bf27bda74df641a243fa5a0c04835dd847",
+    },
+    "AMIGO_ACTUALIZACION": {
+        "path": ROOT / "backend/storage/fad_rrhh_templates/amigo_actualizacion.docx",
+        "sha256": "70309f41fc5e88d035e85e2aa4669795aa5a4f7e3f1a30eb8f6b287bb04bd635",
     },
 }
 
@@ -40,15 +44,57 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def text_nodes(element: etree._Element) -> list[etree._Element]:
-    return list(element.xpath(".//w:t", namespaces=NS))
+def parse_xml(path: Path) -> ET.Element:
+    """Parsea XML de Word conservando los prefijos declarados por el machote."""
+    raw = path.read_text(encoding="utf-8")
+    root_match = re.search(r'<(?!\?)[^>]+>', raw)
+    root_tag = root_match.group(0) if root_match else raw
+    declarations = [
+        (match.group(1) or "", match.group(2))
+        for match in re.finditer(r'\s+xmlns(?::([A-Za-z_][\w.-]*))?="([^"]+)"', root_tag)
+    ]
+    for _, namespace in ET.iterparse(path, events=("start-ns",)):
+        prefix, uri = namespace
+        if prefix == "xml":
+            continue
+        try:
+            ET.register_namespace(prefix or "", uri)
+        except ValueError:
+            # ElementTree reserva algunos prefijos internos; Word no depende
+            # del nombre del prefijo mientras la URI permanezca declarada.
+            pass
+    root = ET.parse(path).getroot()
+    SOURCE_NAMESPACES[id(root)] = declarations
+    return root
 
 
-def element_text(element: etree._Element) -> str:
+def write_xml(path: Path, root: ET.Element) -> None:
+    declaration = b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    xml = ET.tostring(root, encoding="unicode")
+    root_tag_end = xml.find(">")
+    if root_tag_end < 0:
+        raise RuntimeError("El XML generado no contiene un elemento raíz válido.")
+    root_tag = xml[:root_tag_end]
+    additions = []
+    for prefix, uri in SOURCE_NAMESPACES.pop(id(root), []):
+        attribute = "xmlns" + ((":" + prefix) if prefix else "")
+        if re.search(rf'\s{re.escape(attribute)}=', root_tag):
+            continue
+        additions.append(f' {attribute}="{uri}"')
+    if additions:
+        xml = root_tag + "".join(additions) + xml[root_tag_end:]
+    path.write_bytes(declaration + xml.encode("utf-8"))
+
+
+def text_nodes(element: ET.Element) -> list[ET.Element]:
+    return list(element.iter(W + "t"))
+
+
+def element_text(element: ET.Element) -> str:
     return "".join(node.text or "" for node in text_nodes(element))
 
 
-def preserve_space(node: etree._Element) -> None:
+def preserve_space(node: ET.Element) -> None:
     value = node.text or ""
     xml_space = "{http://www.w3.org/XML/1998/namespace}space"
     if value.startswith(" ") or value.endswith(" "):
@@ -57,7 +103,7 @@ def preserve_space(node: etree._Element) -> None:
         node.attrib.pop(xml_space, None)
 
 
-def replace_across_nodes(element: etree._Element, old: str, new: str, required: bool = True) -> int:
+def replace_across_nodes(element: ET.Element, old: str, new: str, required: bool = True) -> int:
     count = 0
     while True:
         nodes = text_nodes(element)
@@ -102,11 +148,11 @@ def replace_across_nodes(element: etree._Element, old: str, new: str, required: 
     return count
 
 
-def replace_whole_text(element: etree._Element, value: str) -> None:
+def replace_whole_text(element: ET.Element, value: str) -> None:
     nodes = text_nodes(element)
     if not nodes:
-        run = etree.SubElement(element, W + "r")
-        node = etree.SubElement(run, W + "t")
+        run = ET.SubElement(element, W + "r")
+        node = ET.SubElement(run, W + "t")
         nodes = [node]
     nodes[0].text = value
     preserve_space(nodes[0])
@@ -114,84 +160,98 @@ def replace_whole_text(element: etree._Element, value: str) -> None:
         node.text = ""
 
 
-def accept_tracked_changes(root: etree._Element) -> None:
+def parent_map(root: ET.Element) -> dict[ET.Element, ET.Element]:
+    return {child: parent for parent in root.iter() for child in parent}
+
+
+def accept_tracked_changes(root: ET.Element) -> None:
+    parents = parent_map(root)
     for tag in ("del", "moveFrom"):
-        for node in list(root.xpath(f".//w:{tag}", namespaces=NS)):
-            parent = node.getparent()
+        for node in list(root.iter(W + tag)):
+            parent = parents.get(node)
             if parent is not None:
                 parent.remove(node)
+    parents = parent_map(root)
     for tag in ("ins", "moveTo"):
-        for node in list(root.xpath(f".//w:{tag}", namespaces=NS)):
-            parent = node.getparent()
+        for node in list(root.iter(W + tag)):
+            parent = parents.get(node)
             if parent is None:
                 continue
-            index = parent.index(node)
+            index = list(parent).index(node)
             for child in list(node):
                 parent.insert(index, child)
                 index += 1
             parent.remove(node)
 
 
-def remove_struck_deletions(root: etree._Element) -> None:
+def remove_struck_deletions(root: ET.Element) -> None:
     """Elimina texto que el machote conserva visiblemente tachado."""
-    for run in list(root.xpath(".//w:r[w:rPr/w:strike or w:rPr/w:dstrike]", namespaces=NS)):
-        marks = run.xpath("./w:rPr/w:strike|./w:rPr/w:dstrike", namespaces=NS)
+    parents = parent_map(root)
+    for run in list(root.iter(W + "r")):
+        run_properties = run.find(W + "rPr")
+        if run_properties is None:
+            continue
+        marks = [mark for mark in run_properties if mark.tag in {W + "strike", W + "dstrike"}]
         active = any(mark.get(W + "val", "true").lower() not in {"0", "false", "off", "none"} for mark in marks)
         if active:
-            parent = run.getparent()
+            parent = parents.get(run)
             if parent is not None:
                 parent.remove(run)
 
 
-def remove_highlights(root: etree._Element) -> None:
-    for node in list(root.xpath(".//w:highlight", namespaces=NS)):
-        parent = node.getparent()
+def remove_highlights(root: ET.Element) -> None:
+    parents = parent_map(root)
+    for node in list(root.iter(W + "highlight")):
+        parent = parents.get(node)
         if parent is not None:
             parent.remove(node)
 
 
-def body_paragraphs(root: etree._Element) -> list[etree._Element]:
-    body = root.find("w:body", namespaces=NS)
-    return list(body.findall("w:p", namespaces=NS)) if body is not None else []
+def body_paragraphs(root: ET.Element) -> list[ET.Element]:
+    body = root.find(W + "body")
+    return list(body.findall(W + "p")) if body is not None else []
 
 
-def find_body_paragraph(root: etree._Element, needle: str) -> etree._Element:
+def find_body_paragraph(root: ET.Element, needle: str) -> ET.Element:
     matches = [p for p in body_paragraphs(root) if needle in element_text(p)]
     if len(matches) != 1:
         raise RuntimeError(f"Se esperaban 1 y se encontraron {len(matches)} párrafos para {needle!r}.")
     return matches[0]
 
 
-def set_table_value(root: etree._Element, label: str, value: str) -> None:
+def set_table_value(root: ET.Element, label: str, value: str) -> None:
     matches = []
-    for row in root.xpath(".//w:tbl/w:tr", namespaces=NS):
-        cells = row.findall("w:tc", namespaces=NS)
+    for row in root.iter(W + "tr"):
+        cells = row.findall(W + "tc")
         if len(cells) >= 2 and label in element_text(cells[0]):
             matches.append(cells[1])
     if len(matches) != 1:
         raise RuntimeError(f"No se pudo localizar de forma única el campo de tabla {label!r}.")
-    paragraph = matches[0].find("w:p", namespaces=NS)
+    paragraph = matches[0].find(W + "p")
     if paragraph is None:
-        paragraph = etree.SubElement(matches[0], W + "p")
+        paragraph = ET.SubElement(matches[0], W + "p")
     replace_whole_text(paragraph, value)
 
 
-def set_worker_signature_name(root: etree._Element, value: str) -> None:
-    tables = root.xpath(".//w:tbl", namespaces=NS)
+def set_worker_signature_name(root: ET.Element, value: str) -> None:
+    tables = list(root.iter(W + "tbl"))
     if not tables:
         raise RuntimeError("La plantilla no contiene tabla de firmas.")
-    rows = tables[-1].findall("w:tr", namespaces=NS)
-    cells = rows[-1].findall("w:tc", namespaces=NS)
+    rows = tables[-1].findall(W + "tr")
+    cells = rows[-1].findall(W + "tc")
     if len(cells) < 2:
         raise RuntimeError("La tabla final no contiene la celda del trabajador.")
-    paragraphs = cells[1].findall("w:p", namespaces=NS)
+    paragraphs = cells[1].findall(W + "p")
     if not paragraphs:
-        paragraph = etree.SubElement(cells[1], W + "p")
+        paragraph = ET.SubElement(cells[1], W + "p")
         paragraphs = [paragraph]
-    replace_whole_text(paragraphs[0], "EL TRABAJADOR " + value)
+    replace_whole_text(paragraphs[0], "EL TRABAJADOR")
+    if len(paragraphs) < 2:
+        paragraphs.append(ET.SubElement(cells[1], W + "p"))
+    replace_whole_text(paragraphs[1], value)
     # Algunos machotes conservan una segunda línea compuesta únicamente por
     # asteriscos. Es un marcador del ejemplo, no un dato contractual.
-    for paragraph in paragraphs[1:]:
+    for paragraph in paragraphs[2:]:
         if re.fullmatch(r"\s*\*{3,}\s*", element_text(paragraph)):
             replace_whole_text(paragraph, "")
 
@@ -216,7 +276,7 @@ def beneficiary_text(data: dict, count: int) -> str:
     )
 
 
-def fill_common_tables(root: etree._Element, data: dict, include_gender: bool) -> None:
+def fill_common_tables(root: ET.Element, data: dict, include_gender: bool) -> None:
     values = [
         ("SER DE NACIONALIDAD", data["nationality"]),
         ("SEXO", data["sex"]),
@@ -234,7 +294,7 @@ def fill_common_tables(root: etree._Element, data: dict, include_gender: bool) -
         set_table_value(root, label, str(value))
 
 
-def fill_amigo(root: etree._Element, data: dict) -> None:
+def fill_amigo(root: ET.Element, data: dict) -> None:
     replace_across_nodes(find_body_paragraph(root, "POR LA OTRA PARTE EL C."), "*****************", data["full_name"])
     fill_common_tables(root, data, include_gender=True)
     replace_whole_text(find_body_paragraph(root, "designa como beneficiarios"), beneficiary_text(data, 2))
@@ -260,7 +320,8 @@ def fill_amigo(root: etree._Element, data: dict) -> None:
     replace_whole_text(
         salary,
         f"11.- El salario mensual será por la cantidad de ${data['salary']:,.2f} "
-        f"({data['salary_words']} PESOS 00/100 M.N.) netos, y se pagará conforme a lo establecido con anterioridad.",
+        f"({data['salary_words']} PESOS {int(data.get('salary_cents', round((data['salary'] % 1) * 100))):02d}/100 M.N.) brutos, "
+        "y se pagará conforme a lo establecido con anterioridad.",
     )
     replace_whole_text(
         find_body_paragraph(root, "se firma de forma electrónica"),
@@ -270,7 +331,7 @@ def fill_amigo(root: etree._Element, data: dict) -> None:
     set_worker_signature_name(root, data["full_name"])
 
 
-def fill_pensionamax(root: etree._Element, data: dict) -> None:
+def fill_pensionamax(root: ET.Element, data: dict) -> None:
     intro = find_body_paragraph(root, "POR LA OTRA PARTE EL C.")
     replace_across_nodes(intro, "________________________", data["full_name"])
     fill_common_tables(root, data, include_gender=False)
@@ -292,7 +353,8 @@ def fill_pensionamax(root: etree._Element, data: dict) -> None:
     replace_whole_text(
         salary,
         f"12.- El salario mensual será por la cantidad de ${data['salary']:,.2f} "
-        f"({data['salary_words']} PESOS 00/100 M.N.) netos, y se pagará conforme a lo establecido con anterioridad.",
+        f"({data['salary_words']} PESOS {int(data.get('salary_cents', round((data['salary'] % 1) * 100))):02d}/100 M.N.) brutos, "
+        "y se pagará conforme a lo establecido con anterioridad.",
     )
     replace_whole_text(
         find_body_paragraph(root, "para constancia y efectos legales"),
@@ -302,20 +364,59 @@ def fill_pensionamax(root: etree._Element, data: dict) -> None:
     set_worker_signature_name(root, data["full_name"])
 
 
-def add_demo_footer(root: etree._Element) -> None:
-    paragraph = etree.SubElement(root, W + "p")
-    ppr = etree.SubElement(paragraph, W + "pPr")
-    etree.SubElement(ppr, W + "jc").set(W + "val", "center")
-    run = etree.SubElement(paragraph, W + "r")
-    rpr = etree.SubElement(run, W + "rPr")
-    etree.SubElement(rpr, W + "b")
-    etree.SubElement(rpr, W + "color").set(W + "val", "C00000")
-    etree.SubElement(rpr, W + "sz").set(W + "val", "16")
-    text = etree.SubElement(run, W + "t")
+def fill_amigo_actualizacion(root: ET.Element, data: dict) -> None:
+    replace_across_nodes(find_body_paragraph(root, "POR LA OTRA PARTE EL C."), "*****************", data["full_name"])
+    fill_common_tables(root, data, include_gender=True)
+    replace_whole_text(find_body_paragraph(root, "designa como beneficiarios"), beneficiary_text(data, 2))
+    replace_whole_text(
+        find_body_paragraph(root, "autoriza que su salario sea pagado"),
+        f"6.- “EL TRABAJADOR” autoriza que su salario sea pagado por transferencia electrónica a la CLABE "
+        f"{data['clabe']}, cuenta {data['account_number']}, de {data['bank']}.",
+    )
+    original_salary_cents = int(data.get("original_salary_cents", round((data["original_salary"] % 1) * 100)))
+    replace_whole_text(
+        find_body_paragraph(root, "reconoce la antigüedad"),
+        f"8.- “EL PATRÓN” en este acto reconoce la antigüedad de “EL TRABAJADOR”, quien ingresó el "
+        f"{data['original_start_date_text']}, con el puesto de {data['original_position']}, con un salario de "
+        f"${data['original_salary']:,.2f} ({data['original_salary_words']} PESOS {original_salary_cents:02d}/100 M.N.), "
+        f"y actualmente desempeña el puesto de {data['position']} con un salario de ${data['salary']:,.2f} "
+        f"({data['salary_words']} PESOS {int(data.get('salary_cents', round((data['salary'] % 1) * 100))):02d}/100 M.N.).",
+    )
+    position = find_body_paragraph(root, "teniendo como actividades principales")
+    replace_across_nodes(position, "*******************", data["position"])
+    replace_across_nodes(
+        position,
+        "teniendo como actividades principales las siguientes: _________________________",
+        "teniendo como actividades principales las siguientes: " + "; ".join(data["activities"]) + ".",
+    )
+    replace_whole_text(
+        find_body_paragraph(root, "El salario mensual será por la cantidad"),
+        f"11.- El salario mensual será por la cantidad de ${data['salary']:,.2f} "
+        f"({data['salary_words']} PESOS {int(data.get('salary_cents', round((data['salary'] % 1) * 100))):02d}/100 M.N.) brutos, "
+        "y se pagará conforme a lo establecido con anterioridad.",
+    )
+    replace_whole_text(
+        find_body_paragraph(root, "se firma de forma electrónica"),
+        "Ambas partes manifiestan que en el contrato no existe error, dolo, mala fe o algún vicio del consentimiento; "
+        f"se firma electrónicamente para constancia y efectos legales el {data['signature_date_text']}.",
+    )
+    set_worker_signature_name(root, data["full_name"])
+
+
+def add_demo_footer(root: ET.Element) -> None:
+    paragraph = ET.SubElement(root, W + "p")
+    ppr = ET.SubElement(paragraph, W + "pPr")
+    ET.SubElement(ppr, W + "jc").set(W + "val", "center")
+    run = ET.SubElement(paragraph, W + "r")
+    rpr = ET.SubElement(run, W + "rPr")
+    ET.SubElement(rpr, W + "b")
+    ET.SubElement(rpr, W + "color").set(W + "val", "C00000")
+    ET.SubElement(rpr, W + "sz").set(W + "val", "16")
+    text = ET.SubElement(run, W + "t")
     text.text = "DATOS FICTICIOS - DOCUMENTO DE DEMOSTRACIÓN - SIN VALIDEZ"
 
 
-def validate_data(data: dict) -> None:
+def validate_data(data: dict, template_code: str) -> None:
     required = [
         "full_name", "nationality", "sex", "age", "marital_status", "rfc", "curp", "nss",
         "address", "emergency_contacts", "clabe", "account_number", "bank", "position", "activities",
@@ -326,6 +427,11 @@ def validate_data(data: dict) -> None:
         raise RuntimeError("Faltan datos contractuales: " + ", ".join(missing))
     if len(data["activities"]) < 3:
         raise RuntimeError("Se requieren al menos tres actividades del puesto.")
+    if template_code == "AMIGO_ACTUALIZACION":
+        update_required = ["original_start_date_text", "original_position", "original_salary", "original_salary_words"]
+        update_missing = [key for key in update_required if data.get(key) in (None, "", [])]
+        if update_missing:
+            raise RuntimeError("Faltan datos originales del colaborador: " + ", ".join(update_missing))
 
 
 def generate(template_code: str, data: dict, output: Path, demo: bool) -> dict:
@@ -335,23 +441,24 @@ def generate(template_code: str, data: dict, output: Path, demo: bool) -> dict:
     source = Path(config["path"])
     if sha256(source) != config["sha256"]:
         raise RuntimeError("El machote cambió; se requiere revisar nuevamente sus campos y formato.")
-    validate_data(data)
+    validate_data(data, template_code)
     output.parent.mkdir(parents=True, exist_ok=True)
 
     with zipfile.ZipFile(source, "r") as source_zip, tempfile.TemporaryDirectory() as temp_dir:
         temp = Path(temp_dir)
         source_zip.extractall(temp)
         document_path = temp / "word/document.xml"
-        parser = etree.XMLParser(remove_blank_text=False)
-        root = etree.parse(str(document_path), parser).getroot()
+        root = parse_xml(document_path)
         accept_tracked_changes(root)
         remove_struck_deletions(root)
         remove_highlights(root)
         if template_code == "AMIGO_GENERAL_NUEVO":
             fill_amigo(root, data)
-        else:
+        elif template_code == "PENSIONAMAX_NUEVO":
             fill_pensionamax(root, data)
-        document_path.write_bytes(etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone="yes"))
+        else:
+            fill_amigo_actualizacion(root, data)
+        write_xml(document_path, root)
 
         if demo:
             footer_paths = sorted((temp / "word").glob("footer*.xml"))
@@ -361,11 +468,9 @@ def generate(template_code: str, data: dict, output: Path, demo: bool) -> dict:
             # resto. Marcamos todos para que ninguna hoja de demo pueda
             # confundirse con un contrato válido.
             for footer_path in footer_paths:
-                footer_root = etree.parse(str(footer_path), parser).getroot()
+                footer_root = parse_xml(footer_path)
                 add_demo_footer(footer_root)
-                footer_path.write_bytes(
-                    etree.tostring(footer_root, xml_declaration=True, encoding="UTF-8", standalone="yes")
-                )
+                write_xml(footer_path, footer_root)
 
         with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as target_zip:
             for path in sorted(temp.rglob("*")):
@@ -375,7 +480,14 @@ def generate(template_code: str, data: dict, output: Path, demo: bool) -> dict:
     with zipfile.ZipFile(output, "r") as final_zip:
         final_xml = final_zip.read("word/document.xml").decode("utf-8", "ignore")
     plain = re.sub(r"<[^>]+>", "", final_xml)
-    forbidden = ["COORDINADOR DE SEMINUEVAS", "$35,000.00"]
+    forbidden = [
+        "COORDINADOR DE SEMINUEVAS",
+        "$35,000.00",
+        "quien ingresó el día ___",
+        "con un salario de $_________________",
+        "teniendo como actividades principales las siguientes: _________________________",
+        "a los _______________ días",
+    ]
     remaining = [value for value in forbidden if value in plain]
     if (remaining or re.search(r"\*{3,}", plain) or "w:highlight" in final_xml
             or re.search(r"<w:ins\b", final_xml)

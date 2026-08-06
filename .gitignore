@@ -199,6 +199,11 @@ backend/API/pip/
 backend/API/pip/
 backend/API/pip/
 
+# ========== LibreOffice Portable para contratos FAD RRHH ==========
+# El instalador reproducible sí se versiona; los binarios (más de 600 MB) no.
+/backend/tools/LibreOfficePortable/*
+!/backend/tools/LibreOfficePortable/.gitkeep
+
 
 # Paddle / PaddleX
 backend/API/.paddle_home/

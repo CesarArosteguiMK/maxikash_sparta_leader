@@ -36,6 +36,23 @@ class Convenios extends Controller
         return ($fecha->format('Y-m-d') === $valor && $valor <= date('Y-m-d')) ? $valor : null;
     }
 
+    /** Valida una fecha de pago sin impedir que sea programada a futuro. */
+    private function normalizarFechaYmd($valor): ?string
+    {
+        $valor = trim((string) $valor);
+        if ($valor === '') {
+            return null;
+        }
+
+        $fecha = \DateTimeImmutable::createFromFormat('!Y-m-d', $valor);
+        $errores = \DateTimeImmutable::getLastErrors();
+        if (!$fecha || ($errores !== false && ($errores['warning_count'] > 0 || $errores['error_count'] > 0))) {
+            return null;
+        }
+
+        return $fecha->format('Y-m-d') === $valor ? $valor : null;
+    }
+
     /**
      * Retorna el id_celula del usuario según sus módulos de sesión.
      * 1 = Despachos, 2 = Call Center, null = sin célula específica.
@@ -924,14 +941,18 @@ class Convenios extends Controller
         return;
     }
 
-    $fechaPrimerPago = $this->normalizarFechaNoFutura($fechaPrimerPago);
+    // El primer pago puede ser futuro; la restricción de fecha no futura aplica
+    // a la fecha del acuerdo y a los cortes históricos, no al calendario pactado.
+    $fechaPrimerPago = $this->normalizarFechaYmd($fechaPrimerPago);
     if ($fechaPrimerPago === null) {
-        echo json_encode(['success' => false, 'mensaje' => 'La fecha de inicio no es válida o es posterior a hoy.']);
+        echo json_encode(['success' => false, 'mensaje' => 'La fecha del primer pago no es válida.']);
         return;
     }
 
     if (ConveniosDAO::CALENDARIO_DINAMICO_ACTIVO) {
-    $validacion = ConveniosDAO::validarCreditoEnDespacho($idCredito, $fechaPrimerPago);
+    // La elegibilidad se evalúa al día en que se registra el acuerdo. No debe
+    // consultarse S2 con la fecha futura del pago pactado.
+    $validacion = ConveniosDAO::validarCreditoEnDespacho($idCredito, date('Y-m-d'));
     if (empty($validacion['success'])) {
         self::respuestaJSON($validacion);
         return;
@@ -1010,7 +1031,7 @@ class Convenios extends Controller
         'pago_inicial_monto'    => $pagoInicialMonto,
         'frecuencia'            => $frecuencia,
         'fecha_primer_pago'     => $fechaPrimerPago,
-        'fecha_acuerdo'         => $fechaPrimerPago,
+        'fecha_acuerdo'         => date('Y-m-d'),
         'base_calculo'          => $baseCalculo,
         'usuario_alta'          => $usuarioAlta,
         'id_peticion_reactivacion' => isset($_POST['id_peticion_reactivacion']) ? (int) $_POST['id_peticion_reactivacion'] : 0,

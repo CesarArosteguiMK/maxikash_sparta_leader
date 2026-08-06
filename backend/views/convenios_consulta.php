@@ -6959,7 +6959,8 @@ window.migGuardar = function () {
         }
 
         var _adeudoLibre = parseFloat(document.getElementById('migAdeudo')?.value) || 0;
-        // La fecha de inicio del convenio es la fecha del primer pago
+        // El primer pago puede ser futuro; la fecha del acuerdo se
+        // registra por separado como la fecha actual.
         var _primerFechaEl = document.querySelector('#migLibreFilasBody .mig-libre-fecha');
         var _fechaLibre = _primerFechaEl ? (_primerFechaEl.value || '') : '';
         var _bucketLibre = document.getElementById('migBucket')?.value || '';
@@ -7029,7 +7030,7 @@ window.migGuardar = function () {
                 total_a_pagar: _totalLibre.toFixed(2),
                 numero_semanas: filasLibre.length,
                 pago_semanal: (_totalLibre / filasLibre.length).toFixed(2),
-                fecha_acuerdo: _fechaLibre,
+                fecha_acuerdo: _fechaLocalYmd(),
                 tipo_calendario: 'libre',
                 fechas_pagos: _fechasPagosJson,
                 monto_adicional: _incrementoLibre > 0 ? _incrementoLibre.toFixed(2) : '',

@@ -165,7 +165,8 @@ final class FadRrhhService
         string $pdfPath,
         string $originalName,
         string $templateCode,
-        ?int $idUsuario = null
+        ?int $idUsuario = null,
+        array $signerOverrides = []
     ): array {
         $template = $this->templates->get($templateCode);
         if (empty($template['approved'])) {
@@ -192,8 +193,8 @@ final class FadRrhhService
                 $template['company_name']
             ));
         }
-        $email = trim((string) ($candidate['email'] ?? ''));
-        $phone = preg_replace('/\D+/', '', (string) ($candidate['telefono'] ?? ''));
+        $email = trim((string) ($signerOverrides['email'] ?? $candidate['email'] ?? ''));
+        $phone = preg_replace('/\D+/', '', (string) ($signerOverrides['phone'] ?? $candidate['telefono'] ?? ''));
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($phone) < 10) {
             throw new \RuntimeException('El candidato necesita correo y teléfono válidos para FAD.');
         }

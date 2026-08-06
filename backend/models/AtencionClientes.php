@@ -1172,7 +1172,9 @@ SQL;
 
         if ($sincronizarDictums) {
             $ma = new MotosAdjudicadas();
-            $ma->sincronizarDictumsAppPendientes(true, true);
+            // Respetar el candado/intervalo interno: forzar cada carga de la
+            // bandeja podía disparar simultáneamente la misma importación.
+            $ma->sincronizarDictumsAppPendientes(false, true);
         }
 
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();

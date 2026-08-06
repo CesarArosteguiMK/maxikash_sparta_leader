@@ -86,6 +86,8 @@ final class FadRrhhTemplateCatalog
                 'subject_scope' => $template['subject_scope'],
                 'expected_pages' => $template['expected_pages'],
                 'approved' => $template['approved'],
+                'generator_supported' => $template['generator_supported'],
+                'beneficiaries_required' => $template['beneficiaries_required'],
             ];
         }, $this->all()));
     }
@@ -110,8 +112,12 @@ final class FadRrhhTemplateCatalog
             'expected_pages' => $pages,
             'approval_env' => $approvalEnv,
             'approved' => $this->envBool($approvalEnv),
-            'worker_signatures' => $this->signatureBoxes($pages, false),
-            'legal_signatures' => $this->signatureBoxes($pages, true),
+            'generator_supported' => in_array($code, [self::AMIGO_GENERAL_NUEVO, self::AMIGO_ACTUALIZACION, self::PENSIONAMAX_NUEVO], true),
+            'beneficiaries_required' => in_array($code, [self::AMIGO_GENERAL_NUEVO, self::AMIGO_ACTUALIZACION], true)
+                ? 2
+                : ($code === self::PENSIONAMAX_NUEVO ? 1 : 0),
+            'worker_signatures' => $this->signatureBoxes($pages, false, $code),
+            'legal_signatures' => $this->signatureBoxes($pages, true, $code),
             'certificate' => [
                 'page' => $pages,
                 'positionX1' => 0.12,
@@ -122,7 +128,7 @@ final class FadRrhhTemplateCatalog
         ];
     }
 
-    private function signatureBoxes(int $pages, bool $legal): array
+    private function signatureBoxes(int $pages, bool $legal, string $templateCode): array
     {
         $boxes = [];
         for ($page = 1; $page < $pages; $page++) {
@@ -134,12 +140,25 @@ final class FadRrhhTemplateCatalog
                 'positionY2' => $legal ? 0.37 : 0.47,
             ];
         }
+        // El machote de Amigo Efectivo deja las líneas finales más arriba que
+        // Pensionamax. Las coordenadas no pueden compartirse sin desplazar las
+        // firmas fuera de los nombres impresos en la última hoja.
+        if ($templateCode === self::AMIGO_GENERAL_NUEVO) {
+            $lastPageY1 = 0.50;
+            $lastPageY2 = 0.60;
+        } elseif ($templateCode === self::AMIGO_ACTUALIZACION) {
+            $lastPageY1 = 0.66;
+            $lastPageY2 = 0.76;
+        } else {
+            $lastPageY1 = 0.68;
+            $lastPageY2 = 0.78;
+        }
         $boxes[] = [
             'page' => $pages,
             'positionX1' => $legal ? 0.18 : 0.55,
             'positionX2' => $legal ? 0.45 : 0.82,
-            'positionY1' => 0.68,
-            'positionY2' => 0.78,
+            'positionY1' => $lastPageY1,
+            'positionY2' => $lastPageY2,
         ];
         return $boxes;
     }

@@ -55,6 +55,7 @@ if (root && canvas) {
     const relaxedDesiredAcross = new THREE.Vector3();
     const relaxedHandTarget = new THREE.Vector3();
     const relaxedCross = new THREE.Vector3();
+    const chestPalmNormal = new THREE.Vector3();
     const relaxedTwistQuaternion = new THREE.Quaternion();
     const relaxedHandWorldQuaternion = new THREE.Quaternion();
     const relaxedHandParentQuaternion = new THREE.Quaternion();
@@ -606,13 +607,13 @@ if (root && canvas) {
                 // no participa: así la lanza conserva su guardia lateral y no
                 // cruza el rostro durante la transición.
                 armTargetElbow.copy(armShoulderPosition)
-                    .addScaledVector(bodyUp, -lengths.upperLength * 0.66)
-                    .addScaledVector(armOutward, lengths.upperLength * 0.32)
-                    .addScaledVector(bodyForward, lengths.upperLength * 0.32);
+                    .addScaledVector(bodyUp, -lengths.upperLength * 0.80)
+                    .addScaledVector(armOutward, lengths.upperLength * 0.28)
+                    .addScaledVector(bodyForward, lengths.upperLength * 0.22);
                 armTargetHand.copy(armTargetElbow)
-                    .addScaledVector(bodyUp, -lengths.foreLength * 0.02)
-                    .addScaledVector(armOutward, -lengths.foreLength * 0.72)
-                    .addScaledVector(bodyForward, lengths.foreLength * 0.48);
+                    .addScaledVector(bodyUp, lengths.foreLength * 0.27)
+                    .addScaledVector(armOutward, -lengths.foreLength * 0.62)
+                    .addScaledVector(bodyForward, lengths.foreLength * 0.39);
             } else {
                 // Descanso anatómico: el codo baja casi vertical, pero la mano
                 // avanza delante del muslo. La flexión se calcula en espacio
@@ -717,10 +718,16 @@ if (root && canvas) {
                 armElbowPosition
             );
             if (relaxedFingerDirection.lengthSq() < 0.000001) return;
-            relaxedFingerDirection.normalize();
+            // Una desviacion cubital minima evita que antebrazo, muneca y
+            // nudillos formen una barra totalmente rigida. Son 3.2 grados:
+            // suficiente para dar peso al agarre sin volver a quebrar la mano.
+            relaxedFingerDirection.normalize()
+                .addScaledVector(bodyUp, -0.056)
+                .normalize();
             relaxedHandTarget.copy(relaxedHandPosition)
                 .add(relaxedFingerDirection);
             aimBoneAtWorldPoint(hand, middle, relaxedHandTarget, weight);
+            root.dataset.leonidasSpearWristInclination = '-3.2deg';
 
             // Pulgar arriba y palma hacia el asta. El eje índice-meñique se
             // alinea con el cuerpo vertical sin alterar la dirección neutral
@@ -750,6 +757,93 @@ if (root && canvas) {
             ) return;
             relaxedPalmAcross.normalize();
             relaxedDesiredAcross.normalize();
+            relaxedCross.crossVectors(relaxedPalmAcross, relaxedDesiredAcross);
+            const twistAngle = Math.atan2(
+                relaxedFingerDirection.dot(relaxedCross),
+                THREE.MathUtils.clamp(
+                    relaxedPalmAcross.dot(relaxedDesiredAcross),
+                    -1,
+                    1
+                )
+            );
+            relaxedTwistQuaternion.setFromAxisAngle(
+                relaxedFingerDirection,
+                twistAngle * THREE.MathUtils.clamp(weight, 0, 1)
+            );
+            hand.getWorldQuaternion(relaxedHandWorldQuaternion);
+            relaxedHandWorldQuaternion.premultiply(relaxedTwistQuaternion);
+            hand.parent.getWorldQuaternion(relaxedHandParentQuaternion).invert();
+            hand.quaternion.copy(
+                relaxedHandParentQuaternion.multiply(relaxedHandWorldQuaternion)
+            );
+            hand.updateMatrixWorld(true);
+        };
+
+        const orientChestSaluteHand = (
+            upperArm,
+            foreArm,
+            hand,
+            middle,
+            index,
+            pinky,
+            weight = 1
+        ) => {
+            if (
+                !activeModel
+                || !upperArm
+                || !foreArm
+                || !hand
+                || !middle
+                || !index
+                || !pinky
+                || !hand.parent
+                || weight <= 0.001
+            ) return;
+            bodyBasis();
+            armMeasurements(upperArm, foreArm, hand);
+            activeModel.updateMatrixWorld(true);
+            hand.getWorldPosition(relaxedHandPosition);
+
+            // Dedos juntos en diagonal hacia el hombro contrario. La palma se
+            // apoya sobre el pecho y el dorso queda visible desde la camara.
+            relaxedFingerDirection.copy(armOutward)
+                .multiplyScalar(-0.86)
+                .addScaledVector(bodyUp, 0.38)
+                .addScaledVector(bodyForward, 0.035)
+                .normalize();
+            relaxedHandTarget.copy(relaxedHandPosition)
+                .add(relaxedFingerDirection);
+            aimBoneAtWorldPoint(hand, middle, relaxedHandTarget, weight);
+
+            activeModel.updateMatrixWorld(true);
+            hand.getWorldPosition(relaxedHandPosition);
+            middle.getWorldPosition(relaxedMiddlePosition);
+            index.getWorldPosition(relaxedIndexPosition);
+            pinky.getWorldPosition(relaxedPinkyPosition);
+            relaxedFingerDirection.subVectors(
+                relaxedMiddlePosition,
+                relaxedHandPosition
+            ).normalize();
+            relaxedPalmAcross.subVectors(relaxedIndexPosition, relaxedPinkyPosition)
+                .addScaledVector(
+                    relaxedFingerDirection,
+                    -relaxedPalmAcross.dot(relaxedFingerDirection)
+                );
+            chestPalmNormal.copy(bodyForward).multiplyScalar(-1)
+                .addScaledVector(
+                    relaxedFingerDirection,
+                    -chestPalmNormal.dot(relaxedFingerDirection)
+                );
+            if (
+                relaxedPalmAcross.lengthSq() < 0.000001
+                || chestPalmNormal.lengthSq() < 0.000001
+            ) return;
+            relaxedPalmAcross.normalize();
+            chestPalmNormal.normalize();
+            relaxedDesiredAcross.crossVectors(
+                chestPalmNormal,
+                relaxedFingerDirection
+            ).normalize();
             relaxedCross.crossVectors(relaxedPalmAcross, relaxedDesiredAcross);
             const twistAngle = Math.atan2(
                 relaxedFingerDirection.dot(relaxedCross),
@@ -1075,6 +1169,7 @@ if (root && canvas) {
                         );
                         applySpearGrip(rightFingerBones, greetingWeight);
                         if (!currentAppearance.escudo_visible) {
+                            settleBone(leftShoulder, greetingWeight * 0.88);
                             poseArm(
                                 shieldArm,
                                 shieldForeArm,
@@ -1082,13 +1177,22 @@ if (root && canvas) {
                                 'chest_salute',
                                 greetingWeight
                             );
-                            settleHand(leftHand, greetingWeight * 0.34);
-                            applySpearGrip(leftFingerBones, greetingWeight * 0.82);
+                            orientChestSaluteHand(
+                                shieldArm,
+                                shieldForeArm,
+                                leftHand,
+                                leftMiddleFinger,
+                                leftIndexFinger,
+                                leftPinkyFinger,
+                                greetingWeight * 0.96
+                            );
+                            applyOpenFingers(leftFingerBones, greetingWeight * 0.94);
+                            applyRelaxedFingers(leftFingerBones, greetingWeight * 0.34);
                         }
                         offsetAnimatedBone(head, -0.075 * greetingWeight, 0, 0);
                         root.dataset.leonidasGreetingPose = currentAppearance.escudo_visible
                             ? 'armed-guard-nod-v2'
-                            : 'spear-heart-salute-v2';
+                            : 'spear-open-palm-salute-v3';
                     } else {
                         poseArm(swordArm, swordForeArm, rightHand, 'greeting', greetingWeight);
                         if (rightHand && greetingHandRotation) {
