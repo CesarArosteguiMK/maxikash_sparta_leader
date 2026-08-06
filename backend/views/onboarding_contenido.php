@@ -243,20 +243,26 @@ $onboardingSpecializedQuestions = [
 .onboarding-specialized-modal-top { margin-top: 1.25rem; margin-bottom: 1.25rem; }
 .onboarding-specialized-progress .progress-step { cursor: pointer; transition: transform .18s ease, box-shadow .18s ease; }
 .onboarding-specialized-progress .progress-step:hover { transform: translateY(-2px) scale(1.06); box-shadow: 0 .25rem .6rem rgba(var(--bs-primary-rgb), .25); }
-.onboarding-diploma-preview-modal .modal-dialog { width: min(96vw, 1360px); max-width: none; }
+.onboarding-diploma-preview-modal .modal-dialog { width: min(94vw, 740px); max-width: none; margin: 1rem auto; }
 .onboarding-diploma-preview-modal .modal-content { background: #07101f; border: 0; }
 .onboarding-diploma-preview-modal .modal-header { background: #004fd3; color: #fff; border: 0; }
 .onboarding-diploma-preview-modal .btn-close { filter: invert(1) grayscale(1) brightness(3); }
-.onboarding-diploma-preview { position: relative; overflow: hidden; min-height: min(68vh, 680px); padding: clamp(2rem, 5vw, 5rem); border: .3rem solid #004fd3; background: #fff; color: #004fd3; text-align: center; }
-.onboarding-diploma-preview::before, .onboarding-diploma-preview::after { content: ''; position: absolute; width: 13rem; height: 13rem; opacity: .95; background: linear-gradient(135deg, #004fd3 0 28%, transparent 28% 38%, #c3d64c 38% 56%, transparent 56% 66%, #004fd3 66%); }
-.onboarding-diploma-preview::before { top: -2rem; left: -2rem; transform: rotate(0deg); }
-.onboarding-diploma-preview::after { right: -2rem; bottom: -2rem; transform: rotate(180deg); }
+.onboarding-diploma-preview { position: relative; width: min(100%, 540px); margin: 0 auto; padding: clamp(2rem, 5vw, 3rem) clamp(2rem, 6vw, 4rem); border: .3rem solid #004fd3; box-shadow: inset .65rem 0 #c3d64c, inset -.65rem 0 #c3d64c; background: #fff; color: #004fd3; text-align: center; }
+.onboarding-diploma-preview::before, .onboarding-diploma-preview::after { content: ''; position: absolute; left: 0; right: 0; height: .9rem; background: #004fd3; }
+.onboarding-diploma-preview::before { top: 0; }
+.onboarding-diploma-preview::after { bottom: 0; }
 .onboarding-diploma-preview > * { position: relative; z-index: 1; }
 .onboarding-diploma-preview .preview-brand { display: flex; justify-content: center; }
-.onboarding-diploma-preview .preview-brand img { width: min(15rem, 48vw); height: auto; object-fit: contain; }
-.onboarding-diploma-preview .preview-title { margin: clamp(2rem, 6vh, 4rem) 0 .25rem; color: #004fd3; font-family: Georgia, serif; font-size: clamp(3rem, 8vw, 6.5rem); font-weight: 500; letter-spacing: .08em; }
-.onboarding-diploma-preview .preview-name { display: inline-block; max-width: 85%; margin: 1.2rem auto 1.5rem; padding: 0 1.5rem .55rem; border-bottom: 3px solid #c3d64c; color: #004fd3; font-family: Georgia, serif; font-size: clamp(1.8rem, 4vw, 3.5rem); }
-.onboarding-diploma-preview .preview-accent { color: #8aa000; font-size: .78rem; font-weight: 800; letter-spacing: .14em; }
+.onboarding-diploma-preview .preview-brand img { width: min(11rem, 42vw); height: auto; object-fit: contain; }
+.onboarding-diploma-preview .preview-title { margin: 2rem 0 1.25rem; color: #004fd3; font-family: Georgia, serif; font-size: clamp(2.25rem, 7vw, 3.75rem); font-weight: 500; letter-spacing: .04em; line-height: 1; }
+.onboarding-diploma-preview .preview-name { display: inline-block; max-width: 100%; margin: 1.2rem auto 1.4rem; padding: 0 .75rem .55rem; border-bottom: 3px solid #c3d64c; color: #004fd3; font-family: Georgia, serif; font-size: clamp(1.65rem, 4.5vw, 2.45rem); line-height: 1.15; overflow-wrap: anywhere; }
+.onboarding-diploma-preview .preview-accent { display: flex; align-items: center; justify-content: center; gap: .5rem; color: #8aa000; font-size: .72rem; font-weight: 800; letter-spacing: .12em; line-height: 1.35; }
+.onboarding-diploma-preview .preview-honor-mark { display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; margin: 0 .75rem; border: 1px solid #c3d64c; border-radius: 50%; background: #004fd3; color: #c3d64c; }
+.onboarding-diploma-preview #onboardingDiplomaPreviewGrant { color: #55708d !important; }
+.onboarding-diploma-preview #onboardingDiplomaPreviewText { color: #38516b !important; }
+.onboarding-diploma-preview #onboardingDiplomaPreviewIssuer,
+.onboarding-diploma-preview #onboardingDiplomaPreviewValidation { color: #61758d !important; }
+@media (max-width: 575.98px) { .onboarding-diploma-preview { padding: 1.75rem 1.5rem; } .onboarding-diploma-preview .preview-honor-mark { width: 1.35rem; height: 1.35rem; margin: 0; } }
 .onboarding-specialized-meta { border-bottom: 1px solid var(--bs-border-color); }
 .onboarding-footer { border-top: 1px solid rgba(var(--bs-primary-rgb), .18); color: var(--bs-secondary-color); }
 .onboarding-footer hr { width: 16rem; max-width: 100%; margin: 1.25rem auto; border-color: rgba(var(--bs-primary-rgb), .2); opacity: 1; }
@@ -509,7 +515,7 @@ $onboardingSpecializedQuestions = [
     <div class="card-body p-4"><div class="onboarding-section-heading"><span class="onboarding-route-icon"><i class="fa-solid fa-comments"></i></span><div><h5>Buz&oacute;n de Retroalimentaci&oacute;n</h5><small class="text-muted">Queremos ofrecerte la mejor experiencia. Califica este portal de inducci&oacute;n y d&eacute;janos tus comentarios.</small></div></div><form id="onboardingFeedbackForm"><div class="mb-4"><label class="form-label fw-semibold">&iquest;C&oacute;mo calificar&iacute;as la claridad de la informaci&oacute;n y la usabilidad de este portal?</label><div class="d-flex gap-2 onboarding-feedback-rating"><input type="radio" id="feedbackRating1" name="feedbackRating" value="1" /><label class="btn btn-outline-primary" for="feedbackRating1">1</label><input type="radio" id="feedbackRating2" name="feedbackRating" value="2" /><label class="btn btn-outline-primary" for="feedbackRating2">2</label><input type="radio" id="feedbackRating3" name="feedbackRating" value="3" /><label class="btn btn-outline-primary" for="feedbackRating3">3</label><input type="radio" id="feedbackRating4" name="feedbackRating" value="4" /><label class="btn btn-outline-primary" for="feedbackRating4">4</label><input type="radio" id="feedbackRating5" name="feedbackRating" value="5" /><label class="btn btn-outline-primary" for="feedbackRating5">5</label></div></div><div class="mb-3"><label class="form-label fw-semibold" for="onboardingFeedbackComment">&iquest;Qu&eacute; sugerencia tienes para mejorar el proceso de bienvenida en Maxikash?</label><textarea class="form-control" id="onboardingFeedbackComment" rows="4" placeholder="Escribe aqu&iacute; tus comentarios, sugerencias o dudas..."></textarea></div><button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane me-1"></i>Enviar feedback</button><div class="alert alert-success mt-3 mb-0 d-none" id="onboardingFeedbackSuccess">Muchas gracias! Recibimos tu retroalimentaci&oacute;n correctamente.</div></form></div>
 </section>
 
-<div class="modal fade onboarding-quiz-modal" id="onboardingSpecializedQuizModal" tabindex="-1" aria-labelledby="onboardingSpecializedQuizModalTitle" aria-hidden="true" data-onboarding-specialized-session="<?= htmlspecialchars($onboardingQuizSession, ENT_QUOTES, 'UTF-8') ?>">
+<div class="modal fade onboarding-quiz-modal" id="onboardingSpecializedQuizModal" tabindex="-1" aria-labelledby="onboardingSpecializedQuizModalTitle" aria-hidden="true" data-onboarding-specialized-session="<?= htmlspecialchars($onboardingQuizSession, ENT_QUOTES, 'UTF-8') ?>" data-assigned-name="<?= htmlspecialchars($onboardingCertificateName ?? 'Colaborador Maxikash', ENT_QUOTES, 'UTF-8') ?>" data-assigned-position="<?= htmlspecialchars($onboardingAssignedPosition ?? '', ENT_QUOTES, 'UTF-8') ?>" data-specialized-quiz-type="<?= htmlspecialchars($onboardingSpecializedQuizType ?? '', ENT_QUOTES, 'UTF-8') ?>">
     <div class="modal-dialog modal-xl modal-dialog-scrollable onboarding-specialized-modal-top">
         <div class="modal-content">
             <div class="modal-header">
@@ -546,13 +552,13 @@ $onboardingSpecializedQuestions = [
             <div class="modal-header"><h5 class="modal-title" id="onboardingDiplomaPreviewTitle"><i class="fa-solid fa-award me-2"></i>Vista previa del diploma</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
             <div class="modal-body p-2 p-md-3">
                 <div class="onboarding-diploma-preview">
-                    <div class="preview-brand"><img src="/assets/img/Logotipo-Maxikash-Outline.webp" alt="Maxikash" class="sidebar-logo"></div>
-                    <div class="preview-title">DIPLOMA</div>
-                    <div class="preview-accent" id="onboardingDiplomaPreviewAccent">OTORGADO CON HONORES POR MAXIKASH MÉXICO</div>
-                    <p class="mt-4 mb-0 text-secondary">Se otorga con orgullo el presente reconocimiento a:</p>
+                    <div class="preview-brand"><img src="/assets/img/Logotipo-Maxikash-Outline.png" alt="Maxikash" class="sidebar-logo"></div>
+                    <div class="preview-title" id="onboardingDiplomaPreviewTitleText">CONSTANCIA</div>
+                    <div class="preview-accent"><span class="preview-honor-mark">★</span><span id="onboardingDiplomaPreviewAccent">OTORGADO CON HONORES POR MAXIKASH MÉXICO</span><span class="preview-honor-mark">★</span></div>
+                    <p class="mt-4 mb-0 text-secondary" id="onboardingDiplomaPreviewGrant">Se otorga con orgullo el presente reconocimiento a:</p>
                     <div class="preview-name"><?= htmlspecialchars($onboardingCertificateName ?? 'Colaborador Maxikash', ENT_QUOTES, 'UTF-8') ?></div>
-                    <p class="mx-auto mb-4 text-secondary" id="onboardingDiplomaPreviewText" style="max-width: 36rem;">Por haber acreditado exitosamente la inducción corporativa.</p>
-                    <div class="small text-secondary">Amigo Efectivo S.A. de C.V. &nbsp;|&nbsp; Área de Recursos Humanos</div>
+                    <p class="mx-auto mb-4 text-secondary" id="onboardingDiplomaPreviewText" style="max-width: 30rem;">Por haber acreditado exitosamente la inducción corporativa sobre políticas de asistencia, nómina, cultura y normativas vigentes del ejercicio 2026.</p>
+                    <div class="small text-secondary d-flex justify-content-center gap-4 flex-wrap"><span id="onboardingDiplomaPreviewIssuer">Amigo Efectivo S.A. de C.V.<br>Área de Recursos Humanos</span><span id="onboardingDiplomaPreviewValidation">FECHA: <?= date('d/m/Y') ?><br>ID: MK-2026-OK</span></div>
                 </div>
                 <div class="text-center mt-3"><a class="btn btn-primary" id="onboardingDiplomaPreviewDownload" href="/onboarding/diploma?tipo=corporativo"><i class="fa-solid fa-file-pdf me-1"></i>Descargar diploma PDF</a></div>
             </div>
@@ -1234,6 +1240,26 @@ $onboardingSpecializedQuestions = [
         window.bootstrap.Modal.getOrCreateInstance(diplomaPreviewModal).show();
     }
 
+    // Vista reutilizable: la estructura se conserva y cada quiz aporta sus textos.
+    function showDiplomaPreview(type, score) {
+        if (!diplomaPreviewModal || !window.bootstrap) return;
+        var specialized = type === 'especializado';
+        var previewTitle = document.getElementById('onboardingDiplomaPreviewTitleText');
+        var previewGrant = document.getElementById('onboardingDiplomaPreviewGrant');
+        var previewIssuer = document.getElementById('onboardingDiplomaPreviewIssuer');
+        var previewValidation = document.getElementById('onboardingDiplomaPreviewValidation');
+        if (previewTitle) previewTitle.textContent = specialized ? 'CERTIFICADO DE COMPETENCIA TÉCNICA' : 'CONSTANCIA';
+        if (diplomaPreviewAccent) diplomaPreviewAccent.textContent = specialized ? 'PUESTO: EVALUACIÓN ESPECIALIZADA' : 'OTORGADO CON HONORES POR MAXIKASH MÉXICO';
+        if (previewGrant) previewGrant.textContent = specialized ? 'Otorgado con éxito a la trayectoria de:' : 'Se otorga con orgullo el presente reconocimiento a:';
+        if (diplomaPreviewText) diplomaPreviewText.textContent = specialized
+            ? 'Por haber completado y aprobado satisfactoriamente los 10 criterios de evaluación específicos exigidos por los comités operativos de Maxikash para el correcto desarrollo de sus funciones estructurales.'
+            : 'Por haber acreditado exitosamente la inducción corporativa sobre políticas de asistencia, nómina, cultura y normativas vigentes del ejercicio 2026.';
+        if (previewIssuer) previewIssuer.innerHTML = specialized ? 'Amigo Efectivo S.A. de C.V. - Unidad de Evaluación Fintech' : 'Amigo Efectivo S.A. de C.V.<br>Área de Recursos Humanos';
+        if (previewValidation) previewValidation.textContent = specialized ? 'ID DE REGISTRO ÚNICO: MK-CERT-2026' : 'FECHA: ' + new Date().toLocaleDateString('es-MX') + ' | ID: MK-2026-OK';
+        if (diplomaPreviewDownload) diplomaPreviewDownload.href = '/onboarding/diploma?tipo=' + type;
+        window.bootstrap.Modal.getOrCreateInstance(diplomaPreviewModal).show();
+    }
+
     var quizRoot = document.getElementById('evaluacion');
     var specializedSection = document.getElementById('evaluacion-especializada');
     if (quizRoot && specializedSection && quizRoot.parentNode === specializedSection.parentNode) {
@@ -1374,13 +1400,21 @@ $onboardingSpecializedQuestions = [
         var specializedStarted = false;
         var specializedIndex = 0;
         var specializedSetup = specializedRole.closest('.row');
+        var assignedName = specializedModal.dataset.assignedName || 'Colaborador Maxikash';
+        var assignedPosition = specializedModal.dataset.assignedPosition || '';
+        var assignedQuizType = specializedModal.dataset.specializedQuizType || '';
+        if (assignedQuizType) specializedRole.value = assignedQuizType;
+        if (specializedName) specializedName.value = assignedName;
+        specializedSetup.className = 'onboarding-specialized-assignment border rounded p-3 mb-4';
+        specializedSetup.innerHTML = '<div class="small text-uppercase fw-bold text-muted mb-3">Evaluación de puesto</div><div class="mb-3"><span class="d-block small text-muted">Colaborador</span><strong data-specialized-assigned-name></strong></div><div><span class="d-block small text-muted">Puesto asignado</span><strong data-specialized-assigned-position></strong></div>';
+        specializedSetup.querySelector('[data-specialized-assigned-name]').textContent = assignedName;
+        specializedSetup.querySelector('[data-specialized-assigned-position]').textContent = assignedPosition || 'Puesto no asignado';
         var specializedProgress = document.getElementById('onboardingSpecializedProgress');
         var specializedSubmit = specializedForm.querySelector('button[type="submit"]');
-        if (specializedName) specializedName.closest('.col-md-6').classList.add('d-none');
         specializedQuestions.forEach(function (question) { question.classList.add('d-none'); });
         specializedSubmit.classList.add('d-none');
         var specializedStart = document.createElement('button');
-        specializedStart.type = 'button'; specializedStart.className = 'btn btn-primary'; specializedStart.textContent = 'Comenzar';
+        specializedStart.type = 'button'; specializedStart.className = 'btn btn-primary'; specializedStart.textContent = 'Comenzar'; specializedStart.disabled = !assignedQuizType;
         specializedSetup.insertAdjacentElement('afterend', specializedStart);
         var specializedControls = document.createElement('div');
         specializedControls.className = 'onboarding-corporate-carousel-controls d-none';
@@ -1472,8 +1506,8 @@ $onboardingSpecializedQuestions = [
         function restoreSpecializedState() {
             var state = getSpecializedState();
             if (state.completed) { showSpecializedSuccess(state.score); return; }
-            if (state.role) specializedRole.value = state.role;
-            if (state.name) specializedName.value = state.name;
+            if (assignedQuizType) specializedRole.value = assignedQuizType;
+            if (specializedName) specializedName.value = assignedName;
             Object.keys(state.answers || {}).forEach(function (key) {
                 var answer = specializedForm.querySelector('input[name="onboardingSpecializedQ' + key.slice(1) + '"][value="' + state.answers[key] + '"]');
                 if (answer) answer.checked = true;

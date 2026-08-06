@@ -123,6 +123,7 @@ backend/storage/onboarding/progress.json
 !backend/storage/onboarding/.gitkeep
 public/reset_onboarding_progress.php
 public/diploma_prueba_horizontal.php
+public/diploma_prueba_logo_maxikash.png
 
 # ========== Agente Segundómetro (Node) — carpeta versionada; llaves NO ==========
 # Copie aqui la clave local (p. ej. jesusssh4.unknown). Nunca subir al repo.

@@ -42,16 +42,21 @@ class Onboarding extends Controller
     {
         $usuarioId = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? 0);
         $nombreDiploma = trim((string) ($_SESSION['usuario_nombre'] ?? ''));
+        $puestoOnboarding = trim((string) ($_SESSION['puesto'] ?? $_SESSION['usuario_puesto'] ?? ''));
         if ($usuarioId > 0) {
             try {
                 $persona = (new Database())->queryOne('SELECT nombres, segundo_nombre, apellidop, apellidom FROM persona WHERE id = :id LIMIT 1', ['id' => $usuarioId]);
                 if ($persona) $nombreDiploma = trim(implode(' ', array_filter([$persona['nombres'] ?? '', $persona['segundo_nombre'] ?? '', $persona['apellidop'] ?? '', $persona['apellidom'] ?? ''], static fn($value) => trim((string) $value) !== '')));
+                $asignacion = (new Database())->queryOne('SELECT pu.nombre FROM asigna_puesto ap INNER JOIN puesto pu ON pu.id = ap.id_puesto WHERE ap.id_persona = :id AND ap.activo = 1 ORDER BY ap.id DESC LIMIT 1', ['id' => $usuarioId]);
+                if (!empty($asignacion['nombre'])) $puestoOnboarding = trim((string) $asignacion['nombre']);
             } catch (\Throwable $exception) {
                 // Se conserva el nombre disponible en sesión si la consulta no está disponible.
             }
         }
         $this->set('titulo', 'Onboarding | ' . CONFIGURACION['EMPRESA']);
         $this->set('onboardingCertificateName', $nombreDiploma ?: 'Colaborador Maxikash');
+        $this->set('onboardingAssignedPosition', $puestoOnboarding);
+        $this->set('onboardingSpecializedQuizType', self::specializedQuizType($puestoOnboarding));
         self::render('onboarding_contenido', false);
     }
 
@@ -72,6 +77,20 @@ class Onboarding extends Controller
             $persona = (new Database())->queryOne('SELECT nombres, segundo_nombre, apellidop, apellidom FROM persona WHERE id = :id LIMIT 1', ['id' => $usuarioId]);
             if ($persona) $nombre = trim(implode(' ', array_filter([$persona['nombres'] ?? '', $persona['segundo_nombre'] ?? '', $persona['apellidop'] ?? '', $persona['apellidom'] ?? ''], static fn($value) => trim((string) $value) !== '')));
         } catch (\Throwable $exception) { }
+        $html = self::certificatePdfHtml($tipo, $nombre, (int) ($record['evaluaciones']['especializada_score'] ?? 0));
+        $mpdf = new \Mpdf\Mpdf([
+            'format' => 'A4',
+            'orientation' => 'P',
+            'margin_left' => 8,
+            'margin_right' => 8,
+            'margin_top' => 8,
+            'margin_bottom' => 8,
+        ]);
+        $mpdf->SetTitle($tipo === 'especializado' ? 'Certificado de competencia técnica' : 'Constancia de inducción');
+        $mpdf->WriteHTML($html);
+        $mpdf->Output(($tipo === 'especializado' ? 'certificado-competencia-tecnica' : 'constancia-induccion') . '.pdf', \Mpdf\Output\Destination::DOWNLOAD);
+        exit;
+
         $titulo = $tipo === 'especializado' ? 'DIPLOMA DE COMPETENCIA TÉCNICA' : 'DIPLOMA DE INDUCCIÓN';
         $texto = $tipo === 'especializado' ? 'Acreditó exitosamente la evaluación especializada de su puesto.' : 'Acreditó exitosamente la inducción corporativa sobre políticas de asistencia, nómina y cultura.';
         $fecha = date('d de F de Y');
@@ -109,6 +128,86 @@ class Onboarding extends Controller
         $mpdf->WriteHTML($html);
         $mpdf->Output('diploma-maxikash-' . $tipo . '.pdf', \Mpdf\Output\Destination::DOWNLOAD);
         exit;
+    }
+
+    /** Determina el cuestionario asignado a partir del puesto autenticado. */
+    private static function specializedQuizType(string $position): string
+    {
+        $normalized = strtolower(trim((string) iconv('UTF-8', 'ASCII//TRANSLIT', $position)));
+        $rules = [
+            'cobranza domiciliaria' => 'gestor_domiciliaria', 'cobranza telefonica' => 'gestor_telefonica',
+            'supervisor de cobranza' => 'supervisor_cobranza', 'gerente de cobranza' => 'gerente_cobranza',
+            'credito individual' => 'asesor_credito', 'credito y riesgos' => 'analista_credito',
+            'ventas fintech' => 'ventas_fintech', 'recursos humanos' => 'rrhh', 'soporte tecnico' => 'soporte',
+            'atencion a clientes' => 'atencion', 'auditor' => 'auditor', 'capacitacion' => 'capacitacion',
+            'business intelligence' => 'bi', 'contador' => 'contador', 'facturacion' => 'facturacion',
+            'calidad' => 'qa', 'desarrollador' => 'desarrollador', 'disenador' => 'ux', 'marketing' => 'marketing',
+            'seo' => 'seo', 'reclutador' => 'reclutador', 'abogado' => 'abogado', 'cumplimiento' => 'pld',
+            'operaciones' => 'gerente_operaciones', 'area comercial' => 'supervisor_comercial',
+            'auxiliar contable' => 'auxiliar_contable', 'recepcionista' => 'recepcionista',
+        ];
+        foreach ($rules as $needle => $quiz) if (str_contains($normalized, $needle)) return $quiz;
+        return $normalized !== '' ? 'general' : '';
+    }
+
+    /**
+     * Construye la constancia/certificado con una estructura única reutilizable.
+     * Cada tipo sólo aporta sus textos y datos de validación.
+     */
+    private static function certificatePdfHtml(string $type, string $name, int $score): string
+    {
+        $isSpecialized = $type === 'especializado';
+        $safeName = htmlspecialchars($name ?: 'Colaborador Maxikash', ENT_QUOTES, 'UTF-8');
+        $recordId = $isSpecialized
+            ? 'MK-CERT-2026-' . strtoupper(preg_replace('/[^A-Z0-9]/', '', iconv('UTF-8', 'ASCII//TRANSLIT', $name)) ?: 'COLABORADOR')
+            : 'MK-2026-OK';
+        $content = $isSpecialized
+            ? [
+                'title' => 'CERTIFICADO DE COMPETENCIA TÉCNICA',
+                'recognition' => 'PUESTO: EVALUACIÓN ESPECIALIZADA',
+                'grant' => 'Otorgado con éxito a la trayectoria de:',
+                'body' => 'Por haber completado y aprobado satisfactoriamente los 10 criterios de evaluación específicos exigidos por los comités operativos de Maxikash para el correcto desarrollo de sus funciones estructurales.',
+                'issuer' => 'Amigo Efectivo S.A. de C.V. - Unidad de Evaluación Fintech',
+                'right' => 'ID DE REGISTRO ÚNICO: ' . $recordId,
+            ]
+            : [
+                'title' => 'CONSTANCIA',
+                'recognition' => 'OTORGADO CON HONORES POR MAXIKASH MÉXICO',
+                'grant' => 'Se otorga con orgullo el presente reconocimiento a:',
+                'body' => 'Por haber acreditado exitosamente la inducción corporativa sobre políticas de asistencia, nómina, cultura y normativas vigentes del ejercicio 2026.',
+                'issuer' => 'Amigo Efectivo S.A. de C.V.<br>Área de Recursos Humanos',
+                'right' => 'FECHA: ' . date('d/m/Y') . '<br>ID: ' . $recordId,
+            ];
+        $logoPath = str_replace('\\', '/', dirname(RAIZ) . '/public/assets/img/Logotipo-Maxikash-Outline.png');
+        $escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+        $issuer = $isSpecialized ? $escape($content['issuer']) : $content['issuer'];
+
+        return '<style>
+            body{font-family:dejavusans;color:#004fd3}
+            .frame{width:100%;border:3px solid #004fd3;border-collapse:collapse;background:#fff}
+            .frame td{padding:0}.header{height:11mm;background:#004fd3}.accent{height:4mm;background:#c3d64c}
+            .blue-side{width:2.5mm;background:#004fd3}.lime-side{width:2.5mm;background:#c3d64c}
+            .body-cell{padding:0 13mm;text-align:center;vertical-align:top}.layout{width:100%;border-collapse:collapse}.layout td{padding:0;text-align:center}
+            .logo-row{height:37mm;vertical-align:bottom}.logo{width:62mm;height:auto}.title-row{height:27mm;vertical-align:middle}
+            .title{font-family:serif;font-size:34pt;line-height:1;color:#004fd3;letter-spacing:2px}.recognition-row{height:15mm;vertical-align:middle}
+            .recognition{font-size:12pt;font-weight:bold;letter-spacing:1.2px;color:#91a400}.honor-mark{display:inline-block;width:9mm;height:9mm;line-height:9mm;text-align:center;background:#004fd3;border:1px solid #c3d64c;border-radius:50%;color:#c3d64c;font-size:15pt;font-weight:bold}
+            .grant-row{height:12mm;vertical-align:middle}.grant{font-size:13pt;color:#55708d}.name-row{height:28mm;vertical-align:middle}
+            .name{font-family:serif;font-size:24pt;line-height:1.15;color:#004fd3;border-bottom:2px solid #c3d64c;padding:0 8mm 4mm;display:inline-block}.text-row{height:34mm;vertical-align:top}
+            .copy-table{width:100mm;border-collapse:collapse}.copy-table td{padding:0;text-align:center}.copy{font-size:13pt;line-height:1.65;color:#38516b;margin:0}
+            .space-row{height:61mm}.footer-row{height:28mm;vertical-align:middle}.footer{font-size:10.5pt;line-height:1.6;color:#61758d}.footer strong{color:#004fd3}.bottom{height:5mm;background:#004fd3}
+        </style>
+        <table class="frame" cellspacing="0" cellpadding="0">
+            <tr><td colspan="5" class="header"></td></tr><tr><td colspan="5" class="accent"></td></tr><tr>
+                <td class="blue-side"></td><td class="lime-side"></td><td class="body-cell"><table class="layout" cellspacing="0" cellpadding="0">
+                    <tr><td class="logo-row"><img class="logo" src="' . $escape($logoPath) . '" alt="Maxikash"></td></tr>
+                    <tr><td class="title-row"><div class="title">' . $escape($content['title']) . '</div></td></tr>
+                    <tr><td class="recognition-row"><table width="100%" cellspacing="0" cellpadding="0"><tr><td width="25%" align="right"><span class="honor-mark">&#9733;</span></td><td width="50%"><div class="recognition">' . $escape($content['recognition']) . '</div></td><td width="25%" align="left"><span class="honor-mark">&#9733;</span></td></tr></table></td></tr>
+                    <tr><td class="grant-row"><div class="grant">' . $escape($content['grant']) . '</div></td></tr><tr><td class="name-row"><div class="name">' . $safeName . '</div></td></tr>
+                    <tr><td class="text-row"><table class="copy-table" align="center" cellspacing="0" cellpadding="0"><tr><td><p class="copy">' . $escape($content['body']) . '</p></td></tr></table></td></tr><tr><td class="space-row"></td></tr>
+                    <tr><td class="footer-row"><table width="100%" cellspacing="0" cellpadding="0"><tr><td width="50%" class="footer"><strong>' . $issuer . '</strong></td><td width="50%" class="footer">' . ($isSpecialized ? $escape($content['right']) : $content['right']) . '</td></tr></table></td></tr>
+                </table></td><td class="lime-side"></td><td class="blue-side"></td>
+            </tr><tr><td colspan="5" class="bottom"></td></tr>
+        </table>';
     }
 
     /**
