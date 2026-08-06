@@ -5511,6 +5511,8 @@ window.tiposDocumentoBajaPermitidos = <?= json_encode($tiposDocumentoBajaPermiti
 window.puedeRegistrarAusenciaGestion = <?= json_encode(!empty($puedeRegistrarAusenciaGestion ?? false)) ?>;
 window.puedeDarBajaGestion = <?= json_encode(!empty($puedeDarBajaGestion ?? false)) ?>;
 window.puedeVisualizarContrasenaGestion = <?= json_encode(!empty($puedeVisualizarContrasenaGestion ?? false)) ?>;
+window.puedeExportarDatosSeguridadGestion = <?= json_encode(!empty($puedeExportarDatosSeguridadGestion ?? false)) ?>;
+window.puedeConsultarDatosSeguridadGestion = <?= json_encode(!empty($puedeConsultarDatosSeguridadGestion ?? false)) ?>;
 window.puedeRegistrarPersonaGestion = <?= json_encode(!empty($puedeRegistrarPersonaGestion ?? false)) ?>;
 window.permisosEdicionCobranzaGestion = <?= json_encode(($permisosEdicionCobranzaGestion ?? [])) ?>;
 window.puedeActualizarInfo = <?= json_encode(!empty($puedeActualizarInfo ?? false)) ?>;
@@ -9428,6 +9430,16 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
               <div class="plantilla-grid">
                 ${renderColumnasPlantillaGestoresRrhh()}
               </div>
+              ${window.puedeExportarDatosSeguridadGestion ? `
+                <section class="border border-danger-subtle rounded p-3 mt-4 bg-light" aria-labelledby="plantilla-datos-seguridad-titulo">
+                  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                      <h6 class="fw-bold mb-1 text-danger" id="plantilla-datos-seguridad-titulo"><i class="fa fa-shield-halved me-2"></i>Exportar datos de seguridad</h6>
+                      <p class="small text-muted mb-0">Abre una ventana independiente con usuario, nombre completo y contraseña. Requiere permiso especial y Google Authenticator.</p>
+                    </div>
+                    <button type="button" class="btn btn-danger" id="btnVerDatosSeguridadGestion"><i class="fa fa-arrow-up-right-from-square me-2"></i>${window.puedeConsultarDatosSeguridadGestion ? 'Abrir datos de seguridad' : 'Vista de boton (requiere permiso)'}</button>
+                  </div>
+                </section>` : ''}
             </div>
             <div class="modal-footer d-flex justify-content-between align-items-center">
               <div class="text-muted small" id="plantilla-columnas-total-pie">0 de 0 columnas seleccionadas</div>
@@ -9454,6 +9466,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       const contadorPie = modal.querySelector('#plantilla-columnas-total-pie');
       const btnConfirmar = modal.querySelector('#btnConfirmarPlantillaGestores');
       const togglesGrupo = Array.from(modal.querySelectorAll('.plantilla-toggle-grupo'));
+      const btnVerDatosSeguridad = modal.querySelector('#btnVerDatosSeguridadGestion');
       const syncMaster = () => {
         const total = checks.length;
         const seleccionadas = checks.filter(ch => ch.checked).length;
@@ -9480,6 +9493,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
           checks.forEach(ch => { ch.checked = marcarTodas.checked; });
           syncMaster();
         });
+      }
+      if (btnVerDatosSeguridad) {
+        btnVerDatosSeguridad.addEventListener('click', () => mostrarDatosSeguridadGestion(filtros));
       }
       checks.forEach(ch => ch.addEventListener('change', syncMaster));
       togglesGrupo.forEach(btn => {
@@ -9600,6 +9616,54 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       return postPlantillaGestoresRrhh(endpoint, payload, { codigo });
     }
     return data;
+  }
+
+  async function mostrarDatosSeguridadGestion(filtros) {
+    if (!window.puedeConsultarDatosSeguridadGestion) {
+      Swal.fire({ icon: 'info', title: 'Permiso requerido', text: 'El boton esta visible como muestra. Para consultar los datos se requiere el permiso especial Exportar datos de seguridad.' });
+      return;
+    }
+    const ventana = window.open('', 'datosSeguridadGestion', 'width=980,height=700,resizable=yes,scrollbars=yes');
+    if (!ventana) {
+      Swal.fire({ icon: 'warning', title: 'Ventana bloqueada', text: 'Permite las ventanas emergentes para abrir los resultados.' });
+      return;
+    }
+    ventana.opener = null;
+    ventana.document.write('<!doctype html><title>Datos de seguridad</title><p style="font-family:Arial,sans-serif;padding:24px">Validando acceso...</p>');
+    ventana.document.close();
+
+    try {
+      const auth = await postPlantillaGestoresRrhh('/CapHum/autorizarDescargaPlantillaGestoresRrhh', {
+        columnas: ['usuario', 'nombre_completo', 'contrasena']
+      });
+      if (!auth?.success || !auth?.datos?.download_token) {
+        ventana.close();
+        Swal.fire({ icon: 'error', title: 'No se pudo autorizar', text: auth?.mensaje || 'No se pudo validar el segundo paso.' });
+        return;
+      }
+      const response = await fetch('/CapHum/obtenerDatosSeguridadGestores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ plantilla_token: auth.datos.download_token, filtros })
+      });
+      const resultado = await response.json();
+      if (!resultado?.success) throw new Error(resultado?.mensaje || 'No se pudieron cargar los resultados.');
+
+      const filas = (resultado.datos || []).map(item => `<tr>
+        <td>${escapePlantillaGestoresHtml(item.usuario || '')}</td>
+        <td>${escapePlantillaGestoresHtml(item.nombre_completo || '')}</td>
+        <td><code>${escapePlantillaGestoresHtml(item.contrasena || '')}</code></td>
+      </tr>`).join('') || '<tr><td colspan="3" class="empty">No se encontraron usuarios con los filtros actuales.</td></tr>';
+      ventana.document.open();
+      ventana.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Datos de seguridad</title><style>
+        body{font-family:Arial,sans-serif;margin:28px;color:#172033} h1{margin:0 0 6px;font-size:22px} p{color:#64748b;margin-top:0}
+        table{width:100%;border-collapse:collapse;margin-top:20px} th,td{padding:12px;border-bottom:1px solid #e2e8f0;text-align:left}th{background:#142641;color:#fff}code{font-weight:700;letter-spacing:2px}.empty{text-align:center;color:#64748b}
+      </style></head><body><h1>Datos de seguridad</h1><p>Consulta autorizada y registrada. No compartas ni almacenes este contenido fuera del proceso autorizado.</p><table><thead><tr><th>Usuario</th><th>Nombre completo</th><th>Contraseña</th></tr></thead><tbody>${filas}</tbody></table></body></html>`);
+      ventana.document.close();
+    } catch (error) {
+      ventana.close();
+      Swal.fire({ icon: 'error', title: 'No se pudieron mostrar los datos', text: error.message || 'Ocurrio un error.' });
+    }
   }
 
   async function descargarPlantillaGestores() {

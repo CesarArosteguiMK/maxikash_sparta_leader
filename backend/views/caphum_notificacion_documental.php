@@ -146,10 +146,18 @@ $tipoInicial = $tipos[0] ?? [
                             <option value="todos">Todos</option>
                             <option value="pendientes">Pendientes</option>
                             <option value="entregados">Entregados</option>
+                            <option value="correctos">Correctos</option>
+                            <option value="un_patron">1 patrón vigente</option>
+                            <option value="dos_patrones">2 patrones vigentes</option>
                         </select>
                     </div>
-                    <div class="col-sm-8">
+                    <div class="col-sm-4">
                         <input class="form-control" id="avanceBuscar" placeholder="Buscar por nombre, usuario o número de empleado">
+                    </div>
+                    <div class="col-sm-2 d-grid">
+                        <button class="btn btn-success" id="btnDescargarAvanceExcel" type="button" title="Descargar el resultado filtrado en Excel">
+                            <i class="fa-solid fa-file-excel me-1"></i>Excel
+                        </button>
                     </div>
                 </div>
                 <div class="table-responsive">
@@ -188,6 +196,14 @@ $tipoInicial = $tipos[0] ?? [
     let timerActualizacionAvance = null;
     let consultaAvanceEnCurso = false;
     const destinatarios = new Map();
+    const filtrosAvance = () => {
+        const seleccionado = $('#avanceEstado').value;
+        const esEstado = ['todos', 'pendientes', 'entregados'].includes(seleccionado);
+        return {
+            estado: esEstado ? seleccionado : 'todos',
+            validacion: esEstado ? 'todos' : seleccionado
+        };
+    };
 
     const json = async (url, options = {}) => {
         const response = await fetch(url, {credentials: 'same-origin', cache: 'no-store', ...options});
@@ -336,7 +352,7 @@ $tipoInicial = $tipos[0] ?? [
             </span><small class="d-block text-danger mt-1">${escapeHtml(motivo)}</small>`;
         }
         const cantidad = Number(row.patrones_vigentes || 0);
-        const clase = cantidad >= 2 ? 'text-bg-danger' : (cantidad === 1 ? 'text-bg-primary' : 'text-bg-warning');
+        const clase = cantidad >= 2 ? 'text-bg-warning' : (cantidad === 1 ? 'text-bg-primary' : 'text-bg-warning');
         const historial = Number(row.patrones_historial || 0);
         const titulo = historial
             ? `${historial} registro${historial === 1 ? '' : 's'} patronal${historial === 1 ? '' : 'es'} en el historial`
@@ -374,9 +390,11 @@ $tipoInicial = $tipos[0] ?? [
             cuerpo.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span>Cargando...</td></tr>';
         }
         try {
+            const filtros = filtrosAvance();
             const params = new URLSearchParams({
                 id: campaniaAvance.id,
-                estado: $('#avanceEstado').value,
+                estado: filtros.estado,
+                validacion: filtros.validacion,
                 buscar: $('#avanceBuscar').value.trim(),
                 solo_estado: silencioso ? '1' : '0'
             });
@@ -641,17 +659,24 @@ $tipoInicial = $tipos[0] ?? [
 
             boton.disabled = true;
             const autorizado = await pedirAutorizacionDocumento(idDocumento, 'eliminar');
-            if (!autorizado?.token) return;
+            if (!autorizado) return;
             const formData = new FormData();
             formData.append('id_documento', String(idDocumento));
-            formData.append('token', autorizado.token);
+            if (autorizado.token) formData.append('token', autorizado.token);
             const resultado = await json('/caphum/eliminarDocumentoPersona', {
                 method: 'POST',
                 body: formData,
                 headers: {'X-Requested-With': 'XMLHttpRequest'}
             });
             if (window.Swal) {
-                await Swal.fire({icon: 'success', title: 'Documento eliminado', text: resultado.mensaje});
+                const archivoEliminado = resultado.datos?.archivo_fisico_eliminado !== false;
+                await Swal.fire({
+                    icon: archivoEliminado ? 'success' : 'warning',
+                    title: archivoEliminado ? 'Documento eliminado' : 'Eliminación parcial',
+                    text: archivoEliminado
+                        ? resultado.mensaje
+                        : `${resultado.mensaje} El archivo físico no pudo borrarse; revisa al administrador.`
+                });
             }
             await Promise.all([cargarAvance(), cargarCampanias()]);
         } catch (error) {
@@ -748,6 +773,17 @@ $tipoInicial = $tipos[0] ?? [
     });
     $('#btnRecargarCampanias').addEventListener('click', cargarCampanias);
     $('#avanceEstado').addEventListener('change', cargarAvance);
+    $('#btnDescargarAvanceExcel').addEventListener('click', () => {
+        if (!campaniaAvance) return;
+        const filtros = filtrosAvance();
+        const params = new URLSearchParams({
+            id: campaniaAvance.id,
+            estado: filtros.estado,
+            validacion: filtros.validacion,
+            buscar: $('#avanceBuscar').value.trim()
+        });
+        window.location.href = '/caphum/descargarAvanceCampaniaNotificacionDocumentalExcel?' + params;
+    });
     $('#avanceBuscar').addEventListener('input', () => {
         clearTimeout(timerBusqueda);
         timerBusqueda = setTimeout(cargarAvance, 350);

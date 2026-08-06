@@ -44,6 +44,7 @@ class Reporteria extends Controller
     private const PP_DESTINATARIOS_FILE = RAIZ . '/storage/config/primeros_pagos_destinatarios.json';
     private const MODULO_REPORTE_CAMPO_SIN_BAJAS = 189;
     private const MODULO_REPORTE_CAMPO_CON_BAJAS = 190;
+    private const MODULO_EXPORTAR_DATOS_SEGURIDAD_GESTION = 199;
 
     /** @return list<int> */
     private function modulosSesionInt(): array
@@ -2060,6 +2061,7 @@ class Reporteria extends Controller
                 'nombre_pais' => 'PAIS',
                 'estatus' => 'ESTATUS',
                 'salario_sensible' => 'SALARIO SENSIBLE',
+                'contrasena' => 'CONTRASENA',
             ];
             $columnasSeleccionadas = array_values(array_filter($columnasSolicitadas, static function ($columna) use ($columnasDisponibles) {
                 return array_key_exists($columna, $columnasDisponibles);
@@ -2088,6 +2090,19 @@ class Reporteria extends Controller
             $incluyeSalario = in_array('salario_sensible', $columnasSeleccionadas, true);
             if ($incluyeSalario && !in_array(153, $modulosSesion, true)) {
                 $this->responderErrorDescargaPlantillaGestores('No tienes permiso especial para exportar salario sensible.', 403);
+            }
+            $incluyeDatosSeguridad = in_array('contrasena', $columnasSeleccionadas, true);
+            if ($incluyeDatosSeguridad) {
+                $columnasSeguridad = ['contrasena', 'nombre_completo', 'usuario'];
+                $columnasRecibidas = $columnasSeleccionadas;
+                sort($columnasSeguridad);
+                sort($columnasRecibidas);
+                if (!in_array(self::MODULO_EXPORTAR_DATOS_SEGURIDAD_GESTION, $modulosSesion, true)) {
+                    $this->responderErrorDescargaPlantillaGestores('No tienes permiso especial para exportar datos de seguridad.', 403);
+                }
+                if ($columnasRecibidas !== $columnasSeguridad) {
+                    $this->responderErrorDescargaPlantillaGestores('El reporte de seguridad solo permite usuario, nombre completo y contraseña.', 422);
+                }
             }
 
             // Obtener datos usando el mismo método que getUsuarios
@@ -2202,10 +2217,12 @@ class Reporteria extends Controller
                     $placeholders[] = ':' . $key;
                     $paramsIds[$key] = $idPersona;
                 }
+                $campoContrasenaSql = $incluyeDatosSeguridad ? "COALESCE(p.password, '') AS contrasena," : '';
                 $extras = $db->queryAll("
                     SELECT
                         p.id,
                         COALESCE(p.correo, '') AS correo,
+                        $campoContrasenaSql
                         COALESCE(p.telefono_uno, '') AS telefono_uno,
                         COALESCE(p.telefono_dos, '') AS telefono_dos,
                         COALESCE(p.domicilio_calle_texto, '') AS domicilio_persona,
@@ -2316,6 +2333,7 @@ class Reporteria extends Controller
                     'apellidop' => $gestor['apellidop'] ?? '',
                     'apellidom' => $gestor['apellidom'] ?? '',
                     'usuario' => $gestor['usuario'] ?? '',
+                    'contrasena' => $extra['contrasena'] ?? '',
                     'correo' => $extra['correo'] ?? '',
                     'telefonos' => $telefonos,
                     'curp' => $extra['curp_persona'] ?? '',
@@ -2398,7 +2416,7 @@ class Reporteria extends Controller
 
             // Nombre del archivo con timestamp y filtros aplicados
             $fechaActual = date('Y-m-d_His');
-            $nombreArchivo = "Reporte_Personal";
+            $nombreArchivo = $incluyeDatosSeguridad ? 'Datos_Seguridad' : 'Reporte_Personal';
 
             // Agregar filtros al nombre del archivo
             if ($filtroEmpresa) {
