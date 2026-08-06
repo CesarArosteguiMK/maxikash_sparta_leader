@@ -1269,7 +1269,8 @@ class Convenios extends Model
                 $semanas          = count($pagos);
                 $fechaPrimerPago  = $pagos[0]['fecha'];
                 $fechaUltimoPago  = $pagos[$semanas - 1]['fecha'];
-                $fechaAcuerdo     = $fechaPrimerPago;
+                // La fecha del acuerdo no es la del primer pago: este puede
+                // programarse a futuro y debe conservarse solo en el calendario.
                 $adeudoOriginal   = round((float) ($datos['adeudo_total_original'] ?? 0), 2);
                 $totalSolicitado  = round((float) ($datos['total_a_pagar'] ?? 0), 2);
 

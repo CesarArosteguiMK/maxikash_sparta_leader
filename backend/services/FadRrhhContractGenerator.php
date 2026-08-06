@@ -46,7 +46,7 @@ final class FadRrhhContractGenerator
         }
         try {
             $this->run([$python, $script, '--template', $templateCode, '--data', $json, '--output', $docx], $root, 90);
-            $this->run([$powershell, '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $export, '-InputPath', $docx, '-OutputPath', $pdf], $root, 120);
+            $this->convertToPdf($docx, $pdf, $work, $root, $powershell, $export);
             if (!is_file($pdf) || filesize($pdf) < 1000 || file_get_contents($pdf, false, null, 0, 4) !== '%PDF') {
                 throw new \RuntimeException('La conversión no produjo un PDF válido.');
             }
@@ -150,6 +150,77 @@ final class FadRrhhContractGenerator
             $detail = trim($stderr !== '' ? $stderr : $stdout);
             throw new \RuntimeException('No se pudo generar el contrato' . ($detail !== '' ? ': ' . mb_substr($detail, 0, 700) : '.'));
         }
+    }
+
+    private function convertToPdf(
+        string $docx,
+        string $pdf,
+        string $work,
+        string $root,
+        string $powershell,
+        string $wordExporter
+    ): void {
+        $errors = [];
+        try {
+            $this->run([
+                $powershell, '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+                '-File', $wordExporter, '-InputPath', $docx, '-OutputPath', $pdf,
+            ], $root, 120);
+            return;
+        } catch (\Throwable $e) {
+            $errors[] = 'Microsoft Word no está disponible para la cuenta que ejecuta Sparta.';
+            @unlink($pdf);
+        }
+
+        $libreOffice = $this->libreOfficeExecutable();
+        if ($libreOffice !== null) {
+            $profile = $work . DIRECTORY_SEPARATOR . 'libreoffice_profile';
+            if (!mkdir($profile, 0700, true) && !is_dir($profile)) {
+                throw new \RuntimeException('No fue posible crear el perfil temporal de LibreOffice.');
+            }
+            $profileUri = 'file:///' . str_replace(
+                ['\\', ' '],
+                ['/', '%20'],
+                ltrim($profile, '\\/')
+            );
+            try {
+                $this->run([
+                    $libreOffice,
+                    '--headless',
+                    '-env:UserInstallation=' . $profileUri,
+                    '--convert-to', 'pdf',
+                    '--outdir', $work,
+                    $docx,
+                ], $root, 120);
+                if (is_file($pdf)) return;
+                $errors[] = 'LibreOffice terminó sin producir el PDF esperado.';
+            } catch (\Throwable $e) {
+                $errors[] = 'LibreOffice no pudo convertir el contrato.';
+            }
+        } else {
+            $errors[] = 'LibreOffice no está instalado ni configurado.';
+        }
+
+        throw new \RuntimeException(
+            'No fue posible convertir el contrato DOCX a PDF. ' . implode(' ', $errors)
+        );
+    }
+
+    private function libreOfficeExecutable(): ?string
+    {
+        $configured = trim((string) getenv('FAD_RRHH_LIBREOFFICE_BIN'));
+        $root = dirname(__DIR__, 2);
+        $candidates = array_filter([
+            $configured,
+            $root . '\\backend\\tools\\LibreOfficePortable\\App\\libreoffice\\program\\soffice.exe',
+            $root . '\\backend\\tools\\LibreOfficePortable\\App\\LibreOffice\\program\\soffice.exe',
+            'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
+            'C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe',
+        ]);
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) return $candidate;
+        }
+        return null;
     }
 
     private function dateText(string $date): string

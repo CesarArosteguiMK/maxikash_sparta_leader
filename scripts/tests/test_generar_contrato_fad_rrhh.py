@@ -4,9 +4,8 @@ import importlib.util
 import tempfile
 import unittest
 import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
-
-from lxml import etree
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -18,6 +17,7 @@ GENERATOR = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
 SPEC.loader.exec_module(GENERATOR)
 NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+W = "{%s}" % NS["w"]
 
 
 def candidate_data() -> dict:
@@ -82,8 +82,8 @@ class ContractGeneratorTest(unittest.TestCase):
                 GENERATOR.generate(code, data, output, demo=False)
                 self.assertTrue(output.is_file())
                 with zipfile.ZipFile(output) as package:
-                    root = etree.fromstring(package.read("word/document.xml"))
-                text = "".join(root.xpath(".//w:t/text()", namespaces=NS))
+                    root = ET.fromstring(package.read("word/document.xml"))
+                text = "".join(node.text or "" for node in root.iter(W + "t"))
                 self.assertIn("PERSONA CANDIDATA DE PRUEBA", text)
                 expected_position = "COORDINADORA DE OPERACIONES" if code == "AMIGO_ACTUALIZACION" else "ANALISTA DE PRUEBA"
                 self.assertIn(expected_position, text)
@@ -93,16 +93,19 @@ class ContractGeneratorTest(unittest.TestCase):
                 self.assertNotIn("ALEXIS CONRADO FITZMAURICE SOLIS", text)
                 self.assertNotIn("COORDINADOR DE SEMINUEVAS", text)
                 self.assertNotRegex(text, r"\*{3,}")
-                self.assertFalse(root.xpath(".//w:highlight", namespaces=NS))
-                self.assertFalse(root.xpath(".//w:ins|.//w:del", namespaces=NS))
+                self.assertFalse(list(root.iter(W + "highlight")))
+                self.assertFalse(list(root.iter(W + "ins")) + list(root.iter(W + "del")))
                 struck_text = []
-                for run in root.xpath(".//w:r[w:rPr/w:strike or w:rPr/w:dstrike]", namespaces=NS):
-                    marks = run.xpath("./w:rPr/w:strike|./w:rPr/w:dstrike", namespaces=NS)
+                for run in root.iter(W + "r"):
+                    run_properties = run.find(W + "rPr")
+                    if run_properties is None:
+                        continue
+                    marks = [mark for mark in run_properties if mark.tag in {W + "strike", W + "dstrike"}]
                     active = any(
-                        mark.get("{%s}val" % NS["w"], "true").lower() not in {"0", "false", "off", "none"}
+                        mark.get(W + "val", "true").lower() not in {"0", "false", "off", "none"}
                         for mark in marks
                     )
-                    value = "".join(run.xpath(".//w:t/text()", namespaces=NS)).strip()
+                    value = "".join(node.text or "" for node in run.iter(W + "t")).strip()
                     if active and value:
                         struck_text.append(value)
                 self.assertFalse(struck_text)
