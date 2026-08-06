@@ -107,6 +107,22 @@ final class FadRrhhServiceTest extends TestCase
         self::assertCount(10, $pensionamax['legal_signatures']);
         self::assertSame('GABRIELA LUCERO SANCHEZ', $actualizacion['legal_signer_name']);
         self::assertSame(9, $actualizacion['expected_pages']);
+        self::assertSame('EMPLOYEE', $actualizacion['subject_scope']);
+        self::assertSame('CANDIDATE', $pensionamax['subject_scope']);
+    }
+
+    public function testContratoDeActualizacionNoApareceEnFlujoDeCandidato(): void
+    {
+        $service = new FadRrhhService();
+        $method = new ReflectionMethod($service, 'withCandidateTemplates');
+        $method->setAccessible(true);
+
+        $state = $method->invoke($service, [], ['id_empresa' => 1]);
+        $codes = array_column($state['plantillas_disponibles'], 'code');
+
+        self::assertContains('AMIGO_GENERAL_NUEVO', $codes);
+        self::assertContains('AMIGO_GESTOR_COBRANZA', $codes);
+        self::assertNotContains('AMIGO_ACTUALIZACION', $codes);
     }
 
     public function testRepresentanteLegalPermiteUnaDiferenciaTipograficaUnica(): void
@@ -121,6 +137,21 @@ final class FadRrhhServiceTest extends TestCase
         ], 'GABRIELA LUCERO SANCHEZ');
 
         self::assertSame('legal-1', $result['signerId']);
+    }
+
+    public function testEmpresaDeSpartaResuelveRazonSocialSinPreguntaManual(): void
+    {
+        $service = new FadRrhhService();
+        $method = new ReflectionMethod($service, 'candidateCompany');
+        $method->setAccessible(true);
+
+        $maxikash = $method->invoke($service, ['id_empresa' => 1]);
+        $furia = $method->invoke($service, ['id_empresa' => 2]);
+
+        self::assertSame('AMIGO_EFECTIVO', $maxikash['company_code']);
+        self::assertSame('Amigo Efectivo S.A.P.I. de C.V.', $maxikash['legal_name']);
+        self::assertSame('PENSIONAMAX', $furia['company_code']);
+        self::assertSame('Pensionamax S.A.P.I. de C.V.', $furia['legal_name']);
     }
 
     public function testCatalogoRealDeFadConservaNombreLegible(): void

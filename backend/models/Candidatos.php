@@ -210,6 +210,8 @@ class Candidatos extends Model
                 div3.nombre AS nombre_div_nivel3,
                 p.nombre AS nombre_puesto,
                 d.nombre AS nombre_departamento,
+                COALESCE(d.id_empresa, dorg.id_empresa, dir.id_empresa, 1) AS id_empresa,
+                COALESCE(emp.nombre_comercial, CASE WHEN COALESCE(d.id_empresa, dorg.id_empresa, dir.id_empresa, 1) = 2 THEN 'Furia Motos' ELSE 'MaxiKash' END) AS nombre_empresa,
                 COALESCE(dir.id, 0) AS id_direccion,
                 COALESCE(dir.nombre, '') AS nombre_direccion,
                 TRIM(CONCAT_WS(' ', jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom)) AS nombre_jefe,
@@ -231,6 +233,7 @@ class Candidatos extends Model
             LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
             LEFT JOIN asigna_direcciones ad ON ad.id_departamento_organizacional = d.id_departamento_organizacional AND COALESCE(ad.activo, 1) = 1
             LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
+            LEFT JOIN rrhh_empresas emp ON emp.id = COALESCE(d.id_empresa, dorg.id_empresa, dir.id_empresa, 1)
             LEFT JOIN persona jefe ON jefe.id = c.id_posible_jefe
             LEFT JOIN persona jefe_divisional ON jefe_divisional.id = c.id_jefe_divisional
             LEFT JOIN persona persona_reingreso ON persona_reingreso.id = c.id_persona_reingreso

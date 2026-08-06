@@ -15,6 +15,8 @@ final class FadRrhhTemplateCatalog
     public const AMIGO_ACTUALIZACION = 'AMIGO_ACTUALIZACION';
     public const PENSIONAMAX_NUEVO = 'PENSIONAMAX_NUEVO';
     public const AMIGO_GESTOR_COBRANZA = 'AMIGO_GESTOR_COBRANZA';
+    public const SUBJECT_CANDIDATE = 'CANDIDATE';
+    public const SUBJECT_EMPLOYEE = 'EMPLOYEE';
 
     public function all(): array
     {
@@ -25,6 +27,7 @@ final class FadRrhhTemplateCatalog
                 'AMIGO_EFECTIVO',
                 'Amigo Efectivo S.A.P.I. de C.V.',
                 'GABRIELA LUCERO SANCHEZ',
+                self::SUBJECT_CANDIDATE,
                 9,
                 'FAD_RRHH_TEMPLATE_AMIGO_GENERAL_APPROVED'
             ),
@@ -34,6 +37,7 @@ final class FadRrhhTemplateCatalog
                 'AMIGO_EFECTIVO',
                 'Amigo Efectivo S.A.P.I. de C.V.',
                 'GABRIELA LUCERO SANCHEZ',
+                self::SUBJECT_EMPLOYEE,
                 9,
                 'FAD_RRHH_TEMPLATE_AMIGO_ACTUALIZACION_APPROVED'
             ),
@@ -43,6 +47,7 @@ final class FadRrhhTemplateCatalog
                 'PENSIONAMAX',
                 'Pensionamax S.A.P.I. de C.V.',
                 'MARIA DEL CARMEN JARAMILLO CAMACHO',
+                self::SUBJECT_CANDIDATE,
                 10,
                 'FAD_RRHH_TEMPLATE_PENSIONAMAX_APPROVED'
             ),
@@ -52,6 +57,7 @@ final class FadRrhhTemplateCatalog
                 'AMIGO_EFECTIVO',
                 'Amigo Efectivo S.A.P.I. de C.V.',
                 'GABRIELA LUCERO SANCHEZ',
+                self::SUBJECT_CANDIDATE,
                 8,
                 'FAD_RRHH_TEMPLATE_GESTOR_COBRANZA_APPROVED'
             ),
@@ -77,6 +83,7 @@ final class FadRrhhTemplateCatalog
                 'company_code' => $template['company_code'],
                 'company_name' => $template['company_name'],
                 'legal_signer_name' => $template['legal_signer_name'],
+                'subject_scope' => $template['subject_scope'],
                 'expected_pages' => $template['expected_pages'],
                 'approved' => $template['approved'],
             ];
@@ -89,6 +96,7 @@ final class FadRrhhTemplateCatalog
         string $companyCode,
         string $companyName,
         string $legalSignerName,
+        string $subjectScope,
         int $pages,
         string $approvalEnv
     ): array {
@@ -98,6 +106,7 @@ final class FadRrhhTemplateCatalog
             'company_code' => $companyCode,
             'company_name' => $companyName,
             'legal_signer_name' => $legalSignerName,
+            'subject_scope' => $subjectScope,
             'expected_pages' => $pages,
             'approval_env' => $approvalEnv,
             'approved' => $this->envBool($approvalEnv),

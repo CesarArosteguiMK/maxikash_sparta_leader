@@ -663,7 +663,7 @@ class CapHum extends Controller
     }
 
     /** @return string Ruta temporal del XLSX; el responsable debe eliminarla al terminar. */
-    private function crearExcelNovedadesPlantilla(array $filas): string
+    private function crearExcelNovedadesPlantilla(array $filas, string $tipoMovimiento): string
     {
         if (!class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
             require_once dirname(__DIR__) . '/bootstrap_composer.php';
@@ -682,8 +682,17 @@ class CapHum extends Controller
         $libro = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
 
         try {
-            $hoja = $libro->getActiveSheet();
-            $hoja->setTitle('Movimientos plantilla');
+            $tipoMovimiento = strtolower(trim($tipoMovimiento));
+            $filasPorHoja = [
+                'ALTAS' => $tipoMovimiento === 'alta' ? $filas : [],
+                'BAJAS' => $tipoMovimiento === 'baja' ? $filas : [],
+            ];
+            // Las actualizaciones se notifican hoy por separado de las altas y bajas.
+            // Conservarlas en su propia pestaña evita presentarlas erróneamente como un ingreso o una salida.
+            if ($tipoMovimiento === 'actualizacion') {
+                $filasPorHoja['ACTUALIZACIONES'] = $filas;
+            }
+
             $encabezados = [
                 'Registro Patronal',
                 'NSS',
@@ -694,32 +703,94 @@ class CapHum extends Controller
                 'Fecha ingreso',
                 'CURP',
                 'RFC',
+                'FECHA',
             ];
-            foreach ($encabezados as $indice => $encabezado) {
-                $celda = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($indice + 1) . '1';
-                $hoja->setCellValue($celda, $encabezado);
-            }
             $ultimaColumna = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($encabezados));
-            $hoja->getStyle('A1:' . $ultimaColumna . '1')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
-            $hoja->getStyle('A1:' . $ultimaColumna . '1')->getFill()
-                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-                ->getStartColor()->setARGB('FF26344E');
-            $hoja->freezePane('A2');
-            $hoja->setAutoFilter('A1:' . $ultimaColumna . '1');
-
             $campos = ['registro_patronal', 'nss', 'apellido_paterno', 'apellido_materno', 'nombres', 'sdi', 'fecha_ingreso', 'curp', 'rfc'];
-            $fila = 2;
-            foreach ($filas as $datos) {
-                foreach ($campos as $indice => $campo) {
-                    $valor = trim((string)($datos[$campo] ?? ''));
-                    $celda = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($indice + 1) . $fila;
-                    $hoja->setCellValueExplicit($celda, $valor, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $fechaReporte = self::ahoraMexicoCiudad()->format('d/m/Y H:i');
+            $estilosHoja = [
+                'ALTAS' => ['acento' => 'FF2E7D32', 'titulo' => 'Reporte de altas de plantilla'],
+                'BAJAS' => ['acento' => 'FFC05A4B', 'titulo' => 'Reporte de bajas de plantilla'],
+                'ACTUALIZACIONES' => ['acento' => 'FF3E6FA8', 'titulo' => 'Reporte de actualizaciones de plantilla'],
+            ];
+
+            foreach ($filasPorHoja as $nombreHoja => $filasHoja) {
+                $hoja = $nombreHoja === 'ALTAS' ? $libro->getActiveSheet() : $libro->createSheet();
+                $hoja->setTitle($nombreHoja);
+                $estilo = $estilosHoja[$nombreHoja];
+
+                $hoja->mergeCells('A1:' . $ultimaColumna . '1');
+                $hoja->setCellValue('A1', $estilo['titulo']);
+                $hoja->getStyle('A1:' . $ultimaColumna . '1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB('FFFFFFFF');
+                $hoja->getStyle('A1:' . $ultimaColumna . '1')->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FF26344E');
+                $hoja->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
+                $hoja->getRowDimension(1)->setRowHeight(26);
+
+                $hoja->mergeCells('A2:' . $ultimaColumna . '2');
+                $hoja->setCellValue('A2', 'Generado por Sparta RR.HH. el ' . $fechaReporte);
+                $hoja->getStyle('A2:' . $ultimaColumna . '2')->getFont()->setItalic(true)->getColor()->setARGB('FF526177');
+                $hoja->getStyle('A2:' . $ultimaColumna . '2')->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FFF3F6FA');
+
+                foreach ($encabezados as $indice => $encabezado) {
+                    $celda = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($indice + 1) . '4';
+                    $hoja->setCellValue($celda, $encabezado);
                 }
-                $fila++;
+                $hoja->getStyle('A4:' . $ultimaColumna . '4')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+                $hoja->getStyle('A4:' . $ultimaColumna . '4')->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB($estilo['acento']);
+                $hoja->getStyle('A4:' . $ultimaColumna . '4')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $hoja->getStyle('A4:' . $ultimaColumna . '4')->getAlignment()->setWrapText(true);
+                $hoja->getRowDimension(4)->setRowHeight(30);
+                $hoja->freezePane('A5');
+                $hoja->setAutoFilter('A4:' . $ultimaColumna . '4');
+
+                $fila = 5;
+                if (empty($filasHoja)) {
+                    $hoja->mergeCells('A5:' . $ultimaColumna . '5');
+                    $hoja->setCellValue('A5', 'Sin movimientos de ' . strtolower($nombreHoja) . ' en este aviso.');
+                    $hoja->getStyle('A5')->getFont()->setItalic(true)->getColor()->setARGB('FF6B7280');
+                    $hoja->getStyle('A5:' . $ultimaColumna . '5')->getFill()
+                        ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                        ->getStartColor()->setARGB('FFF8FAFC');
+                }
+                foreach ($filasHoja as $datos) {
+                    foreach ($campos as $indice => $campo) {
+                        $valor = trim((string)($datos[$campo] ?? ''));
+                        $celda = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($indice + 1) . $fila;
+                        if ($valor === '') {
+                            $hoja->setCellValueExplicit($celda, 'Pendiente de captura en RR.HH.', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                            $hoja->getStyle($celda)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                                ->getStartColor()->setARGB('FFFFF4D6');
+                            $hoja->getStyle($celda)->getFont()->getColor()->setARGB('FF8A5A00');
+                        } else {
+                            $hoja->setCellValueExplicit($celda, $valor, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                        }
+                    }
+                    $hoja->setCellValueExplicit($ultimaColumna . $fila, $fechaReporte, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                    if ($fila % 2 === 0) {
+                        $hoja->getStyle('A' . $fila . ':' . $ultimaColumna . $fila)->getFill()
+                            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                            ->getStartColor()->setARGB('FFF8FAFC');
+                    }
+                    $fila++;
+                }
+
+                foreach ([22, 18, 24, 24, 32, 28, 16, 22, 18, 20] as $indice => $ancho) {
+                    $hoja->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($indice + 1))->setWidth($ancho);
+                }
+                $rangoDatosFinal = max(5, $fila - 1);
+                $hoja->getStyle('A4:' . $ultimaColumna . $rangoDatosFinal)->getBorders()->getAllBorders()
+                    ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_HAIR)
+                    ->getColor()->setARGB('FFD9E1EA');
+                $hoja->getStyle('A5:' . $ultimaColumna . $rangoDatosFinal)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
             }
-            foreach ([22, 18, 24, 24, 32, 28, 16, 22, 18] as $indice => $ancho) {
-                $hoja->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($indice + 1))->setWidth($ancho);
-            }
+
+            $libro->setActiveSheetIndex(0);
 
             (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($libro))->save($ruta);
             if (!is_file($ruta) || (int)@filesize($ruta) < 100) {
@@ -777,10 +848,15 @@ class CapHum extends Controller
             return;
         }
 
+        $motivoNormalizado = mb_strtolower($motivo, 'UTF-8');
+        $tipoMovimiento = strpos($motivoNormalizado, 'baja') !== false
+            ? 'baja'
+            : (strpos($motivoNormalizado, 'alta') !== false ? 'alta' : 'actualizacion');
+
         $rutaExcel = null;
         $enviosCorrectos = 0;
         try {
-            $rutaExcel = $this->crearExcelNovedadesPlantilla($filas);
+            $rutaExcel = $this->crearExcelNovedadesPlantilla($filas, $tipoMovimiento);
             $fecha = self::ahoraMexicoCiudad()->format('d/m/Y H:i');
             $cantidad = count($filas);
             $asunto = 'Sparta RR.HH. - ' . $motivo;
@@ -791,7 +867,7 @@ class CapHum extends Controller
                 . '<strong>Fecha:</strong> ' . htmlspecialchars($fecha, ENT_QUOTES, 'UTF-8') . '</p>'
                 . '<p>Se adjunta el archivo Excel con la informaci&oacute;n requerida.</p>'
                 . '</body></html>';
-            $nombreArchivo = 'movimiento_plantilla_' . self::ahoraMexicoCiudad()->format('Ymd_His') . '.xlsx';
+            $nombreArchivo = 'movimientos_plantilla_' . self::ahoraMexicoCiudad()->format('Ymd_His') . '.xlsx';
             foreach ($destinatarios as $destinatario) {
                 if ($this->enviarCorreo(
                     $destinatario,
@@ -16499,34 +16575,50 @@ class CapHum extends Controller
         }
 
         function seleccionarYEnviarContratoFad(idCandidato, btn) {
-            var tipos = {
-                "AMIGO_GENERAL_NUEVO": "Contrato general — nuevo ingreso corporativo (9 páginas)",
-                "AMIGO_ACTUALIZACION": "Actualización y reconocimiento de antigüedad (9 páginas)",
-                "PENSIONAMAX_NUEVO": "Contrato Pensionamax — nuevo ingreso (10 páginas)",
-                "AMIGO_GESTOR_COBRANZA": "Contrato gestor de cobranza (8 páginas)"
-            };
-            if (typeof Swal !== "undefined") {
-                Swal.fire({
-                    title: "Tipo de contrato FAD",
-                    text: "Elige la plantilla que corresponde a la empresa y al motivo de contratación.",
-                    input: "select",
-                    inputOptions: tipos,
-                    inputPlaceholder: "Selecciona una plantilla",
-                    showCancelButton: true,
-                    confirmButtonText: "Elegir PDF",
-                    cancelButtonText: "Cancelar",
-                    inputValidator: function(value) {
-                        return value ? undefined : "Debes seleccionar el tipo de contrato.";
+            fetch("/caphum/estadoContratacionFad?id_candidato=" + encodeURIComponent(idCandidato), {
+                headers: { "Accept": "application/json" }
+            })
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    if (!res.success) throw new Error(res.mensaje || "No se pudo determinar la empresa del candidato.");
+                    var datos = res.datos || {};
+                    var empresa = datos.empresa_contrato || {};
+                    var plantillas = Array.isArray(datos.plantillas_disponibles) ? datos.plantillas_disponibles : [];
+                    var tipos = {};
+                    plantillas.forEach(function(template) {
+                        tipos[template.code] = template.label + " (" + template.expected_pages + " páginas)";
+                    });
+                    if (!Object.keys(tipos).length) {
+                        throw new Error("No hay contratos FAD configurados para " + (empresa.display_name || "esta empresa") + ".");
                     }
-                }).then(function(result) {
-                    if (result.isConfirmed && result.value) abrirSelectorContratoFad(result.value);
+                    if (typeof Swal !== "undefined") {
+                        Swal.fire({
+                            title: "Contrato para " + (empresa.display_name || "la empresa"),
+                            text: "La razón social y el representante legal se asignan automáticamente; elige únicamente el motivo contractual.",
+                            input: "select",
+                            inputOptions: tipos,
+                            inputPlaceholder: "Selecciona una plantilla",
+                            showCancelButton: true,
+                            confirmButtonText: "Elegir PDF",
+                            cancelButtonText: "Cancelar",
+                            inputValidator: function(value) {
+                                return value ? undefined : "Debes seleccionar el tipo de contrato.";
+                            }
+                        }).then(function(result) {
+                            if (result.isConfirmed && result.value) abrirSelectorContratoFad(result.value);
+                        });
+                        return;
+                    }
+                    var templateCode = window.prompt(
+                        "Escribe el código del contrato permitido para " + (empresa.display_name || "la empresa") + ": " + Object.keys(tipos).join(", ")
+                    );
+                    if (templateCode) abrirSelectorContratoFad(String(templateCode).trim().toUpperCase());
+                })
+                .catch(function(error) {
+                    var mensaje = error && error.message ? error.message : "No se pudo preparar el envío FAD.";
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Empresa no disponible", text: mensaje });
+                    else alert(mensaje);
                 });
-                return;
-            }
-            var templateCode = window.prompt(
-                "Escribe el código del contrato: AMIGO_GENERAL_NUEVO, AMIGO_ACTUALIZACION, PENSIONAMAX_NUEVO o AMIGO_GESTOR_COBRANZA"
-            );
-            if (templateCode) abrirSelectorContratoFad(String(templateCode).trim().toUpperCase());
 
             function abrirSelectorContratoFad(templateCode) {
                 var input = document.createElement("input");

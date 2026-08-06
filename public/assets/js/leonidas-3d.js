@@ -67,7 +67,9 @@ if (root && canvas) {
     const staticSpearHandLocalPosition = new THREE.Vector3();
     const staticSpearFingerWorldPosition = new THREE.Vector3();
     const staticSpearOffset = new THREE.Vector3();
-    const staticSpearGripForwardOffset = 0.081;
+    const staticSpearGripLateralOffset = -0.052;
+    const staticSpearGripForwardOffset = -0.020;
+    const staticSpearGripVerticalOffset = 0.06;
     const staticSpearQuaternion = new THREE.Quaternion();
     const staticSpearScale = new THREE.Vector3(1, 1, 1);
 
@@ -305,20 +307,22 @@ if (root && canvas) {
 
         const applyModularVisibility = () => {
             if (!modularParts) return;
-            modularParts.helmet.visible = currentAppearance.casco_visible
+            const originalHelmetVisible = currentAppearance.casco_visible
                 && !(
                     qaHelmetContainer
                     && qaHelmetState.id !== 'original'
                     && qaHelmetState.hideOriginal
                 );
+            modularParts.helmet.visible = originalHelmetVisible;
             if (qaHelmetContainer) {
                 qaHelmetContainer.visible = currentAppearance.casco_visible
                     && qaHelmetState.id !== 'original';
             }
             modularParts.chest.visible = currentAppearance.pechera_visible;
             if (modularParts.headUnderlay) {
-                // La anatomía permanece separada detrás de la careta y nunca
-                // hereda el color del metal.
+                // La cabeza de piel permanece detrás del visor. El casco no
+                // vuelve a colorearla porque ambas geometrías son piezas
+                // distintas y la abertura solo descubre ojos y rostro.
                 modularParts.headUnderlay.visible = true;
             }
             if (modularParts.torsoUnderlay) {
@@ -876,14 +880,15 @@ if (root && canvas) {
             staticSpearHandLocalPosition.copy(staticSpearHandWorldPosition);
             activeModel.worldToLocal(staticSpearHandLocalPosition);
             staticSpearOffset.copy(spear.position).sub(staticSpearHandLocalPosition);
-            // El nuevo brazo adelanta el puño. Recalibramos únicamente la
-            // profundidad del asta para que el canal vacío coincida con el
-            // centro de la palma en ambos perfiles, sin alterar la pose.
+            // Calibración tridimensional del canal vacío contra el centro del
+            // puño. Es global: se conserva en reposo, marcha y saludo.
+            staticSpearOffset.x += staticSpearGripLateralOffset;
             staticSpearOffset.z += staticSpearGripForwardOffset;
+            staticSpearOffset.y += staticSpearGripVerticalOffset;
             staticSpearQuaternion.copy(spear.quaternion);
             staticSpearScale.copy(spear.scale);
             staticSpearReady = true;
-            root.dataset.leonidasSpearAnchor = 'dynamic-grip-centered-static-orientation-v4';
+            root.dataset.leonidasSpearAnchor = 'dynamic-grip-centered-static-orientation-v5';
         };
 
         const syncStaticSpearAnchor = () => {
@@ -1380,7 +1385,8 @@ if (root && canvas) {
             secondary: 2,
             metal: 3,
             helmet: 4,
-            chest: 5
+            chest: 5,
+            footwear: 6
         });
 
         const texturePixel = (pixels, width, height, uValue, vValue) => {
@@ -1531,6 +1537,7 @@ if (root && canvas) {
         };
 
         const resolveRigPixelRegion = (region, pixel, protectedSkin) => {
+            if (region === RIG_REGION.footwear) return RIG_REGION.original;
             if (
                 region === RIG_REGION.secondary
                 && (protectedSkin || texturePixelIsSkin(pixel))
@@ -1601,6 +1608,7 @@ if (root && canvas) {
             let torsoWeight = 0;
             let hipsWeight = 0;
             let upperLegWeight = 0;
+            let footWeight = 0;
             let metalLimbWeight = 0;
             let totalWeight = 0;
             boneScores.forEach((weight, boneName) => {
@@ -1615,6 +1623,9 @@ if (root && canvas) {
                 }
                 if (boneName.includes('hips')) hipsWeight += weight;
                 if (boneName.includes('upleg')) upperLegWeight += weight;
+                if (boneName.includes('foot') || boneName.includes('toe')) {
+                    footWeight += weight;
+                }
                 if (
                     boneName.includes('forearm')
                     || (boneName.includes('leg') && !boneName.includes('upleg'))
@@ -1629,8 +1640,22 @@ if (root && canvas) {
             const torsoRatio = torsoWeight / totalWeight;
             const hipsRatio = hipsWeight / totalWeight;
             const upperLegRatio = upperLegWeight / totalWeight;
+            const footRatio = footWeight / totalWeight;
             const metalLimbRatio = metalLimbWeight / totalWeight;
-            if (centerY > 1.08 && headRatio > 0.25) return RIG_REGION.helmet;
+            if (
+                (centerY < 0.22 && footRatio > 0.32)
+                || (centerY < 0.50 && metalLimbRatio > 0.36)
+            ) {
+                return RIG_REGION.footwear;
+            }
+            if (centerY > 1.08 && headRatio > 0.25) {
+                // El FBX original comparte la cabeza y el casco en la misma
+                // malla. La piel conserva siempre el atlas original para que
+                // el color del metal no convierta el rostro en otra placa.
+                return sampledPixelIsSkin
+                    ? RIG_REGION.original
+                    : RIG_REGION.helmet;
+            }
             if (
                 centerY > 0.72
                 && centerY < 1.17
@@ -1697,7 +1722,7 @@ if (root && canvas) {
                 [RIG_REGION.helmet]: '#880000',
                 [RIG_REGION.chest]: '#AA0000'
             };
-            const counts = [0, 0, 0, 0, 0, 0];
+            const counts = [0, 0, 0, 0, 0, 0, 0];
 
             model.traverse((node) => {
                 if (!node.isSkinnedMesh || !node.geometry || !node.skeleton) return;
@@ -1720,6 +1745,26 @@ if (root && canvas) {
                 const index = geometry.index;
                 const triangleCount = index ? index.count / 3 : positions.count / 3;
                 const vertexAt = (offset) => index ? index.getX(offset) : offset;
+                const paintTriangle = (triangle, fillStyle) => {
+                    const vertices = [
+                        vertexAt(triangle * 3),
+                        vertexAt(triangle * 3 + 1),
+                        vertexAt(triangle * 3 + 2)
+                    ];
+                    context.fillStyle = fillStyle;
+                    context.beginPath();
+                    vertices.forEach((vertex, corner) => {
+                        const x = uvs.getX(vertex) * width;
+                        const textureV = modularParts
+                            ? uvs.getY(vertex)
+                            : (1 - uvs.getY(vertex));
+                        const y = textureV * height;
+                        if (corner === 0) context.moveTo(x, y);
+                        else context.lineTo(x, y);
+                    });
+                    context.closePath();
+                    context.fill();
+                };
                 const parents = Int32Array.from(
                     { length: triangleCount },
                     (_, triangle) => triangle
@@ -1797,7 +1842,7 @@ if (root && canvas) {
                     if (!island) {
                         island = {
                             triangles: [],
-                            votes: [0, 0, 0, 0, 0, 0]
+                            votes: [0, 0, 0, 0, 0, 0, 0]
                         };
                         islands.set(rootTriangle, island);
                     }
@@ -1833,27 +1878,19 @@ if (root && canvas) {
                     }
                     counts[region] += island.triangles.length;
                     if (region === RIG_REGION.original) return;
-                    context.fillStyle = regionColors[region];
                     island.triangles.forEach((triangle) => {
-                        const vertices = [
-                            vertexAt(triangle * 3),
-                            vertexAt(triangle * 3 + 1),
-                            vertexAt(triangle * 3 + 2)
-                        ];
-                        context.beginPath();
-                        vertices.forEach((vertex, corner) => {
-                            const x = uvs.getX(vertex) * width;
-                            const textureV = modularParts
-                                ? uvs.getY(vertex)
-                                : (1 - uvs.getY(vertex));
-                            const y = textureV * height;
-                            if (corner === 0) context.moveTo(x, y);
-                            else context.lineTo(x, y);
-                        });
-                        context.closePath();
-                        context.fill();
+                        paintTriangle(triangle, regionColors[region]);
                     });
                 });
+
+                // El calzado comparte algunas islas UV con las grebas. Se
+                // restaura por triángulo al final para que el voto de la isla
+                // no vuelva a teñir la bota con el color del metal.
+                for (let triangle = 0; triangle < triangleCount; triangle++) {
+                    if (triangleRegions[triangle] !== RIG_REGION.footwear) continue;
+                    paintTriangle(triangle, '#000000');
+                    counts[RIG_REGION.footwear]++;
+                }
             });
 
             const maskFrame = context.getImageData(0, 0, width, height).data;
@@ -2455,6 +2492,16 @@ if (root && canvas) {
                 previewRotationTarget = 0;
             }
             resize();
+        });
+
+        root.addEventListener('leonidas:preview-rotation', (event) => {
+            if (!root.classList.contains('is-appearance-preview-live')) return;
+            const requested = Number(event.detail?.radians);
+            if (!Number.isFinite(requested)) return;
+            previewRotationTarget = THREE.MathUtils.euclideanModulo(
+                requested + Math.PI,
+                Math.PI * 2
+            ) - Math.PI;
         });
 
         root.addEventListener('leonidas:appearance', (event) => {

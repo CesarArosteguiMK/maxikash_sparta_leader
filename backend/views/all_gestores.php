@@ -953,6 +953,17 @@
       background: #fff;
     }
 
+    #modalGestionFotoUsuario .modal-header .btn-close {
+      position: static !important;
+      inset: auto !important;
+      transform: none !important;
+      flex: 0 0 auto;
+      align-self: center;
+      margin: 0 0 0 auto !important;
+      padding: .5rem;
+      background-position: center;
+    }
+
     #modalGestionFotoUsuario .modal-title {
       color: #172033;
       font-size: 1rem;

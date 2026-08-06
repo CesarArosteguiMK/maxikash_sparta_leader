@@ -73,12 +73,17 @@ final class FadRrhhService
         }
 
         $record = FadRrhh::preparar($idCandidato, $idUsuario);
-        return $this->estadoDesdeRegistro($record, $blockers);
+        return $this->withCandidateTemplates($this->estadoDesdeRegistro($record, $blockers), $candidate);
     }
 
     public function estado(int $idCandidato): array
     {
-        return $this->estadoDesdeRegistro(FadRrhh::obtenerPorCandidato($idCandidato));
+        $state = $this->estadoDesdeRegistro(FadRrhh::obtenerPorCandidato($idCandidato));
+        $candidateResult = Candidatos::getById($idCandidato);
+        if (!empty($candidateResult['success']) && !empty($candidateResult['datos'])) {
+            return $this->withCandidateTemplates($state, $candidateResult['datos']);
+        }
+        return $state;
     }
 
     public function vincular(
@@ -179,6 +184,14 @@ final class FadRrhhService
             throw new \RuntimeException('Candidato no encontrado.');
         }
         $candidate = $candidateResult['datos'];
+        $candidateCompany = $this->candidateCompany($candidate);
+        if ($candidateCompany['company_code'] !== $template['company_code']) {
+            throw new \RuntimeException(sprintf(
+                'La empresa seleccionada para el candidato es %s; el contrato elegido corresponde a %s.',
+                $candidateCompany['display_name'],
+                $template['company_name']
+            ));
+        }
         $email = trim((string) ($candidate['email'] ?? ''));
         $phone = preg_replace('/\D+/', '', (string) ($candidate['telefono'] ?? ''));
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($phone) < 10) {
@@ -437,6 +450,40 @@ final class FadRrhhService
             'bloqueos_preparacion' => $blockers,
             'siguientes_pasos' => $this->nextSteps($record, $config),
         ];
+    }
+
+    private function withCandidateTemplates(array $state, array $candidate): array
+    {
+        $company = $this->candidateCompany($candidate);
+        $state['empresa_contrato'] = $company;
+        $state['plantillas_disponibles'] = array_values(array_filter(
+            $this->templates->publicCatalog(),
+            static fn(array $template): bool => $template['company_code'] === $company['company_code']
+                && $template['subject_scope'] === FadRrhhTemplateCatalog::SUBJECT_CANDIDATE
+        ));
+        return $state;
+    }
+
+    private function candidateCompany(array $candidate): array
+    {
+        $idEmpresa = (int) ($candidate['id_empresa'] ?? 0);
+        if ($idEmpresa === 1) {
+            return [
+                'id_empresa' => 1,
+                'display_name' => 'MaxiKash',
+                'company_code' => 'AMIGO_EFECTIVO',
+                'legal_name' => 'Amigo Efectivo S.A.P.I. de C.V.',
+            ];
+        }
+        if ($idEmpresa === 2) {
+            return [
+                'id_empresa' => 2,
+                'display_name' => 'Furia Moto',
+                'company_code' => 'PENSIONAMAX',
+                'legal_name' => 'Pensionamax S.A.P.I. de C.V.',
+            ];
+        }
+        throw new \RuntimeException('La empresa del candidato no tiene una razón social FAD configurada.');
     }
 
     private function publicRecord(array $record): array

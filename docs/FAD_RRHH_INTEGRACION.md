@@ -202,6 +202,11 @@ firma después (`order=2`). FAD genera una liga para cada persona.
 | `PENSIONAMAX_NUEVO` | Nuevo ingreso Pensionamax | Pensionamax | María del Carmen Jaramillo Camacho | 10 |
 | `AMIGO_GESTOR_COBRANZA` | Nuevo ingreso de Cobranza | Amigo Efectivo | Gabriela Lucero Sanchez | 8 |
 
+La empresa ya seleccionada en el expediente manda la razón social: `MaxiKash`
+(`id_empresa=1`) utiliza Amigo Efectivo y `Furia Moto` (`id_empresa=2`) utiliza
+Pensionamax. La interfaz filtra el catálogo con esta regla y el servidor vuelve
+a validarla antes de cargar el PDF; el usuario solo elige el motivo del contrato.
+
 En las páginas intermedias se colocan dos áreas de firma en el margen derecho.
 En la última página las áreas se colocan sobre los nombres del patrón y del
 trabajador, y debajo se agrega el recuadro de autenticidad, verificación y

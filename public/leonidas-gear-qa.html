@@ -191,6 +191,12 @@
         });
         qaRoot.addEventListener('leonidas:model-ready', function () {
             emitHelmet();
+            var requestedAngle = Number(qaParams.get('angle'));
+            if (Number.isFinite(requestedAngle)) {
+                qaRoot.dispatchEvent(new CustomEvent('leonidas:preview-rotation', {
+                    detail: { radians: requestedAngle * Math.PI / 180 }
+                }));
+            }
             var walkDirection = qaParams.get('walk');
             if (walkDirection === 'arrive' || walkDirection === 'depart') {
                 qaRoot.dispatchEvent(new CustomEvent('leonidas:delivery-walk', {
@@ -209,6 +215,6 @@
         });
         setHelmetControls(helmetDefaults.original);
     </script>
-    <script type="module" src="/assets/js/leonidas-3d.js?v=helmet-lab-66"></script>
+    <script type="module" src="/assets/js/leonidas-3d.js?v=helmet-lab-78"></script>
 </body>
 </html>
