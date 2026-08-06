@@ -53,7 +53,7 @@ class Onboarding extends Controller
                 // Se conserva el nombre disponible en sesión si la consulta no está disponible.
             }
         }
-        $this->set('titulo', 'Onboarding | ' . CONFIGURACION['EMPRESA']);
+        $this->set('titulo', 'Curso de Inducción | ' . CONFIGURACION['EMPRESA']);
         $this->set('onboardingCertificateName', $nombreDiploma ?: 'Colaborador Maxikash');
         $this->set('onboardingAssignedPosition', $puestoOnboarding);
         $this->set('onboardingSpecializedQuizType', self::specializedQuizType($puestoOnboarding));

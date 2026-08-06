@@ -391,7 +391,7 @@ $onboardingSpecializedQuestions = [
 <!-- Preparado para los videos por modulo: se activara al cargar el catalogo real. -->
 <section class="card onboarding-module-studio mb-4" data-onboarding-user="<?= htmlspecialchars($onboardingProgressUser, ENT_QUOTES, 'UTF-8') ?>">
     <div class="card-header bg-transparent border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <div class="onboarding-section-heading mb-0"><span class="onboarding-route-icon"><i class="fa-solid fa-film"></i></span><div><h5>Contenido del Onboarding</h5><small class="text-muted">Selecciona un m&oacute;dulo para ver su video de inducci&oacute;n.</small></div></div>
+        <div class="onboarding-section-heading mb-0"><span class="onboarding-route-icon"><i class="fa-solid fa-film"></i></span><div><h5>Contenido del Curso de Inducción</h5><small class="text-muted">Selecciona un m&oacute;dulo para ver su video de inducci&oacute;n.</small></div></div>
         <span class="badge onboarding-module-count" id="onboardingModuleCount"></span>
     </div>
     <div class="card-body p-3 p-lg-4">
@@ -425,7 +425,7 @@ $onboardingSpecializedQuestions = [
     <div class="card-body p-4">
         <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start mb-3"><div class="onboarding-section-heading mb-0"><span class="onboarding-route-icon"><i class="fa-solid fa-route"></i></span><div><h5>Tu Ruta de Integraci&oacute;n de 30 D&iacute;as</h5><small class="text-muted">Sigue esta planeaci&oacute;n paso a paso para asegurar un inicio espectacular en la compa&ntilde;&iacute;a.</small></div></div><span class="badge bg-label-success">Roadmap</span></div>
         <div class="row g-3">
-            <div class="col-lg-4"><div class="onboarding-roadmap-stage is-first"><div class="d-flex align-items-center"><span class="stage-icon"><i class="fa-solid fa-gear"></i></span><span class="stage-label">D&iacute;a 1: Configuraci&oacute;n</span></div><ul class="small mb-0 mt-3 ps-3"><li>Completa el portal de Onboarding.</li><li>Configura cuentas y herramientas internas.</li><li>Presentaci&oacute;n oficial con tu l&iacute;der directo.</li></ul></div></div>
+            <div class="col-lg-4"><div class="onboarding-roadmap-stage is-first"><div class="d-flex align-items-center"><span class="stage-icon"><i class="fa-solid fa-gear"></i></span><span class="stage-label">D&iacute;a 1: Configuraci&oacute;n</span></div><ul class="small mb-0 mt-3 ps-3"><li>Completa el Curso de Inducción.</li><li>Configura cuentas y herramientas internas.</li><li>Presentaci&oacute;n oficial con tu l&iacute;der directo.</li></ul></div></div>
             <div class="col-lg-4"><div class="onboarding-roadmap-stage is-adaptation"><div class="d-flex align-items-center"><span class="stage-icon"><i class="fa-solid fa-people-group"></i></span><span class="stage-label">Semana 1: Adaptaci&oacute;n</span></div><ul class="small mb-0 mt-3 ps-3"><li>Sesiones de acompa&ntilde;amiento con el equipo.</li><li>Comprensi&oacute;n de objetivos y m&eacute;tricas.</li><li>Primera sesi&oacute;n de preguntas con tu supervisor.</li></ul></div></div>
             <div class="col-lg-4"><div class="onboarding-roadmap-stage is-autonomy"><div class="d-flex align-items-center"><span class="stage-icon"><i class="fa-solid fa-rocket"></i></span><span class="stage-label">Mes 1: Autonom&iacute;a</span></div><ul class="small mb-0 mt-3 ps-3"><li>Ejecuci&oacute;n aut&oacute;noma de funciones diarias.</li><li>Retroalimentaci&oacute;n de los primeros 30 d&iacute;as.</li><li>Alineaci&oacute;n de objetivos del siguiente trimestre.</li></ul></div></div>
         </div>
@@ -543,7 +543,7 @@ $onboardingSpecializedQuestions = [
     <div class="fw-semibold">Amigo Efectivo - Maxikash M&eacute;xico</div>
     <div class="small mt-1">&copy; Todos los derechos reservados 2026</div>
 </footer>
-<button type="button" class="onboarding-progress-fab" id="onboardingProgressFab" aria-label="Progreso del onboarding: 0 por ciento" title="Progreso del onboarding"><span id="onboardingProgressFabValue">0%</span></button>
+<button type="button" class="onboarding-progress-fab" id="onboardingProgressFab" aria-label="Progreso del Curso de Inducción: 0 por ciento" title="Progreso del Curso de Inducción"><span id="onboardingProgressFabValue">0%</span></button>
 <div class="modal fade onboarding-quiz-modal" id="onboardingCorporateQuizModal" tabindex="-1" aria-labelledby="onboardingCorporateQuizModalTitle" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-scrollable onboarding-specialized-modal-top"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="onboardingCorporateQuizModalTitle"><span class="modal-title-icon"><i class="fa-solid fa-graduation-cap"></i></span><span>Quiz de Inducci&oacute;n Corporativo<small>Evaluaci&oacute;n de conocimientos de inducci&oacute;n</small></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div><div class="modal-body p-3 p-lg-4" id="onboardingCorporateQuizModalBody"></div></div></div></div>
 
 <div class="modal fade onboarding-diploma-preview-modal" id="onboardingDiplomaPreviewModal" tabindex="-1" aria-labelledby="onboardingDiplomaPreviewTitle" aria-hidden="true">
@@ -864,7 +864,7 @@ $onboardingSpecializedQuestions = [
         var percentage = Number(record && record.progress ? record.progress.percentage : 0) || 0;
         if (progressFab) {
             progressFab.style.background = 'conic-gradient(var(--bs-danger) ' + (percentage * 3.6) + 'deg, rgba(var(--bs-danger-rgb), .15) 0deg)';
-            progressFab.setAttribute('aria-label', 'Progreso del onboarding: ' + percentage + ' por ciento');
+            progressFab.setAttribute('aria-label', 'Progreso del Curso de Inducción: ' + percentage + ' por ciento');
         }
         if (progressFabValue) progressFabValue.textContent = percentage + '%';
         if (welcomeHint) welcomeHint.classList.toggle('d-none', percentage !== 0);
