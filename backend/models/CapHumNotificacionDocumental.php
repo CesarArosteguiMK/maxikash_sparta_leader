@@ -595,7 +595,13 @@ class CapHumNotificacionDocumental extends Model
         }
     }
 
-    public static function personasCampania(int $idCampania, string $estado = 'todos', string $buscar = ''): array
+    public static function personasCampania(
+        int $idCampania,
+        string $estado = 'todos',
+        string $buscar = '',
+        string $filtroValidacion = 'todos',
+        int $limite = 1000
+    ): array
     {
         try {
             self::asegurarTablas();
@@ -609,6 +615,19 @@ class CapHumNotificacionDocumental extends Model
                 $filtroEstado = ' AND e.id IS NULL';
             } elseif ($estado === 'entregados') {
                 $filtroEstado = ' AND e.id IS NOT NULL';
+            }
+            $filtroValidacion = in_array($filtroValidacion, ['todos', 'correctos', 'un_patron', 'dos_patrones'], true)
+                ? $filtroValidacion
+                : 'todos';
+            $filtroPatrones = '';
+            if ($filtroValidacion === 'correctos') {
+                // "Entregado" confirma que se cargó un archivo; "correcto"
+                // requiere una lectura satisfactoria del Motor V1.
+                $filtroPatrones = ' AND e.id IS NOT NULL AND e.patrones_analizado_en IS NOT NULL AND e.patrones_vigentes IS NOT NULL';
+            } elseif ($filtroValidacion === 'un_patron') {
+                $filtroPatrones = ' AND e.patrones_vigentes = 1';
+            } elseif ($filtroValidacion === 'dos_patrones') {
+                $filtroPatrones = ' AND e.patrones_vigentes = 2';
             }
             $filtroBuscar = '';
             $buscar = trim($buscar);
@@ -624,6 +643,7 @@ class CapHumNotificacionDocumental extends Model
             $db = new Database();
             self::asegurarPlantillaActivaExpedientes($db);
             $condicion = self::condicionPersonaElegible();
+            $limiteSql = $limite > 0 ? ' LIMIT ' . max(1, min($limite, 10000)) : '';
             $rows = $db->queryAll("
                 SELECT
                     p.id AS id_persona,
@@ -665,8 +685,9 @@ class CapHumNotificacionDocumental extends Model
                   )
                   {$filtroEstado}
                   {$filtroBuscar}
+                  {$filtroPatrones}
                 ORDER BY (e.id IS NULL) DESC, nombre ASC
-                LIMIT 1000
+                {$limiteSql}
             ", $params);
             foreach ($rows as &$row) {
                 $row['mensaje_analisis_patrones'] = '';

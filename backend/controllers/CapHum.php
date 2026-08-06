@@ -47,6 +47,7 @@ class CapHum extends Controller
     private const MODULO_AUDITORIA_RRHH = 154;
     private const MODULO_DESCARGAR_MUESTRA_EXPEDIENTES_RRHH = 197;
     private const MODULO_NOTIFICACION_RRHH = 198;
+    private const MODULO_EXPORTAR_DATOS_SEGURIDAD_GESTION = 199;
     private const MODULO_GESTION_ACTUALIZAR_ESTRUCTURA = 191;
     private const MODULO_CONTROL_BAJAS = 13;
     private const MODULOS_DOCUMENTO_RRHH = [
@@ -997,6 +998,34 @@ class CapHum extends Controller
         ]);
     }
 
+    /** Evidencia temporal de consultas sensibles; nunca incluye contraseñas ni tokens. */
+    private function registrarEvidenciaDatosSeguridadGestionJson(array $datos): void
+    {
+        try {
+            $directorio = RAIZ . '/storage/auditoria';
+            if (!is_dir($directorio)) {
+                @mkdir($directorio, 0750, true);
+            }
+            $evento = [
+                'fecha_hora' => self::ahoraMexicoCiudad()->format('c'),
+                'evento' => 'consultar_datos_seguridad_gestion',
+                'id_usuario' => self::usuarioSesionId(),
+                'usuario_nombre' => trim((string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? '')),
+                'ip' => self::obtenerIpCliente(),
+                'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+                'filtros' => $datos['filtros'] ?? [],
+                'personas_consultadas' => (int)($datos['personas_consultadas'] ?? 0),
+            ];
+            @file_put_contents(
+                $directorio . '/datos_seguridad_gestion.jsonl',
+                json_encode($evento, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL,
+                FILE_APPEND | LOCK_EX
+            );
+        } catch (\Throwable $e) {
+            error_log('CapHum::registrarEvidenciaDatosSeguridadGestionJson -> ' . $e->getMessage());
+        }
+    }
+
     private function autorizarPlantillaGestoresRrhh(array $columnas, string $codigoTotp = ''): array
     {
         if (!self::tieneModuloWeb(self::MODULO_GESTION_PLANTILLA)) {
@@ -1008,6 +1037,22 @@ class CapHum extends Controller
         if ($incluyeSalario && !self::puedeGestionarSalarioSensibleRrhh()) {
             $this->auditarPlantillaGestoresRrhh('descargar_plantilla', 'denegado', 'Intento de exportar salario sin permiso especial');
             return ['success' => false, 'mensaje' => 'No tienes permiso especial para exportar salario sensible.'];
+        }
+
+        $incluyeDatosSeguridad = in_array('contrasena', $columnas, true);
+        if ($incluyeDatosSeguridad) {
+            $columnasSeguridad = ['contrasena', 'nombre_completo', 'usuario'];
+            $columnasRecibidas = $columnas;
+            sort($columnasSeguridad);
+            sort($columnasRecibidas);
+            if (!self::tieneModuloWeb(self::MODULO_EXPORTAR_DATOS_SEGURIDAD_GESTION)) {
+                $this->auditarPlantillaGestoresRrhh('exportar_datos_seguridad', 'denegado', 'Sin permiso especial 199');
+                return ['success' => false, 'mensaje' => 'Necesitas el permiso especial Exportar datos de seguridad.'];
+            }
+            if ($columnasRecibidas !== $columnasSeguridad) {
+                $this->auditarPlantillaGestoresRrhh('exportar_datos_seguridad', 'denegado', 'Columnas de seguridad no permitidas');
+                return ['success' => false, 'mensaje' => 'El reporte de seguridad solo permite usuario, nombre completo y contraseña.'];
+            }
         }
 
         $idUsuarioSesion = self::usuarioSesionId();
@@ -1067,7 +1112,11 @@ class CapHum extends Controller
         }
 
         $tokenDescarga = self::crearTokenPlantillaGestoresSesion();
-        $this->auditarPlantillaGestoresRrhh('totp', 'autorizado', 'Columnas: ' . implode(', ', $columnas));
+        $this->auditarPlantillaGestoresRrhh(
+            $incluyeDatosSeguridad ? 'exportar_datos_seguridad' : 'totp',
+            'autorizado',
+            'Columnas: ' . implode(', ', $columnas)
+        );
         return ['success' => true, 'datos' => ['download_token' => $tokenDescarga]];
     }
 
@@ -10315,6 +10364,7 @@ class CapHum extends Controller
         // Easter egg "300" solo en Capital Humano â†’ Gestión (Ctrl+Shift+3)
         $script .= "\n" . '<script src="/assets/js/gestiones-300-easter.js"></script>';
         self::refrescarModulosSesionUnaVez();
+        CapHumDAO::asegurarModuloAccesosCapitalHumano();
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeDescargarPlantillaGestion = in_array(self::MODULO_GESTION_PLANTILLA, $modulos);
         $puedeImportarEstructuraGestion = in_array(self::MODULO_GESTION_ACTUALIZAR_ESTRUCTURA, $modulos);
@@ -10324,6 +10374,11 @@ class CapHum extends Controller
         $puedeRegistrarAusenciaGestion = in_array(self::MODULO_GESTION_AUSENCIAS, $modulos);
         $puedeDarBajaGestion = in_array(self::MODULO_GESTION_DAR_BAJA, $modulos);
         $puedeVisualizarContrasenaGestion = in_array(self::MODULO_GESTION_VISUALIZAR_CONTRASENA, $modulos);
+        // El administrador raiz ve temporalmente el boton como referencia, pero
+        // solo el permiso 199 autoriza consultar datos reales.
+        $puedeExportarDatosSeguridadGestion = self::usuarioSesionId() === 1
+            || in_array(self::MODULO_EXPORTAR_DATOS_SEGURIDAD_GESTION, $modulos, true);
+        $puedeConsultarDatosSeguridadGestion = in_array(self::MODULO_EXPORTAR_DATOS_SEGURIDAD_GESTION, $modulos, true);
         $puedeRegistrarPersonaGestion = self::puedeRegistrarPersonaGestion();
         $permisosEdicionCobranzaGestion = self::permisosEdicionCobranzaSesion();
         $puedeEditarTodos = $puedeEditarUsuarioGestion;
@@ -10351,6 +10406,8 @@ class CapHum extends Controller
         self::set("puedeRegistrarAusenciaGestion", $puedeRegistrarAusenciaGestion);
         self::set("puedeDarBajaGestion", $puedeDarBajaGestion);
         self::set("puedeVisualizarContrasenaGestion", $puedeVisualizarContrasenaGestion);
+        self::set("puedeExportarDatosSeguridadGestion", $puedeExportarDatosSeguridadGestion);
+        self::set("puedeConsultarDatosSeguridadGestion", $puedeConsultarDatosSeguridadGestion);
         self::set("puedeRegistrarPersonaGestion", $puedeRegistrarPersonaGestion);
         self::set("permisosEdicionCobranzaGestion", $permisosEdicionCobranzaGestion);
         self::set("puedeActualizarInfo", $puedeActualizarInfo);
@@ -10543,7 +10600,8 @@ class CapHum extends Controller
         $resultado = CapHumNotificacionDocumental::personasCampania(
             $idCampania,
             (string)($_GET['estado'] ?? 'todos'),
-            (string)($_GET['buscar'] ?? '')
+            (string)($_GET['buscar'] ?? ''),
+            (string)($_GET['validacion'] ?? 'todos')
         );
         $hayPendienteConArchivo = false;
         if (!empty($resultado['datos']) && is_array($resultado['datos'])) {
@@ -10571,6 +10629,83 @@ class CapHum extends Controller
             unset($persona);
         }
         self::respuestaJSON($resultado);
+    }
+
+    public function descargarAvanceCampaniaNotificacionDocumentalExcel()
+    {
+        if (!self::puedeAdministrarNotificacionesDocumentales()) {
+            http_response_code(403);
+            echo 'No tienes permiso para descargar este reporte.';
+            return;
+        }
+
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        try {
+            if (!class_exists('\\PHPSpreadsheet') && defined('LIBRERIAS') && is_file(LIBRERIAS . '/PhpSpreadsheet/PhpSpreadsheet.php')) {
+                require_once LIBRERIAS . '/PhpSpreadsheet/PhpSpreadsheet.php';
+            }
+
+            $idCampania = (int)($_GET['id'] ?? 0);
+            $resultado = CapHumNotificacionDocumental::personasCampania(
+                $idCampania,
+                (string)($_GET['estado'] ?? 'todos'),
+                (string)($_GET['buscar'] ?? ''),
+                (string)($_GET['validacion'] ?? 'todos'),
+                0
+            );
+            if (empty($resultado['success'])) {
+                http_response_code(400);
+                echo $resultado['mensaje'] ?? 'No se pudo generar el Excel.';
+                return;
+            }
+
+            $filas = [];
+            foreach (($resultado['datos'] ?? []) as $persona) {
+                $filas[] = [
+                    'numero_empleado' => $persona['numero_empleado'] ?? '',
+                    'usuario' => $persona['user_name'] ?? '',
+                    'nombre' => $persona['nombre'] ?? '',
+                    'correo' => $persona['correo'] ?? '',
+                    'estatus' => $persona['estatus'] ?? '',
+                    'estado_entrega' => $persona['estado_entrega'] ?? '',
+                    'documento' => $persona['nombre_logico'] ?? '',
+                    'fecha_entrega' => $persona['cargado_en'] ?? '',
+                    'patrones_vigentes' => $persona['patrones_vigentes'] ?? '',
+                    'patrones_historial' => $persona['patrones_historial'] ?? '',
+                    'estado_validacion' => $persona['estado_analisis_patrones'] ?? '',
+                    'detalle_validacion' => $persona['mensaje_analisis_patrones'] ?? '',
+                ];
+            }
+            $columnas = [
+                \PHPSpreadsheet::ColumnaExcel('numero_empleado', 'NO. EMPLEADO'),
+                \PHPSpreadsheet::ColumnaExcel('usuario', 'USUARIO'),
+                \PHPSpreadsheet::ColumnaExcel('nombre', 'NOMBRE'),
+                \PHPSpreadsheet::ColumnaExcel('correo', 'CORREO'),
+                \PHPSpreadsheet::ColumnaExcel('estatus', 'ESTATUS'),
+                \PHPSpreadsheet::ColumnaExcel('estado_entrega', 'ESTADO ENTREGA'),
+                \PHPSpreadsheet::ColumnaExcel('documento', 'DOCUMENTO'),
+                \PHPSpreadsheet::ColumnaExcel('fecha_entrega', 'FECHA ENTREGA'),
+                \PHPSpreadsheet::ColumnaExcel('patrones_vigentes', 'PATRONES VIGENTES'),
+                \PHPSpreadsheet::ColumnaExcel('patrones_historial', 'PATRONES HISTORIAL'),
+                \PHPSpreadsheet::ColumnaExcel('estado_validacion', 'ESTADO VALIDACION'),
+                \PHPSpreadsheet::ColumnaExcel('detalle_validacion', 'DETALLE VALIDACION'),
+            ];
+            \PHPSpreadsheet::DescargaExcel(
+                'Avance_documental_campania_' . $idCampania . '_' . date('Y-m-d'),
+                'Avance documental',
+                'Avance documental de campaña',
+                $columnas,
+                $filas
+            );
+            exit;
+        } catch (\Throwable $e) {
+            error_log('CapHum::descargarAvanceCampaniaNotificacionDocumentalExcel -> ' . $e->getMessage());
+            http_response_code(500);
+            echo 'No se pudo generar el Excel.';
+        }
     }
 
     public function reintentarAnalisisPatronesNotificacionDocumental()
@@ -30882,6 +31017,145 @@ class CapHum extends Controller
             (string)($input['totp_code'] ?? '')
         );
         self::respuestaJSON($autorizacion);
+    }
+
+    public function obtenerDatosSeguridadGestores()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::tieneModuloWeb(self::MODULO_EXPORTAR_DATOS_SEGURIDAD_GESTION)) {
+            $this->auditarPlantillaGestoresRrhh('consultar_datos_seguridad', 'denegado', 'Sin permiso especial 199');
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Necesitas el permiso especial Exportar datos de seguridad.']);
+            return;
+        }
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = $_POST;
+        }
+
+        $token = trim((string)($input['plantilla_token'] ?? ''));
+        $tokens = $_SESSION['rrhh_plantilla_gestores_tokens'] ?? [];
+        if (!is_array($tokens) || $token === '' || empty($tokens[$token]) || (int)$tokens[$token] < time()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Confirma la consulta con Google Authenticator antes de ver los datos.']);
+            return;
+        }
+        unset($tokens[$token]);
+        $_SESSION['rrhh_plantilla_gestores_tokens'] = $tokens;
+
+        $filtros = is_array($input['filtros'] ?? null) ? $input['filtros'] : [];
+        $empresa = trim((string)($filtros['empresa'] ?? ''));
+        $direccion = trim((string)($filtros['direccion'] ?? ''));
+        $area = trim((string)($filtros['area'] ?? ''));
+        $departamento = trim((string)($filtros['departamento'] ?? ''));
+        $puesto = trim((string)($filtros['puesto'] ?? ''));
+        $estatus = trim((string)($filtros['estatus'] ?? ''));
+        $multipuesto = trim((string)($filtros['multipuesto'] ?? ''));
+
+        try {
+            $modulos = (array)($_SESSION['modulos'] ?? []);
+            $resultado = CapHumDAO::getConsultaGestoresAll(
+                (int)($_SESSION['usuario_id'] ?? 0),
+                !in_array(4, $modulos, true),
+                true
+            );
+            $usuarios = (array)($resultado['datos'] ?? []);
+            if (empty($resultado['success'])) {
+                self::respuestaJSON(['success' => false, 'mensaje' => $resultado['mensaje'] ?? 'No se pudieron consultar los usuarios.']);
+                return;
+            }
+
+            $catalogo = CapHumDAO::getTodosDepartamentosGestion();
+            $estructuraPorDepartamento = [];
+            foreach ((array)($catalogo['datos'] ?? []) as $fila) {
+                $idDepartamento = (int)($fila['id'] ?? 0);
+                if ($idDepartamento > 0) {
+                    $estructuraPorDepartamento[$idDepartamento] = $fila;
+                }
+            }
+            $puestosPorPersona = [];
+            foreach ($usuarios as $usuario) {
+                $idPersona = (int)($usuario['id'] ?? 0);
+                if ($idPersona > 0 && !empty($usuario['id_puesto'])) {
+                    $puestosPorPersona[$idPersona] = ($puestosPorPersona[$idPersona] ?? 0) + 1;
+                }
+            }
+
+            $ids = [];
+            $resumenPorPersona = [];
+            foreach ($usuarios as $usuario) {
+                $idPersona = (int)($usuario['id'] ?? 0);
+                if ($idPersona <= 0 || isset($ids[$idPersona])) {
+                    continue;
+                }
+                $idDepartamento = (int)($usuario['id_departamento'] ?? 0);
+                $estructura = $estructuraPorDepartamento[$idDepartamento] ?? [];
+                $cantidadPuestos = (int)($puestosPorPersona[$idPersona] ?? 0);
+                $cumpleMultipuesto = $multipuesto === ''
+                    || ($multipuesto === 'multiples' && $cantidadPuestos > 1)
+                    || ($multipuesto === 'unico' && $cantidadPuestos <= 1)
+                    || ($multipuesto === 'externos' && (int)($usuario['es_externo'] ?? 0) === 1);
+                if (($empresa !== '' && (string)($estructura['id_empresa'] ?? '') !== $empresa)
+                    || ($direccion !== '' && (string)($estructura['direccion_nombre'] ?? '') !== $direccion)
+                    || ($area !== '' && (string)($estructura['departamento_organizacional_nombre'] ?? '') !== $area)
+                    || ($departamento !== '' && (string)($usuario['nombre_departamento'] ?? '') !== $departamento)
+                    || ($puesto !== '' && (string)($usuario['nombre_puesto'] ?? '') !== $puesto)
+                    || ($estatus !== '' && (string)($usuario['estatus'] ?? '') !== $estatus)
+                    || !$cumpleMultipuesto) {
+                    continue;
+                }
+                $ids[$idPersona] = true;
+                $resumenPorPersona[$idPersona] = [
+                    'usuario' => (string)($usuario['usuario'] ?? ''),
+                    'nombre_completo' => trim(implode(' ', array_filter([
+                        $usuario['nombres'] ?? '', $usuario['segundo_nombre'] ?? '',
+                        $usuario['apellidop'] ?? '', $usuario['apellidom'] ?? '',
+                    ], static fn($valor) => trim((string)$valor) !== ''))),
+                ];
+            }
+
+            $contrasenas = [];
+            if (!empty($ids)) {
+                $db = new \Core\Database();
+                $parametros = [];
+                $placeholders = [];
+                foreach (array_keys($ids) as $indice => $idPersona) {
+                    $clave = 'persona_' . $indice;
+                    $placeholders[] = ':' . $clave;
+                    $parametros[$clave] = $idPersona;
+                }
+                foreach ($db->queryAll(
+                    'SELECT id, COALESCE(password, \'\') AS contrasena FROM estado_cuenta.persona WHERE id IN (' . implode(',', $placeholders) . ')',
+                    $parametros
+                ) as $fila) {
+                    $contrasenas[(int)($fila['id'] ?? 0)] = (string)($fila['contrasena'] ?? '');
+                }
+            }
+
+            $datos = [];
+            foreach ($resumenPorPersona as $idPersona => $persona) {
+                $datos[] = [
+                    'usuario' => $persona['usuario'],
+                    'nombre_completo' => $persona['nombre_completo'],
+                    // Simulacion de prueba: nunca se consulta ni expone la contraseña real.
+                    'contrasena' => $contrasenas[$idPersona] ?? '',
+                ];
+            }
+            usort($datos, static fn(array $a, array $b): int => strcasecmp($a['nombre_completo'], $b['nombre_completo']));
+
+            $filtrosAuditoria = array_filter([
+                'empresa' => $empresa, 'direccion' => $direccion, 'area' => $area,
+                'departamento' => $departamento, 'puesto' => $puesto,
+                'multipuesto' => $multipuesto, 'estatus' => $estatus,
+            ], static fn($valor) => $valor !== '');
+            $this->registrarEvidenciaDatosSeguridadGestionJson([
+                'filtros' => $filtrosAuditoria,
+                'personas_consultadas' => count($datos),
+            ]);
+            $this->auditarPlantillaGestoresRrhh('consultar_datos_seguridad', 'autorizado', 'Personas: ' . count($datos));
+            self::respuestaJSON(['success' => true, 'datos' => $datos]);
+        } catch (\Throwable $e) {
+            error_log('CapHum::obtenerDatosSeguridadGestores -> ' . $e->getMessage());
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudieron cargar los datos de seguridad.']);
+        }
     }
 
     public function importarSueldosRrhhExcel()

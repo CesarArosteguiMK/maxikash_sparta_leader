@@ -24,6 +24,7 @@ class CapHum extends Model
     public const MODULO_AUDITORIA_RRHH = 154;
     public const MODULO_DESCARGAR_PLANTILLA_CRUCE_VACACIONES = 196;
     public const MODULO_DESCARGAR_MUESTRA_EXPEDIENTES_RRHH = 197;
+    public const MODULO_EXPORTAR_DATOS_SEGURIDAD_GESTION = 199;
     public const MODULO_ASISTENTE_SPARTA = 194;
     public const MODULO_DESBLOQUEAR_COMPONENTES_MOTOS_ADJUDICADAS = 195;
     public const PERSONA_LAZARO_RAUDEL = 878;
@@ -62,7 +63,7 @@ class CapHum extends Model
         140, 141, 142, 143, 144, 147, 151, 152, 153, 154,
         155, 156, 157, 158, 159, 160, 161, 162, 163, 164,
         165, 166, 167, 168, 169, 170, 171, 172, 173, 174,
-        175, 176, 177, 178, 179, 184, 185, 196, 197,
+        175, 176, 177, 178, 179, 184, 185, 196, 197, 199,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -164,6 +165,12 @@ class CapHum extends Model
                 'nombre' => 'Descargar muestra de expedientes',
                 'pestana' => 'Control documental RR.HH.',
                 'descripcion' => 'Permite descargar hasta 10 expedientes de plantilla activa en un ZIP, protegido con Google Authenticator.',
+            ],
+            [
+                'id' => self::MODULO_EXPORTAR_DATOS_SEGURIDAD_GESTION,
+                'nombre' => 'Exportar datos de seguridad',
+                'pestana' => 'Permisos especiales',
+                'descripcion' => 'Permite exportar desde Gestion de Personal un Excel con usuario, nombre completo y contraseña; requiere Google Authenticator.',
             ],
             [
                 'id' => self::MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS,
@@ -7493,10 +7500,82 @@ class CapHum extends Model
     }
 
     /**
+     * Registra en un archivo temporal las eliminaciones de entregas documentales.
+     * Sirve como bitácora transitoria mientras se habilita una tabla persistente.
+     */
+    private static function registrarBitacoraTemporalEliminacionDocumental(
+        array $documento,
+        array $entregas,
+        int $usuarioId,
+        string $resultado,
+        string $motivo = '',
+        array $extra = []
+    ): bool {
+        $base = defined('RAIZ') ? RAIZ : dirname(__DIR__);
+        $directorio = $base . '/storage/logs';
+        $archivo = $directorio . '/rrhh_notificacion_documental_bitacora.json';
+        $handle = null;
+
+        try {
+            if (!is_dir($directorio) && !@mkdir($directorio, 0770, true) && !is_dir($directorio)) {
+                throw new \RuntimeException('No se pudo crear el directorio de bitácora.');
+            }
+            $handle = @fopen($archivo, 'c+');
+            if ($handle === false) {
+                throw new \RuntimeException('No se pudo abrir la bitácora temporal.');
+            }
+            if (!@flock($handle, LOCK_EX)) {
+                throw new \RuntimeException('No se pudo bloquear la bitácora temporal.');
+            }
+
+            rewind($handle);
+            $contenido = stream_get_contents($handle);
+            $eventos = json_decode((string)$contenido, true);
+            if (!is_array($eventos)) {
+                $eventos = [];
+            }
+            $eventos[] = [
+                'fecha_hora' => date('Y-m-d H:i:s'),
+                'evento' => 'eliminacion_documento_notificacion',
+                'resultado' => $resultado,
+                'motivo' => $motivo,
+                'usuario' => [
+                    'id' => $usuarioId > 0 ? $usuarioId : null,
+                    'nombre' => (string)($_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? ''),
+                    'ip' => (string)($_SERVER['REMOTE_ADDR'] ?? ''),
+                ],
+                'documento' => $documento,
+                'entregas_documentales' => $entregas,
+                'extra' => $extra,
+            ];
+            $json = json_encode($eventos, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($json === false) {
+                throw new \RuntimeException('No se pudo serializar la bitácora temporal.');
+            }
+            rewind($handle);
+            if (!@ftruncate($handle, 0) || @fwrite($handle, $json) === false || !@fflush($handle)) {
+                throw new \RuntimeException('No se pudo guardar la bitácora temporal.');
+            }
+            @flock($handle, LOCK_UN);
+            @fclose($handle);
+            return true;
+        } catch (\Throwable $e) {
+            if (is_resource($handle)) {
+                @flock($handle, LOCK_UN);
+                @fclose($handle);
+            }
+            error_log('CapHum::registrarBitacoraTemporalEliminacionDocumental -> ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Eliminar documento de una persona
      */
     public static function eliminarDocumentoPersona($id_documento_carga, int $usuarioId = 0)
     {
+        $entregasDocumentales = [];
+        $detalleDocumento = [];
         try {
             $db = new Database();
 
@@ -7517,6 +7596,43 @@ class CapHum extends Model
             $esDocumentoCierreBaja = in_array($id_documento, [37, 38], true);
             if ($esDocumentoCierreBaja) {
                 self::asegurarSeguimientoTransitoBaja($db);
+            }
+
+            $entregasDocumentales = $db->queryAll("
+                SELECT
+                    e.id AS id_entrega,
+                    e.id_campania,
+                    c.tipo AS tipo_campania,
+                    c.anio AS anio_campania,
+                    c.semestre AS semestre_campania,
+                    c.titulo AS titulo_campania,
+                    e.nombre_logico,
+                    e.nombre_original,
+                    e.archivo,
+                    e.cargado_en,
+                    e.patrones_vigentes,
+                    e.patrones_historial,
+                    e.patrones_fuente,
+                    e.patrones_analisis_json,
+                    e.patrones_analizado_en
+                FROM estado_cuenta.rrhh_notificacion_documental_entrega e
+                LEFT JOIN estado_cuenta.rrhh_notificacion_documental_campania c ON c.id = e.id_campania
+                WHERE e.id_documento_carga = :id
+            ", ['id' => $id_documento_carga]);
+            $detalleDocumento = [
+                'id_documento_carga' => (int)$id_documento_carga,
+                'id_persona' => $idPersona,
+                'id_documento' => $id_documento,
+                'archivo' => (string)$nombreArchivo,
+            ];
+            if ($entregasDocumentales && !self::registrarBitacoraTemporalEliminacionDocumental(
+                $detalleDocumento,
+                $entregasDocumentales,
+                $usuarioId,
+                'intento',
+                'El usuario solicitó eliminar el documento.'
+            )) {
+                return self::resultado(false, 'No se pudo registrar la bitácora temporal; el documento no fue eliminado.');
             }
 
             // Al borrar una entrega obligatoria se reactiva su pendiente para que el
@@ -7556,8 +7672,21 @@ class CapHum extends Model
             $carpeta = $carpetas[$id_documento] ?? $carpetas['default'];
             $rutaArchivo = sparta_uploads_join($carpeta, $nombreArchivo);
 
+            $archivoEliminado = true;
             if (file_exists($rutaArchivo)) {
-                @unlink($rutaArchivo);
+                $archivoEliminado = @unlink($rutaArchivo);
+            }
+            if ($entregasDocumentales) {
+                self::registrarBitacoraTemporalEliminacionDocumental(
+                    $detalleDocumento,
+                    $entregasDocumentales,
+                    $usuarioId,
+                    $archivoEliminado ? 'exitoso' : 'parcial',
+                    $archivoEliminado
+                        ? 'El registro, la entrega documental y el archivo fueron eliminados.'
+                        : 'El registro y la entrega documental fueron eliminados, pero no se pudo borrar el archivo físico.',
+                    ['archivo_fisico_eliminado' => $archivoEliminado]
+                );
             }
 
             return self::resultado(true, $entregasReactivadas > 0
@@ -7565,9 +7694,19 @@ class CapHum extends Model
                 : 'Documento eliminado correctamente.', [
                 'notificacion_reactivada' => $entregasReactivadas > 0,
                 'etapa_baja' => $etapa,
+                'archivo_fisico_eliminado' => $archivoEliminado,
             ]);
 
         } catch (\Exception $e) {
+            if ($entregasDocumentales && $detalleDocumento) {
+                self::registrarBitacoraTemporalEliminacionDocumental(
+                    $detalleDocumento,
+                    $entregasDocumentales,
+                    $usuarioId,
+                    'fallido',
+                    $e->getMessage()
+                );
+            }
             return self::resultado(false, 'Error al eliminar documento.', null, $e->getMessage());
         }
     }
