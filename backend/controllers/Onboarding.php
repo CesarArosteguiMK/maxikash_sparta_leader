@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Core\Database;
 
 class Onboarding extends Controller
 {
@@ -19,15 +20,344 @@ class Onboarding extends Controller
         'recibos_nomina'   => 'recibos_nomina.mp4',
         'cambio_cuenta'    => 'cambio_cuenta.mp4',
         'incapacidades'    => 'incapacidades.mp4',
+        'valores'          => 'cultura_corporativa.mp4',
         'cultura'          => 'nuestra_cultura.mp4',
-        'cultura_corporativa' => 'cultura_corporativa.mp4',
-        'cierre_induccion' => 'cierre_induccion.mp4',
+    ];
+
+    /** Ponderaciones visibles del avance global de Onboarding. */
+    private const PROGRESS_WEIGHTS = [
+        'bienvenida'  => 10,
+        'modulo'      => 3,
+        'corporativo' => 23,
+        'especializado' => 35,
+        'feedback'    => 5,
+    ];
+
+    private const MODULE_PROGRESS_KEYS = [
+        'legacyapp', 'asistencia', 'nomina', 'bonos', 'recibos_nomina',
+        'cambio_cuenta', 'incapacidades', 'valores', 'cultura',
     ];
 
     public function index()
     {
+        $usuarioId = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? 0);
+        $nombreDiploma = trim((string) ($_SESSION['usuario_nombre'] ?? ''));
+        $puestoOnboarding = trim((string) ($_SESSION['puesto'] ?? $_SESSION['usuario_puesto'] ?? ''));
+        if ($usuarioId > 0) {
+            try {
+                $persona = (new Database())->queryOne('SELECT nombres, segundo_nombre, apellidop, apellidom FROM persona WHERE id = :id LIMIT 1', ['id' => $usuarioId]);
+                if ($persona) $nombreDiploma = trim(implode(' ', array_filter([$persona['nombres'] ?? '', $persona['segundo_nombre'] ?? '', $persona['apellidop'] ?? '', $persona['apellidom'] ?? ''], static fn($value) => trim((string) $value) !== '')));
+                $asignacion = (new Database())->queryOne('SELECT pu.nombre FROM asigna_puesto ap INNER JOIN puesto pu ON pu.id = ap.id_puesto WHERE ap.id_persona = :id AND ap.activo = 1 ORDER BY ap.id DESC LIMIT 1', ['id' => $usuarioId]);
+                if (!empty($asignacion['nombre'])) $puestoOnboarding = trim((string) $asignacion['nombre']);
+            } catch (\Throwable $exception) {
+                // Se conserva el nombre disponible en sesión si la consulta no está disponible.
+            }
+        }
         $this->set('titulo', 'Onboarding | ' . CONFIGURACION['EMPRESA']);
+        $this->set('onboardingCertificateName', $nombreDiploma ?: 'Colaborador Maxikash');
+        $this->set('onboardingAssignedPosition', $puestoOnboarding);
+        $this->set('onboardingSpecializedQuizType', self::specializedQuizType($puestoOnboarding));
         self::render('onboarding_contenido', false);
+    }
+
+    /** Genera el diploma horizontal únicamente para evaluaciones aprobadas. */
+    public function diploma()
+    {
+        $usuarioId = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? 0);
+        $tipo = (string) ($_GET['tipo'] ?? 'corporativo');
+        $key = $tipo === 'especializado' ? 'especializada' : 'corporativa';
+        $database = self::readProgressDatabase();
+        $record = $database['users'][(string) $usuarioId] ?? [];
+        if ($usuarioId <= 0 || empty($record['evaluaciones'][$key])) {
+            http_response_code(403);
+            exit('El diploma estará disponible al aprobar la evaluación.');
+        }
+        $nombre = trim((string) ($_SESSION['usuario_nombre'] ?? 'Colaborador Maxikash'));
+        try {
+            $persona = (new Database())->queryOne('SELECT nombres, segundo_nombre, apellidop, apellidom FROM persona WHERE id = :id LIMIT 1', ['id' => $usuarioId]);
+            if ($persona) $nombre = trim(implode(' ', array_filter([$persona['nombres'] ?? '', $persona['segundo_nombre'] ?? '', $persona['apellidop'] ?? '', $persona['apellidom'] ?? ''], static fn($value) => trim((string) $value) !== '')));
+        } catch (\Throwable $exception) { }
+        $html = self::certificatePdfHtml($tipo, $nombre, (int) ($record['evaluaciones']['especializada_score'] ?? 0));
+        $mpdf = new \Mpdf\Mpdf([
+            'format' => 'A4',
+            'orientation' => 'P',
+            'margin_left' => 8,
+            'margin_right' => 8,
+            'margin_top' => 8,
+            'margin_bottom' => 8,
+        ]);
+        $mpdf->SetTitle($tipo === 'especializado' ? 'Certificado de competencia técnica' : 'Constancia de inducción');
+        $mpdf->WriteHTML($html);
+        $mpdf->Output(($tipo === 'especializado' ? 'certificado-competencia-tecnica' : 'constancia-induccion') . '.pdf', \Mpdf\Output\Destination::DOWNLOAD);
+        exit;
+
+        $titulo = $tipo === 'especializado' ? 'DIPLOMA DE COMPETENCIA TÉCNICA' : 'DIPLOMA DE INDUCCIÓN';
+        $texto = $tipo === 'especializado' ? 'Acreditó exitosamente la evaluación especializada de su puesto.' : 'Acreditó exitosamente la inducción corporativa sobre políticas de asistencia, nómina y cultura.';
+        $fecha = date('d de F de Y');
+        $html = '<style>body{font-family:dejavusans;color:#07548a}.frame{border:5px solid #07548a;padding:28px;text-align:center;background:#fff}.brand{font-size:20px;font-weight:bold;color:#0d6efd}.title{font-family:serif;font-size:52px;letter-spacing:4px;margin:30px 0 4px}.name{font-family:serif;font-size:34px;color:#07548a;border-bottom:2px solid #55bdc9;display:inline-block;padding:0 35px 7px;margin:15px 0}.sub{color:#5d7990;font-size:15px}.corners{color:#2bbdcc;font-size:18px;letter-spacing:12px}</style><div class="frame"><div class="corners">■ ■ ■ ■ ■ ■</div><div class="brand">◆ Maxikash</div><div class="title">' . htmlspecialchars($titulo, ENT_QUOTES, 'UTF-8') . '</div><div class="sub">otorgado a</div><div class="name">' . htmlspecialchars($nombre, ENT_QUOTES, 'UTF-8') . '</div><p style="font-size:15px">' . htmlspecialchars($texto, ENT_QUOTES, 'UTF-8') . '</p><p class="sub">Amigo Efectivo S.A. de C.V. &nbsp; | &nbsp; Área de Recursos Humanos<br>Fecha: ' . htmlspecialchars($fecha, ENT_QUOTES, 'UTF-8') . '</p><div class="corners">■ ■ ■ ■ ■ ■</div></div>';
+        $titulo = 'DIPLOMA';
+        $texto = $tipo === 'especializado' ? 'Acreditó exitosamente la evaluación especializada de su puesto.' : 'Acreditó exitosamente la inducción corporativa sobre políticas de asistencia, nómina y cultura.';
+        $html = '<style>
+            body{font-family:dejavusans;color:#004fd3}.frame{position:relative;min-height:470px;overflow:hidden;border:5px solid #004fd3;padding:52px 72px;text-align:center;background:#fff}.brand{font-size:23px;font-weight:bold;color:#004fd3}.brand-mark{color:#c3d64c}.title{font-family:serif;font-size:62px;letter-spacing:7px;margin:48px 0 3px;color:#004fd3}.award{color:#91a400;font-size:13px;font-weight:bold;letter-spacing:3px}.sub{color:#61758d;font-size:15px}.name{font-family:serif;font-size:37px;color:#004fd3;border-bottom:3px solid #c3d64c;display:inline-block;padding:0 44px 9px;margin:16px 0}.copy{max-width:510px;margin:0 auto 35px;font-size:15px;line-height:1.55;color:#3c536d}.footer{font-size:12px;color:#61758d}.corner{position:absolute;width:108px;height:108px}.tl{top:0;left:0;border-right:22px solid #004fd3;border-bottom:22px solid #004fd3}.tr{top:0;right:0;border-left:22px solid #004fd3;border-bottom:22px solid #004fd3}.bl{bottom:0;left:0;border-right:22px solid #004fd3;border-top:22px solid #004fd3}.br{right:0;bottom:0;border-left:22px solid #004fd3;border-top:22px solid #004fd3}.corner i{position:absolute;display:block;background:#c3d64c}.tl i,.bl i{right:20px;width:38px;height:16px}.tr i,.br i{left:20px;width:38px;height:16px}.tl i,.tr i{bottom:22px}.bl i,.br i{top:22px}</style><div class="frame"><div class="corner tl"><i></i></div><div class="corner tr"><i></i></div><div class="corner bl"><i></i></div><div class="corner br"><i></i></div><div class="brand"><span class="brand-mark">◆</span> Maxikash</div><div class="title">' . htmlspecialchars($titulo, ENT_QUOTES, 'UTF-8') . '</div><div class="sub">otorgado a</div><div class="name">' . htmlspecialchars($nombre, ENT_QUOTES, 'UTF-8') . '</div><div class="award">OTORGADO CON HONORES POR MAXIKASH MÉXICO</div><p class="copy">' . htmlspecialchars($texto, ENT_QUOTES, 'UTF-8') . '</p><div class="footer">Amigo Efectivo S.A. de C.V. &nbsp; | &nbsp; Área de Recursos Humanos &nbsp; | &nbsp; ID: <strong style="color:#91a400">MK-2026-OK</strong></div></div>';
+        $reconocimiento = $tipo !== 'especializado' || (int) ($record['evaluaciones']['especializada_score'] ?? 0) === 10
+            ? 'OTORGADO CON HONORES POR MAXIKASH MÉXICO'
+            : 'ACREDITADO POR MAXIKASH MÉXICO';
+        // El alto anterior (en px) excedía el área útil de mPDF y partía el
+        // contenido del diploma en una segunda hoja. Se fija en milímetros
+        // para que el diploma completo ocupe una única página A4 horizontal.
+        $html = str_replace(
+            'position:relative;min-height:470px;overflow:hidden;border:5px solid #004fd3;padding:52px 72px;',
+            'position:relative;height:168mm;box-sizing:border-box;overflow:hidden;border:5px solid #004fd3;padding:12mm 18mm;',
+            $html
+        );
+        $html = str_replace(
+            'font-size:62px;letter-spacing:7px;margin:48px 0 3px;',
+            'font-size:52px;letter-spacing:7px;margin:12mm 0 1mm;',
+            $html
+        );
+        $html = str_replace('margin:0 auto 35px;', 'margin:0 auto 8mm;', $html);
+        $html = preg_replace('#<div class="award">.*?</div>#', '<div class="award">' . htmlspecialchars($reconocimiento, ENT_QUOTES, 'UTF-8') . '</div>', $html, 1) ?: $html;
+        $logoPath = dirname(RAIZ) . '/public/assets/img/logo_nombre.svg';
+        $logoUri = 'file:///' . str_replace('\\', '/', $logoPath);
+        $logoTag = '<div class="brand"><img src="' . htmlspecialchars($logoUri, ENT_QUOTES, 'UTF-8') . '" style="width:190px;height:auto" alt="Maxikash"></div><div class="title">';
+        $html = preg_replace('#<div class="brand">.*?</div><div class="title">#', $logoTag, $html, 1) ?: $html;
+        // mPDF gira las dimensiones al usar orientación L; esta base 210 x 297
+        // produce de forma explícita una página final A4 horizontal: 297 x 210 mm.
+        $mpdf = new \Mpdf\Mpdf(['format' => [210, 297], 'orientation' => 'L', 'margin_left' => 10, 'margin_right' => 10, 'margin_top' => 10, 'margin_bottom' => 10]);
+        $mpdf->SetTitle('Diploma Maxikash');
+        $mpdf->WriteHTML($html);
+        $mpdf->Output('diploma-maxikash-' . $tipo . '.pdf', \Mpdf\Output\Destination::DOWNLOAD);
+        exit;
+    }
+
+    /** Determina el cuestionario asignado a partir del puesto autenticado. */
+    private static function specializedQuizType(string $position): string
+    {
+        $normalized = strtolower(trim((string) iconv('UTF-8', 'ASCII//TRANSLIT', $position)));
+        $rules = [
+            'cobranza domiciliaria' => 'gestor_domiciliaria', 'cobranza telefonica' => 'gestor_telefonica',
+            'supervisor de cobranza' => 'supervisor_cobranza', 'gerente de cobranza' => 'gerente_cobranza',
+            'credito individual' => 'asesor_credito', 'credito y riesgos' => 'analista_credito',
+            'ventas fintech' => 'ventas_fintech', 'recursos humanos' => 'rrhh', 'soporte tecnico' => 'soporte',
+            'atencion a clientes' => 'atencion', 'auditor' => 'auditor', 'capacitacion' => 'capacitacion',
+            'business intelligence' => 'bi', 'contador' => 'contador', 'facturacion' => 'facturacion',
+            'calidad' => 'qa', 'desarrollador' => 'desarrollador', 'disenador' => 'ux', 'marketing' => 'marketing',
+            'seo' => 'seo', 'reclutador' => 'reclutador', 'abogado' => 'abogado', 'cumplimiento' => 'pld',
+            'operaciones' => 'gerente_operaciones', 'area comercial' => 'supervisor_comercial',
+            'auxiliar contable' => 'auxiliar_contable', 'recepcionista' => 'recepcionista',
+        ];
+        foreach ($rules as $needle => $quiz) if (str_contains($normalized, $needle)) return $quiz;
+        return $normalized !== '' ? 'general' : '';
+    }
+
+    /**
+     * Construye la constancia/certificado con una estructura única reutilizable.
+     * Cada tipo sólo aporta sus textos y datos de validación.
+     */
+    private static function certificatePdfHtml(string $type, string $name, int $score): string
+    {
+        $isSpecialized = $type === 'especializado';
+        $safeName = htmlspecialchars($name ?: 'Colaborador Maxikash', ENT_QUOTES, 'UTF-8');
+        $recordId = $isSpecialized
+            ? 'MK-CERT-2026-' . strtoupper(preg_replace('/[^A-Z0-9]/', '', iconv('UTF-8', 'ASCII//TRANSLIT', $name)) ?: 'COLABORADOR')
+            : 'MK-2026-OK';
+        $content = $isSpecialized
+            ? [
+                'title' => 'CERTIFICADO DE COMPETENCIA TÉCNICA',
+                'recognition' => 'PUESTO: EVALUACIÓN ESPECIALIZADA',
+                'grant' => 'Otorgado con éxito a la trayectoria de:',
+                'body' => 'Por haber completado y aprobado satisfactoriamente los 10 criterios de evaluación específicos exigidos por los comités operativos de Maxikash para el correcto desarrollo de sus funciones estructurales.',
+                'issuer' => 'Amigo Efectivo S.A. de C.V. - Unidad de Evaluación Fintech',
+                'right' => 'ID DE REGISTRO ÚNICO: ' . $recordId,
+            ]
+            : [
+                'title' => 'CONSTANCIA',
+                'recognition' => 'OTORGADO CON HONORES POR MAXIKASH MÉXICO',
+                'grant' => 'Se otorga con orgullo el presente reconocimiento a:',
+                'body' => 'Por haber acreditado exitosamente la inducción corporativa sobre políticas de asistencia, nómina, cultura y normativas vigentes del ejercicio 2026.',
+                'issuer' => 'Amigo Efectivo S.A. de C.V.<br>Área de Recursos Humanos',
+                'right' => 'FECHA: ' . date('d/m/Y') . '<br>ID: ' . $recordId,
+            ];
+        $logoPath = str_replace('\\', '/', dirname(RAIZ) . '/public/assets/img/Logotipo-Maxikash-Outline.png');
+        $escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+        $issuer = $isSpecialized ? $escape($content['issuer']) : $content['issuer'];
+
+        return '<style>
+            body{font-family:dejavusans;color:#004fd3}
+            .frame{width:100%;border:3px solid #004fd3;border-collapse:collapse;background:#fff}
+            .frame td{padding:0}.header{height:11mm;background:#004fd3}.accent{height:4mm;background:#c3d64c}
+            .blue-side{width:2.5mm;background:#004fd3}.lime-side{width:2.5mm;background:#c3d64c}
+            .body-cell{padding:0 13mm;text-align:center;vertical-align:top}.layout{width:100%;border-collapse:collapse}.layout td{padding:0;text-align:center}
+            .logo-row{height:37mm;vertical-align:bottom}.logo{width:62mm;height:auto}.title-row{height:27mm;vertical-align:middle}
+            .title{font-family:serif;font-size:34pt;line-height:1;color:#004fd3;letter-spacing:2px}.recognition-row{height:15mm;vertical-align:middle}
+            .recognition{font-size:12pt;font-weight:bold;letter-spacing:1.2px;color:#91a400}.honor-mark{display:inline-block;width:9mm;height:9mm;line-height:9mm;text-align:center;background:#004fd3;border:1px solid #c3d64c;border-radius:50%;color:#c3d64c;font-size:15pt;font-weight:bold}
+            .grant-row{height:12mm;vertical-align:middle}.grant{font-size:13pt;color:#55708d}.name-row{height:28mm;vertical-align:middle}
+            .name{font-family:serif;font-size:24pt;line-height:1.15;color:#004fd3;border-bottom:2px solid #c3d64c;padding:0 8mm 4mm;display:inline-block}.text-row{height:34mm;vertical-align:top}
+            .copy-table{width:100mm;border-collapse:collapse}.copy-table td{padding:0;text-align:center}.copy{font-size:13pt;line-height:1.65;color:#38516b;margin:0}
+            .space-row{height:61mm}.footer-row{height:28mm;vertical-align:middle}.footer{font-size:10.5pt;line-height:1.6;color:#61758d}.footer strong{color:#004fd3}.bottom{height:5mm;background:#004fd3}
+        </style>
+        <table class="frame" cellspacing="0" cellpadding="0">
+            <tr><td colspan="5" class="header"></td></tr><tr><td colspan="5" class="accent"></td></tr><tr>
+                <td class="blue-side"></td><td class="lime-side"></td><td class="body-cell"><table class="layout" cellspacing="0" cellpadding="0">
+                    <tr><td class="logo-row"><img class="logo" src="' . $escape($logoPath) . '" alt="Maxikash"></td></tr>
+                    <tr><td class="title-row"><div class="title">' . $escape($content['title']) . '</div></td></tr>
+                    <tr><td class="recognition-row"><table width="100%" cellspacing="0" cellpadding="0"><tr><td width="25%" align="right"><span class="honor-mark">&#9733;</span></td><td width="50%"><div class="recognition">' . $escape($content['recognition']) . '</div></td><td width="25%" align="left"><span class="honor-mark">&#9733;</span></td></tr></table></td></tr>
+                    <tr><td class="grant-row"><div class="grant">' . $escape($content['grant']) . '</div></td></tr><tr><td class="name-row"><div class="name">' . $safeName . '</div></td></tr>
+                    <tr><td class="text-row"><table class="copy-table" align="center" cellspacing="0" cellpadding="0"><tr><td><p class="copy">' . $escape($content['body']) . '</p></td></tr></table></td></tr><tr><td class="space-row"></td></tr>
+                    <tr><td class="footer-row"><table width="100%" cellspacing="0" cellpadding="0"><tr><td width="50%" class="footer"><strong>' . $issuer . '</strong></td><td width="50%" class="footer">' . ($isSpecialized ? $escape($content['right']) : $content['right']) . '</td></tr></table></td></tr>
+                </table></td><td class="lime-side"></td><td class="blue-side"></td>
+            </tr><tr><td colspan="5" class="bottom"></td></tr>
+        </table>';
+    }
+
+    /**
+     * Consulta y registra el avance persistente del usuario autenticado.
+     * El identificador nunca se recibe desde el navegador: se obtiene de sesión.
+     * URL: /onboarding/progress
+     */
+    public function progress()
+    {
+        $usuarioId = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        if ($usuarioId <= 0) {
+            self::respuestaJSON(['success' => false, 'message' => 'No se encontró una sesión de usuario válida.']);
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $database = self::readProgressDatabase();
+            $record = $database['users'][(string) $usuarioId] ?? self::emptyProgressRecord($usuarioId);
+            self::respuestaJSON(['success' => true, 'data' => self::formatProgressRecord($record)]);
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            self::respuestaJSON(['success' => false, 'message' => 'Método no permitido.']);
+        }
+
+        $body = json_decode((string) file_get_contents('php://input'), true);
+        $action = is_array($body) ? (string) ($body['action'] ?? '') : '';
+        $module = is_array($body) ? (string) ($body['module'] ?? '') : '';
+        $score = is_array($body) ? (int) ($body['score'] ?? 0) : 0;
+        $allowedActions = ['video_complete', 'corporate_quiz_complete', 'specialized_quiz_complete', 'feedback_sent', 'celebration_shown'];
+        if (!in_array($action, $allowedActions, true)) {
+            http_response_code(422);
+            self::respuestaJSON(['success' => false, 'message' => 'Acción de avance no válida.']);
+        }
+        if ($action === 'video_complete' && $module !== 'bienvenida' && !in_array($module, self::MODULE_PROGRESS_KEYS, true)) {
+            http_response_code(422);
+            self::respuestaJSON(['success' => false, 'message' => 'Módulo de video no válido.']);
+        }
+        if ($action === 'specialized_quiz_complete' && ($score < 8 || $score > 10)) {
+            http_response_code(422);
+            self::respuestaJSON(['success' => false, 'message' => 'La calificación especializada no es válida.']);
+        }
+
+        $record = self::updateProgressRecord($usuarioId, $action, $module, $score);
+        self::respuestaJSON(['success' => true, 'data' => self::formatProgressRecord($record)]);
+    }
+
+    private static function progressDatabasePath(): string
+    {
+        return RAIZ . '/storage/onboarding/progress.json';
+    }
+
+    private static function emptyProgressRecord(int $usuarioId): array
+    {
+        return [
+            'id_usuario' => $usuarioId,
+            'videos' => ['bienvenida' => false, 'modulos' => []],
+            'evaluaciones' => ['corporativa' => false, 'especializada' => false],
+            'feedback' => false,
+            'finalizado' => false,
+            'celebracion_mostrada' => false,
+            'updated_at' => null,
+        ];
+    }
+
+    private static function readProgressDatabase(): array
+    {
+        $path = self::progressDatabasePath();
+        if (!is_file($path)) {
+            return ['version' => 1, 'users' => []];
+        }
+        $content = file_get_contents($path);
+        $database = is_string($content) ? json_decode($content, true) : null;
+        return is_array($database) && isset($database['users']) && is_array($database['users'])
+            ? $database
+            : ['version' => 1, 'users' => []];
+    }
+
+    private static function updateProgressRecord(int $usuarioId, string $action, string $module, int $score = 0): array
+    {
+        $path = self::progressDatabasePath();
+        $directory = dirname($path);
+        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+            throw new \RuntimeException('No se pudo preparar el almacenamiento de avance.');
+        }
+        $handle = fopen($path, 'c+');
+        if ($handle === false || !flock($handle, LOCK_EX)) {
+            throw new \RuntimeException('No se pudo bloquear el archivo de avance.');
+        }
+        try {
+            rewind($handle);
+            $content = stream_get_contents($handle);
+            $database = is_string($content) ? json_decode($content, true) : null;
+            if (!is_array($database) || !isset($database['users']) || !is_array($database['users'])) {
+                $database = ['version' => 1, 'users' => []];
+            }
+            $key = (string) $usuarioId;
+            $record = $database['users'][$key] ?? self::emptyProgressRecord($usuarioId);
+            if ($action === 'video_complete') {
+                if ($module === 'bienvenida') $record['videos']['bienvenida'] = true;
+                else $record['videos']['modulos'][$module] = true;
+            } elseif ($action === 'corporate_quiz_complete') {
+                $record['evaluaciones']['corporativa'] = true;
+            } elseif ($action === 'specialized_quiz_complete') {
+                $record['evaluaciones']['especializada'] = true;
+                $record['evaluaciones']['especializada_score'] = $score;
+            } elseif ($action === 'feedback_sent') {
+                $record['feedback'] = true;
+            } elseif ($action === 'celebration_shown' && !empty($record['finalizado'])) {
+                $record['celebracion_mostrada'] = true;
+            }
+            $completedModules = count(array_intersect(self::MODULE_PROGRESS_KEYS, array_keys(array_filter($record['videos']['modulos'] ?? []))));
+            $record['finalizado'] = !empty($record['videos']['bienvenida'])
+                && $completedModules === count(self::MODULE_PROGRESS_KEYS)
+                && !empty($record['evaluaciones']['corporativa'])
+                && !empty($record['evaluaciones']['especializada'])
+                && !empty($record['feedback']);
+            if ($action === 'celebration_shown' && $record['finalizado']) {
+                $record['celebracion_mostrada'] = true;
+            }
+            $record['id_usuario'] = $usuarioId;
+            $record['updated_at'] = date(DATE_ATOM);
+            $database['users'][$key] = $record;
+
+            $encoded = json_encode($database, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            if ($encoded === false) throw new \RuntimeException('No se pudo codificar el avance.');
+            rewind($handle);
+            if (!ftruncate($handle, 0) || fwrite($handle, $encoded) === false || !fflush($handle)) {
+                throw new \RuntimeException('No se pudo guardar el avance.');
+            }
+            return $record;
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
+    }
+
+    private static function formatProgressRecord(array $record): array
+    {
+        $moduleCount = count(array_filter($record['videos']['modulos'] ?? []));
+        $moduleCount = min(count(self::MODULE_PROGRESS_KEYS), $moduleCount);
+        $total = (empty($record['videos']['bienvenida']) ? 0 : self::PROGRESS_WEIGHTS['bienvenida'])
+            + ($moduleCount * self::PROGRESS_WEIGHTS['modulo'])
+            + (empty($record['evaluaciones']['corporativa']) ? 0 : self::PROGRESS_WEIGHTS['corporativo'])
+            + (empty($record['evaluaciones']['especializada']) ? 0 : self::PROGRESS_WEIGHTS['especializado'])
+            + (empty($record['feedback']) ? 0 : self::PROGRESS_WEIGHTS['feedback']);
+        $record['progress'] = ['percentage' => min(100, $total), 'completed_modules' => $moduleCount, 'total_modules' => count(self::MODULE_PROGRESS_KEYS)];
+        $record['finalizado'] = !empty($record['finalizado']) || $total === 100;
+        $record['celebracion_mostrada'] = !empty($record['celebracion_mostrada']);
+        return $record;
     }
 
     /**
