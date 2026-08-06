@@ -98,17 +98,28 @@ final class FadRrhhServiceTest extends TestCase
     public function testCatalogoSeparaEmpresaFirmanteLegalYPaginacion(): void
     {
         $catalog = new \Services\FadRrhhTemplateCatalog();
+        $amigo = $catalog->get('AMIGO_GENERAL_NUEVO');
         $pensionamax = $catalog->get('PENSIONAMAX_NUEVO');
         $actualizacion = $catalog->get('AMIGO_ACTUALIZACION');
 
+        self::assertSame(0.50, $amigo['legal_signatures'][8]['positionY1']);
+        self::assertSame(0.60, $amigo['worker_signatures'][8]['positionY2']);
         self::assertSame('MARIA DEL CARMEN JARAMILLO CAMACHO', $pensionamax['legal_signer_name']);
         self::assertSame(10, $pensionamax['expected_pages']);
         self::assertCount(10, $pensionamax['worker_signatures']);
         self::assertCount(10, $pensionamax['legal_signatures']);
+        self::assertSame(0.68, $pensionamax['legal_signatures'][9]['positionY1']);
+        self::assertSame(0.78, $pensionamax['worker_signatures'][9]['positionY2']);
         self::assertSame('GABRIELA LUCERO SANCHEZ', $actualizacion['legal_signer_name']);
         self::assertSame(9, $actualizacion['expected_pages']);
         self::assertSame('EMPLOYEE', $actualizacion['subject_scope']);
+        self::assertSame(0.66, $actualizacion['legal_signatures'][8]['positionY1']);
+        self::assertSame(0.76, $actualizacion['worker_signatures'][8]['positionY2']);
         self::assertSame('CANDIDATE', $pensionamax['subject_scope']);
+        self::assertTrue($pensionamax['generator_supported']);
+        self::assertSame(1, $pensionamax['beneficiaries_required']);
+        self::assertTrue($actualizacion['generator_supported']);
+        self::assertSame(2, $actualizacion['beneficiaries_required']);
     }
 
     public function testContratoDeActualizacionNoApareceEnFlujoDeCandidato(): void

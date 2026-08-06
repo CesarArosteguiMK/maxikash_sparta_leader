@@ -639,11 +639,12 @@ def open_original_helmet_face(obj):
     minimum, maximum = mesh_vertex_bounds(obj)
     size = maximum - minimum
     center_x = (minimum.x + maximum.x) * 0.5
-    bottom = minimum.z + size.z * 0.12
-    eye_bottom = minimum.z + size.z * 0.48
-    eye_top = minimum.z + size.z * 0.64
-    eye_half_width = size.x * 0.34
-    nose_half_width = size.x * 0.085
+    bottom = minimum.z + size.z * 0.16
+    eye_bottom = minimum.z + size.z * 0.49
+    eye_top = minimum.z + size.z * 0.59
+    eye_half_width = size.x * 0.30
+    bridge_half_width = size.x * 0.055
+    lower_half_width = size.x * 0.15
     front_limit = minimum.y + size.y * 0.31
     inverse = obj.matrix_world.inverted()
     normal_matrix = obj.matrix_world.to_3x3().transposed()
@@ -668,8 +669,10 @@ def open_original_helmet_face(obj):
     bisect_world((0.0, 0.0, eye_top), (0.0, 0.0, 1.0))
     bisect_world((center_x + eye_half_width, 0.0, 0.0), (1.0, 0.0, 0.0))
     bisect_world((center_x - eye_half_width, 0.0, 0.0), (1.0, 0.0, 0.0))
-    bisect_world((center_x + nose_half_width, 0.0, 0.0), (1.0, 0.0, 0.0))
-    bisect_world((center_x - nose_half_width, 0.0, 0.0), (1.0, 0.0, 0.0))
+    bisect_world((center_x + bridge_half_width, 0.0, 0.0), (1.0, 0.0, 0.0))
+    bisect_world((center_x - bridge_half_width, 0.0, 0.0), (1.0, 0.0, 0.0))
+    bisect_world((center_x + lower_half_width, 0.0, 0.0), (1.0, 0.0, 0.0))
+    bisect_world((center_x - lower_half_width, 0.0, 0.0), (1.0, 0.0, 0.0))
     bisect_world((0.0, front_limit, 0.0), (0.0, 1.0, 0.0))
 
     remove = []
@@ -679,9 +682,12 @@ def open_original_helmet_face(obj):
             continue
         horizontal_opening = (
             eye_bottom < center.z < eye_top
-            and abs(center.x - center_x) < eye_half_width
+            and bridge_half_width < abs(center.x - center_x) < eye_half_width
         )
-        vertical_opening = abs(center.x - center_x) < nose_half_width
+        vertical_opening = (
+            bottom < center.z < eye_bottom
+            and abs(center.x - center_x) < lower_half_width
+        )
         if horizontal_opening or vertical_opening:
             remove.append(face)
 
@@ -691,12 +697,91 @@ def open_original_helmet_face(obj):
     loose = [vertex for vertex in mesh.verts if not vertex.link_faces]
     if loose:
         bmesh.ops.delete(mesh, geom=loose, context='VERTS')
+
+    # El vacio inferior de la T deja ver la piel. Esta pieza es metal real,
+    # no una mascara pintada: tiene grosor, conicidad y un nervio frontal que
+    # produce sombras propias cuando se gira la cabeza.
+    new_vertices = []
+
+    def create_prism(front_points, depth):
+        front = [
+            mesh.verts.new(inverse @ Vector(point))
+            for point in front_points
+        ]
+        back = [
+            mesh.verts.new(
+                inverse @ Vector((point[0], point[1] + depth, point[2]))
+            )
+            for point in front_points
+        ]
+        new_vertices.extend(front)
+        new_vertices.extend(back)
+        mesh.faces.new(front)
+        mesh.faces.new(list(reversed(back)))
+        count = len(front)
+        for index in range(count):
+            next_index = (index + 1) % count
+            mesh.faces.new((
+                front[index],
+                back[index],
+                back[next_index],
+                front[next_index],
+            ))
+
+    # Medimos la superficie frontal de la ceja original. La raiz del nasal se
+    # introduce ligeramente en ella para que ambos volúmenes compartan sombra
+    # y silueta, en vez de parecer dos piezas flotantes superpuestas.
+    brow_surface_y = minimum.y
+    brow_candidates = []
+    for vertex in mesh.verts:
+        point = obj.matrix_world @ vertex.co
+        if (
+            abs(point.x - center_x) < size.x * 0.13
+            and eye_top - size.z * 0.015 < point.z < eye_top + size.z * 0.12
+            and point.y < front_limit
+        ):
+            brow_candidates.append(point.y)
+    if brow_candidates:
+        brow_surface_y = min(brow_candidates)
+
+    guard_root_y = brow_surface_y + size.y * 0.008
+    guard_nose_y = brow_surface_y - size.y * 0.006
+    guard_tip_y = brow_surface_y - size.y * 0.002
+    guard_root_top = eye_top + size.z * 0.075
+    guard_bridge = eye_top - size.z * 0.008
+    guard_bottom = minimum.z + size.z * 0.285
+    guard_root_half = size.x * 0.080
+    guard_shoulder_half = size.x * 0.052
+    guard_tip_half = size.x * 0.028
+    create_prism(
+        (
+            (center_x - guard_root_half, guard_root_y, guard_root_top),
+            (center_x - guard_shoulder_half, guard_root_y, guard_bridge),
+            (center_x - guard_tip_half, guard_nose_y, guard_bottom + size.z * 0.025),
+            (center_x, guard_tip_y, guard_bottom),
+            (center_x + guard_tip_half, guard_nose_y, guard_bottom + size.z * 0.025),
+            (center_x + guard_shoulder_half, guard_root_y, guard_bridge),
+            (center_x + guard_root_half, guard_root_y, guard_root_top),
+        ),
+        size.y * 0.055,
+    )
+
     bmesh.ops.recalc_face_normals(mesh, faces=list(mesh.faces))
+    mesh.verts.index_update()
+    new_vertex_indices = [vertex.index for vertex in new_vertices]
     mesh.to_mesh(obj.data)
     mesh.free()
-    obj['leonidasHelmetFaceOpening'] = 't-visor-embedded-face-v2'
+    if new_vertex_indices:
+        head_group = obj.vertex_groups.get('mixamorig:Head')
+        if head_group is None:
+            head_group = obj.vertex_groups.new(name='mixamorig:Head')
+        head_group.add(new_vertex_indices, 1.0, 'REPLACE')
+    obj['leonidasHelmetFaceOpening'] = 't-visor-integrated-nose-v4'
     obj['leonidasHelmetFaceOpeningFaces'] = removed_count
+    obj['leonidasHelmetNoseGuard'] = 'integrated-contoured-prism-v2'
+    obj['leonidasHelmetNoseGuardVertices'] = len(new_vertex_indices)
     print('LEONIDAS_HELMET_FACE_OPENING', removed_count)
+    print('LEONIDAS_HELMET_NOSE_GUARD', len(new_vertex_indices))
 
 
 def is_confident_skin(pixel):

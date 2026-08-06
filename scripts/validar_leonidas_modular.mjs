@@ -108,8 +108,10 @@ if (!configuredAsset) {
             fail('helmet no conserva la geometria esculpida de alta densidad');
         } else if (
             found.helmet.node.extras?.leonidasHelmetConstruction !== 'original-source'
-            || found.helmet.node.extras?.leonidasHelmetFaceOpening !== 't-visor-embedded-face-v2'
+            || found.helmet.node.extras?.leonidasHelmetFaceOpening !== 't-visor-integrated-nose-v4'
             || Number(found.helmet.node.extras?.leonidasHelmetFaceOpeningFaces || 0) < 1
+            || found.helmet.node.extras?.leonidasHelmetNoseGuard !== 'integrated-contoured-prism-v2'
+            || Number(found.helmet.node.extras?.leonidasHelmetNoseGuardVertices || 0) < 14
             || (document.meshes?.[found.helmet.node.mesh]?.primitives || []).length !== 1
         ) {
             fail('helmet no conserva la carcasa con un visor geometrico limpio');

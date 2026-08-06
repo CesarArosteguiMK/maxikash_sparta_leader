@@ -29,6 +29,10 @@ TEMPLATES = {
         "path": ROOT / "backend/storage/fad_rrhh_templates/pensionamax_nuevo.docx",
         "sha256": "eaceeb2db9599a4ca3d16122748807bf27bda74df641a243fa5a0c04835dd847",
     },
+    "AMIGO_ACTUALIZACION": {
+        "path": ROOT / "backend/storage/fad_rrhh_templates/amigo_actualizacion.docx",
+        "sha256": "70309f41fc5e88d035e85e2aa4669795aa5a4f7e3f1a30eb8f6b287bb04bd635",
+    },
 }
 
 
@@ -188,10 +192,13 @@ def set_worker_signature_name(root: etree._Element, value: str) -> None:
     if not paragraphs:
         paragraph = etree.SubElement(cells[1], W + "p")
         paragraphs = [paragraph]
-    replace_whole_text(paragraphs[0], "EL TRABAJADOR " + value)
+    replace_whole_text(paragraphs[0], "EL TRABAJADOR")
+    if len(paragraphs) < 2:
+        paragraphs.append(etree.SubElement(cells[1], W + "p"))
+    replace_whole_text(paragraphs[1], value)
     # Algunos machotes conservan una segunda línea compuesta únicamente por
     # asteriscos. Es un marcador del ejemplo, no un dato contractual.
-    for paragraph in paragraphs[1:]:
+    for paragraph in paragraphs[2:]:
         if re.fullmatch(r"\s*\*{3,}\s*", element_text(paragraph)):
             replace_whole_text(paragraph, "")
 
@@ -260,7 +267,8 @@ def fill_amigo(root: etree._Element, data: dict) -> None:
     replace_whole_text(
         salary,
         f"11.- El salario mensual será por la cantidad de ${data['salary']:,.2f} "
-        f"({data['salary_words']} PESOS 00/100 M.N.) netos, y se pagará conforme a lo establecido con anterioridad.",
+        f"({data['salary_words']} PESOS {int(data.get('salary_cents', round((data['salary'] % 1) * 100))):02d}/100 M.N.) brutos, "
+        "y se pagará conforme a lo establecido con anterioridad.",
     )
     replace_whole_text(
         find_body_paragraph(root, "se firma de forma electrónica"),
@@ -292,11 +300,51 @@ def fill_pensionamax(root: etree._Element, data: dict) -> None:
     replace_whole_text(
         salary,
         f"12.- El salario mensual será por la cantidad de ${data['salary']:,.2f} "
-        f"({data['salary_words']} PESOS 00/100 M.N.) netos, y se pagará conforme a lo establecido con anterioridad.",
+        f"({data['salary_words']} PESOS {int(data.get('salary_cents', round((data['salary'] % 1) * 100))):02d}/100 M.N.) brutos, "
+        "y se pagará conforme a lo establecido con anterioridad.",
     )
     replace_whole_text(
         find_body_paragraph(root, "para constancia y efectos legales"),
         "Ambas partes manifiestan que en el contrato no existe error, dolo, mala fe o vicio del consentimiento; "
+        f"se firma electrónicamente para constancia y efectos legales el {data['signature_date_text']}.",
+    )
+    set_worker_signature_name(root, data["full_name"])
+
+
+def fill_amigo_actualizacion(root: etree._Element, data: dict) -> None:
+    replace_across_nodes(find_body_paragraph(root, "POR LA OTRA PARTE EL C."), "*****************", data["full_name"])
+    fill_common_tables(root, data, include_gender=True)
+    replace_whole_text(find_body_paragraph(root, "designa como beneficiarios"), beneficiary_text(data, 2))
+    replace_whole_text(
+        find_body_paragraph(root, "autoriza que su salario sea pagado"),
+        f"6.- “EL TRABAJADOR” autoriza que su salario sea pagado por transferencia electrónica a la CLABE "
+        f"{data['clabe']}, cuenta {data['account_number']}, de {data['bank']}.",
+    )
+    original_salary_cents = int(data.get("original_salary_cents", round((data["original_salary"] % 1) * 100)))
+    replace_whole_text(
+        find_body_paragraph(root, "reconoce la antigüedad"),
+        f"8.- “EL PATRÓN” en este acto reconoce la antigüedad de “EL TRABAJADOR”, quien ingresó el "
+        f"{data['original_start_date_text']}, con el puesto de {data['original_position']}, con un salario de "
+        f"${data['original_salary']:,.2f} ({data['original_salary_words']} PESOS {original_salary_cents:02d}/100 M.N.), "
+        f"y actualmente desempeña el puesto de {data['position']} con un salario de ${data['salary']:,.2f} "
+        f"({data['salary_words']} PESOS {int(data.get('salary_cents', round((data['salary'] % 1) * 100))):02d}/100 M.N.).",
+    )
+    position = find_body_paragraph(root, "teniendo como actividades principales")
+    replace_across_nodes(position, "*******************", data["position"])
+    replace_across_nodes(
+        position,
+        "teniendo como actividades principales las siguientes: _________________________",
+        "teniendo como actividades principales las siguientes: " + "; ".join(data["activities"]) + ".",
+    )
+    replace_whole_text(
+        find_body_paragraph(root, "El salario mensual será por la cantidad"),
+        f"11.- El salario mensual será por la cantidad de ${data['salary']:,.2f} "
+        f"({data['salary_words']} PESOS {int(data.get('salary_cents', round((data['salary'] % 1) * 100))):02d}/100 M.N.) brutos, "
+        "y se pagará conforme a lo establecido con anterioridad.",
+    )
+    replace_whole_text(
+        find_body_paragraph(root, "se firma de forma electrónica"),
+        "Ambas partes manifiestan que en el contrato no existe error, dolo, mala fe o algún vicio del consentimiento; "
         f"se firma electrónicamente para constancia y efectos legales el {data['signature_date_text']}.",
     )
     set_worker_signature_name(root, data["full_name"])
@@ -315,7 +363,7 @@ def add_demo_footer(root: etree._Element) -> None:
     text.text = "DATOS FICTICIOS - DOCUMENTO DE DEMOSTRACIÓN - SIN VALIDEZ"
 
 
-def validate_data(data: dict) -> None:
+def validate_data(data: dict, template_code: str) -> None:
     required = [
         "full_name", "nationality", "sex", "age", "marital_status", "rfc", "curp", "nss",
         "address", "emergency_contacts", "clabe", "account_number", "bank", "position", "activities",
@@ -326,6 +374,11 @@ def validate_data(data: dict) -> None:
         raise RuntimeError("Faltan datos contractuales: " + ", ".join(missing))
     if len(data["activities"]) < 3:
         raise RuntimeError("Se requieren al menos tres actividades del puesto.")
+    if template_code == "AMIGO_ACTUALIZACION":
+        update_required = ["original_start_date_text", "original_position", "original_salary", "original_salary_words"]
+        update_missing = [key for key in update_required if data.get(key) in (None, "", [])]
+        if update_missing:
+            raise RuntimeError("Faltan datos originales del colaborador: " + ", ".join(update_missing))
 
 
 def generate(template_code: str, data: dict, output: Path, demo: bool) -> dict:
@@ -335,7 +388,7 @@ def generate(template_code: str, data: dict, output: Path, demo: bool) -> dict:
     source = Path(config["path"])
     if sha256(source) != config["sha256"]:
         raise RuntimeError("El machote cambió; se requiere revisar nuevamente sus campos y formato.")
-    validate_data(data)
+    validate_data(data, template_code)
     output.parent.mkdir(parents=True, exist_ok=True)
 
     with zipfile.ZipFile(source, "r") as source_zip, tempfile.TemporaryDirectory() as temp_dir:
@@ -349,8 +402,10 @@ def generate(template_code: str, data: dict, output: Path, demo: bool) -> dict:
         remove_highlights(root)
         if template_code == "AMIGO_GENERAL_NUEVO":
             fill_amigo(root, data)
-        else:
+        elif template_code == "PENSIONAMAX_NUEVO":
             fill_pensionamax(root, data)
+        else:
+            fill_amigo_actualizacion(root, data)
         document_path.write_bytes(etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone="yes"))
 
         if demo:
@@ -375,7 +430,14 @@ def generate(template_code: str, data: dict, output: Path, demo: bool) -> dict:
     with zipfile.ZipFile(output, "r") as final_zip:
         final_xml = final_zip.read("word/document.xml").decode("utf-8", "ignore")
     plain = re.sub(r"<[^>]+>", "", final_xml)
-    forbidden = ["COORDINADOR DE SEMINUEVAS", "$35,000.00"]
+    forbidden = [
+        "COORDINADOR DE SEMINUEVAS",
+        "$35,000.00",
+        "quien ingresó el día ___",
+        "con un salario de $_________________",
+        "teniendo como actividades principales las siguientes: _________________________",
+        "a los _______________ días",
+    ]
     remaining = [value for value in forbidden if value in plain]
     if (remaining or re.search(r"\*{3,}", plain) or "w:highlight" in final_xml
             or re.search(r"<w:ins\b", final_xml)

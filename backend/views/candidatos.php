@@ -501,6 +501,68 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
     </div>
 </div>
 
+<!-- Revisión de datos contractuales antes de generar y enviar a FAD -->
+<div class="modal fade" id="modalDatosContratoFad" tabindex="-1" aria-labelledby="modalDatosContratoFadLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <div>
+                    <h5 class="modal-title" id="modalDatosContratoFadLabel"><i class="fa fa-file-signature me-2 text-danger"></i>Revisar contrato para FAD</h5>
+                    <div class="small text-muted">Verifica los datos extraídos y completa únicamente los campos pendientes.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="fadContratoIdCandidato">
+                <div class="alert alert-info py-2 mb-3">
+                    <strong id="fadContratoEmpresa">Empresa</strong>
+                    <span class="ms-2" id="fadContratoLegal"></span>
+                </div>
+                <div id="fadContratoAvisos" class="alert alert-warning d-none"></div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Tipo de contrato <span class="text-danger">*</span></label>
+                        <select id="fadTemplateCode" class="form-select"></select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Nombre completo <span class="text-danger">*</span></label>
+                        <input class="form-control" data-fad-field="full_name">
+                        <small class="text-muted" data-fad-source="full_name"></small>
+                    </div>
+                    <div class="col-md-3"><label class="form-label">Nacionalidad *</label><input class="form-control" data-fad-field="nationality"><small class="text-muted" data-fad-source="nationality"></small></div>
+                    <div class="col-md-3"><label class="form-label">Fecha de nacimiento</label><input type="date" class="form-control" data-fad-field="birth_date"><small class="text-muted" data-fad-source="birth_date"></small></div>
+                    <div class="col-md-2"><label class="form-label">Edad *</label><input type="number" min="18" max="99" class="form-control" data-fad-field="age"><small class="text-muted" data-fad-source="age"></small></div>
+                    <div class="col-md-2"><label class="form-label">Sexo *</label><select class="form-select" data-fad-field="sex"><option value="">Selecciona</option><option>MASCULINO</option><option>FEMENINO</option></select><small class="text-muted" data-fad-source="sex"></small></div>
+                    <div class="col-md-2"><label class="form-label">Estado civil *</label><input class="form-control" data-fad-field="marital_status"><small class="text-muted" data-fad-source="marital_status"></small></div>
+                    <div class="col-md-4"><label class="form-label">CURP *</label><input maxlength="18" class="form-control text-uppercase" data-fad-field="curp"><small class="text-muted" data-fad-source="curp"></small></div>
+                    <div class="col-md-4"><label class="form-label">RFC *</label><input maxlength="13" class="form-control text-uppercase" data-fad-field="rfc"><small class="text-muted" data-fad-source="rfc"></small></div>
+                    <div class="col-md-4"><label class="form-label">NSS *</label><input maxlength="11" inputmode="numeric" class="form-control" data-fad-field="nss"><small class="text-muted" data-fad-source="nss"></small></div>
+                    <div class="col-md-8"><label class="form-label">Domicilio completo *</label><input class="form-control" data-fad-field="address"><small class="text-muted" data-fad-source="address"></small></div>
+                    <div class="col-md-4"><label class="form-label">Teléfono *</label><input class="form-control" data-fad-field="phone"><small class="text-muted" data-fad-source="phone"></small></div>
+                    <div class="col-md-6"><label class="form-label">Correo personal *</label><input type="email" class="form-control" data-fad-field="email"><small class="text-muted" data-fad-source="email"></small></div>
+                    <div class="col-md-6"><label class="form-label">Contacto(s) de emergencia *</label><input class="form-control" data-fad-field="emergency_contacts"><small class="text-muted" data-fad-source="emergency_contacts"></small></div>
+                    <div class="col-md-4"><label class="form-label">Banco *</label><input class="form-control" data-fad-field="bank"><small class="text-muted" data-fad-source="bank"></small></div>
+                    <div class="col-md-4"><label class="form-label">CLABE (18 dígitos) *</label><input maxlength="18" inputmode="numeric" class="form-control" data-fad-field="clabe"><small class="text-muted" data-fad-source="clabe"></small></div>
+                    <div class="col-md-4"><label class="form-label">Número de cuenta *</label><input class="form-control" data-fad-field="account_number"><small class="text-muted" data-fad-source="account_number"></small></div>
+                    <div class="col-md-5"><label class="form-label">Puesto *</label><input class="form-control" data-fad-field="position"><small class="text-muted" data-fad-source="position"></small></div>
+                    <div class="col-md-3"><label class="form-label">Sueldo bruto mensual *</label><input type="number" min="0.01" step="0.01" class="form-control" data-fad-field="salary"><small class="text-muted" data-fad-source="salary"></small></div>
+                    <div class="col-md-4"><label class="form-label">Fecha de ingreso *</label><input type="date" class="form-control" data-fad-field="start_date"><small class="text-muted" data-fad-source="start_date"></small></div>
+                    <div class="col-12"><label class="form-label">Actividades principales (mínimo tres, una por línea) *</label><textarea rows="3" class="form-control" data-fad-field="activities"></textarea><small class="text-muted" data-fad-source="activities"></small></div>
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center mb-2"><label class="form-label mb-0">Beneficiarios (deben sumar 100%) *</label><button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarBeneficiarioFad"><i class="fa fa-plus me-1"></i>Agregar</button></div>
+                        <div id="fadBeneficiarios"></div>
+                        <small class="text-muted" data-fad-source="beneficiaries"></small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnEnviarContratoFadConfirmado"><i class="fa fa-paper-plane me-1"></i>Generar y enviar a FAD</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Agregar Candidato -->
 <div class="modal fade" id="offcanvasAddCandidato" tabindex="-1" aria-labelledby="offcanvasCandidatoTitulo" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">

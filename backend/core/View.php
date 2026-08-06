@@ -1948,6 +1948,11 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                                 <i class="fas fa-arrows-rotate"></i>
                                 Arrastra para girar
                             </span>
+                            <button type="button" class="leonidas-appearance-preview__greeting"
+                                    data-leonidas-greeting-preview aria-pressed="false">
+                                <i class="fa-solid fa-hand" aria-hidden="true"></i>
+                                <span>Probar saludo</span>
+                            </button>
                             <span data-leonidas-appearance-name>Corporativo</span>
                         </section>
                         <section class="leonidas-appearance-controls">

@@ -343,9 +343,9 @@ try {
             ['origen' => ORIGEN_PLANTILLA]
         );
 
-        // El Excel es la fuente de plantilla vigente. Un activo que no aparece
-        // en ese padrón se conserva en Sparta, pero queda identificado como
-        // externo y no debe formar parte de los expedientes RR.HH.
+        // Quien aparece en la plantilla de RR.HH. es interno. No se infiere lo
+        // contrario por ausencia: puede ser un alta posterior o un padrón parcial.
+        // La marca Externo solo se asigna explícitamente al registrar a la persona.
         $db->CRUD("
             UPDATE estado_cuenta.persona p
             INNER JOIN estado_cuenta.rrhh_plantilla_activa pla
@@ -354,16 +354,6 @@ try {
             SET p.es_externo = 0
             WHERE p.estatus = 'Activo'
               AND COALESCE(p.es_externo, 0) <> 0
-        ");
-        $db->CRUD("
-            UPDATE estado_cuenta.persona p
-            LEFT JOIN estado_cuenta.rrhh_plantilla_activa pla
-                ON pla.id_persona = p.id
-               AND pla.activo = 1
-            SET p.es_externo = 1
-            WHERE p.estatus = 'Activo'
-              AND pla.id_persona IS NULL
-              AND COALESCE(p.es_externo, 0) = 0
         ");
         $db->commit();
     } catch (Throwable $e) {

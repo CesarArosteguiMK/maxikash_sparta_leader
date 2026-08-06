@@ -14,6 +14,7 @@
     var statusBox = modalElement.querySelector('[data-leonidas-appearance-status]');
     var saveButton = modalElement.querySelector('[data-leonidas-appearance-save]');
     var resetButton = modalElement.querySelector('[data-leonidas-appearance-reset]');
+    var greetingPreviewButton = modalElement.querySelector('[data-leonidas-greeting-preview]');
     var colorInputs = modalElement.querySelectorAll('[data-leonidas-color]');
     var gearControls = modalElement.querySelector('[data-leonidas-gear-controls]');
     var gearNote = modalElement.querySelector('[data-leonidas-gear-note]');
@@ -28,6 +29,7 @@
     var modal = null;
     var acceptClose = false;
     var renderTimer = null;
+    var greetingPreviewTimer = null;
     var editorOpen = false;
     var liveModelHome = null;
     var liveModelNextSibling = null;
@@ -116,6 +118,7 @@
     function setBusy(busy) {
         if (saveButton) saveButton.disabled = busy;
         if (resetButton) resetButton.disabled = busy;
+        if (greetingPreviewButton) greetingPreviewButton.disabled = busy;
         colorInputs.forEach(function (input) { input.disabled = busy; });
         gearInputs.forEach(function (input) { input.disabled = busy; });
         helmetModelInputs.forEach(function (input) {
@@ -126,6 +129,42 @@
                 button.disabled = busy;
             });
         }
+    }
+
+    function stopGreetingPreview() {
+        window.clearTimeout(greetingPreviewTimer);
+        window.clearTimeout(root._leonidasGreetingTimer);
+        greetingPreviewTimer = null;
+        root._leonidasGreetingTimer = null;
+        root.classList.remove('is-greeting');
+        if (!greetingPreviewButton) return;
+        greetingPreviewButton.classList.remove('is-active');
+        greetingPreviewButton.setAttribute('aria-pressed', 'false');
+        var label = greetingPreviewButton.querySelector('span');
+        if (label) label.textContent = 'Probar saludo';
+    }
+
+    function playGreetingPreview() {
+        if (!root.classList.contains('is-3d-ready')) {
+            setStatus('La vista 3D de Leonidas todavia se esta preparando.', 'loading');
+            return;
+        }
+        window.clearTimeout(greetingPreviewTimer);
+        window.clearTimeout(root._leonidasGreetingTimer);
+        root.classList.remove('is-victory', 'is-greeting');
+        root.dispatchEvent(new CustomEvent('leonidas:preview-rotation', {
+            detail: { radians: 0 }
+        }));
+        // Fuerza un nuevo flanco incluso cuando se pulsa varias veces seguido.
+        window.requestAnimationFrame(function () {
+            root.classList.add('is-greeting');
+            greetingPreviewButton.classList.add('is-active');
+            greetingPreviewButton.setAttribute('aria-pressed', 'true');
+            var label = greetingPreviewButton.querySelector('span');
+            if (label) label.textContent = 'Saludando...';
+            greetingPreviewTimer = window.setTimeout(stopGreetingPreview, 2600);
+            root._leonidasGreetingTimer = greetingPreviewTimer;
+        });
     }
 
     function updateControls() {
@@ -436,6 +475,10 @@
         button.addEventListener('click', showEditor);
     });
 
+    if (greetingPreviewButton) {
+        greetingPreviewButton.addEventListener('click', playGreetingPreview);
+    }
+
     colorInputs.forEach(function (input) {
         input.addEventListener('input', function () {
             var field = input.getAttribute('data-leonidas-color');
@@ -538,6 +581,7 @@
 
     modalElement.addEventListener('hidden.bs.modal', function () {
         editorOpen = false;
+        stopGreetingPreview();
         detachLiveModel();
         if (!acceptClose) applyAppearance(savedAppearance);
         acceptClose = false;

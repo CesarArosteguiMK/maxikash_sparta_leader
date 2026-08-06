@@ -70,6 +70,42 @@ final class FadRrhhPortalClientTest extends TestCase
         $client->downloadSignedPdf('token-prueba', 'req-123');
     }
 
+    public function testSimulaCargaFirmanteYSolicitudSinConexionReal(): void
+    {
+        $transport = new FadRrhhFakeTransport([
+            $this->response('{"success":true,"documentId":"doc-simulado"}'),
+            $this->response('{"success":true,"signerId":"firmante-simulado"}'),
+            $this->response('{"success":true,"requisitionId":"solicitud-simulada","firstTicket":"https://clientes.firmaautografa.com/firma/simulada"}'),
+        ]);
+        $client = new FadRrhhPortalClient($transport);
+        $pdf = tempnam(sys_get_temp_dir(), 'fad_sim_');
+        file_put_contents($pdf, "%PDF-1.4\n% simulacion sin envio real\n");
+        try {
+            $document = $client->uploadDocument('token-simulado', 'usuario-simulado', $pdf, 'contrato_simulado.pdf');
+            $signer = $client->createSigner('token-simulado', 'usuario-simulado', [
+                'name' => 'PERSONA', 'email' => 'persona@example.com', 'phone' => '5512345678',
+            ]);
+            $requisition = $client->createRequisition('token-simulado', 'usuario-simulado', [
+                'documentId' => 'doc-simulado',
+                'reference' => 'SPARTA-SIMULACION',
+                'signers' => [['signerId' => 'firmante-simulado', 'order' => 1]],
+            ]);
+        } finally {
+            @unlink($pdf);
+        }
+
+        self::assertSame('doc-simulado', $document['documentId']);
+        self::assertSame('firmante-simulado', $signer['signerId']);
+        self::assertSame('solicitud-simulada', $requisition['requisitionId']);
+        self::assertCount(3, $transport->requests);
+        self::assertStringEndsWith('/clients/users/usuario-simulado/documents', $transport->requests[0]['url']);
+        self::assertInstanceOf(CURLFile::class, $transport->requests[0]['body']['files']);
+        self::assertStringEndsWith('/clients/users/usuario-simulado/signers', $transport->requests[1]['url']);
+        self::assertStringEndsWith('/clients/users/usuario-simulado/requisitions', $transport->requests[2]['url']);
+        self::assertStringContainsString('SPARTA-SIMULACION', (string) $transport->requests[2]['body']);
+        self::assertSame('token-simulado', substr($transport->requests[2]['headers'][0], strlen('Authorization: Bearer ')));
+    }
+
     private function response(string $body, int $status = 200): array
     {
         return ['status' => $status, 'headers' => [], 'body' => $body];

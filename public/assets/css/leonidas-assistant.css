@@ -998,6 +998,42 @@ video.leonidas-media-card__preview {
     backdrop-filter: blur(5px);
 }
 
+.leonidas-appearance-preview__greeting {
+    position: absolute;
+    z-index: 3;
+    top: .68rem;
+    right: .68rem;
+    display: inline-flex;
+    align-items: center;
+    gap: .38rem;
+    min-height: 2rem;
+    padding: .38rem .64rem;
+    border: 1px solid rgba(255, 255, 255, .3);
+    border-radius: 999px;
+    background: rgba(15, 23, 42, .78);
+    color: #fff;
+    font-size: .7rem;
+    font-weight: 750;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 .35rem .9rem rgba(3, 10, 24, .2);
+    backdrop-filter: blur(7px);
+    transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.leonidas-appearance-preview__greeting:hover,
+.leonidas-appearance-preview__greeting:focus-visible,
+.leonidas-appearance-preview__greeting.is-active {
+    border-color: rgba(241, 202, 85, .78);
+    background: rgba(154, 100, 29, .92);
+    transform: translateY(-1px);
+}
+
+.leonidas-appearance-preview__greeting:disabled {
+    cursor: wait;
+    opacity: .58;
+}
+
 .leonidas-appearance-preview > [data-leonidas-appearance-name] {
     position: absolute;
     z-index: 2;
