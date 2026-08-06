@@ -439,29 +439,40 @@ def assign_body_semantic_materials(obj):
             and upper_leg_ratio > 0.34
             and upper_leg_ratio > hips_ratio * 1.25
         )
+        protected_lower_leg = (
+            (center.z < 0.22 and foot_ratio > 0.32)
+            or (center.z < 0.50 and metal_limb_ratio > 0.08)
+        )
         protected_metal = (
-            foot_ratio > 0.12
-            or (
+            not protected_lower_leg
+            and (
                 metal_limb_ratio > 0.08
                 and center.z < 0.48
             )
         )
         protected_original = (
-            not protected_metal
-            and (
-                skin_ratio >= 0.5
-                or protected_upper_leg
-                or (center.z > 1.0 and head_ratio > 0.18)
+            protected_lower_leg
+            or (
+                not protected_metal
+                and (
+                    skin_ratio >= 0.5
+                    or protected_upper_leg
+                    or (center.z > 1.0 and head_ratio > 0.18)
+                )
             )
         )
-        if protected_metal:
+        if protected_lower_leg:
+            protected_original_faces.add(polygon.index)
+        elif protected_metal:
             protected_metal_faces.add(polygon.index)
         elif protected_original:
             protected_original_faces.add(polygon.index)
 
-        if protected_metal:
-            # El modelo no tiene pie desnudo: esta zona corresponde a la bota
-            # y su puntera. Debe pintarse completa, no por manchas del atlas.
+        if protected_lower_leg:
+            # La isla sigue votando como metal para no arrastrar consigo los
+            # brazales; la greba se restaura al material fijo al final.
+            role = 'metal'
+        elif protected_metal:
             role = 'metal'
         elif protected_original:
             role = 'original'
@@ -553,6 +564,139 @@ def assign_solid_palette_material(obj, role):
     obj.data.materials.append(material)
     for polygon in obj.data.polygons:
         polygon.material_index = 0
+
+
+def assign_helmet_semantic_materials(obj):
+    """Conserva el rostro original y recolorea solamente la carcasa metálica.
+
+    El FBX agrupa la cabeza y el casco en el mismo conjunto de caras. Cortar
+    ese conjunto para descubrir una segunda cabeza genera bordes artificiales
+    y dobles rasgos. En su lugar clasificamos sus componentes geométricos con
+    el atlas original: cualquier componente que contiene piel conserva el
+    material texturizado; las piezas restantes reciben el metal configurable.
+    """
+    original = obj.data.materials[0]
+    metal = create_palette_material(
+        'LeonidasHelmetMetal',
+        'metal',
+        metalness=0.52,
+        roughness=0.42,
+    )
+    obj.data.materials.clear()
+    obj.data.materials.append(original)
+    obj.data.materials.append(metal)
+
+    width, height, pixels = load_pixels(
+        os.path.join(MODEL_ROOT, 'leonidas-spartan-color.webp')
+    )
+    uv_layer = obj.data.uv_layers.active.data
+    skin_faces = set()
+    for polygon in obj.data.polygons:
+        samples = [
+            sample_texture(pixels, width, height, uv_layer[index].uv)
+            for index in polygon.loop_indices
+        ]
+        skin_ratio = (
+            sum(1 for pixel in samples if is_confident_skin(pixel))
+            / max(len(samples), 1)
+        )
+        if skin_ratio >= 0.34:
+            skin_faces.add(polygon.index)
+
+    # Expandir dos anillos topológicos conserva barba, cejas y labios oscuros
+    # junto a la piel, sin convertir toda la carcasa en material original.
+    vertex_faces = {}
+    for polygon in obj.data.polygons:
+        for vertex_index in polygon.vertices:
+            vertex_faces.setdefault(vertex_index, set()).add(polygon.index)
+    original_faces = set(skin_faces)
+    frontier = set(skin_faces)
+    for _ in range(2):
+        neighbors = set()
+        for face_index in frontier:
+            for vertex_index in obj.data.polygons[face_index].vertices:
+                neighbors.update(vertex_faces.get(vertex_index, ()))
+        frontier = neighbors - original_faces
+        original_faces.update(frontier)
+
+    for polygon in obj.data.polygons:
+        polygon.material_index = 0 if polygon.index in original_faces else 1
+
+    counts = {
+        'original': len(original_faces),
+        'metal': len(obj.data.polygons) - len(original_faces),
+    }
+    obj['leonidasHelmetSemanticFaces'] = (
+        f"original={counts['original']}:metal={counts['metal']}"
+    )
+    obj['leonidasHelmetFaceMode'] = 'embedded-original-texture-v1'
+    print('LEONIDAS_HELMET_SKIN_SEED', len(skin_faces))
+    print('LEONIDAS_HELMET_SEMANTIC_MATERIALS', counts)
+
+
+def open_original_helmet_face(obj):
+    """Abre un visor en T y conserva frente, mejillas, cúpula y nuca."""
+    minimum, maximum = mesh_vertex_bounds(obj)
+    size = maximum - minimum
+    center_x = (minimum.x + maximum.x) * 0.5
+    bottom = minimum.z + size.z * 0.12
+    eye_bottom = minimum.z + size.z * 0.48
+    eye_top = minimum.z + size.z * 0.64
+    eye_half_width = size.x * 0.34
+    nose_half_width = size.x * 0.085
+    front_limit = minimum.y + size.y * 0.31
+    inverse = obj.matrix_world.inverted()
+    normal_matrix = obj.matrix_world.to_3x3().transposed()
+    mesh = bmesh.new()
+    mesh.from_mesh(obj.data)
+
+    def bisect_world(point, normal):
+        plane_normal = normal_matrix @ Vector(normal)
+        plane_normal.normalize()
+        bmesh.ops.bisect_plane(
+            mesh,
+            geom=list(mesh.verts) + list(mesh.edges) + list(mesh.faces),
+            dist=0.000001,
+            plane_co=inverse @ Vector(point),
+            plane_no=plane_normal,
+            clear_inner=False,
+            clear_outer=False,
+        )
+
+    bisect_world((0.0, 0.0, bottom), (0.0, 0.0, 1.0))
+    bisect_world((0.0, 0.0, eye_bottom), (0.0, 0.0, 1.0))
+    bisect_world((0.0, 0.0, eye_top), (0.0, 0.0, 1.0))
+    bisect_world((center_x + eye_half_width, 0.0, 0.0), (1.0, 0.0, 0.0))
+    bisect_world((center_x - eye_half_width, 0.0, 0.0), (1.0, 0.0, 0.0))
+    bisect_world((center_x + nose_half_width, 0.0, 0.0), (1.0, 0.0, 0.0))
+    bisect_world((center_x - nose_half_width, 0.0, 0.0), (1.0, 0.0, 0.0))
+    bisect_world((0.0, front_limit, 0.0), (0.0, 1.0, 0.0))
+
+    remove = []
+    for face in mesh.faces:
+        center = obj.matrix_world @ face.calc_center_median()
+        if not bottom < center.z < eye_top or center.y >= front_limit:
+            continue
+        horizontal_opening = (
+            eye_bottom < center.z < eye_top
+            and abs(center.x - center_x) < eye_half_width
+        )
+        vertical_opening = abs(center.x - center_x) < nose_half_width
+        if horizontal_opening or vertical_opening:
+            remove.append(face)
+
+    removed_count = len(remove)
+    if remove:
+        bmesh.ops.delete(mesh, geom=remove, context='FACES')
+    loose = [vertex for vertex in mesh.verts if not vertex.link_faces]
+    if loose:
+        bmesh.ops.delete(mesh, geom=loose, context='VERTS')
+    bmesh.ops.recalc_face_normals(mesh, faces=list(mesh.faces))
+    mesh.to_mesh(obj.data)
+    mesh.free()
+    obj['leonidasHelmetFaceOpening'] = 't-visor-embedded-face-v2'
+    obj['leonidasHelmetFaceOpeningFaces'] = removed_count
+    print('LEONIDAS_HELMET_FACE_OPENING', removed_count)
 
 
 def is_confident_skin(pixel):
@@ -2952,6 +3096,7 @@ body = keep_faces(
 helmet = keep_faces(current_mesh, helmet_faces, 'LeonidasHelmet', 'helmet')
 chest = keep_faces(current_mesh, chest_faces, 'LeonidasChest', 'chest')
 assign_body_semantic_materials(body)
+open_original_helmet_face(helmet)
 assign_solid_palette_material(helmet, 'metal')
 assign_chest_semantic_materials(chest)
 anatomy_source = donor_body.copy()
@@ -3025,8 +3170,7 @@ print(
 # penachos procedurales sobre la pieza original.
 helmet['leonidasHelmetOriginalFaces'] = len(helmet.data.polygons)
 helmet['leonidasHelmetConstruction'] = 'original-source'
-helmet['leonidasHelmetOpenFace'] = False
-helmet['leonidasHelmetFaceOpening'] = 'source-model'
+helmet['leonidasHelmetOpenFace'] = True
 helmet['leonidasHelmetScale'] = 1.0
 helmet['leonidasHelmetLift'] = 0.0
 hair = create_hair_shell(head_underlay)

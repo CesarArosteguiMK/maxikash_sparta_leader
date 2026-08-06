@@ -4,3 +4,7 @@ node_modules/
 # Credenciales (el .env global del raiz tambien lo ignora)
 .env
 .env.local
+
+# Bitacoras generadas por el agente en ejecucion
+data/*.log
+data/*.log.1

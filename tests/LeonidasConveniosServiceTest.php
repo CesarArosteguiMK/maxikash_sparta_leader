@@ -137,6 +137,19 @@ assertConvenio($accion === null, 'Una orden de accion debe continuar al ejecutor
 $crear = $service->resolver('Quiero crear un convenio para el credito 1600');
 assertConvenio($crear === null, 'Una solicitud de creacion debe continuar al ejecutor del agente.');
 
+$crearExcepcionCaptura = $service->resolver(
+    'crea convenio de pago mixto de un solo pago con fecha de 03 de agosto del 2026, '
+    . 'donde vas descartar las reglas de negocio q se establecieron el objetivo es q se genere como convenio de excepcion '
+    . 'el pago es de 20000 pesos el credito es 1496964'
+);
+assertConvenio($crearExcepcionCaptura === null, 'La orden excepcional de la captura no debe ser interceptada por el servicio informativo.');
+
+$asignarCreditoExistente = $service->resolver(
+    'ayudame a asignar a este credito 1551963 en el modulo de convenio, '
+    . 'porque se abrio un convenio pero no tenia asignacion el credito'
+);
+assertConvenio($asignarCreditoExistente === null, 'La asignacion independiente debe continuar al ejecutor y no diagnosticar el convenio activo.');
+
 $fuera = $service->resolver('Cuantos candidatos hay en revision?');
 assertConvenio($fuera === null, 'No debe capturar consultas de otros modulos.');
 

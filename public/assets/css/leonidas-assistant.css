@@ -305,6 +305,55 @@ body.dark-mode .nav-leonidas-call.is-present {
 .leonidas-message--assistant { background: #eef3fb; color: #294365; }
 .leonidas-message--user { align-self: flex-end; background: #243a5c; color: #fff; }
 
+.leonidas-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .38rem;
+    max-width: 94%;
+    padding: .08rem 0 .18rem;
+}
+
+.leonidas-quick-actions__button {
+    max-width: 100%;
+    min-height: 2rem;
+    padding: .38rem .62rem;
+    border: 1px solid #315fbd;
+    border-radius: 999px;
+    background: #eef3ff;
+    color: #274f9f;
+    font-size: .7rem;
+    font-weight: 700;
+    line-height: 1.1;
+    text-align: left;
+    white-space: normal;
+    cursor: pointer;
+    transition: background .16s ease, color .16s ease, transform .16s ease;
+}
+
+.leonidas-quick-actions__button:hover:not(:disabled),
+.leonidas-quick-actions__button:focus-visible {
+    background: #315fbd;
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.leonidas-quick-actions__button.is-cancel {
+    border-color: #c88b25;
+    background: #fff8e9;
+    color: #8a5b12;
+}
+
+.leonidas-quick-actions__button.is-cancel:hover:not(:disabled),
+.leonidas-quick-actions__button.is-cancel:focus-visible {
+    background: #c88b25;
+    color: #fff;
+}
+
+.leonidas-quick-actions__button:disabled {
+    opacity: .58;
+    cursor: wait;
+}
+
 .leonidas-media-card {
     display: grid;
     gap: .65rem;
