@@ -563,6 +563,56 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
     </div>
 </div>
 
+<!-- Revision de datos que se incorporaran al perfil al pasar a plantilla -->
+<div class="modal fade" id="modalRevisionPerfilPlantilla" tabindex="-1" aria-labelledby="modalRevisionPerfilPlantillaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <div>
+                    <h5 class="modal-title" id="modalRevisionPerfilPlantillaLabel"><i class="fa fa-user-check me-2 text-primary"></i>Revisar datos para alta en plantilla</h5>
+                    <div class="small text-muted">Verifica la informacion que se incorporara al perfil del colaborador.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="perfilAltaIdCandidato" value="">
+                <div class="alert alert-info py-2 mb-3">
+                    Revisa que los datos sean correctos. Al confirmar, la informacion verificada se guardara en el perfil y expediente del colaborador al pasar a plantilla.
+                </div>
+                <div id="perfilAltaAvisos" class="alert alert-warning d-none"></div>
+                <div class="row g-3">
+                    <div class="col-12"><h6 class="border-bottom pb-2 mb-0"><i class="fa fa-id-card me-2 text-primary"></i>Datos personales</h6></div>
+                    <div class="col-md-6"><label class="form-label">Nombre completo</label><input class="form-control" data-perfil-alta-field="full_name" readonly></div>
+                    <div class="col-md-4"><label class="form-label">CURP</label><input maxlength="18" class="form-control text-uppercase" data-perfil-alta-field="curp"></div>
+                    <div class="col-md-4"><label class="form-label">RFC</label><input maxlength="13" class="form-control text-uppercase" data-perfil-alta-field="rfc"></div>
+                    <div class="col-md-4"><label class="form-label">NSS</label><input maxlength="20" inputmode="numeric" class="form-control" data-perfil-alta-field="nss"></div>
+                    <div class="col-md-4"><label class="form-label">Fecha de nacimiento</label><input type="date" class="form-control" data-perfil-alta-field="birth_date"></div>
+                    <div class="col-md-4"><label class="form-label">Sexo</label><select class="form-select" data-perfil-alta-field="sex"><option value="">Sin especificar</option><option value="MASCULINO">Masculino</option><option value="FEMENINO">Femenino</option></select></div>
+                    <div class="col-md-4"><label class="form-label">Estado civil</label><input class="form-control" maxlength="60" data-perfil-alta-field="marital_status"></div>
+
+                    <div class="col-12 mt-4"><h6 class="border-bottom pb-2 mb-0"><i class="fa fa-address-book me-2 text-primary"></i>Contacto y domicilio</h6></div>
+                    <div class="col-md-8"><label class="form-label">Domicilio</label><input class="form-control" maxlength="500" data-perfil-alta-field="address"></div>
+                    <div class="col-md-4"><label class="form-label">Telefono</label><input class="form-control" maxlength="30" inputmode="tel" data-perfil-alta-field="phone"></div>
+                    <div class="col-md-6"><label class="form-label">Correo personal</label><input type="email" class="form-control" maxlength="160" data-perfil-alta-field="email"></div>
+                    <div class="col-md-6"><label class="form-label">Contactos de emergencia</label><textarea rows="2" class="form-control" data-perfil-alta-field="emergency_contacts" placeholder="Un contacto por linea. Opcional: Nombre | parentesco | telefono"></textarea><small class="text-muted">Puedes usar una linea por contacto.</small></div>
+
+                    <div class="col-12 mt-4"><h6 class="border-bottom pb-2 mb-0"><i class="fa fa-building-columns me-2 text-primary"></i>Nomina y cuenta bancaria</h6></div>
+                    <div class="col-md-3"><label class="form-label">Sueldo bruto mensual</label><input type="number" min="0" step="0.01" class="form-control" data-perfil-alta-field="salary"></div>
+                    <div class="col-md-3"><label class="form-label">Banco</label><input class="form-control" maxlength="120" data-perfil-alta-field="bank"></div>
+                    <div class="col-md-3"><label class="form-label">CLABE</label><input maxlength="18" inputmode="numeric" class="form-control" data-perfil-alta-field="clabe"></div>
+                    <div class="col-md-3"><label class="form-label">Numero de cuenta</label><input maxlength="40" class="form-control" data-perfil-alta-field="account_number"></div>
+
+                    <div class="col-12 mt-4"><h6 class="border-bottom pb-2 mb-2"><i class="fa fa-people-roof me-2 text-primary"></i>Beneficiarios</h6><div id="perfilAltaBeneficiarios" class="row g-2"></div><small class="text-muted">Se conservaran los beneficiarios extraidos del expediente que tengan informacion.</small></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmarPerfilAlta"><i class="fa fa-check-circle me-1"></i>Confirmar alta y guardar datos</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Agregar Candidato -->
 <div class="modal fade" id="offcanvasAddCandidato" tabindex="-1" aria-labelledby="offcanvasCandidatoTitulo" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">

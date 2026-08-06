@@ -9647,6 +9647,166 @@ class CapHum extends Model
         return 'NEO' . strtoupper(bin2hex(random_bytes(4)));
     }
 
+    /**
+     * Guarda informacion revisada de un expediente de candidato sin alterar
+     * estructura, puesto, jefe ni valores existentes cuando la captura viene vacia.
+     */
+    public static function guardarDatosPerfilAltaCandidato(int $idPersona, array $perfil): array
+    {
+        if ($idPersona <= 0) {
+            return self::resultado(false, 'Persona invalida.');
+        }
+
+        $texto = static function ($valor, int $limite = 500): string {
+            return mb_substr(trim((string) $valor), 0, $limite);
+        };
+        $digitos = static function ($valor, int $limite = 30): string {
+            return mb_substr(preg_replace('/[^0-9]/', '', (string) $valor), 0, $limite);
+        };
+        $fecha = static function ($valor): ?string {
+            $valor = trim((string) $valor);
+            return preg_match('/^\d{4}-\d{2}-\d{2}$/', $valor) ? $valor : null;
+        };
+        $decimal = static function ($valor): ?float {
+            if ($valor === null || $valor === '') return null;
+            $normalizado = preg_replace('/[^0-9.\-]/', '', (string) $valor);
+            return is_numeric($normalizado) ? (float) $normalizado : null;
+        };
+
+        $curp = strtoupper($texto($perfil['curp'] ?? '', 18));
+        $rfc = strtoupper($texto($perfil['rfc'] ?? '', 20));
+        $nss = $digitos($perfil['nss'] ?? '', 20);
+        $correo = strtolower($texto($perfil['email'] ?? '', 160));
+        if ($correo !== '' && !filter_var($correo, FILTER_VALIDATE_EMAIL)) $correo = '';
+        $telefono = $digitos($perfil['phone'] ?? '', 30);
+        $domicilio = $texto($perfil['address'] ?? '', 500);
+        $fechaNacimiento = $fecha($perfil['birth_date'] ?? '');
+        $sexo = strtoupper($texto($perfil['sex'] ?? '', 20));
+        $estadoCivil = $texto($perfil['marital_status'] ?? '', 60);
+        $sueldo = $decimal($perfil['salary'] ?? null);
+        $banco = $texto($perfil['bank'] ?? '', 120);
+        $clabe = $digitos($perfil['clabe'] ?? '', 30);
+        $cuenta = $texto($perfil['account_number'] ?? '', 40);
+        $campos = [];
+
+        try {
+            $db = new Database();
+            $sets = [];
+            $paramsPersona = ['id' => $idPersona];
+            if ($curp !== '') { $sets[] = 'curp = :curp'; $paramsPersona['curp'] = $curp; $campos[] = 'CURP'; }
+            if ($correo !== '') { $sets[] = 'correo = :correo'; $paramsPersona['correo'] = $correo; $campos[] = 'correo'; }
+            if ($telefono !== '') { $sets[] = 'telefono_uno = :telefono'; $paramsPersona['telefono'] = $telefono; $campos[] = 'telefono'; }
+            if ($domicilio !== '') { $sets[] = 'domicilio_calle_texto = :domicilio'; $paramsPersona['domicilio'] = $domicilio; $campos[] = 'domicilio'; }
+            if ($sets) {
+                $db->CRUD('UPDATE estado_cuenta.persona SET ' . implode(', ', $sets) . ' WHERE id = :id', $paramsPersona);
+            }
+
+            $rrhh = ['id_persona' => $idPersona];
+            $rrhhCampos = [];
+            if ($rfc !== '') { $rrhh['rfc'] = $rfc; $rrhhCampos[] = 'rfc'; $campos[] = 'RFC'; }
+            if ($nss !== '') { $rrhh['nss'] = $nss; $rrhhCampos[] = 'nss'; $campos[] = 'NSS'; }
+            if ($fechaNacimiento !== null) {
+                $rrhh['fecha_nacimiento'] = $fechaNacimiento;
+                $rrhh['anio'] = (int) substr($fechaNacimiento, 0, 4);
+                $rrhh['mes'] = (int) substr($fechaNacimiento, 5, 2);
+                $rrhh['dia'] = (int) substr($fechaNacimiento, 8, 2);
+                $rrhhCampos = array_merge($rrhhCampos, ['fecha_nacimiento', 'anio', 'mes', 'dia']);
+                $campos[] = 'fecha de nacimiento';
+            }
+            if ($sexo !== '') { $rrhh['sexo'] = $sexo; $rrhhCampos[] = 'sexo'; $campos[] = 'sexo'; }
+            if ($estadoCivil !== '') { $rrhh['estado_civil'] = $estadoCivil; $rrhhCampos[] = 'estado_civil'; $campos[] = 'estado civil'; }
+            if ($sueldo !== null && $sueldo >= 0) { $rrhh['sueldo_bruto'] = $sueldo; $rrhhCampos[] = 'sueldo_bruto'; $campos[] = 'sueldo bruto'; }
+            if ($rrhhCampos) {
+                $columnas = array_merge(['id_persona'], $rrhhCampos);
+                $marcadores = array_map(static fn(string $campo): string => ':' . $campo, $columnas);
+                $actualizaciones = array_map(static fn(string $campo): string => $campo . ' = VALUES(' . $campo . ')', $rrhhCampos);
+                $db->CRUD(
+                    'INSERT INTO estado_cuenta.persona_datos_rrhh (' . implode(', ', $columnas) . ') VALUES (' . implode(', ', $marcadores) . ') ON DUPLICATE KEY UPDATE ' . implode(', ', $actualizaciones),
+                    $rrhh
+                );
+            }
+
+            if ($banco !== '' || $clabe !== '' || $cuenta !== '') {
+                $cuentaExistente = $db->queryOne(
+                    'SELECT id FROM estado_cuenta.persona_cuenta_bancaria WHERE id_persona = :id AND (estatus IS NULL OR estatus <> \'Inactivo\') ORDER BY id ASC LIMIT 1',
+                    ['id' => $idPersona]
+                );
+                if ($cuentaExistente) {
+                    $setsCuenta = [];
+                    $paramsCuenta = ['id' => (int) $cuentaExistente['id']];
+                    if ($banco !== '') { $setsCuenta[] = 'nombre_banco = :banco'; $paramsCuenta['banco'] = $banco; }
+                    if ($clabe !== '') { $setsCuenta[] = 'clabe = :clabe'; $paramsCuenta['clabe'] = $clabe; }
+                    if ($cuenta !== '') { $setsCuenta[] = 'numero_cuenta = :cuenta'; $paramsCuenta['cuenta'] = $cuenta; }
+                    if ($setsCuenta) $db->CRUD('UPDATE estado_cuenta.persona_cuenta_bancaria SET ' . implode(', ', $setsCuenta) . ' WHERE id = :id', $paramsCuenta);
+                } else {
+                    $db->CRUD(
+                        'INSERT INTO estado_cuenta.persona_cuenta_bancaria (id_persona, clabe, numero_cuenta, nombre_banco, estatus) VALUES (:id_persona, :clabe, :cuenta, :banco, \'Activo\')',
+                        ['id_persona' => $idPersona, 'clabe' => $clabe, 'cuenta' => $cuenta, 'banco' => $banco]
+                    );
+                }
+                $campos[] = 'datos bancarios';
+            }
+
+            $contactos = preg_split('/[;\r\n]+/', (string) ($perfil['emergency_contacts'] ?? '')) ?: [];
+            foreach ($contactos as $contacto) {
+                $partes = array_map(static fn($valor) => trim((string) $valor), explode('|', $contacto));
+                $nombre = $texto($partes[0] ?? '', 220);
+                $parentesco = $texto($partes[1] ?? '', 80);
+                $numero = $digitos($partes[2] ?? '', 30);
+                if ($nombre === '') continue;
+                $existe = $db->queryOne(
+                    'SELECT id FROM estado_cuenta.contacto_persona_emergencia WHERE id_persona = :id_persona AND nombre_contacto = :nombre LIMIT 1',
+                    ['id_persona' => $idPersona, 'nombre' => $nombre]
+                );
+                if (!$existe) {
+                    $db->CRUD(
+                        'INSERT INTO estado_cuenta.contacto_persona_emergencia (id_persona, nombre_contacto, parentesco, numero, estatus) VALUES (:id_persona, :nombre, :parentesco, :numero, \'Activo\')',
+                        ['id_persona' => $idPersona, 'nombre' => $nombre, 'parentesco' => $parentesco, 'numero' => $numero]
+                    );
+                }
+                $campos[] = 'contactos de emergencia';
+            }
+
+            foreach ((array) ($perfil['beneficiaries'] ?? []) as $beneficiario) {
+                if (!is_array($beneficiario)) continue;
+                $nombre = $texto($beneficiario['name'] ?? $beneficiario['nombre'] ?? '', 220);
+                $parentesco = $texto($beneficiario['relationship'] ?? $beneficiario['parentesco'] ?? '', 80);
+                $porcentaje = $decimal($beneficiario['percentage'] ?? $beneficiario['porcentaje'] ?? null);
+                if ($nombre === '') continue;
+                $existe = $db->queryOne(
+                    'SELECT id FROM estado_cuenta.persona_beneficiario_fallecimiento WHERE id_persona = :id_persona AND nombre_beneficiario = :nombre LIMIT 1',
+                    ['id_persona' => $idPersona, 'nombre' => $nombre]
+                );
+                if ($existe) {
+                    $db->CRUD(
+                        'UPDATE estado_cuenta.persona_beneficiario_fallecimiento SET parentesco = :parentesco, porcentaje = :porcentaje WHERE id = :id',
+                        ['parentesco' => $parentesco, 'porcentaje' => $porcentaje, 'id' => (int) $existe['id']]
+                    );
+                } else {
+                    $db->CRUD(
+                        'INSERT INTO estado_cuenta.persona_beneficiario_fallecimiento (id_persona, nombre_beneficiario, parentesco, porcentaje, estatus) VALUES (:id_persona, :nombre, :parentesco, :porcentaje, \'Activo\')',
+                        ['id_persona' => $idPersona, 'nombre' => $nombre, 'parentesco' => $parentesco, 'porcentaje' => $porcentaje]
+                    );
+                }
+                $campos[] = 'beneficiarios';
+            }
+
+            $campos = array_values(array_unique($campos));
+            self::registrarAuditoriaInternaRrhh([
+                'modulo' => 'Capital Humano',
+                'entidad_tipo' => 'persona',
+                'entidad_id' => $idPersona,
+                'accion' => 'alta_plantilla_datos_revisados',
+                'resumen' => 'Se incorporaron datos revisados del expediente al perfil de plantilla.',
+                'detalle' => ['campos_guardados' => $campos],
+            ]);
+            return self::resultado(true, 'Datos de perfil guardados.', ['campos_guardados' => $campos]);
+        } catch (\Throwable $e) {
+            error_log('CapHum::guardarDatosPerfilAltaCandidato -> ' . $e->getMessage());
+            return self::resultado(false, 'No se pudieron guardar los datos revisados del perfil.', ['campos_guardados' => $campos]);
+        }
+    }
+
     public static function insertPersona($data)
     {
         // 🔹 Escapamos valores

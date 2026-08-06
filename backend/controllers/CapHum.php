@@ -16452,7 +16452,7 @@ class CapHum extends Controller
                     .catch(function() { btnConfirmarCerrar.disabled = false; if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
             });
         }
-        function finalizarCandidatoFirmado(idCandidato) {
+        function finalizarCandidatoFirmadoLegacy(idCandidato) {
             function cerrarModalYRefrescar() {
                 var modalDoc = document.getElementById("modalDocumentacionCandidato");
                 if (modalDoc && window.bootstrap && window.bootstrap.Modal) {
@@ -16499,6 +16499,161 @@ class CapHum extends Controller
                     Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
                 });
         }
+
+        function escaparHtmlPerfilAlta(valor) {
+            return String(valor == null ? "" : valor)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function renderBeneficiariosPerfilAlta(beneficiarios) {
+            var contenedor = document.getElementById("perfilAltaBeneficiarios");
+            if (!contenedor) return;
+            var lista = Array.isArray(beneficiarios) ? beneficiarios : [];
+            if (!lista.length) {
+                contenedor.innerHTML = '<div class="col-12 text-muted small">No se encontraron beneficiarios en el expediente.</div>';
+                return;
+            }
+            contenedor.innerHTML = lista.map(function(item) {
+                item = item || {};
+                return '<div class="col-md-6 perfil-alta-beneficiario"><div class="border rounded p-2 bg-light"><div class="row g-2">' +
+                    '<div class="col-6"><label class="form-label small mb-1">Nombre</label><input class="form-control form-control-sm" data-perfil-beneficiario="name" value="' + escaparHtmlPerfilAlta(item.name || item.nombre || "") + '"></div>' +
+                    '<div class="col-3"><label class="form-label small mb-1">Parentesco</label><input class="form-control form-control-sm" data-perfil-beneficiario="relationship" value="' + escaparHtmlPerfilAlta(item.relationship || item.parentesco || "") + '"></div>' +
+                    '<div class="col-3"><label class="form-label small mb-1">Porcentaje</label><input type="number" min="0" max="100" step="0.01" class="form-control form-control-sm" data-perfil-beneficiario="percentage" value="' + escaparHtmlPerfilAlta(item.percentage || item.porcentaje || "") + '"></div>' +
+                    '</div></div></div>';
+            }).join("");
+        }
+
+        function cargarDatosPerfilAltaEnModal(idCandidato, datos, faltantes) {
+            var modal = document.getElementById("modalRevisionPerfilPlantilla");
+            if (!modal) return;
+            document.getElementById("perfilAltaIdCandidato").value = idCandidato;
+            datos = datos || {};
+            modal.querySelectorAll("[data-perfil-alta-field]").forEach(function(campo) {
+                var key = campo.getAttribute("data-perfil-alta-field");
+                var value = datos[key];
+                campo.value = Array.isArray(value) ? value.join("\n") : (value == null ? "" : value);
+            });
+            renderBeneficiariosPerfilAlta(datos.beneficiaries || []);
+            var aviso = document.getElementById("perfilAltaAvisos");
+            var pendientes = Array.isArray(faltantes) ? faltantes : [];
+            if (pendientes.length) {
+                var nombresCampo = {
+                    curp: "CURP", rfc: "RFC", nss: "NSS", birth_date: "fecha de nacimiento",
+                    sex: "sexo", marital_status: "estado civil", address: "domicilio", email: "correo",
+                    phone: "telefono", emergency_contacts: "contactos de emergencia", salary: "sueldo bruto",
+                    bank: "banco", clabe: "CLABE", account_number: "numero de cuenta", beneficiaries: "beneficiarios"
+                };
+                aviso.textContent = "Campos sin informacion extraida: " + pendientes.map(function(campo) { return nombresCampo[campo] || campo; }).join(", ") + ". Puedes completarlos ahora o continuar con los datos disponibles.";
+                aviso.classList.remove("d-none");
+            } else {
+                aviso.textContent = "";
+                aviso.classList.add("d-none");
+            }
+            if (window.bootstrap && window.bootstrap.Modal) window.bootstrap.Modal.getOrCreateInstance(modal).show();
+        }
+
+        function obtenerDatosPerfilAlta() {
+            var modal = document.getElementById("modalRevisionPerfilPlantilla");
+            var datos = {};
+            modal.querySelectorAll("[data-perfil-alta-field]").forEach(function(campo) {
+                datos[campo.getAttribute("data-perfil-alta-field")] = String(campo.value || "").trim();
+            });
+            datos.beneficiaries = Array.prototype.slice.call(modal.querySelectorAll(".perfil-alta-beneficiario")).map(function(row) {
+                var obtener = function(key) {
+                    var input = row.querySelector('[data-perfil-beneficiario="' + key + '"]');
+                    return input ? String(input.value || "").trim() : "";
+                };
+                return { name: obtener("name"), relationship: obtener("relationship"), percentage: obtener("percentage") };
+            }).filter(function(row) { return row.name || row.relationship || row.percentage; });
+            return datos;
+        }
+
+        function ejecutarAltaCandidatoConDatos(idCandidato, datosPerfil) {
+            if (typeof Swal !== "undefined") {
+                Swal.fire({ title: "Procesando alta...", text: "Se esta creando el perfil del colaborador y guardando los datos revisados.", allowOutsideClick: false, allowEscapeKey: false, didOpen: function() { Swal.showLoading(); } });
+            }
+            fetch("/caphum/pasarCandidatoAGestion", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                body: JSON.stringify({ id_candidato: idCandidato, confirmar_datos_perfil: true, datos_perfil: datosPerfil })
+            })
+                .then(function(r){ return r.json(); })
+                .then(function(res) {
+                    if (typeof Swal !== "undefined") Swal.close();
+                    if (res.success) {
+                        var modal = document.getElementById("modalRevisionPerfilPlantilla");
+                        if (modal && window.bootstrap && window.bootstrap.Modal) window.bootstrap.Modal.getOrCreateInstance(modal).hide();
+                        var modalDoc = document.getElementById("modalDocumentacionCandidato");
+                        if (modalDoc && window.bootstrap && window.bootstrap.Modal) {
+                            var instDoc = window.bootstrap.Modal.getInstance(modalDoc);
+                            if (instDoc) instDoc.hide();
+                        }
+                        if (typeof getCandidatos === "function") getCandidatos();
+                        var warningCorreo = !!(res.datos && res.datos.warning_correo);
+                        if (typeof Swal !== "undefined") Swal.fire({ icon: warningCorreo ? "warning" : "success", title: warningCorreo ? "Alta realizada" : "Alta confirmada", text: res.mensaje || "El colaborador paso a plantilla correctamente." });
+                        else alert(res.mensaje || "El colaborador paso a plantilla correctamente.");
+                    } else if (typeof Swal !== "undefined") {
+                        Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo pasar a plantilla." });
+                    } else alert(res.mensaje || "No se pudo pasar a plantilla.");
+                })
+                .catch(function() {
+                    if (typeof Swal !== "undefined") {
+                        Swal.close();
+                        Swal.fire({ icon: "error", title: "Error", text: "Error de conexion." });
+                    } else alert("Error de conexion.");
+                });
+        }
+
+        function finalizarCandidatoFirmado(idCandidato) {
+            if (!idCandidato) return;
+            if (typeof Swal !== "undefined") Swal.fire({ title: "Preparando revision...", text: "Se estan consolidando los datos extraidos del expediente.", allowOutsideClick: false, allowEscapeKey: false, didOpen: function() { Swal.showLoading(); } });
+            fetch("/caphum/datosPerfilAltaCandidato?id_candidato=" + encodeURIComponent(idCandidato), { headers: { "Accept": "application/json" } })
+                .then(function(r){ return r.json(); })
+                .then(function(res) {
+                    if (typeof Swal !== "undefined") Swal.close();
+                    if (res.success) {
+                        var contrato = (res.datos && res.datos.contrato) || {};
+                        cargarDatosPerfilAltaEnModal(idCandidato, contrato.data || {}, contrato.missing || []);
+                    } else if (typeof Swal !== "undefined") {
+                        Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudieron cargar los datos del perfil." });
+                    } else alert(res.mensaje || "No se pudieron cargar los datos del perfil.");
+                })
+                .catch(function() {
+                    if (typeof Swal !== "undefined") {
+                        Swal.close();
+                        Swal.fire({ icon: "error", title: "Error", text: "Error de conexion al cargar los datos del perfil." });
+                    } else alert("Error de conexion al cargar los datos del perfil.");
+                });
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            var confirmar = document.getElementById("btnConfirmarPerfilAlta");
+            if (!confirmar || confirmar.dataset.enlazado === "1") return;
+            confirmar.dataset.enlazado = "1";
+            confirmar.addEventListener("click", function() {
+                var idCandidato = Number(document.getElementById("perfilAltaIdCandidato").value || 0);
+                if (!idCandidato) return;
+                var datos = obtenerDatosPerfilAlta();
+                var continuar = function() { ejecutarAltaCandidatoConDatos(idCandidato, datos); };
+                if (typeof Swal === "undefined") {
+                    if (window.confirm("Confirmas que revisaste los datos y autorizas su incorporacion al perfil del colaborador?")) continuar();
+                    return;
+                }
+                Swal.fire({
+                    icon: "question",
+                    title: "Confirmar alta en plantilla",
+                    text: "Confirmas que revisaste los datos y autorizas su incorporacion al perfil del colaborador?",
+                    showCancelButton: true,
+                    confirmButtonText: "Confirmar alta",
+                    cancelButtonText: "Volver a revisar",
+                    confirmButtonColor: "#1e3a5f"
+                }).then(function(result) { if (result.isConfirmed) continuar(); });
+            });
+        });
 
         function prepararContratacionFad(idCandidato, btn) {
             if (!idCandidato || idCandidato <= 0) return;
@@ -21716,6 +21871,35 @@ class CapHum extends Controller
      * Se llama desde el sistema (modal) o desde el enlace del correo (confirmarAltaNomina). Requiere módulo Candidatos si se llama por POST.
      * POST JSON: id_candidato (o id).
      */
+    public function datosPerfilAltaCandidato()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarFinalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso de validador final.'));
+            return;
+        }
+        $idCandidato = (int) ($_GET['id_candidato'] ?? $_GET['id'] ?? 0);
+        if ($idCandidato <= 0) {
+            echo json_encode(self::respuesta(false, 'ID de candidato invalido.'));
+            return;
+        }
+        try {
+            $contract = (new FadRrhhContractDataService())->forCandidate($idCandidato);
+            $camposPerfil = ['curp', 'rfc', 'nss', 'birth_date', 'sex', 'marital_status', 'address', 'email', 'phone', 'emergency_contacts', 'salary', 'bank', 'clabe', 'account_number', 'beneficiaries'];
+            $contract['missing'] = array_values(array_filter(
+                (array) ($contract['missing'] ?? []),
+                static fn($campo): bool => in_array($campo, $camposPerfil, true)
+            ));
+            echo json_encode(self::respuesta(true, 'Datos de perfil consolidados.', [
+                'contrato' => $contract,
+            ]), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            error_log('CapHum::datosPerfilAltaCandidato -> ' . $e->getMessage());
+            echo json_encode(self::respuesta(false, 'No se pudieron consolidar los datos extraidos del expediente.'), JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
     public function pasarCandidatoAGestion()
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -21730,9 +21914,18 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'ID de candidato inválido.'));
             return;
         }
+        if (empty($body['confirmar_datos_perfil'])) {
+            echo json_encode(self::respuesta(false, 'Debes revisar y confirmar los datos que se incorporaran al perfil antes de pasar a plantilla.'));
+            return;
+        }
         $fechaIngreso = trim((string) ($body['fecha_ingreso'] ?? ''));
-        $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato, $fechaIngreso);
+        $datosPerfil = is_array($body['datos_perfil'] ?? null) ? $body['datos_perfil'] : [];
+        $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato, $fechaIngreso, $datosPerfil);
         if ($result['success']) {
+            if (!empty($result['warning_perfil'])) {
+                echo json_encode(self::respuesta(true, 'El colaborador fue dado de alta, pero algunos datos revisados no se pudieron guardar. Consulta la bitacora de Capital Humano.', $result));
+                exit;
+            }
             $mensajeAlta = !empty($result['warning_correo'])
                 ? 'Colaborador dado de alta en Gestión correctamente, pero una o más notificaciones por correo no se pudieron enviar.'
                 : 'Colaborador dado de alta en Gestión correctamente. Se enviaron las notificaciones por correo.';
@@ -22174,7 +22367,7 @@ class CapHum extends Controller
      * Logica comun: alta de candidato en Gestion (persona, documentos y correo bienvenida).
      * @return array { success, mensaje, id_persona?, id_candidato }
      */
-    private function ejecutarAltaCandidatoEnGestion($id_candidato, $fecha_ingreso = null)
+    private function ejecutarAltaCandidatoEnGestion($id_candidato, $fecha_ingreso = null, array $datosPerfil = [])
     {
         $id_candidato = (int) $id_candidato;
         if ($id_candidato <= 0) {
@@ -22228,14 +22421,24 @@ class CapHum extends Controller
                 'fallos_notificacion' => $validacionDestinatarios['fallos'] ?? [],
             ];
         }
+        $correoPerfil = trim((string) ($datosPerfil['email'] ?? ''));
+        if (!filter_var($correoPerfil, FILTER_VALIDATE_EMAIL)) {
+            $correoPerfil = trim((string) ($c['email'] ?? ''));
+        }
+        $telefonoPerfil = trim((string) ($datosPerfil['phone'] ?? ''));
+        if ($telefonoPerfil === '') {
+            $telefonoPerfil = trim((string) ($c['telefono'] ?? ''));
+        }
         $dataPersona = [
             'nombres'       => $c['nombres'] ?? '',
             'segundo_nombre'=> $c['segundo_nombre'] ?? '',
             'apellidop'     => $c['apellidop'] ?? '',
             'apellidom'     => $c['apellidom'] ?? '',
             'numero_empleado' => $numero_empleado,
-            'correo'        => $c['email'] ?? '',
-            'telefono'      => $c['telefono'] ?? '',
+            'correo'        => $correoPerfil,
+            'telefono'      => $telefonoPerfil,
+            'curp'          => $datosPerfil['curp'] ?? '',
+            'domicilio_calle_texto' => $datosPerfil['address'] ?? '',
             'id_puesto'     => $c['id_puesto'] ?? 0,
             'id_jefe'       => !empty($c['id_posible_jefe']) ? (int) $c['id_posible_jefe'] : '',
             'usuario'       => $c['usuario'] ?? '',
@@ -22275,6 +22478,13 @@ class CapHum extends Controller
             return ['success' => false, 'mensaje' => $mensaje];
         }
         $id_persona = isset($resInsert['datos']['id']) ? (int) $resInsert['datos']['id'] : 0;
+        $perfilGuardado = ['success' => false, 'campos_guardados' => []];
+        if ($id_persona > 0) {
+            $perfilGuardado = CapHumDAO::guardarDatosPerfilAltaCandidato($id_persona, $datosPerfil);
+            if (empty($perfilGuardado['success'])) {
+                error_log('CapHum::ejecutarAltaCandidatoEnGestion datos perfil -> ' . ($perfilGuardado['mensaje'] ?? 'No se pudo guardar el perfil'));
+            }
+        }
         $numeroEmpleadoFinal = trim((string) ($resInsert['datos']['numero_empleado'] ?? $numero_empleado));
         if ($numeroEmpleadoFinal === '' && $id_persona > 0) {
             try {
@@ -22323,6 +22533,8 @@ class CapHum extends Controller
                 'id_persona' => $id_persona,
                 'numero_empleado' => $numeroEmpleadoFinal,
                 'documentos_copiados' => $documentosCopiados,
+                'datos_perfil_guardados' => !empty($perfilGuardado['success']),
+                'campos_perfil_guardados' => $perfilGuardado['datos']['campos_guardados'] ?? [],
                 'reingreso' => !empty($c['es_reingreso']),
                 'id_persona_reingreso_anterior' => $idPersonaReingresoAnterior ?: null,
                 'limpieza_reingreso' => $limpiezaReingreso,
@@ -22435,6 +22647,9 @@ class CapHum extends Controller
             'id_candidato' => $id_candidato,
             'numero_empleado' => $numeroEmpleadoFinal,
             'documentos_copiados' => $documentosCopiados,
+            'datos_perfil_guardados' => !empty($perfilGuardado['success']),
+            'campos_perfil_guardados' => $perfilGuardado['datos']['campos_guardados'] ?? [],
+            'warning_perfil' => empty($perfilGuardado['success']),
             'reingreso' => !empty($c['es_reingreso']),
             'id_persona_reingreso_anterior' => $idPersonaReingresoAnterior ?: null,
             'limpieza_reingreso' => $limpiezaReingreso,

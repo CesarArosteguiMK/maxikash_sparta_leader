@@ -202,7 +202,15 @@ class Convenios extends Controller
             $datos[$campo] = $_POST[$campo];
         }
 
-        $fechaAcuerdo = $this->normalizarFechaNoFutura($datos['fecha_acuerdo'] ?? '');
+        // En calendario libre el navegador puede venir con una versión anterior
+        // que enviaba la fecha del primer pago como fecha_acuerdo. El acuerdo se
+        // registra hoy; los pagos futuros se validan dentro de fechas_pagos.
+        $tipoCalendarioSolicitado = ($_POST['tipo_calendario'] ?? '') === 'libre'
+            ? 'libre'
+            : 'semanal';
+        $fechaAcuerdo = $tipoCalendarioSolicitado === 'libre'
+            ? date('Y-m-d')
+            : $this->normalizarFechaNoFutura($datos['fecha_acuerdo'] ?? '');
         if ($fechaAcuerdo === null) {
             self::respuestaJSON(self::respuesta(false, 'La fecha del convenio no es válida o es posterior a hoy.'));
             return;
@@ -220,9 +228,7 @@ class Convenios extends Controller
             : 0.0;
 
         // Tipo calendario y fechas libres (solo para productos tipo_calendario='libre')
-        $datos['tipo_calendario'] = isset($_POST['tipo_calendario']) && $_POST['tipo_calendario'] === 'libre'
-            ? 'libre'
-            : 'semanal';
+        $datos['tipo_calendario'] = $tipoCalendarioSolicitado;
 
         $datos['fechas_pagos'] = isset($_POST['fechas_pagos']) ? trim($_POST['fechas_pagos']) : '';
 
