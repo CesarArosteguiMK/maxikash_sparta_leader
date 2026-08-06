@@ -1,0 +1,26 @@
+{
+    "version": 1,
+    "users": {
+        "2329": {
+            "id_usuario": 2329,
+            "videos": {
+                "bienvenida": true,
+                "modulos": {
+                    "legacyapp": true,
+                    "nomina": true,
+                    "asistencia": true,
+                    "bonos": true,
+                    "recibos_nomina": true
+                }
+            },
+            "evaluaciones": {
+                "corporativa": true,
+                "especializada": false
+            },
+            "feedback": false,
+            "finalizado": false,
+            "celebracion_mostrada": false,
+            "updated_at": "2026-08-05T17:22:59-06:00"
+        }
+    }
+}

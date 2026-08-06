@@ -134,6 +134,11 @@ pruebas_OCR/
 # ========== PoC IA documental Gemini (experimento local; no subir keys, documentos ni resultados) ==========
 experiments/gemini_document_poc/
 
+# ========== Utilitarios locales de prueba: Onboarding (no subir) ==========
+/public/reset_onboarding_progress.php
+/public/diploma_prueba_horizontal.php
+/public/diploma_prueba_logo_maxikash.png
+
 # ========== Python: bytecode y caché de tests (regenerable; no versionar) ==========
 **/__pycache__/
 *.py[cod]
